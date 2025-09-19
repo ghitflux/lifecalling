@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run tokens:build:*)",
+      "Bash(npm run tokens:validate:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

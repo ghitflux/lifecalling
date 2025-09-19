@@ -1,0 +1,21 @@
+{
+  "name": "lifecaller-root",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:front\" \"npm run dev:back\"",
+    "dev:front": "npm --prefix lifecaller run dev -- --host",
+    "dev:back": "cd backend && ../.venv/bin/python manage.py runserver 0.0.0.0:5344 || ..\\.venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:5344",
+    "storybook": "npm --prefix lifecaller run storybook",
+    "build-storybook": "npm --prefix lifecaller run build-storybook",
+    "tokens:build": "npx -y node@20 node_modules/style-dictionary/bin/style-dictionary.js build --config tokens/sd.config.mjs",
+    "tokens:watch": "npx -y node@20 node_modules/style-dictionary/bin/style-dictionary.js build --config tokens/sd.config.mjs --watch",
+    "tokens:validate": "node scripts/validate-tokens.js",
+    "tokens:test": "npm run tokens:build && npm run tokens:validate",
+    "test:tokens": "npm run tokens:test"
+  },
+  "devDependencies": {
+    "@tokens-studio/sd-transforms": "^2.0.1",
+    "concurrently": "^9.0.0",
+    "style-dictionary": "^5.0.4"
+  }
+}
