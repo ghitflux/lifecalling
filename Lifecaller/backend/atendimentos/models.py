@@ -83,6 +83,7 @@ class AtendimentoSimulacao(models.Model):
     Histórico das simulações do calculista.
     """
     atendimento = models.ForeignKey(Atendimento, on_delete=models.CASCADE, related_name="simulacoes")
+    banco = models.CharField(max_length=128, blank=True, default="")
     parcela = models.DecimalField(max_digits=12, decimal_places=2)
     coeficiente = models.DecimalField(max_digits=10, decimal_places=7)
     saldo_devedor = models.DecimalField(max_digits=12, decimal_places=2)

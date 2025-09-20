@@ -1,5 +1,4 @@
-﻿from decimal import Decimal, ROUND_HALF_UP
-from io import StringIO, TextIOWrapper
+﻿from io import StringIO, TextIOWrapper
 
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
@@ -7,12 +6,13 @@ from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Atendimento, AtendimentoEvent, AtendimentoLancamento, AtendimentoSimulacao
+from .models import Atendimento, AtendimentoEvent, AtendimentoLancamento
 from .serializers import AtendimentoSerializer, AtendimentoEventSerializer
 from .importers import parse_inetconsig_text
+from .simulation import SimulateMixin
 
 
-class AtendimentoViewSet(viewsets.ModelViewSet):
+class AtendimentoViewSet(SimulateMixin, viewsets.ModelViewSet):
     queryset = Atendimento.objects.all().select_related("owner_atendente","assigned_to").prefetch_related("lancamentos","events")
     serializer_class = AtendimentoSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -211,51 +211,3 @@ class AtendimentoViewSet(viewsets.ModelViewSet):
                 created += int(was_created); updated += int(not was_created)
         return Response({"created": created, "updated": updated, "format": "csv"})
 
-    # ---------- Simulador ----------
-    @action(detail=True, methods=["post"])
-    def simulate(self, request, pk=None):
-        u = request.user
-        if not (u.is_superuser or u.groups.filter(name__in=["calculista","admin","gerente","supervisor"]).exists()):
-            return Response({"detail":"Sem permissão para simular."}, status=403)
-
-        p = request.data or {}
-        try:
-            parcela = Decimal(str(p.get("parcela","0")))
-            coef = Decimal(str(p.get("coeficiente","0.0000001")))
-            saldo = Decimal(str(p.get("saldo_devedor","0")))
-            seguro = Decimal(str(p.get("seguro_banco","0")))
-            perc_co = Decimal(str(p.get("percentual_co","0")))
-            prazo = int(p.get("prazo_meses") or 0)
-        except Exception:
-            return Response({"detail":"Parâmetros inválidos."}, status=422)
-
-        if coef == 0:
-            return Response({"detail":"coeficiente não pode ser zero."}, status=422)
-
-        pv = (parcela/coef)
-        vl = (pv - saldo)
-        liquido = (vl - seguro)
-        co = (pv * perc_co)
-        liberado = (liquido - co)
-
-        q = lambda x: x.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
-        obj = self.get_object()
-        sim = AtendimentoSimulacao.objects.create(
-            atendimento=obj, parcela=parcela, coeficiente=coef, saldo_devedor=saldo, seguro_banco=seguro,
-            percentual_co=perc_co, prazo_meses=prazo,
-            pv_total_financiado=q(pv), valor_liberado=q(vl), valor_liquido=q(liquido),
-            custo_consultoria=q(co), liberado_cliente=q(liberado)
-        )
-        AtendimentoEvent.objects.create(
-            atendimento=obj, actor=u, from_stage=obj.stage, to_stage=obj.stage,
-            note=f"simulação: parcela={parcela} coef={coef} pv={q(pv)} liberado={q(liberado)}"
-        )
-        return Response({
-            "pv_total_financiado": str(q(pv)),
-            "valor_liberado": str(q(vl)),
-            "valor_liquido": str(q(liquido)),
-            "custo_consultoria": str(q(co)),
-            "liberado_cliente": str(q(liberado)),
-            "prazo_meses": prazo,
-            "created_at": sim.created_at.isoformat()
-        })
