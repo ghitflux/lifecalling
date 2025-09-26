@@ -1,4 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { StatusBadge } from "@lifecalling/ui";
 
 const meta = {
@@ -63,6 +64,7 @@ export const Reprovado: Story = {
 export const CalculistaPendente: Story = {
   args: {
     status: "calculista_pendente",
+    size: "default"
   },
 };
 

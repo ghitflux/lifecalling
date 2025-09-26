@@ -1,42 +1,71 @@
 "use client";
-import { useCaseEventsReload } from "@/lib/ws";
+import { useLiveCaseEvents } from "@/lib/ws";
 import { useFinanceQueue, useFinanceDisburse } from "@/lib/hooks";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { FinanceCard, FinanceMetrics } from "@lifecalling/ui";
 import { useState } from "react";
 
-function FinanceCard({ c }:{ c:any }){
-  useCaseEventsReload();
-  const [amount, setAmount] = useState(0);
-  const [inst, setInst] = useState(0);
+export default function Page(){
+  useLiveCaseEvents();
+  const { data: items = [] } = useFinanceQueue();
   const disb = useFinanceDisburse();
 
-  return (
-    <Card className="p-4 space-y-3">
-      <div className="font-semibold">CASE #{c.id}</div>
-      <div className="grid grid-cols-2 gap-2">
-        <div><label className="text-xs">Valor total</label><Input type="number" value={amount} onChange={e=>setAmount(Number(e.target.value)||0)} /></div>
-        <div><label className="text-xs">Parcelas</label><Input type="number" value={inst} onChange={e=>setInst(Number(e.target.value)||0)} /></div>
-      </div>
-      <div className="flex gap-2">
-        <Button
-          onClick={()=>disb.mutate({ case_id:c.id, total_amount: amount, installments: inst })}
-          disabled={disb.isPending || amount<=0 || inst<=0}
-        >Efetivar Pagamento</Button>
-      </div>
-    </Card>
-  );
-}
+  // Mock data para métricas - em produção viria da API
+  const mockMetrics = {
+    totalVolume: 2450000,
+    monthlyTarget: 3000000,
+    approvalRate: 87.5,
+    pendingCount: items.length,
+    overdueCount: 3,
+    averageTicket: 85000
+  };
 
-export default function Page(){
-  const { data: items = [] } = useFinanceQueue();
+  const handleDisburse = async (id: number, amount: number, installments: number) => {
+    try {
+      await disb.mutateAsync({
+        case_id: id,
+        total_amount: amount,
+        installments: installments
+      });
+    } catch (error) {
+      console.error('Erro ao efetivar:', error);
+    }
+  };
+
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Financeiro</h1>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((it:any)=> <FinanceCard key={it.id} c={it} />)}
-        {items.length===0 && <div className="opacity-70">Sem pendências.</div>}
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Gestão Financeira</h1>
+        <p className="text-muted-foreground">
+          {items.length} casos pendentes de liberação
+        </p>
+      </div>
+
+      {/* Métricas Financeiras */}
+      <FinanceMetrics {...mockMetrics} />
+
+      {/* Lista de Casos Financeiros */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Casos para Liberação</h2>
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          {items.map((item: any) => (
+            <FinanceCard
+              key={item.id}
+              id={item.id}
+              clientName={item.client?.name || `Cliente ${item.id}`}
+              totalAmount={item.total_amount || 50000}
+              installments={item.installments || 12}
+              status="approved"
+              dueDate={new Date(Date.now() + 30*24*60*60*1000).toISOString()}
+              onDisburse={handleDisburse}
+            />
+          ))}
+          {items.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              <p className="text-lg">✨ Nenhum caso pendente de liberação</p>
+              <p className="text-sm">Todos os casos financeiros foram processados.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

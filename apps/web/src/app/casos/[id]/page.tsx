@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/status-badge";
+import { SimulationCard, DetailsSkeleton } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API } from "@/lib/api";
 import { toast } from "sonner";
 import { useSendToCalculista } from "@/lib/hooks";
+import AttachmentUploader from "@/components/cases/AttachmentUploader";
 
 interface CaseDetail {
   id: number;
@@ -22,7 +24,19 @@ interface CaseDetail {
     matricula: string;
     orgao: string;
     telefone_preferencial?: string;
+    numero_cliente?: string;
     observacoes?: string;
+  };
+  simulation?: {
+    id: number;
+    status: 'pending' | 'approved' | 'rejected';
+    results?: {
+      valorLiberado: number;
+      valorParcela: number;
+      taxaJuros: number;
+      prazo: number;
+    };
+    created_at: string;
   };
 }
 
@@ -32,11 +46,20 @@ export default function CaseDetailPage() {
   const queryClient = useQueryClient();
   
   const [telefone, setTelefone] = useState("");
+  const [numeroCliente, setNumeroCliente] = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Hook para enviar para calculista
   const sendCalc = useSendToCalculista();
+
+  const handleSendToCalculista = async () => {
+    try {
+      await sendCalc.mutateAsync(caseId);
+      toast.success("Caso enviado para calculista com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao enviar para calculista. Tente novamente.");
+    }
+  };
 
   // Query para buscar detalhes do caso
   const { data: caseDetail, isLoading } = useQuery({
@@ -52,13 +75,14 @@ export default function CaseDetailPage() {
   useState(() => {
     if (caseDetail) {
       setTelefone(caseDetail.client.telefone_preferencial || "");
+      setNumeroCliente(caseDetail.client.numero_cliente || "");
       setObservacoes(caseDetail.client.observacoes || "");
     }
   });
 
   // Mutation para atualizar caso
   const updateCaseMutation = useMutation({
-    mutationFn: async (data: { telefone_preferencial?: string; observacoes?: string }) => {
+    mutationFn: async (data: { telefone_preferencial?: string; numero_cliente?: string; observacoes?: string }) => {
       const response = await API.patch(`/cases/${caseId}`, data);
       return response.data;
     },
@@ -71,53 +95,27 @@ export default function CaseDetailPage() {
     },
   });
 
-  // Mutation para upload de anexo
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await API.post(`/cases/${caseId}/attachments`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      setSelectedFile(null);
-      toast.success("Anexo enviado com sucesso!");
-    },
-    onError: () => {
-      toast.error("Erro ao enviar anexo");
-    },
-  });
 
   const handleSave = () => {
     const updates: any = {};
     if (telefone !== (caseDetail?.client.telefone_preferencial || "")) {
       updates.telefone_preferencial = telefone;
     }
+    if (numeroCliente !== (caseDetail?.client.numero_cliente || "")) {
+      updates.numero_cliente = numeroCliente;
+    }
     if (observacoes !== (caseDetail?.client.observacoes || "")) {
       updates.observacoes = observacoes;
     }
-    
+
     if (Object.keys(updates).length > 0) {
       updateCaseMutation.mutate(updates);
     }
   };
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      uploadMutation.mutate(selectedFile);
-    }
-  };
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-8">Carregando detalhes do caso...</div>
-      </div>
-    );
+    return <DetailsSkeleton />;
   }
 
   if (!caseDetail) {
@@ -139,7 +137,7 @@ export default function CaseDetailPage() {
         </div>
         <div className="flex gap-3">
           <Button variant="secondary">Sem Contato</Button>
-          <Button onClick={() => sendCalc.mutate(caseId)} disabled={sendCalc.isPending}>
+          <Button onClick={handleSendToCalculista} disabled={sendCalc.isPending}>
             {sendCalc.isPending ? "Enviando..." : "Enviar para Calculista"}
           </Button>
         </div>
@@ -174,68 +172,90 @@ export default function CaseDetailPage() {
             
             <div>
               <Label>Telefone Preferencial</Label>
-              <Input 
+              <Input
                 value={telefone}
                 onChange={(e) => setTelefone(e.target.value)}
                 placeholder="(11) 99999-9999"
               />
             </div>
-            
+
+            <div>
+              <Label>Número do Cliente</Label>
+              <Input
+                value={numeroCliente}
+                onChange={(e) => setNumeroCliente(e.target.value)}
+                placeholder="(11) 99999-9999"
+              />
+            </div>
+
             <div>
               <Label>Observações</Label>
-              <Textarea 
+              <Textarea
                 value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
                 placeholder="Adicione observações sobre o caso..."
                 rows={4}
               />
             </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={updateCaseMutation.isPending}
+                className="flex-1"
+              >
+                {updateCaseMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </div>
           </div>
         </Card>
 
         {/* Upload de Anexos */}
         <Card className="p-6 space-y-4">
-          <h2 className="text-lg font-medium">Anexos</h2>
-          
-          <div className="space-y-3">
-            <div>
-              <Label>Enviar Anexo</Label>
-              <Input
-                type="file"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              />
-              <div className="text-xs text-muted-foreground mt-1">
-                Formatos aceitos: PDF, DOC, DOCX, JPG, PNG
-              </div>
-            </div>
-            
-            {selectedFile && (
-              <div className="p-3 bg-muted rounded-md">
-                <div className="text-sm font-medium">{selectedFile.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </div>
-              </div>
-            )}
-            
-            <Button 
-              onClick={handleUpload}
-              disabled={!selectedFile || uploadMutation.isPending}
-              className="w-full"
-            >
-              {uploadMutation.isPending ? "Enviando..." : "Enviar Anexo"}
-            </Button>
-          </div>
+          <h2 className="text-lg font-medium">Documentos</h2>
+          <AttachmentUploader caseId={caseId} />
 
           <div className="border-t pt-4">
             <h3 className="font-medium mb-2">Anexos Existentes</h3>
             <div className="text-sm text-muted-foreground">
               Nenhum anexo encontrado
             </div>
+            {/* Lista anexos exist. se sua API devolve */}
+            {/* attachments?.map(a => <a key={a.id} href={a.url} target="_blank">{a.name}</a>) */}
           </div>
         </Card>
       </div>
+
+      {/* Informações da Simulação */}
+      {caseDetail.simulation && (
+        <Card className="p-6 space-y-4">
+          <h2 className="text-lg font-medium">Simulação do Caso</h2>
+
+          {caseDetail.simulation.status === 'pending' && (
+            <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg">
+              ⏳ Simulação pendente de análise pelo calculista
+            </div>
+          )}
+
+          {caseDetail.simulation.status === 'approved' && caseDetail.simulation.results && (
+            <div className="space-y-4">
+              <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">
+                ✅ Simulação aprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
+              </div>
+              <SimulationCard
+                result={caseDetail.simulation.results}
+                isActive={true}
+              />
+            </div>
+          )}
+
+          {caseDetail.simulation.status === 'rejected' && (
+            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+              ❌ Simulação reprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Histórico do Caso */}
       <Card className="p-6">

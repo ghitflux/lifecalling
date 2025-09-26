@@ -1,7 +1,8 @@
 "use client";
-import { useCaseEventsReload } from "@/lib/ws";
+import { useLiveCaseEvents } from "@/lib/ws";
 import { useState } from "react";
-import { Button, Badge, CaseCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@lifecalling/ui";
+import { useRouter } from "next/navigation";
+import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseListSkeleton } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API } from "@/lib/api";
 import { toast } from "sonner";
@@ -18,29 +19,35 @@ interface Case {
   assigned_to?: string;
   telefone_preferencial?: string;
   observacoes?: string;
+  banco?: string;
 }
 
 export default function EsteiraPage() {
-  useCaseEventsReload();
+  useLiveCaseEvents();
   const [activeTab, setActiveTab] = useState("global");
   const queryClient = useQueryClient();
+  const router = useRouter();
 
-  // Query para listar casos globais
-  const { data: globalCases = [], isLoading: loadingGlobal } = useQuery({
+  // Query para listar casos globais (apenas não atribuídos)
+  const { data: globalCases = [], isLoading: loadingGlobal, error: errorGlobal } = useQuery({
     queryKey: ["cases", "global"],
     queryFn: async () => {
-      const response = await API.get("/cases");
+      const response = await API.get("/cases?assigned=0");
       return response.data?.items ?? [];
     },
+    staleTime: 30000, // 30 segundos
+    retry: 2,
   });
 
   // Query para listar meus casos
-  const { data: myCases = [], isLoading: loadingMine } = useQuery({
+  const { data: myCases = [], isLoading: loadingMine, error: errorMine } = useQuery({
     queryKey: ["cases", "mine"],
     queryFn: async () => {
       const response = await API.get("/cases?mine=true");
       return response.data?.items ?? [];
     },
+    staleTime: 30000, // 30 segundos
+    retry: 2,
   });
 
   // Mutation para pegar um caso
@@ -64,23 +71,48 @@ export default function EsteiraPage() {
     assignCaseMutation.mutate(caseId);
   };
 
-  const renderCaseList = (cases: Case[], showPegarButton: boolean) => (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {Array.isArray(cases) && cases.map((caso) => (
-        <CaseCard
-          key={caso.id}
-          item={caso}
-          href={`/casos/${caso.id}`}
-          onAssign={showPegarButton && !caso.assigned_to ? handlePegarCaso : undefined}
-        />
-      ))}
-      {Array.isArray(cases) && cases.length === 0 && (
-        <div className="col-span-full text-center py-8 text-muted-foreground">
-          Nenhum caso encontrado
+  const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
+    // Debug logging
+    console.log('renderCaseList:', { cases, isLoading, error, count: cases?.length });
+
+    if (isLoading) {
+      return <CaseListSkeleton count={4} />;
+    }
+
+    if (error) {
+      console.error('Erro ao carregar casos:', error);
+      return (
+        <div className="col-span-full text-center py-8 text-destructive">
+          Erro ao carregar casos. Tente novamente.
+          <br />
+          <button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["cases"] })}
+            className="mt-2 text-sm underline"
+          >
+            Recarregar
+          </button>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+
+    return (
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        {Array.isArray(cases) && cases.map((caso) => (
+          <EsteiraCard
+            key={caso.id}
+            caso={caso}
+            onView={(id) => router.push(`/casos/${id}`)}
+            onAssign={showPegarButton ? handlePegarCaso : undefined}
+          />
+        ))}
+        {Array.isArray(cases) && cases.length === 0 && (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            Nenhum caso encontrado
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -103,14 +135,10 @@ export default function EsteiraPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium">Casos Disponíveis</h2>
               <Badge variant="secondary">
-                {globalCases.filter((c: Case) => !c.assigned_to).length} disponíveis
+                {globalCases.length} disponíveis
               </Badge>
             </div>
-            {loadingGlobal ? (
-              <div className="text-center py-8">Carregando casos...</div>
-            ) : (
-              renderCaseList(globalCases, true)
-            )}
+            {renderCaseList(globalCases, true, loadingGlobal, errorGlobal)}
           </div>
         </TabsContent>
 
@@ -120,11 +148,7 @@ export default function EsteiraPage() {
               <h2 className="text-lg font-medium">Meus Casos</h2>
               <Badge variant="secondary">{myCases.length} casos</Badge>
             </div>
-            {loadingMine ? (
-              <div className="text-center py-8">Carregando meus casos...</div>
-            ) : (
-              renderCaseList(myCases, false)
-            )}
+            {renderCaseList(myCases, false, loadingMine, errorMine)}
           </div>
         </TabsContent>
       </Tabs>

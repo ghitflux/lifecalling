@@ -1,10 +1,21 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from "@lifecalling/ui";
-import { fn } from "@storybook/test";
 import { useState } from "react";
 
 // Mock simulation form component
-function SimulationForm({ onSubmit }: { onSubmit: (data: any) => void }) {
+interface FormData {
+  banco: string;
+  parcelas: string;
+  saldo: string;
+  parcela: string;
+  seguro: string;
+  percentOperacao: string;
+  percentConsultoria: string;
+  coeficiente: string;
+}
+
+function SimulationForm({ onSubmit }: { onSubmit: (data: FormData) => void }) {
   const [formData, setFormData] = useState({
     banco: "Santander",
     parcelas: "60",
@@ -150,9 +161,6 @@ const meta = {
     layout: "centered",
   },
   tags: ["autodocs"],
-  args: {
-    onSubmit: fn(),
-  },
 } satisfies Meta<typeof SimulationForm>;
 
 export default meta;
@@ -160,15 +168,15 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    onSubmit: fn(),
+    onSubmit: (data: FormData) => console.log("Form submitted:", data),
   },
 };
 
 export const WithInteraction: Story = {
   args: {
-    onSubmit: fn(),
+    onSubmit: (data: FormData) => console.log("Form submitted with interaction:", data),
   },
-  play: async ({ args, canvasElement }) => {
+  play: async () => {
     // Example of interaction testing (would need @storybook/addon-interactions)
     console.log("Form rendered successfully");
   },

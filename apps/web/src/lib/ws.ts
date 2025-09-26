@@ -1,22 +1,38 @@
 "use client";
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-/** Conecta no WS da API e dá reload quando um case/simulation muda. */
-export function useCaseEventsReload() {
+/** WebSocket → invalida queries; sem reload de página. */
+export function useLiveCaseEvents() {
+  const qc = useQueryClient();
+
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-    // http->ws e https->wss automaticamente
-    const ws = new WebSocket(base.replace("http", "ws") + "/ws");
+    const url =
+      (base.startsWith("https") ? base.replace("https", "wss") : base.replace("http", "ws")) + "/ws";
 
+    const ws = new WebSocket(url);
+    ws.onopen = () => console.debug("[WS] connected:", url);
     ws.onmessage = (m) => {
       try {
         const ev = JSON.parse(m.data);
-        if (ev?.event === "case.updated" || ev?.event === "simulation.updated") {
-          location.reload(); // D3 simples; no D4 trocamos por invalidateQueries
+        if (!ev?.event) return;
+
+        if (ev.event === "case.updated") {
+          qc.invalidateQueries({ queryKey: ["cases"] });
+          qc.invalidateQueries({ queryKey: ["closing", "queue"] });
+          qc.invalidateQueries({ queryKey: ["finance", "queue"] });
+          qc.invalidateQueries({ queryKey: ["contracts"] });
+        } else if (ev.event === "simulation.updated") {
+          qc.invalidateQueries({ queryKey: ["simulations"] });
+          qc.invalidateQueries({ queryKey: ["cases"] });
         }
-      } catch {}
+      } catch (e) {
+        console.warn("[WS] parse error", e);
+      }
     };
+    ws.onerror = (e) => console.warn("[WS] error", e);
 
     return () => ws.close();
-  }, []);
+  }, [qc]);
 }

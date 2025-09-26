@@ -94,6 +94,7 @@ class Contract(Base):
     disbursed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+    case = relationship("Case")
 
 class Payment(Base):
     __tablename__ = "payments"
@@ -105,3 +106,12 @@ class Payment(Base):
     receipt_url = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    event = Column(String(64), nullable=False)  # ex: case.updated
+    payload = Column(JSON, nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

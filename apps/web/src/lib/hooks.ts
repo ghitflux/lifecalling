@@ -40,14 +40,19 @@ export function usePatchCase() {
   });
 }
 
-export function useUploadAttachment() {
+export function useUploadAttachment(caseId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({id, file}:{id:number, file:File})=>{
-      const fd = new FormData(); fd.append("file", file);
-      return (await API.post(`/cases/${id}/attachments`, fd, { headers: {"Content-Type":"multipart/form-data"} })).data;
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return (await API.post(`/cases/${caseId}/attachments`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })).data;
     },
-    onSuccess: () => qc.invalidateQueries()
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["case", caseId] });
+    },
   });
 }
 
@@ -57,6 +62,9 @@ export function useSendToCalculista() {
     mutationFn: async (caseId:number)=> (await API.post(`/cases/${caseId}/to-calculista`)).data,
     onSuccess: ()=> {
       qc.invalidateQueries({queryKey:["cases"]});
+    },
+    onError: (error) => {
+      console.error("Erro ao enviar para calculista:", error);
     }
   });
 }

@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CaseCard } from "@lifecalling/ui";
-import { fn } from "@storybook/test";
 
 const meta = {
   title: "Components/CaseCard",
@@ -9,9 +9,6 @@ const meta = {
     layout: "centered",
   },
   tags: ["autodocs"],
-  args: {
-    onAssign: fn(),
-  },
 } satisfies Meta<typeof CaseCard>;
 
 export default meta;
@@ -31,7 +28,7 @@ export const Default: Story = {
   args: {
     item: mockCase,
     href: "/cases/1",
-    onAssign: fn(),
+    onAssign: (id: number) => console.log("Assign case:", id),
   },
 };
 
@@ -49,7 +46,7 @@ export const EmAtendimento: Story = {
       status: "em_atendimento",
     },
     href: "/cases/1",
-    onAssign: fn(),
+    onAssign: (id: number) => console.log("Assign case:", id),
   },
 };
 
@@ -85,12 +82,17 @@ export const ContratoEfetivado: Story = {
 };
 
 export const MultipleCards: Story = {
+  args: {
+    item: mockCase,
+    href: "/cases/1",
+    onAssign: (id: number) => console.log("Assign case:", id),
+  },
   render: () => (
     <div className="space-y-4 w-80">
       <CaseCard
         item={mockCase}
         href="/cases/1"
-        onAssign={fn()}
+        onAssign={(id: number) => console.log("Assign case:", id)}
       />
       <CaseCard
         item={{
