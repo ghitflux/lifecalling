@@ -1,0 +1,62 @@
+"use client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/sonner";
+import { ReactNode, useState, useEffect } from "react";
+import { API } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { useWebSocket } from "@/lib/websocket";
+
+function ApiInterceptor() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const interceptor = API.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          router.push("/login");
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => API.interceptors.response.eject(interceptor);
+  }, [router]);
+
+  return null;
+}
+
+export default function Providers({ children }: { children: ReactNode }) {
+  const [qc] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        retry: (failureCount, error: any) => {
+          if (error?.response?.status === 401) return false;
+          return failureCount < 3;
+        },
+      },
+    },
+  }));
+
+  return (
+    <QueryClientProvider client={qc}>
+      <ApiInterceptor />
+      <WebSocketProvider />
+      {children}
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+
+function WebSocketProvider() {
+  const { isConnected } = useWebSocket();
+
+  useEffect(() => {
+    if (isConnected) {
+      console.log('🔌 WebSocket connection established');
+    }
+  }, [isConnected]);
+
+  return null;
+}

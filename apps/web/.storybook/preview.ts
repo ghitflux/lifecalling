@@ -1,0 +1,40 @@
+import type { Preview } from "@storybook/react-vite";
+import "../src/app/globals.css";
+
+const preview: Preview = {
+  parameters: {
+    backgrounds: {
+      default: "dark",
+      values: [
+        {
+          name: "dark",
+          value: "hsl(222.2, 84%, 4.9%)",
+        },
+        {
+          name: "light",
+          value: "#ffffff",
+        },
+      ],
+    },
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/,
+      },
+    },
+  },
+  globalTypes: {
+    theme: {
+      description: "Global theme for components",
+      defaultValue: "dark",
+      toolbar: {
+        title: "Theme",
+        icon: "paintbrush",
+        items: ["light", "dark"],
+        dynamicTitle: true,
+      },
+    },
+  },
+};
+
+export default preview;

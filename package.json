@@ -1,0 +1,19 @@
+{
+  "name": "lifecalling",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "pnpm --filter ./apps/web dev",
+    "dev:api": "docker compose up -d && docker compose logs -f api",
+    "storybook": "pnpm --filter ./apps/web storybook",
+    "types:gen": "pnpm --filter @lifecalling/types gen && pnpm --filter @lifecalling/types build",
+    "build": "pnpm --filter ./apps/web build",
+    "lint": "pnpm --filter ./apps/web lint"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.9.1"
+  }
+}

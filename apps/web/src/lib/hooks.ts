@@ -1,0 +1,93 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { API } from "./api";
+import type { Case, CaseDetail } from "@/types";
+
+export function useCases(params?: { status?: string; mine?: boolean; q?: string; }) {
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set("status", params.status);
+  if (params?.mine) sp.set("mine", "true");
+  if (params?.q) sp.set("q", params.q);
+  return useQuery({
+    queryKey: ["cases", params],
+    queryFn: async () => (await API.get<{items: Case[]}>(`/cases?${sp.toString()}`)).data.items
+  });
+}
+
+export function useCase(id: number) {
+  return useQuery({
+    queryKey: ["case", id],
+    queryFn: async () => (await API.get<CaseDetail>(`/cases/${id}`)).data
+  });
+}
+
+export function useAssignCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await API.post(`/cases/${id}/assign`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cases"] })
+  });
+}
+
+export function usePatchCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({id, data}:{id:number, data:Partial<{telefone_preferencial:string; observacoes:string}>}) =>
+      (await API.patch(`/cases/${id}`, data)).data,
+    onSuccess: (_,vars) => {
+      qc.invalidateQueries({ queryKey: ["case", vars.id] });
+      qc.invalidateQueries({ queryKey: ["cases"] });
+    }
+  });
+}
+
+export function useUploadAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({id, file}:{id:number, file:File})=>{
+      const fd = new FormData(); fd.append("file", file);
+      return (await API.post(`/cases/${id}/attachments`, fd, { headers: {"Content-Type":"multipart/form-data"} })).data;
+    },
+    onSuccess: () => qc.invalidateQueries()
+  });
+}
+
+export function useSendToCalculista() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId:number)=> (await API.post(`/cases/${caseId}/to-calculista`)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["cases"]});
+    }
+  });
+}
+
+export function useSims(status: "pending"|"approved"|"rejected"="pending") {
+  return useQuery({
+    queryKey: ["sims", status],
+    queryFn: async ()=> (await API.get<{items:any[]}>(`/simulations?status=${status}`)).data.items
+  });
+}
+
+export function useSimApprove() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({simId, payload}:{simId:number, payload:{manual_input:any, results:any}})=>
+      (await API.post(`/simulations/${simId}/approve`, payload)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["sims","pending"]});
+      qc.invalidateQueries({queryKey:["cases"]});
+    }
+  });
+}
+
+export function useSimReject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({simId, payload}:{simId:number, payload:{manual_input:any, results:any}})=>
+      (await API.post(`/simulations/${simId}/reject`, payload)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["sims","pending"]});
+      qc.invalidateQueries({queryKey:["cases"]});
+    }
+  });
+}
