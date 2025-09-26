@@ -5,6 +5,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { API } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useWebSocket } from "@/lib/websocket";
+import { AuthProvider } from "@/lib/auth";
 
 function ApiInterceptor() {
   const router = useRouter();
@@ -41,10 +42,12 @@ export default function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={qc}>
-      <ApiInterceptor />
-      <WebSocketProvider />
-      {children}
-      <Toaster />
+      <AuthProvider>
+        <ApiInterceptor />
+        <WebSocketProvider />
+        {children}
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

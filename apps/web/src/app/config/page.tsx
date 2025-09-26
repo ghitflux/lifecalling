@@ -1,0 +1,1 @@
+export default function ConfigPage() { return <div className="p-6">Em breve…</div>; }

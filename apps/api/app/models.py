@@ -1,3 +1,4 @@
+from sqlalchemy import Numeric
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint, JSON, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -79,5 +80,28 @@ class Simulation(Base):
     manual_input = Column(JSON, default={})
     results = Column(JSON, default={})
     created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+class Contract(Base):
+    __tablename__ = "contracts"
+    id = Column(Integer, primary_key=True)
+    case_id = Column(Integer, ForeignKey("cases.id"), nullable=False, unique=True)
+    status = Column(String(32), default="ativo")  # ativo | encerrado | inadimplente
+    total_amount = Column(Numeric(14,2), default=0)
+    installments = Column(Integer, default=0)
+    paid_installments = Column(Integer, default=0)
+    disbursed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, index=True)
+    installment_no = Column(Integer, nullable=False)
+    amount = Column(Numeric(14,2), nullable=False)
+    paid_at = Column(DateTime, nullable=False)
+    receipt_url = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)

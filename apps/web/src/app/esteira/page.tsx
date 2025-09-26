@@ -1,4 +1,5 @@
 "use client";
+import { useCaseEventsReload } from "@/lib/ws";
 import { useState } from "react";
 import { Button, Badge, CaseCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ interface Case {
 }
 
 export default function EsteiraPage() {
+  useCaseEventsReload();
   const [activeTab, setActiveTab] = useState("global");
   const queryClient = useQueryClient();
 
@@ -28,7 +30,7 @@ export default function EsteiraPage() {
     queryKey: ["cases", "global"],
     queryFn: async () => {
       const response = await API.get("/cases");
-      return response.data ?? [];
+      return response.data?.items ?? [];
     },
   });
 
@@ -37,7 +39,7 @@ export default function EsteiraPage() {
     queryKey: ["cases", "mine"],
     queryFn: async () => {
       const response = await API.get("/cases?mine=true");
-      return response.data ?? [];
+      return response.data?.items ?? [];
     },
   });
 
@@ -64,7 +66,7 @@ export default function EsteiraPage() {
 
   const renderCaseList = (cases: Case[], showPegarButton: boolean) => (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {cases.map((caso) => (
+      {Array.isArray(cases) && cases.map((caso) => (
         <CaseCard
           key={caso.id}
           item={caso}
@@ -72,7 +74,7 @@ export default function EsteiraPage() {
           onAssign={showPegarButton && !caso.assigned_to ? handlePegarCaso : undefined}
         />
       ))}
-      {cases.length === 0 && (
+      {Array.isArray(cases) && cases.length === 0 && (
         <div className="col-span-full text-center py-8 text-muted-foreground">
           Nenhum caso encontrado
         </div>
@@ -129,3 +131,4 @@ export default function EsteiraPage() {
     </div>
   );
 }
+

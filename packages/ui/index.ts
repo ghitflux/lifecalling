@@ -6,6 +6,7 @@ export * from "./src/Card";
 export * from "./src/Input";
 export * from "./src/Badge";
 export * from "./src/Tabs";
+export * from "./src/Dialog";
 
 // Utils
 export * from "./src/lib/utils";

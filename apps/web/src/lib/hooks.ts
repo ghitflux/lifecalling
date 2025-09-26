@@ -91,3 +91,44 @@ export function useSimReject() {
     }
   });
 }
+
+/** Fechamento */
+export function useClosingQueue() {
+  return useQuery({ queryKey:["closing","queue"], queryFn: async ()=> (await API.get("/closing/queue")).data.items ?? [] });
+}
+export function useClosingApprove() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId:number)=> (await API.post("/closing/approve",{case_id: caseId})).data,
+    onSuccess: ()=> { qc.invalidateQueries({queryKey:["closing","queue"]}); qc.invalidateQueries({queryKey:["cases"]}); }
+  });
+}
+export function useClosingReject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId:number)=> (await API.post("/closing/reject",{case_id: caseId})).data,
+    onSuccess: ()=> { qc.invalidateQueries({queryKey:["closing","queue"]}); qc.invalidateQueries({queryKey:["cases"]}); }
+  });
+}
+
+/** Financeiro */
+export function useFinanceQueue() {
+  return useQuery({ queryKey:["finance","queue"], queryFn: async ()=> (await API.get("/finance/queue")).data.items ?? [] });
+}
+export function useFinanceDisburse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload:{case_id:number; total_amount:number; installments:number; disbursed_at?:string}) =>
+      (await API.post("/finance/disburse", payload)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["finance","queue"]});
+      qc.invalidateQueries({queryKey:["contracts"]});
+      qc.invalidateQueries({queryKey:["cases"]});
+    }
+  });
+}
+
+/** Contratos */
+export function useContracts() {
+  return useQuery({ queryKey:["contracts"], queryFn: async ()=> (await API.get("/contracts")).data.items ?? [] });
+}

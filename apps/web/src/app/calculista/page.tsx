@@ -1,11 +1,14 @@
 "use client";
+import { useCaseEventsReload } from "@/lib/ws";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from "@lifecalling/ui";
+import { Label } from "@radix-ui/react-label";
 import { simuladorSantander, priceCoef } from "@/lib/calc";
 import { useSims, useSimApprove, useSimReject } from "@/lib/hooks";
 import { toast } from "sonner";
 
 export default function CalculistaPage(){
+  useCaseEventsReload();
   const { data: sims } = useSims("pending");
   const [active, setActive] = useState<number | null>(null);
   const approve = useSimApprove();

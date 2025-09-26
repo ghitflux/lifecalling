@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cat:*)",
+      "Bash(pnpm ls:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(pnpm install:*)",
+      "Bash(./migrate.sh:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
