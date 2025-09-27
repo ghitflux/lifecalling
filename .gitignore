@@ -63,6 +63,16 @@ uploads/
 .dockerignore
 docker-compose.override.yml
 
+# Data files (development only)
+data/*.txt
+data/*.json
+!data/README.md
+
+# Test artifacts
+tests/coverage/
+tests/results/
+!tests/README.md
+
 # Python (for API)
 __pycache__/
 *.py[cod]

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/apps/trae/lifecallingv1/lifecalling/**)",
+      "Bash(pnpm dev:api:*)",
+      "Bash(python -m alembic revision:*)",
+      "Bash(python:*)",
+      "Bash(docker compose exec:*)",
+      "Bash(docker compose:*)",
+      "Bash(pnpm dev:web:*)",
+      "Bash(pnpm install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

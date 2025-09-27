@@ -8,7 +8,7 @@ import { User, Calendar, Hash, Building2 } from "lucide-react";
 interface EsteiraCardProps {
   caso: {
     id: number;
-    status: Status;
+    status: Status | string;
     client: {
       name: string;
       cpf: string;

@@ -2,10 +2,10 @@
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useState } from "react";
 import { SimulationCard, SimulationForm, Card, CalculistaSkeleton } from "@lifecalling/ui";
-import { simuladorSantander, priceCoef } from "@/lib/calc";
+import { SimuladorCalculista, priceCoef } from "@/lib/calc";
 import { useSims, useSimApprove, useSimReject } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { API } from "@/lib/api";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function CalculistaPage(){
@@ -22,10 +22,10 @@ export default function CalculistaPage(){
     queryFn: async () => {
       if (!active) return null;
       // Buscar o caso relacionado à simulação
-      const sim = sims?.find(s => s.id === active);
+      const sim = sims?.find((s: any) => s.id === active);
       if (!sim) return null;
 
-      const response = await API.get(`/cases/${sim.case_id}`);
+      const response = await api.get(`/cases/${sim.case_id}`);
       return response.data;
     },
     enabled: !!active && !!sims
@@ -36,7 +36,6 @@ export default function CalculistaPage(){
     banco: "SANTANDER",
     parcelas: "96",
     saldo: "30000",
-    parcela: "1000",
     seguro: "1000",
     percentOperacao: "2.5",
     percentConsultoria: "12",
@@ -44,11 +43,12 @@ export default function CalculistaPage(){
   });
 
   // Calcular resultados baseado no formData
-  const r = simuladorSantander({
+  // Usando valor padrão de parcela de R$ 1.000,00 conforme imagem
+  const r = SimuladorCalculista({
     banco: formData.banco,
     parcelas: parseInt(formData.parcelas),
     saldoDevedor: parseInt(formData.saldo),
-    parcela: parseInt(formData.parcela),
+    parcela: 1000, // Valor fixo conforme layout da imagem
     seguroObrigatorio: parseInt(formData.seguro),
     percentualOperacaoMes: parseFloat(formData.percentOperacao),
     percentualConsultoria: parseFloat(formData.percentConsultoria)/100,
@@ -107,7 +107,7 @@ export default function CalculistaPage(){
           <div className="p-4">
             <h2 className="font-medium mb-4">Fila de Pendências</h2>
             <div className="space-y-2 max-h-[60vh] overflow-auto">
-              {sims?.map((s) => (
+              {sims?.map((s: any) => (
                 <button
                   key={s.id}
                   onClick={() => setActive(s.id)}
@@ -184,18 +184,25 @@ export default function CalculistaPage(){
           {/* Formulário */}
           <SimulationForm
             initialData={formData}
-            onApprove={handleApprove}
-            onReject={handleReject}
+            onChange={setFormData}
             loading={loading || !active}
-            showActions={!!active}
           />
 
           {/* Resultados da Simulação */}
           {active && (
             <SimulationCard
               result={{
+                banco: formData.banco,
                 valorLiberado: r.valorLiberado,
                 valorParcela: r.valorParcelaTotal,
+                coeficiente: r.coeficiente,
+                saldoDevedor: parseInt(formData.saldo),
+                valorTotalFinanciado: r.valorTotalFinanciado,
+                seguroObrigatorio: parseInt(formData.seguro),
+                valorLiquido: r.valorLiquido,
+                custoConsultoria: r.custoConsultoria,
+                liberadoCliente: r.liberadoCliente,
+                percentualConsultoria: parseFloat(formData.percentConsultoria) / 100,
                 taxaJuros: parseFloat(formData.percentOperacao),
                 prazo: parseInt(formData.parcelas)
               }}
@@ -205,48 +212,6 @@ export default function CalculistaPage(){
             />
           )}
 
-          {/* Detalhes Expandidos */}
-          {active && (
-            <Card>
-              <div className="p-6">
-                <h3 className="font-medium mb-4">Detalhes Completos da Simulação</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex justify-between">
-                    <span>Coeficiente (D4):</span>
-                    <span className="font-mono">{r.coeficiente.toFixed(7)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Valor Liberado (E7):</span>
-                    <span className="font-mono">R$ {r.valorLiberado.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Saldo Devedor Total (E18):</span>
-                    <span className="font-mono">R$ {r.saldoDevedorTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Valor Total Financiado (E22):</span>
-                    <span className="font-mono">R$ {r.valorTotalFinanciado.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Valor Líquido (E25):</span>
-                    <span className="font-mono">R$ {r.valorLiquido.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Custo Consultoria (E27):</span>
-                    <span className="font-mono">R$ {r.custoConsultoria.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Liberado Cliente (E29):</span>
-                    <span className="font-mono">R$ {r.liberadoCliente.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>30% do Líquido (E51):</span>
-                    <span className="font-mono">R$ {r.trintaPorCentoDoLiquido.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </div>

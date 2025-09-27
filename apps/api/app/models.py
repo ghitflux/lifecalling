@@ -22,6 +22,7 @@ class Client(Base):
     matricula = Column(String(40), nullable=False)
     orgao = Column(String(180))
     telefone_preferencial = Column(String(20))
+    numero_cliente = Column(String(20))
     observacoes = Column(Text)
     __table_args__ = (UniqueConstraint('cpf','matricula', name='uq_client_cpf_matricula'),)
 

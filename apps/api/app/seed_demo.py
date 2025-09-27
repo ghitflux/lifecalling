@@ -39,24 +39,36 @@ def create_demo_cases():
     ORGAOS = ["INSS", "Governo do Estado", "Prefeitura Municipal", "Ministério da Defesa", "Tribunal de Justiça"]
 
     CLIENTES_TESTE = [
-        ("João Silva Santos", "12345678901", "MAT001", "INSS"),
-        ("Maria Oliveira Costa", "23456789012", "MAT002", "Governo do Estado"),
-        ("Pedro Almeida Lima", "34567890123", "MAT003", "Prefeitura Municipal"),
-        ("Ana Santos Pereira", "45678901234", "MAT004", "INSS"),
-        ("Carlos Ferreira Rocha", "56789012345", "MAT005", "Ministério da Defesa"),
-        ("Luciana Ribeiro Silva", "67890123456", "MAT006", "Tribunal de Justiça"),
-        ("Roberto Costa Alves", "78901234567", "MAT007", "INSS"),
-        ("Fernanda Lima Santos", "89012345678", "MAT008", "Governo do Estado"),
-        ("José Pereira Souza", "90123456789", "MAT009", "Prefeitura Municipal"),
-        ("Mariana Alves Costa", "01234567890", "MAT010", "INSS"),
-        ("Antonio Silva Lima", "11223344556", "MAT011", "Ministério da Defesa"),
-        ("Patrícia Santos Rocha", "22334455667", "MAT012", "Tribunal de Justiça"),
-        ("Ricardo Oliveira Silva", "33445566778", "MAT013", "INSS"),
-        ("Juliana Costa Santos", "44556677889", "MAT014", "Governo do Estado"),
-        ("Marcos Pereira Lima", "55667788990", "MAT015", "Prefeitura Municipal"),
-        ("Sandra Almeida Costa", "66778899001", "MAT016", "INSS"),
-        ("Daniel Santos Silva", "77889900112", "MAT017", "Ministério da Defesa"),
-        ("Cristina Lima Pereira", "88990011223", "MAT018", "Tribunal de Justiça"),
+        ("Maria Conceição Silva", "12345678901", "MAT001", "INSS"),
+        ("José Roberto Santos", "23456789012", "MAT002", "Governo do Estado"),
+        ("Ana Lúcia Ferreira", "34567890123", "MAT003", "Prefeitura Municipal"),
+        ("Carlos Eduardo Costa", "45678901234", "MAT004", "INSS"),
+        ("Francisca Oliveira", "56789012345", "MAT005", "Ministério da Defesa"),
+        ("Luiz Antonio Rocha", "67890123456", "MAT006", "Tribunal de Justiça"),
+        ("Helena Maria Lima", "78901234567", "MAT007", "INSS"),
+        ("João Batista Alves", "89012345678", "MAT008", "Governo do Estado"),
+        ("Rosa de Souza", "90123456789", "MAT009", "Prefeitura Municipal"),
+        ("Pedro Paulo Dias", "01234567890", "MAT010", "INSS"),
+        ("Antonia Pereira", "11223344556", "MAT011", "Ministério da Defesa"),
+        ("Manuel dos Santos", "22334455667", "MAT012", "Tribunal de Justiça"),
+        ("Célia Regina Moraes", "33445566778", "MAT013", "INSS"),
+        ("Sebastião Vieira", "44556677889", "MAT014", "Governo do Estado"),
+        ("Terezinha Campos", "55667788990", "MAT015", "Prefeitura Municipal"),
+        ("Francisco Gomes", "66778899001", "MAT016", "INSS"),
+        ("Marlene da Silva", "77889900112", "MAT017", "Ministério da Defesa"),
+        ("Benedito Ribeiro", "88990011223", "MAT018", "Tribunal de Justiça"),
+        ("Ivone Monteiro", "99123456780", "MAT019", "INSS"),
+        ("Geraldo Cardoso", "01357924681", "MAT020", "Governo do Estado"),
+        ("Aparecida Lopes", "13579024682", "MAT021", "Prefeitura Municipal"),
+        ("Osvaldo Nunes", "24680135793", "MAT022", "INSS"),
+        ("Vera Lúcia Pinto", "35791468024", "MAT023", "Ministério da Defesa"),
+        ("Raimundo Araújo", "46802579135", "MAT024", "Tribunal de Justiça"),
+        ("Neusa Barbosa", "57913680246", "MAT025", "INSS"),
+        ("Waldemar Torres", "68024791357", "MAT026", "Governo do Estado"),
+        ("Dulce Maria Cruz", "79135802468", "MAT027", "Prefeitura Municipal"),
+        ("Valdir Machado", "80246913579", "MAT028", "INSS"),
+        ("Zilda Carvalho", "91357024680", "MAT029", "Ministério da Defesa"),
+        ("Agenor Freitas", "02468135791", "MAT030", "Tribunal de Justiça"),
     ]
 
     with SessionLocal() as db:
@@ -79,25 +91,29 @@ def create_demo_cases():
                 matricula=matricula,
                 orgao=orgao,
                 telefone_preferencial=f"(11) 9{random.randint(1000,9999)}-{random.randint(1000,9999)}",
-                numero_cliente=f"CLI{random.randint(1000,9999)}",
-                observacoes=f"Cliente {nome} - Teste automático",
-                created_at=datetime.utcnow() - timedelta(days=random.randint(1, 30))
+                observacoes=f"Cliente {nome} - Teste automático"
             )
             db.add(client)
             db.flush()  # Para obter o ID
 
-            # Definir status baseado no índice para variedade
-            if i < 6:  # Primeiros 6 casos - disponíveis (não atribuídos)
+            # Definir status baseado no índice para variedade mais realista
+            if i < 8:  # Primeiros 8 casos - disponíveis na esteira (não atribuídos)
                 status = "novo"
                 assigned_user = None
-            elif i < 9:  # 3 casos em atendimento atribuídos
+            elif i < 12:  # 4 casos em atendimento atribuídos
                 status = "em_atendimento"
                 assigned_user = random.choice(atendentes) if atendentes else None
-            elif i < 13:  # 4 casos pendentes no calculista
+            elif i < 18:  # 6 casos aguardando calculista
                 status = "calculista_pendente"
                 assigned_user = random.choice(atendentes) if atendentes else None
-            elif i < 16:  # 3 casos aprovados
+            elif i < 22:  # 4 casos aprovados para fechamento
                 status = "aprovado"
+                assigned_user = random.choice(atendentes) if atendentes else None
+            elif i < 26:  # 4 casos atribuídos (em processamento)
+                status = "atribuido"
+                assigned_user = random.choice(atendentes) if atendentes else None
+            elif i < 28:  # 2 casos pendentes
+                status = "pendente"
                 assigned_user = random.choice(atendentes) if atendentes else None
             else:  # Restantes finalizados
                 status = "finalizado"
@@ -108,8 +124,6 @@ def create_demo_cases():
                 client_id=client.id,
                 status=status,
                 assigned_user_id=assigned_user.id if assigned_user else None,
-                banco=random.choice(BANCOS),
-                created_at=client.created_at + timedelta(hours=random.randint(1, 24)),
                 last_update_at=datetime.utcnow() - timedelta(hours=random.randint(1, 72))
             )
             db.add(case)
@@ -120,7 +134,7 @@ def create_demo_cases():
 
         # Relatório dos casos criados
         print("\n📊 Distribuição dos casos:")
-        for status in ["novo", "em_atendimento", "calculista_pendente", "aprovado", "finalizado"]:
+        for status in ["novo", "em_atendimento", "calculista_pendente", "aprovado", "atribuido", "pendente", "finalizado"]:
             count = db.query(Case).filter(Case.status == status).count()
             print(f"  - {status}: {count} casos")
 

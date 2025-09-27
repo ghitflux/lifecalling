@@ -1,65 +1,80 @@
-import axios from "axios";
+'use client';
 
-export const API = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
-  withCredentials: true, // cookies HttpOnly
-  timeout: 10000, // 10 segundos timeout
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosError } from 'axios';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+
+// --- instancia base ----------------------------------------------
+export const api: AxiosInstance = axios.create({
+  baseURL: BASE_URL,
+  withCredentials: true, // envia cookies HttpOnly
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Interceptador para debug de requests
-API.interceptors.request.use(
-  (config) => {
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-    console.log('📝 Config:', {
-      baseURL: config.baseURL,
-      timeout: config.timeout,
-      withCredentials: config.withCredentials,
-      headers: config.headers
+// --- util pra logar erro de forma confiável -----------------------
+function logAxiosError(err: unknown) {
+  if (isAxiosError(err)) {
+    const e = err as AxiosError<any>;
+    // eslint-disable-next-line no-console
+    console.error('❌ API Error:', {
+      method: e.config?.method?.toUpperCase(),
+      url: e.config?.url,
+      status: e.response?.status,
+      code: e.code,
+      message: e.message,
+      data: e.response?.data,
     });
-    return config;
-  },
-  (error) => {
-    console.error('❌ Request Error:', error);
-    return Promise.reject(error);
+  } else {
+    // eslint-disable-next-line no-console
+    console.error('❌ Non-Axios error:', err);
   }
-);
+}
 
-// Interceptador para debug de responses
-API.interceptors.response.use(
-  (response) => {
-    console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
-    console.log('📊 Data:', response.data);
-    return response;
-  },
-  (error) => {
-    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
-    console.error('🔍 Error Details:', {
-      message: error.message,
-      code: error.code,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      config: {
-        baseURL: error.config?.baseURL,
-        url: error.config?.url,
-        method: error.config?.method,
-        timeout: error.config?.timeout
+// --- refresh single-flight (uma vez por vez) ----------------------
+let refreshPromise: Promise<void> | null = null;
+
+async function doRefreshOnce() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        await api.post('/auth/refresh', null, { withCredentials: true });
+      } finally {
+        // sempre limpar pra próxima rodada
+        refreshPromise = null;
       }
-    });
+    })();
+  }
+  return refreshPromise;
+}
 
-    // Verificar se é erro de rede
-    if (error.message === 'Network Error') {
-      console.error('🌐 Network Error detectado! Verifique se a API está rodando em:', error.config?.baseURL);
+// Flag por request para não entrar em loop ao repetir
+const RETRIED = Symbol('retried');
+
+// --- interceptores ------------------------------------------------
+api.interceptors.response.use(
+  (res) => res,
+  async (error: unknown) => {
+    logAxiosError(error);
+
+    if (!isAxiosError(error)) {
+      return Promise.reject(error);
     }
 
-    // Verificar se é erro de autenticação
-    if (error.response?.status === 401) {
-      console.warn('🔒 Erro de autenticação detectado. Usuário não está logado.');
+    const err = error as AxiosError<any> & { [RETRIED]?: boolean };
+    const status = err.response?.status;
+    const cfg = err.config as (InternalAxiosRequestConfig & { [RETRIED]?: boolean }) | undefined;
 
-      // Se não estamos na página de login, redirecionar
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        console.log('🔄 Redirecionando para página de login...');
-        window.location.href = '/login';
+    // 401: tentar refresh UMA vez e repetir a original
+    if (status === 401 && cfg && !cfg[RETRIED]) {
+      try {
+        cfg[RETRIED] = true;
+        await doRefreshOnce();
+        return api(cfg); // repete a request original
+      } catch (_e) {
+        // refresh falhou: deixar seguir pro caller lidar (ex.: redirecionar pra /login)
+        return Promise.reject(error);
       }
     }
 

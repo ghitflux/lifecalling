@@ -29,7 +29,7 @@ export function priceCoef(i: number, n: number) {
   return i / (1 - Math.pow(1 + i, -n));
 }
 
-export function simuladorSantander(input: SimuladorInput): SimuladorOutput {
+export function SimuladorCalculista(input: SimuladorInput): SimuladorOutput {
   const i = input.percentualOperacaoMes / 100; // % → fração
   const coef = input.coeficienteManual && input.coeficienteManual > 0
     ? input.coeficienteManual

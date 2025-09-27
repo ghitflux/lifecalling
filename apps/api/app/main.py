@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from .config import settings
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import auth, cases, imports, ws as wsmod
 from .routers import closing, finance, contracts
@@ -6,6 +7,16 @@ from .db import Base, engine
 from .routers import simulations
 
 app = FastAPI(title="Lifecalling API")
+
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")] if getattr(settings, "CORS_ORIGINS", "") else ["http://localhost:3000"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # front em dev
+    allow_credentials=True,                   # necessário para cookies HttpOnly
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://localhost:3001"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])

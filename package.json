@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "dev:web": "pnpm --filter ./apps/web dev",
+    "dev:web:turbo": "pnpm --filter ./apps/web dev:turbo",
+    "dev:web:webpack": "pnpm --filter ./apps/web dev:webpack",
     "dev:api": "docker compose up -d && docker compose logs -f api",
     "storybook": "pnpm --filter ./apps/web storybook",
     "types:gen": "pnpm --filter @lifecalling/types gen && pnpm --filter @lifecalling/types build",
@@ -16,6 +18,7 @@
   "devDependencies": {
     "@storybook/addon-a11y": "9.1.8",
     "@storybook/addon-themes": "^9.1.8",
+    "@storybook/nextjs": "9.1.8",
     "openapi-typescript": "^7.9.1",
     "storybook": "^9.1.8"
   },

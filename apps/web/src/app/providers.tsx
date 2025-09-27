@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { ReactNode, useState, useEffect } from "react";
-import { API } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useWebSocket } from "@/lib/websocket";
 import { AuthProvider } from "@/lib/auth";
@@ -11,8 +11,8 @@ function ApiInterceptor() {
   const router = useRouter();
 
   useEffect(() => {
-    const interceptor = API.interceptors.response.use(
-      (response) => response,
+    const interceptor = api.interceptors.response.use(
+      (response: any) => response,
       (error) => {
         if (error.response?.status === 401) {
           router.push("/login");
@@ -21,7 +21,7 @@ function ApiInterceptor() {
       }
     );
 
-    return () => API.interceptors.response.eject(interceptor);
+    return () => api.interceptors.response.eject(interceptor);
   }, [router]);
 
   return null;

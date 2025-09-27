@@ -1,25 +1,27 @@
-import type { StorybookConfig } from '@storybook/react-vite';
+import type { StorybookConfig } from '@storybook/nextjs';
 
 const config: StorybookConfig = {
+  framework: '@storybook/nextjs',
   stories: [
-    "../src/**/*.stories.@(js|jsx|ts|tsx|mdx)"
+    '../src/**/*.stories.@(js|jsx|ts|tsx)',
   ],
   addons: [
-    "@storybook/addon-docs",
-    "@storybook/addon-themes",
-    "@storybook/addon-a11y",
-    "@storybook/addon-actions",
+    '@storybook/addon-essentials',
   ],
-  framework: {
-    name: "@storybook/react-vite",
-    options: {}
-  },
-  docs: {
-    defaultName: "Documentation"
-  },
   typescript: {
     check: false,
-    reactDocgen: "react-docgen-typescript",
+    reactDocgen: false,
   },
+  core: {
+    disableTelemetry: true,
+  },
+  features: {
+    experimentalRSC: false,
+  },
+  env: (config) => ({
+    ...config,
+    NODE_ENV: 'development',
+  }),
 };
+
 export default config;

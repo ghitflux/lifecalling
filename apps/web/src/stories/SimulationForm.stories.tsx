@@ -1,5 +1,5 @@
 import React from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from "@lifecalling/ui";
 import { useState } from "react";
 

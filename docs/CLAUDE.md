@@ -253,6 +253,86 @@
 | Next.js | ✅ Rodando | `http://localhost:3000` |
 | Storybook | ✅ Rodando | `http://localhost:6007` |
 
+---
+
+## Sessão de 2025-01-27
+
+### 🎯 Tarefas Realizadas
+
+#### ✅ Implementação do Slide Button no ToggleButton
+- **Status**: Concluído com sucesso
+- **Detalhes**:
+  - Adicionada nova variante `"slide"` ao componente `ToggleButton`
+  - Implementados estilos específicos para o formato de slide button
+  - Criadas classes de tamanho para container e thumb do slide button
+  - Adicionada lógica condicional para renderização do thumb deslizante
+  - Componente agora suporta tanto formato tradicional quanto slide
+
+#### ✅ Correção de Erros no Storybook
+- **Problema**: `ReferenceError: React is not defined` em `ClosingCard.stories.tsx`
+- **Solução**: Adicionado `import React from 'react';` no arquivo
+- **Problema**: `TypeError: Failed to fetch dynamically imported module`
+- **Solução**: Reinicialização do Storybook resolveu o erro de cache/transformação
+
+#### ✅ Atualização das Stories do Storybook
+- **ToggleButton.stories.tsx**:
+  - Adicionada opção `'slide'` nos controles do Storybook
+  - Criadas novas stories específicas para slide button:
+    - `SlideDefault`: Exemplo básico do slide button
+    - `SlideSmall`: Slide button em tamanho pequeno
+    - `SlideLarge`: Slide button em tamanho grande
+    - `SlidePressed`: Slide button no estado pressionado
+  - Atualizada seção `AllVariants` para incluir slide button
+  - Adicionados exemplos interativos no painel de configurações
+
+#### ✅ Migração e Versionamento
+- **Migração**: Executada com sucesso usando `migrate.ps1`
+- **Commit**: `ea5d2ed` - feat: Implementar slide button no ToggleButton e corrigir erros do Storybook
+- **Push**: Realizado com sucesso para `origin/main`
+- **Arquivos alterados**: 112 arquivos novos/modificados
+
+### 🛠 Detalhes Técnicos da Implementação
+
+#### Componente ToggleButton Atualizado
+```typescript
+// Nova interface com variante slide
+interface ToggleButtonProps {
+  variant?: "default" | "outline" | "ghost" | "slide"
+  size?: "sm" | "default" | "lg"
+  // ... outras props
+}
+
+// Novos estilos implementados
+const slideSizeClasses = {
+  sm: "w-8 h-4",
+  default: "w-11 h-6", 
+  lg: "w-14 h-8"
+}
+
+const slideThumbSizeClasses = {
+  sm: "w-3 h-3",
+  default: "w-5 h-5",
+  lg: "w-6 h-6"
+}
+```
+
+#### Funcionalidades do Slide Button
+- **Visual**: Aparência de switch/toggle moderno
+- **Estados**: Suporte completo aos estados pressed/unpressed
+- **Tamanhos**: Disponível em sm, default e lg
+- **Animação**: Transição suave do thumb com `transition-transform`
+- **Acessibilidade**: Mantém todas as funcionalidades de acessibilidade do componente original
+
+### 📊 Status dos Serviços
+
+| Serviço | Status | URL |
+|---------|--------|-----|
+| PostgreSQL | ✅ Rodando | `localhost:5432` |
+| FastAPI | ✅ Rodando | `http://localhost:8000` |
+| Swagger Docs | ✅ Disponível | `http://localhost:8000/docs` |
+| Next.js | ✅ Rodando | `http://localhost:3000` |
+| Storybook | ✅ Rodando | `http://localhost:6007` |
+
 ### 💡 Observações Técnicas
 
 - Sistema de lock implementado via filtros no frontend e validações no backend
@@ -261,8 +341,9 @@
 - Componentes UI protegidos contra props undefined/inválidas
 - Middleware funciona com cookies HttpOnly para segurança
 - Storybook configurado para desenvolvimento de componentes isolados
+- **Novo**: ToggleButton com suporte a slide button format para interfaces modernas
 
 ---
 
-*Última atualização: 2025-09-26*
+*Última atualização: 2025-01-27*
 *Desenvolvido com Claude Code*

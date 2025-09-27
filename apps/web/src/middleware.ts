@@ -7,6 +7,7 @@ const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|
   "/fechamento":   ["admin","supervisor","atendente"],
   "/financeiro":   ["admin","supervisor","financeiro"],
   "/contratos":    ["admin","supervisor","financeiro"],
+  "/casos":        ["admin","supervisor","atendente","calculista","financeiro"],
   "/dashboard":    ["admin","supervisor"],
   "/usuarios":     ["admin","supervisor"],
   "/config":       ["admin"],

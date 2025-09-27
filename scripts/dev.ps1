@@ -245,5 +245,5 @@ try {
     Write-Host ""
     Write-Host "⏹️  Parando serviços..." -ForegroundColor Yellow
     docker compose -f docker.compose.yml stop api
-    Write-Host "Servicos parados (banco e dados preservados)" -ForegroundColor Green
+    Write-Host "Serviços parados (banco e dados preservados)" -ForegroundColor Green
 }

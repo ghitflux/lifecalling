@@ -1,15 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, type Status } from "@lifecalling/ui";
 import { SimulationCard, DetailsSkeleton } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { API } from "@/lib/api";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useSendToCalculista } from "@/lib/hooks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
@@ -62,28 +62,40 @@ export default function CaseDetailPage() {
   };
 
   // Query para buscar detalhes do caso
-  const { data: caseDetail, isLoading } = useQuery({
+  const { data: caseDetail, isLoading, error } = useQuery({
     queryKey: ["case", caseId],
     queryFn: async () => {
-      const response = await API.get(`/cases/${caseId}`);
-      return response.data as CaseDetail;
+      try {
+        const response = await api.get(`/cases/${caseId}`);
+        return response.data as CaseDetail;
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          toast.error("Você precisa estar logado para ver os detalhes do caso");
+          // Redirecionar para login
+          window.location.href = '/login';
+          throw error;
+        }
+        toast.error("Erro ao carregar detalhes do caso");
+        throw error;
+      }
     },
     enabled: !!caseId,
+    retry: false, // Não tentar novamente em caso de erro de auth
   });
 
   // Atualiza os campos quando os dados chegam
-  useState(() => {
+  useEffect(() => {
     if (caseDetail) {
       setTelefone(caseDetail.client.telefone_preferencial || "");
       setNumeroCliente(caseDetail.client.numero_cliente || "");
       setObservacoes(caseDetail.client.observacoes || "");
     }
-  });
+  }, [caseDetail]);
 
   // Mutation para atualizar caso
   const updateCaseMutation = useMutation({
     mutationFn: async (data: { telefone_preferencial?: string; numero_cliente?: string; observacoes?: string }) => {
-      const response = await API.patch(`/cases/${caseId}`, data);
+      const response = await api.patch(`/cases/${caseId}`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -97,7 +109,7 @@ export default function CaseDetailPage() {
 
 
   const handleSave = () => {
-    const updates: any = {};
+    const updates: { telefone_preferencial?: string; numero_cliente?: string; observacoes?: string } = {};
     if (telefone !== (caseDetail?.client.telefone_preferencial || "")) {
       updates.telefone_preferencial = telefone;
     }
@@ -118,6 +130,21 @@ export default function CaseDetailPage() {
     return <DetailsSkeleton />;
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-8">
+          <div className="text-red-500 mb-4">Erro ao carregar detalhes do caso</div>
+          <div className="text-sm text-gray-500">
+            {error.response?.status === 401
+              ? "Você precisa estar logado para ver este conteúdo"
+              : "Tente novamente mais tarde"}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!caseDetail) {
     return (
       <div className="p-6">
@@ -132,7 +159,7 @@ export default function CaseDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold">Caso #{caseDetail.id}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <StatusBadge status={caseDetail.status as any} />
+            <StatusBadge status={caseDetail.status as Status} />
           </div>
         </div>
         <div className="flex gap-3">

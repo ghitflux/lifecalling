@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Meta, StoryObj } from '@storybook/nextjs';
+import type { Meta, StoryObj } from '@storybook/react';
 import { ToggleButton } from '@lifecalling/ui';
 import { useState } from 'react';
 
@@ -246,6 +246,12 @@ export const Interactive: Story = {
           <div className="flex items-center justify-between">
             <span>Slide Mode</span>
             <ToggleButton
+              variant="slide"
+              pressed={options.slideMode}
+              onPressedChange={(pressed) => setOptions(prev => ({ ...prev, slideMode: pressed }))}
+            >
+              {options.slideMode ? 'ON' : 'OFF'}
+            </ToggleButton>
               variant="slide"
               pressed={options.slideMode}
               onPressedChange={(pressed) => setOptions(prev => ({ ...prev, slideMode: pressed }))}

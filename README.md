@@ -54,10 +54,25 @@ lifecalling/
 ├── packages/
 │   ├── types/        # Tipos TypeScript compartilhados
 │   └── ui/           # Componentes UI compartilhados
-├── docker.compose.yml
-├── start.ps1         # Script de inicialização (Windows)
-├── start.sh          # Script de inicialização (Linux/Mac)
-└── migrate.ps1       # Script de migração (Windows)
+├── scripts/          # Scripts de automação e utilitários
+│   ├── migrate.ps1   # Migração de banco (Windows)
+│   ├── migrate.sh    # Migração de banco (Linux/Mac)
+│   ├── dev.ps1       # Script de desenvolvimento
+│   ├── dev.py        # Utilitários Python
+│   ├── start.sh      # Inicialização do projeto
+│   └── *.py          # Scripts de dados e testes
+├── docs/             # Documentação do projeto
+│   ├── CLAUDE.md     # Histórico de desenvolvimento
+│   ├── DEV_README.md # Guia de desenvolvimento
+│   └── *.md          # Documentações específicas
+├── data/             # Arquivos de dados para desenvolvimento
+│   ├── cookies.txt   # Cookies de sessão
+│   └── *.txt         # Dados de exemplo
+├── tests/            # Testes (estrutura planejada)
+│   ├── unit/         # Testes unitários
+│   ├── integration/  # Testes de integração
+│   └── e2e/          # Testes end-to-end
+└── docker-compose.yml # Configuração Docker
 ```
 
 ## 🛠️ Pré-requisitos

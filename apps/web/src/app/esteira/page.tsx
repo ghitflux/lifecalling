@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseListSkeleton } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { API } from "@/lib/api";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Case {
@@ -32,7 +32,7 @@ export default function EsteiraPage() {
   const { data: globalCases = [], isLoading: loadingGlobal, error: errorGlobal } = useQuery({
     queryKey: ["cases", "global"],
     queryFn: async () => {
-      const response = await API.get("/cases?assigned=0");
+      const response = await api.get("/cases?assigned=0");
       return response.data?.items ?? [];
     },
     staleTime: 30000, // 30 segundos
@@ -43,7 +43,7 @@ export default function EsteiraPage() {
   const { data: myCases = [], isLoading: loadingMine, error: errorMine } = useQuery({
     queryKey: ["cases", "mine"],
     queryFn: async () => {
-      const response = await API.get("/cases?mine=true");
+      const response = await api.get("/cases?mine=true");
       return response.data?.items ?? [];
     },
     staleTime: 30000, // 30 segundos
@@ -53,7 +53,7 @@ export default function EsteiraPage() {
   // Mutation para pegar um caso
   const assignCaseMutation = useMutation({
     mutationFn: async (caseId: number) => {
-      const response = await API.post(`/cases/${caseId}/assign`);
+      const response = await api.post(`/cases/${caseId}/assign`);
       return response.data;
     },
     onSuccess: () => {

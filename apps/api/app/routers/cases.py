@@ -33,8 +33,8 @@ def get_case(case_id:int, user=Depends(get_current_user)):
           "id": c.client.id, "name": c.client.name, "cpf": c.client.cpf,
           "matricula": c.client.matricula, "orgao": c.client.orgao,
           "telefone_preferencial": c.client.telefone_preferencial,
-          "numero_cliente": c.client.numero_cliente,
-          "observacoes": c.client.observacoes
+          "numero_cliente": getattr(c.client, 'numero_cliente', None),
+          "observacoes": getattr(c.client, 'observacoes', None)
         }}
 
 @r.post("/{case_id}/assign")
@@ -59,9 +59,11 @@ def patch_case(case_id:int, data: CasePatch, user=Depends(require_roles("admin",
         if data.telefone_preferencial is not None:
             c.client.telefone_preferencial = data.telefone_preferencial
         if data.numero_cliente is not None:
-            c.client.numero_cliente = data.numero_cliente
+            if hasattr(c.client, 'numero_cliente'):
+                c.client.numero_cliente = data.numero_cliente
         if data.observacoes is not None:
-            c.client.observacoes = data.observacoes
+            if hasattr(c.client, 'observacoes'):
+                c.client.observacoes = data.observacoes
         c.last_update_at = datetime.utcnow()
         db.add(CaseEvent(case_id=c.id, type="case.updated", payload=data.model_dump(), created_by=user.id))
         db.commit()
@@ -141,7 +143,7 @@ def list_cases(
                         "assigned_user_id": c.assigned_user_id,
                         "assigned_to": c.assigned_user.name if c.assigned_user else None,
                         "last_update_at": c.last_update_at.isoformat() if c.last_update_at else None,
-                        "created_at": c.created_at.isoformat() if c.created_at else None,
+                        "created_at": None,  # Campo não existe no modelo Case
                         "banco": getattr(c, 'banco', None),
                     }
 

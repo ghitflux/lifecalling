@@ -1,5 +1,5 @@
 import React from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { KPICard } from "@lifecalling/ui";
 import { Users, DollarSign, Activity, Target, TrendingUp } from "lucide-react";
 

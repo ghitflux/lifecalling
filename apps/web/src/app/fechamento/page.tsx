@@ -1,7 +1,7 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useClosingQueue, useClosingApprove, useClosingReject } from "@/lib/hooks";
-import { ClosingCard, Button, Badge } from "@lifecalling/ui";
+import { Button, Badge, CardFechamento } from "@lifecalling/ui";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Filter, RefreshCw } from "lucide-react";
@@ -93,7 +93,7 @@ export default function Page(){
           >
             <option value="all">Todos os status</option>
             {uniqueStatuses.map((status) => (
-              <option key={status} value={status}>{status}</option>
+              <option key={status as string} value={status as string}>{status as string}</option>
             ))}
           </select>
         </div>
@@ -152,13 +152,13 @@ export default function Page(){
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredItems.map((item: any) => (
-            <ClosingCard
+            <CardFechamento
               key={item.id}
               case={item}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onViewDetails={handleViewDetails}
-              isLoading={approve.isPending || reject.isPending}
+              onApprove={() => handleApprove(item.id)}
+              onReject={() => handleReject(item.id)}
+              onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+              isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
             />
           ))}
         </div>

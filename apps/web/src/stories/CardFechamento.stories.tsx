@@ -1,11 +1,9 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { ClosingCard } from '@lifecalling/ui';
-import { action } from '@storybook/addon-actions';
+import { CardFechamento } from '@lifecalling/ui';
 
-const meta: Meta<typeof ClosingCard> = {
-  title: 'Components/ClosingCard',
-  component: ClosingCard,
+const meta: Meta<typeof CardFechamento> = {
+  title: 'Components/CardFechamento',
+  component: CardFechamento,
   parameters: {
     layout: 'centered',
   },
@@ -40,9 +38,9 @@ const mockCase = {
 export const Default: Story = {
   args: {
     case: mockCase,
-    onApprove: action('approve'),
-    onReject: action('reject'),
-    onViewDetails: action('view-details'),
+    onApprove: () => console.log('approve'),
+    onReject: () => console.log('reject'),
+    onViewDetails: () => console.log('view-details'),
     isLoading: false,
   },
 };
@@ -57,9 +55,9 @@ export const WithSimulation: Story = {
         monthly_payment: 2800,
       },
     },
-    onApprove: action('approve'),
-    onReject: action('reject'),
-    onViewDetails: action('view-details'),
+    onApprove: () => console.log('approve'),
+    onReject: () => console.log('reject'),
+    onViewDetails: () => console.log('view-details'),
     isLoading: false,
   },
 };
@@ -74,9 +72,9 @@ export const WithContract: Story = {
         installments: 72,
       },
     },
-    onApprove: action('approve'),
-    onReject: action('reject'),
-    onViewDetails: action('view-details'),
+    onApprove: () => console.log('approve'),
+    onReject: () => console.log('reject'),
+    onViewDetails: () => console.log('view-details'),
     isLoading: false,
   },
 };
@@ -84,9 +82,9 @@ export const WithContract: Story = {
 export const Loading: Story = {
   args: {
     case: mockCase,
-    onApprove: action('approve'),
-    onReject: action('reject'),
-    onViewDetails: action('view-details'),
+    onApprove: () => console.log('approve'),
+    onReject: () => console.log('reject'),
+    onViewDetails: () => console.log('view-details'),
     isLoading: true,
   },
 };
@@ -108,9 +106,9 @@ export const HighValue: Story = {
         monthly_payment: 7200,
       },
     },
-    onApprove: action('approve'),
-    onReject: action('reject'),
-    onViewDetails: action('view-details'),
+    onApprove: () => console.log('approve'),
+    onReject: () => console.log('reject'),
+    onViewDetails: () => console.log('view-details'),
     isLoading: false,
   },
 };
@@ -127,9 +125,9 @@ export const MinimalInfo: Story = {
       },
       created_at: '2024-01-10T08:15:00Z',
     },
-    onApprove: action('approve'),
-    onReject: action('reject'),
-    onViewDetails: action('view-details'),
+    onApprove: () => console.log('approve'),
+    onReject: () => console.log('reject'),
+    onViewDetails: () => console.log('view-details'),
     isLoading: false,
   },
 };
@@ -137,35 +135,35 @@ export const MinimalInfo: Story = {
 export const DifferentStatuses: Story = {
   render: () => (
     <div className="grid gap-4 max-w-4xl">
-      <ClosingCard
+      <CardFechamento
         case={{
           ...mockCase,
           id: 1001,
           status: 'novo',
         }}
-        onApprove={action('approve')}
-        onReject={action('reject')}
-        onViewDetails={action('view-details')}
+        onApprove={() => console.log('approve')}
+        onReject={() => console.log('reject')}
+        onViewDetails={() => console.log('view-details')}
       />
-      <ClosingCard
+      <CardFechamento
         case={{
           ...mockCase,
           id: 1002,
           status: 'em_atendimento',
         }}
-        onApprove={action('approve')}
-        onReject={action('reject')}
-        onViewDetails={action('view-details')}
+        onApprove={() => console.log('approve')}
+        onReject={() => console.log('reject')}
+        onViewDetails={() => console.log('view-details')}
       />
-      <ClosingCard
+      <CardFechamento
         case={{
           ...mockCase,
           id: 1003,
           status: 'aprovado',
         }}
-        onApprove={action('approve')}
-        onReject={action('reject')}
-        onViewDetails={action('view-details')}
+        onApprove={() => console.log('approve')}
+        onReject={() => console.log('reject')}
+        onViewDetails={() => console.log('view-details')}
       />
     </div>
   ),
@@ -173,9 +171,9 @@ export const DifferentStatuses: Story = {
 
 export const GridLayout: Story = {
   render: () => (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 max-w-6xl">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 max-w-6xl" style={{ width: '1200px', height: '800px' }}>
       {Array.from({ length: 6 }, (_, i) => (
-        <ClosingCard
+        <CardFechamento
           key={i}
           case={{
             ...mockCase,
@@ -190,9 +188,9 @@ export const GridLayout: Story = {
               monthly_payment: 2000 + (i * 300),
             } : undefined,
           }}
-          onApprove={action('approve')}
-          onReject={action('reject')}
-          onViewDetails={action('view-details')}
+          onApprove={() => console.log('approve')}
+          onReject={() => console.log('reject')}
+          onViewDetails={() => console.log('view-details')}
         />
       ))}
     </div>

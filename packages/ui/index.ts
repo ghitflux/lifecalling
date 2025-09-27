@@ -26,7 +26,7 @@ export * from "./src/FinanceCard";
 export * from "./src/FinanceMetrics";
 export * from "./src/ContractCard";
 export * from "./src/ContractSummary";
-export * from "./src/ClosingCard";
+export * from "./src/components/CardFechamento";
 
 // Skeletons
 export * from "./src/Skeleton";
