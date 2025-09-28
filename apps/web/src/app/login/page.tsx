@@ -28,7 +28,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success("Login realizado com sucesso!");
-      router.push("/esteira");
+      // O redirecionamento é feito automaticamente pelo hook useAuth
     } catch (error) {
       toast.error("Erro no login. Verifique suas credenciais.");
       console.error("Login error:", error);
@@ -45,7 +45,7 @@ export default function LoginPage() {
     try {
       await login(demoEmail, demoPassword);
       toast.success("Login realizado com sucesso!");
-      router.push("/esteira");
+      // O redirecionamento é feito automaticamente pelo hook useAuth
     } catch (error) {
       toast.error("Erro no login. Verifique suas credenciais.");
     } finally {

@@ -29,6 +29,7 @@ const mockCase = {
     cpf: '123.456.789-01',
     matricula: 'MAT001',
     orgao: 'INSS',
+    telefone: '(11) 99999-8888',
   },
   banco: 'Bradesco',
   created_at: '2024-01-15T10:30:00Z',
@@ -98,6 +99,7 @@ export const HighValue: Story = {
         cpf: '987.654.321-00',
         matricula: 'MAT002',
         orgao: 'Governo do Estado',
+        telefone: '(21) 98888-7777',
       },
       banco: 'Itaú',
       simulation: {

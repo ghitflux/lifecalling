@@ -26,7 +26,7 @@ export function AreaChart({
   data,
   dataKey,
   xAxisKey,
-  color = "#654ff7"
+  color = "#5865f2"
 }: AreaChartProps) {
   return (
     <ChartContainer title={title} subtitle={subtitle}>

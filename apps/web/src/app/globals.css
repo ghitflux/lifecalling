@@ -15,11 +15,11 @@
     --background: 222 47% 11%;
     --foreground: 213 31% 91%;
 
-    /* Primary - Azul-Roxo (#654ff7) */
-    --primary: 248 91% 64%;
+    /* Primary - Azul Claro (hsl(227, 93%, 65%)) */
+    --primary: 227 93% 65%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 248 86% 54%;
-    --primary-subtle: 248 91% 64% / 0.1;
+    --primary-hover: 227 88% 55%;
+    --primary-subtle: 227 93% 65% / 0.1;
 
     /* Secondary - Complementar */
     --secondary: 240 5% 26%;
@@ -65,7 +65,7 @@
     --border-subtle: 217 33% 17% / 0.3;
 
     --input: 217 33% 17%;
-    --ring: 248 91% 64%;
+    --ring: 227 93% 65%;
 
     /* Shadows & Glows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.6);

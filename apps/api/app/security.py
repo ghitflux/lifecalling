@@ -14,9 +14,10 @@ def make_token(sub:int, kind:str, ttl:int):
     payload = {"sub": str(sub), "type": kind, "iss": settings.jwt_iss, "iat": int(now.timestamp()), "exp": int((now+timedelta(seconds=ttl)).timestamp())}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
-def set_auth_cookies(resp:Response, uid:int):
+def set_auth_cookies(resp:Response, uid:int, role:str):
     resp.set_cookie("access", make_token(uid,"access", settings.access_ttl), httponly=True, samesite="lax")
     resp.set_cookie("refresh", make_token(uid,"refresh", settings.refresh_ttl), httponly=True, samesite="lax")
+    resp.set_cookie("role", role, httponly=False, samesite="lax")  # role precisa ser acessível pelo middleware
 
 def get_current_user(access: str | None = Cookie(default=None), refresh: str | None = Cookie(default=None)):
     token = access or refresh

@@ -104,7 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
     await refresh();
     // redireciona para a rota desejada após login
-    router.replace(next || "/esteira");
+    const redirectTo = next || "/esteira";
+    window.location.href = redirectTo; // força um redirecionamento completo para evitar loops
   };
 
   const logout = async (redirectToLogin = true) => {

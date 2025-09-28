@@ -1,5 +1,5 @@
 import React from "react";
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import type { Meta, StoryObj } from "@storybook/react";
 import { SimulationCard } from "@lifecalling/ui";
 
 const meta = {
@@ -20,8 +20,17 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const mockResult = {
+  banco: "Banco do Brasil",
   valorLiberado: 50000,
   valorParcela: 1250,
+  coeficiente: 0.0260417,
+  saldoDevedor: 45000,
+  valorTotalFinanciado: 60000,
+  seguroObrigatorio: 2500,
+  valorLiquido: 47500,
+  custoConsultoria: 6000,
+  liberadoCliente: 44000,
+  percentualConsultoria: 0.12,
   taxaJuros: 2.5,
   prazo: 48,
 };
@@ -59,49 +68,22 @@ export const ActiveWithActions: Story = {
 export const HighValue: Story = {
   args: {
     result: {
+      banco: "Banco do Brasil",
       valorLiberado: 150000,
       valorParcela: 3750,
+      coeficiente: 0.0260417,
+      saldoDevedor: 135000,
+      valorTotalFinanciado: 180000,
+      seguroObrigatorio: 7500,
+      valorLiquido: 142500,
+      custoConsultoria: 18000,
+      liberadoCliente: 132000,
+      percentualConsultoria: 0.12,
       taxaJuros: 1.8,
       prazo: 60,
     },
     isActive: true,
     onApprove: () => console.log("High value approved"),
     onReject: () => console.log("High value rejected"),
-  },
-};
-
-export const LowValue: Story = {
-  args: {
-    result: {
-      valorLiberado: 10000,
-      valorParcela: 350,
-      taxaJuros: 3.2,
-      prazo: 36,
-    },
-    onApprove: () => console.log("Low value approved"),
-    onReject: () => console.log("Low value rejected"),
-  },
-};
-
-export const ShortTerm: Story = {
-  args: {
-    result: {
-      valorLiberado: 25000,
-      valorParcela: 2100,
-      taxaJuros: 2.0,
-      prazo: 12,
-    },
-    isActive: true,
-  },
-};
-
-export const LongTerm: Story = {
-  args: {
-    result: {
-      valorLiberado: 80000,
-      valorParcela: 1100,
-      taxaJuros: 2.8,
-      prazo: 84,
-    },
   },
 };

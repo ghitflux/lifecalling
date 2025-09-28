@@ -1,35 +1,163 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useClosingQueue, useClosingApprove, useClosingReject } from "@/lib/hooks";
-import { Button, Badge, CardFechamento } from "@lifecalling/ui";
+import {
+  Button,
+  Badge,
+  CardFechamento,
+  QuickFilters,
+  AdvancedFilters,
+  FilterProvider,
+  useFilters,
+  type QuickFilter,
+  type FilterGroup,
+  type AdvancedFilterValue
+} from "@lifecalling/ui";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Filter, RefreshCw } from "lucide-react";
+import { RefreshCw, User, Calendar, DollarSign, Building } from "lucide-react";
 
-export default function Page(){
+function FechamentoContent() {
   useLiveCaseEvents();
   const router = useRouter();
   const { data: items = [], isLoading, error, refetch } = useClosingQueue();
   const approve = useClosingApprove();
   const reject = useClosingReject();
+  const {
+    searchTerm,
+    quickFilters,
+    advancedFilters,
+    setSearchTerm,
+    toggleQuickFilter,
+    setAdvancedFilters,
+    clearAll,
+    hasActiveFilters,
+    getFilteredData
+  } = useFilters();
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Filtrar itens baseado na busca e filtro de status
-  const filteredItems = items.filter((item: any) => {
-    const matchesSearch = !searchTerm ||
-      item.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.client?.cpf?.includes(searchTerm) ||
-      item.id.toString().includes(searchTerm);
+  // Definir filtros rápidos disponíveis
+  const availableQuickFilters: QuickFilter[] = [
+    {
+      id: "pendente",
+      label: "Pendentes",
+      value: "pendente",
+      icon: User,
+      color: "warning",
+      count: items.filter((item: any) => item.status === "pendente").length
+    },
+    {
+      id: "em_analise",
+      label: "Em Análise",
+      value: "em_analise",
+      icon: Calendar,
+      color: "primary",
+      count: items.filter((item: any) => item.status === "em_analise").length
+    },
+    {
+      id: "aprovado",
+      label: "Aprovados",
+      value: "aprovado",
+      icon: DollarSign,
+      color: "success",
+      count: items.filter((item: any) => item.status === "aprovado").length
+    }
+  ];
 
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+  // Definir grupos de filtros avançados
+  const advancedFilterGroups: FilterGroup[] = [
+    {
+      id: "status",
+      label: "Status",
+      type: "multiselect",
+      icon: User,
+      options: [...new Set(items.map((item: any) => item.status))].map((status) => ({
+        id: status as string,
+        label: status as string,
+        value: status as string,
+        count: items.filter((item: any) => item.status === status).length
+      }))
+    },
+    {
+      id: "banco",
+      label: "Banco",
+      type: "multiselect",
+      icon: Building,
+      options: [...new Set(items.map((item: any) => item.banco).filter(Boolean))].map((banco) => ({
+        id: banco as string,
+        label: banco as string,
+        value: banco as string,
+        count: items.filter((item: any) => item.banco === banco).length
+      }))
+    },
+    {
+      id: "data_criacao",
+      label: "Data de Criação",
+      type: "daterange",
+      icon: Calendar
+    },
+    {
+      id: "valor_total",
+      label: "Valor Total",
+      type: "numberrange",
+      icon: DollarSign
+    }
+  ];
 
-    return matchesSearch && matchesStatus;
-  });
+  // Função de filtro personalizada
+  const filterFunction = (item: any, state: any) => {
+    // Filtro de busca
+    if (state.searchTerm) {
+      const searchLower = state.searchTerm.toLowerCase();
+      const matchesSearch =
+        item.client?.name?.toLowerCase().includes(searchLower) ||
+        item.client?.cpf?.includes(state.searchTerm) ||
+        item.id.toString().includes(state.searchTerm);
 
-  // Status únicos para filtro
-  const uniqueStatuses = [...new Set(items.map((item: any) => item.status))];
+      if (!matchesSearch) return false;
+    }
+
+    // Filtros rápidos
+    if (state.quickFilters.length > 0) {
+      const matchesQuickFilter = state.quickFilters.some((filterId: string) => {
+        const filter = availableQuickFilters.find(f => f.id === filterId);
+        return filter && item.status === filter.value;
+      });
+
+      if (!matchesQuickFilter) return false;
+    }
+
+    // Filtros avançados
+    for (const advancedFilter of state.advancedFilters) {
+      const { groupId, values } = advancedFilter;
+
+      if (values.length === 0) continue;
+
+      switch (groupId) {
+        case "status":
+          if (!values.includes(item.status)) return false;
+          break;
+        case "banco":
+          if (!values.includes(item.banco)) return false;
+          break;
+        case "data_criacao":
+          if (values.length === 2) {
+            const itemDate = new Date(item.created_at);
+            const startDate = new Date(values[0]);
+            const endDate = new Date(values[1]);
+            if (itemDate < startDate || itemDate > endDate) return false;
+          }
+          break;
+        // Adicionar mais casos conforme necessário
+      }
+    }
+
+    return true;
+  };
+
+  // Aplicar filtros
+  const filteredItems = getFilteredData(items, filterFunction);
 
   const handleApprove = (caseId: number) => {
     approve.mutate(caseId);
@@ -56,7 +184,7 @@ export default function Page(){
         <div className="flex items-center gap-2">
           <Badge variant="secondary">
             {filteredItems.length} caso{filteredItems.length !== 1 ? 's' : ''}
-            {searchTerm || statusFilter !== "all" ? ' (filtrados)' : ''}
+            {hasActiveFilters ? ' (filtrados)' : ''}
           </Badge>
           <Button
             variant="outline"
@@ -69,49 +197,32 @@ export default function Page(){
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 items-center bg-muted/30 p-4 rounded-lg">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, CPF ou ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </div>
-
-        {/* Status Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-background border border-input rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            <option value="all">Todos os status</option>
-            {uniqueStatuses.map((status) => (
-              <option key={status as string} value={status as string}>{status as string}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Clear Filters */}
-        {(searchTerm || statusFilter !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearchTerm("");
-              setStatusFilter("all");
-            }}
-          >
-            Limpar filtros
-          </Button>
-        )}
+      {/* New Filter System */}
+      <div className="bg-muted/30 p-4 rounded-lg">
+        <QuickFilters
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          activeFilters={quickFilters}
+          onFilterToggle={toggleQuickFilter}
+          availableFilters={availableQuickFilters}
+          onClearAll={clearAll}
+          onAdvancedFilters={() => setShowAdvancedFilters(true)}
+          placeholder="Buscar por nome, CPF ou ID..."
+        />
       </div>
+
+      {/* Advanced Filters Dialog */}
+      <AdvancedFilters
+        open={showAdvancedFilters}
+        onOpenChange={setShowAdvancedFilters}
+        filterGroups={advancedFilterGroups}
+        values={advancedFilters}
+        onValuesChange={setAdvancedFilters}
+        onApply={() => {
+          // Filtros são aplicados automaticamente via getFilteredData
+        }}
+        onClear={() => setAdvancedFilters([])}
+      />
 
       {/* Content */}
       {error ? (
@@ -137,13 +248,10 @@ export default function Page(){
               : "Nenhum caso encontrado com os filtros aplicados"
             }
           </div>
-          {(searchTerm || statusFilter !== "all") && (
+          {hasActiveFilters && (
             <Button
               variant="outline"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-              }}
+              onClick={clearAll}
             >
               Limpar filtros
             </Button>
@@ -171,5 +279,13 @@ export default function Page(){
         </div>
       )}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <FilterProvider>
+      <FechamentoContent />
+    </FilterProvider>
   );
 }

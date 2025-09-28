@@ -3,7 +3,7 @@ import React from "react";
 import { StatusBadge, type Status } from "./StatusBadge";
 import { Button } from "./Button";
 import { AdvancedCard } from "./AdvancedCard";
-import { User, Calendar, Hash, Building2 } from "lucide-react";
+import { User, Calendar, Hash, Building2, MessageSquare, Phone, Edit } from "lucide-react";
 
 interface EsteiraCardProps {
   caso: {
@@ -17,12 +17,15 @@ interface EsteiraCardProps {
     assigned_to?: string;
     created_at: string;
     banco?: string;
+    telefone_preferencial?: string;
+    observacoes?: string;
   };
   onAssign?: (id: number) => void;
   onView: (id: number) => void;
+  onEdit?: (id: number) => void;
 }
 
-export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
+export function EsteiraCard({ caso, onAssign, onView, onEdit }: EsteiraCardProps) {
   return (
     <AdvancedCard
       title={caso.client.name}
@@ -37,6 +40,16 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
           >
             Ver Detalhes
           </Button>
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(caso.id)}
+              className="px-2"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
           {onAssign && !caso.assigned_to && (
             <Button
               className="flex-1"
@@ -63,6 +76,18 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <User className="h-4 w-4" />
             <span>{caso.assigned_to}</span>
+          </div>
+        )}
+        {caso.telefone_preferencial && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Phone className="h-4 w-4" />
+            <span>{caso.telefone_preferencial}</span>
+          </div>
+        )}
+        {caso.observacoes && (
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <MessageSquare className="h-4 w-4 mt-0.5" />
+            <span className="line-clamp-2">{caso.observacoes}</span>
           </div>
         )}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

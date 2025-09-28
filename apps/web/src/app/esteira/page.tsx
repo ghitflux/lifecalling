@@ -2,7 +2,7 @@
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseListSkeleton } from "@lifecalling/ui";
+import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ interface Case {
 export default function EsteiraPage() {
   useLiveCaseEvents();
   const [activeTab, setActiveTab] = useState("global");
+  const [editingCase, setEditingCase] = useState<Case | null>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -67,8 +68,41 @@ export default function EsteiraPage() {
     },
   });
 
+  // Mutation para atualizar caso
+  const updateCaseMutation = useMutation({
+    mutationFn: async ({ caseId, data }: { caseId: number; data: any }) => {
+      const response = await api.patch(`/cases/${caseId}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+      toast.success("Caso atualizado com sucesso!");
+      setEditingCase(null);
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar caso. Tente novamente.");
+      console.error("Update case error:", error);
+    },
+  });
+
   const handlePegarCaso = (caseId: number) => {
     assignCaseMutation.mutate(caseId);
+  };
+
+  const handleEditCase = (caseId: number) => {
+    const case_to_edit = [...globalCases, ...myCases].find(c => c.id === caseId);
+    if (case_to_edit) {
+      setEditingCase(case_to_edit);
+    }
+  };
+
+  const handleSaveNotes = (data: { telefone_preferencial?: string; observacoes?: string }) => {
+    if (editingCase) {
+      updateCaseMutation.mutate({
+        caseId: editingCase.id,
+        data
+      });
+    }
   };
 
   const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
@@ -76,7 +110,13 @@ export default function EsteiraPage() {
     console.log('renderCaseList:', { cases, isLoading, error, count: cases?.length });
 
     if (isLoading) {
-      return <CaseListSkeleton count={4} />;
+      return (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <CaseSkeleton key={i} />
+          ))}
+        </div>
+      );
     }
 
     if (error) {
@@ -103,6 +143,7 @@ export default function EsteiraPage() {
             caso={caso}
             onView={(id) => router.push(`/casos/${id}`)}
             onAssign={showPegarButton ? handlePegarCaso : undefined}
+            onEdit={handleEditCase}
           />
         ))}
         {Array.isArray(cases) && cases.length === 0 && (
@@ -152,6 +193,17 @@ export default function EsteiraPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Notes Editor Dialog */}
+      <CaseNotesEditor
+        open={!!editingCase}
+        onOpenChange={(open) => !open && setEditingCase(null)}
+        caseId={editingCase?.id || 0}
+        initialPhone={editingCase?.telefone_preferencial || ""}
+        initialNotes={editingCase?.observacoes || ""}
+        onSave={handleSaveNotes}
+        isLoading={updateCaseMutation.isPending}
+      />
     </div>
   );
 }

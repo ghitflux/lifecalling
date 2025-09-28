@@ -16,7 +16,7 @@ def login(payload: LoginIn, resp: Response):
         user = db.query(User).filter(User.email==payload.email).first()
         if not user or not verify_password(payload.password, user.password_hash):
             raise HTTPException(401, "invalid credentials")
-        set_auth_cookies(resp, user.id)
+        set_auth_cookies(resp, user.id, user.role)
         return {"id": user.id, "name": user.name, "role": user.role}
 
 @r.get("/me")
@@ -27,4 +27,5 @@ def me(user: User = Depends(get_current_user)):
 def logout(resp: Response):
     resp.delete_cookie("access")
     resp.delete_cookie("refresh")
+    resp.delete_cookie("role")
     return {"ok": True}

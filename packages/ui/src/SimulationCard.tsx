@@ -104,7 +104,7 @@ export function SimulationCard({
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">LIBERADO CLIENTE</p>
           <p className="text-xl font-bold text-blue-600">
-            R$ {result.liberadoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {(result.liberadoCliente || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
         </div>
       </div>

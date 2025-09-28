@@ -7,12 +7,30 @@ import { Badge } from "./Badge";
 import { cn } from "./lib/utils";
 import { DollarSign, Calendar, TrendingUp, AlertCircle } from "lucide-react";
 
+interface SimulationResult {
+  banco?: string;
+  valorLiberado: number;
+  valorParcela: number;
+  coeficiente?: number;
+  saldoDevedor?: number;
+  valorTotalFinanciado?: number;
+  seguroObrigatorio?: number;
+  valorLiquido?: number;
+  custoConsultoria?: number;
+  liberadoCliente: number;
+  percentualConsultoria?: number;
+  taxaJuros: number;
+  prazo: number;
+}
+
 export interface FinanceCardProps {
   id: number;
   clientName: string;
-  totalAmount: number;
+  simulationResult?: SimulationResult;
+  // Mantendo compatibilidade com props antigas
+  totalAmount?: number;
   installedAmount?: number;
-  installments: number;
+  installments?: number;
   paidInstallments?: number;
   status: "pending" | "approved" | "disbursed" | "overdue";
   dueDate?: string;
@@ -25,6 +43,7 @@ export interface FinanceCardProps {
 export function FinanceCard({
   id,
   clientName,
+  simulationResult,
   totalAmount,
   installedAmount = 0,
   installments,
@@ -36,10 +55,15 @@ export function FinanceCard({
   onDisburse,
   className
 }: FinanceCardProps) {
-  const [disbursementAmount, setDisbursementAmount] = React.useState(totalAmount);
-  const [disbursementInstallments, setDisbursementInstallments] = React.useState(installments);
+  // Usar dados da simulação quando disponível, caso contrário usar props antigas
+  const finalTotalAmount = simulationResult?.valorLiberado || totalAmount || 0;
+  const finalInstallments = simulationResult?.prazo || installments || 0;
+  const finalMonthlyPayment = simulationResult?.valorParcela || 0;
 
-  const progress = installments > 0 ? (paidInstallments / installments) * 100 : 0;
+  const [disbursementAmount, setDisbursementAmount] = React.useState(finalTotalAmount);
+  const [disbursementInstallments, setDisbursementInstallments] = React.useState(finalInstallments);
+
+  const progress = finalInstallments > 0 ? (paidInstallments / finalInstallments) * 100 : 0;
 
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800",
@@ -74,6 +98,11 @@ export function FinanceCard({
         <div className="space-y-1">
           <h3 className="font-semibold text-lg">{clientName}</h3>
           <p className="text-sm text-muted-foreground">Caso #{id}</p>
+          {simulationResult?.banco && (
+            <div className="bg-primary/10 px-2 py-1 rounded-md">
+              <span className="text-xs font-medium text-primary">{simulationResult.banco}</span>
+            </div>
+          )}
         </div>
         <Badge className={statusColors[status]}>
           {statusLabels[status]}
@@ -85,10 +114,10 @@ export function FinanceCard({
         <div className="space-y-1">
           <div className="flex items-center gap-1">
             <DollarSign className="h-4 w-4 text-green-600" />
-            <span className="text-sm text-muted-foreground">Valor Total</span>
+            <span className="text-sm text-muted-foreground">Valor Liberado</span>
           </div>
           <p className="font-semibold text-lg text-green-600">
-            {formatCurrency(totalAmount)}
+            {formatCurrency(finalTotalAmount)}
           </p>
         </div>
 
@@ -98,17 +127,73 @@ export function FinanceCard({
             <span className="text-sm text-muted-foreground">Parcelas</span>
           </div>
           <p className="font-semibold">
-            {paidInstallments}/{installments}
+            {paidInstallments}/{finalInstallments}
           </p>
         </div>
+
+        {simulationResult && (
+          <>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-muted-foreground">Valor Parcela</span>
+              </div>
+              <p className="font-semibold">
+                {formatCurrency(finalMonthlyPayment)}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-muted-foreground">Liberado Cliente</span>
+              </div>
+              <p className="font-semibold text-green-600">
+                {formatCurrency(simulationResult.liberadoCliente)}
+              </p>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Seção adicional com dados da simulação */}
+      {simulationResult && (
+        <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {simulationResult.valorTotalFinanciado && (
+              <div>
+                <span className="text-muted-foreground">Total Financiado: </span>
+                <span className="font-medium">{formatCurrency(simulationResult.valorTotalFinanciado)}</span>
+              </div>
+            )}
+            {simulationResult.custoConsultoria && (
+              <div>
+                <span className="text-muted-foreground">Custo Consultoria: </span>
+                <span className="font-medium">{formatCurrency(simulationResult.custoConsultoria)}</span>
+              </div>
+            )}
+            {simulationResult.taxaJuros && (
+              <div>
+                <span className="text-muted-foreground">Taxa Juros: </span>
+                <span className="font-medium">{simulationResult.taxaJuros}% a.m.</span>
+              </div>
+            )}
+            {simulationResult.coeficiente && (
+              <div>
+                <span className="text-muted-foreground">Coeficiente: </span>
+                <span className="font-mono font-medium">{simulationResult.coeficiente.toFixed(7)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Progress Bar for disbursed contracts */}
       {status === "disbursed" && (
         <div className="space-y-2">
           <ProgressBar
             value={paidInstallments}
-            max={installments}
+            max={finalInstallments}
             variant={progress < 30 ? "danger" : progress < 70 ? "warning" : "success"}
             showLabel
             label="Progresso de Pagamento"

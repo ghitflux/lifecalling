@@ -5,7 +5,7 @@ import { Button } from "../../Button";
 import { StatusBadge, type Status } from "../../StatusBadge";
 import { Badge } from "../../Badge";
 import { cn } from "../../lib/utils";
-import { User, Calendar, CreditCard, Building2, Hash, DollarSign } from "lucide-react";
+import { User, Calendar, CreditCard, Building2, Hash, DollarSign, Phone } from "lucide-react";
 
 interface CardFechamentoProps {
   case: {
@@ -16,6 +16,7 @@ interface CardFechamentoProps {
       cpf?: string;
       matricula?: string;
       orgao?: string;
+      telefone?: string;
     };
     contract?: {
       total_amount?: number;
@@ -130,6 +131,13 @@ export function CardFechamento({
             <span>Mat: {caseData.client?.matricula || 'Não informado'}</span>
           </div>
         </div>
+
+        {caseData.client?.telefone && (
+          <div className="flex items-center gap-2 text-sm">
+            <Phone className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+            <span className="font-medium text-blue-600">{caseData.client.telefone}</span>
+          </div>
+        )}
 
         {(caseData.client?.orgao || caseData.banco) && (
           <div className="flex items-center gap-4 text-sm">

@@ -29,7 +29,8 @@
       "Bash(python:*)",
       "Bash(POSTGRES_USER=postgres POSTGRES_PASSWORD=postgres POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_DB=lifecalling python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload)",
       "Bash(POSTGRES_USER=lifecalling POSTGRES_PASSWORD=lifecalling POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_DB=lifecalling python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload)",
-      "Bash(npx next dev:*)"
+      "Bash(npx next dev:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

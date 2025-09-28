@@ -1,219 +1,320 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useState } from "react";
-import { SimulationCard, SimulationForm, Card, CalculistaSkeleton } from "@lifecalling/ui";
-import { SimuladorCalculista, priceCoef } from "@/lib/calc";
-import { useSims, useSimApprove, useSimReject } from "@/lib/hooks";
-import { useQuery } from "@tanstack/react-query";
+import {
+  SimulationWorkspace,
+  Card,
+  CaseDetails,
+  Button,
+  Badge,
+  CaseSkeleton,
+  type SimulationResult
+} from "@lifecalling/ui";
+import {
+  usePendingSimulations,
+  useApproveSimulation,
+  useRejectSimulation,
+  useCalculistaStats,
+  useUpdateCaseStatus
+} from "@/lib/simulation-hooks";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Calculator, ArrowLeft } from "lucide-react";
 
 export default function CalculistaPage(){
   useLiveCaseEvents();
-  const { data: sims, isLoading: simsLoading } = useSims("pending");
-  const [active, setActive] = useState<number | null>(null);
-  const approve = useSimApprove();
-  const reject = useSimReject();
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: sims, isLoading: simsLoading } = usePendingSimulations();
+  const { data: stats } = useCalculistaStats();
+  const [activeSimulation, setActiveSimulation] = useState<number | null>(null);
+  const approveSimulation = useApproveSimulation();
+  const rejectSimulation = useRejectSimulation();
+  const updateCaseStatus = useUpdateCaseStatus();
 
-  // Query para buscar detalhes do caso ativo
-  const { data: caseDetail, isLoading: caseLoading } = useQuery({
-    queryKey: ["case", active],
+  // Query para buscar detalhes da simulação ativa
+  const { data: activeSimData, isLoading: simLoading } = useQuery({
+    queryKey: ["simulation", activeSimulation],
     queryFn: async () => {
-      if (!active) return null;
-      // Buscar o caso relacionado à simulação
-      const sim = sims?.find((s: any) => s.id === active);
-      if (!sim) return null;
+      if (!activeSimulation) return null;
+      return sims?.find((s: any) => s.id === activeSimulation);
+    },
+    enabled: !!activeSimulation && !!sims
+  });
 
-      const response = await api.get(`/cases/${sim.case_id}`);
+  // Query para buscar detalhes do caso relacionado
+  const { data: caseDetail, isLoading: caseLoading } = useQuery({
+    queryKey: ["case", activeSimData?.case_id],
+    queryFn: async () => {
+      if (!activeSimData?.case_id) return null;
+      const response = await api.get(`/cases/${activeSimData.case_id}`);
       return response.data;
     },
-    enabled: !!active && !!sims
+    enabled: !!activeSimData?.case_id
   });
 
-  // Dados do formulário atual
-  const [formData, setFormData] = useState({
-    banco: "SANTANDER",
-    parcelas: "96",
-    saldo: "30000",
-    seguro: "1000",
-    percentOperacao: "2.5",
-    percentConsultoria: "12",
-    coeficiente: ""
+  // Mutation para criar nova simulação
+  const createSimulationMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post("/simulations", { case_id: caseId });
+      return response.data;
+    },
+    onSuccess: (newSim) => {
+      queryClient.invalidateQueries({ queryKey: ["simulations"] });
+      setActiveSimulation(newSim.id);
+      toast.success("Nova simulação criada!");
+    },
+    onError: () => {
+      toast.error("Erro ao criar simulação");
+    }
   });
 
-  // Calcular resultados baseado no formData
-  // Usando valor padrão de parcela de R$ 1.000,00 conforme imagem
-  const r = SimuladorCalculista({
-    banco: formData.banco,
-    parcelas: parseInt(formData.parcelas),
-    saldoDevedor: parseInt(formData.saldo),
-    parcela: 1000, // Valor fixo conforme layout da imagem
-    seguroObrigatorio: parseInt(formData.seguro),
-    percentualOperacaoMes: parseFloat(formData.percentOperacao),
-    percentualConsultoria: parseFloat(formData.percentConsultoria)/100,
-    coeficienteManual: formData.coeficiente ? Number(formData.coeficiente) : null,
-  });
+  // Handlers para aprovação e rejeição
+  const handleApprove = async (result: SimulationResult) => {
+    if (!activeSimulation || !activeSimData) return;
 
-  const handleApprove = async (data: any) => {
-    if (!active) return;
-    setLoading(true);
     try {
-      await approve.mutateAsync({
-        simId: active,
+      // Aprovar simulação
+      await approveSimulation.mutateAsync({
+        simId: activeSimulation,
         payload: {
-          manual_input: data,
-          results: r
+          manual_input: {
+            banco: result.banco,
+            saldoDevedor: result.saldoDevedor,
+            parcelas: result.prazo,
+            taxaJuros: result.taxaJuros,
+            seguroObrigatorio: result.seguroObrigatorio,
+            percentualConsultoria: result.percentualConsultoria * 100,
+            coeficiente: result.coeficiente
+          },
+          results: result
         }
       });
-      toast.success("Simulação aprovada com sucesso!");
+
+      // Atualizar status do caso para "simulacao_aprovada"
+      await updateCaseStatus.mutateAsync({
+        caseId: activeSimData.case_id,
+        status: "simulacao_aprovada",
+        simulationData: result
+      });
+
+      toast.success("Simulação aprovada! Caso movido para fechamento.");
+      setActiveSimulation(null); // Voltar para lista
     } catch (error) {
+      console.error("Erro ao aprovar:", error);
       toast.error("Erro ao aprovar simulação");
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleReject = async (data: any) => {
-    if (!active) return;
-    setLoading(true);
+  const handleReject = async (reason?: string) => {
+    if (!activeSimulation || !activeSimData) return;
+
     try {
-      await reject.mutateAsync({
-        simId: active,
+      // Rejeitar simulação
+      await rejectSimulation.mutateAsync({
+        simId: activeSimulation,
         payload: {
-          manual_input: data,
-          results: r
+          reason: reason || "Simulação rejeitada pelo calculista"
         }
       });
-      toast.success("Simulação reprovada");
+
+      // Atualizar status do caso para "simulacao_rejeitada"
+      await updateCaseStatus.mutateAsync({
+        caseId: activeSimData.case_id,
+        status: "simulacao_rejeitada"
+      });
+
+      toast.success("Simulação rejeitada. Caso retornado para esteira.");
+      setActiveSimulation(null); // Voltar para lista
     } catch (error) {
-      toast.error("Erro ao reprovar simulação");
-    } finally {
-      setLoading(false);
+      console.error("Erro ao rejeitar:", error);
+      toast.error("Erro ao rejeitar simulação");
     }
   };
 
+  // Loading state
   if (simsLoading) {
-    return <CalculistaSkeleton />;
+    return (
+      <div className="p-6">
+        <div className="space-y-4">
+          <div className="h-8 bg-muted rounded w-64"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="h-32 bg-muted rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
+  // Se está trabalhando numa simulação específica
+  if (activeSimulation && activeSimData) {
+    return (
+      <div className="p-6 space-y-6">
+        {/* Header with back button */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => setActiveSimulation(null)}
+            className="p-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold">
+              Simulação #{activeSimulation}
+            </h1>
+            <p className="text-muted-foreground">
+              Caso #{activeSimData.case_id} - {caseDetail?.client?.name}
+            </p>
+          </div>
+        </div>
+
+        {/* Case Details Summary */}
+        {caseDetail && (
+          <Card className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Cliente:</span>
+                <p>{caseDetail.client?.name}</p>
+              </div>
+              <div>
+                <span className="font-medium">CPF:</span>
+                <p>{caseDetail.client?.cpf}</p>
+              </div>
+              <div>
+                <span className="font-medium">Matrícula:</span>
+                <p>{caseDetail.client?.matricula}</p>
+              </div>
+              <div>
+                <span className="font-medium">Telefone:</span>
+                <p>{caseDetail.telefone_preferencial || 'Não informado'}</p>
+              </div>
+            </div>
+            {caseDetail.observacoes && (
+              <div className="mt-3 pt-3 border-t">
+                <span className="font-medium text-sm">Observações:</span>
+                <p className="text-sm text-muted-foreground mt-1">{caseDetail.observacoes}</p>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Simulation Workspace */}
+        <SimulationWorkspace
+          caseId={activeSimData.case_id}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          loading={approveSimulation.isPending || rejectSimulation.isPending || updateCaseStatus.isPending}
+          showActions={true}
+        />
+      </div>
+    );
+  }
+
+  // Lista principal de simulações
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Calculista — Simulações Pendentes</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Calculator className="h-6 w-6 text-primary" />
+            Calculista
+          </h1>
+          <p className="text-muted-foreground">
+            Simulações pendentes de análise
+          </p>
+        </div>
+        <Badge variant="secondary">
+          {sims?.length || 0} simulações pendentes
+        </Badge>
+      </div>
 
-      <div className="grid lg:grid-cols-4 gap-6">
-        {/* Fila de Simulações */}
-        <Card className="lg:col-span-1">
-          <div className="p-4">
-            <h2 className="font-medium mb-4">Fila de Pendências</h2>
-            <div className="space-y-2 max-h-[60vh] overflow-auto">
-              {sims?.map((s: any) => (
-                <button
-                  key={s.id}
-                  onClick={() => setActive(s.id)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                    active === s.id
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-card hover:bg-muted"
-                  }`}
-                >
-                  <div className="text-sm font-medium">SIM #{s.id}</div>
-                  <div className="text-xs text-muted-foreground">Caso #{s.case_id}</div>
-                </button>
-              ))}
-              {(!sims || sims.length === 0) && (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhuma simulação pendente
-                </div>
-              )}
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded-md">
+              <Calculator className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Simulações Pendentes</p>
+              <p className="text-2xl font-bold">{sims?.length || 0}</p>
             </div>
           </div>
         </Card>
 
-        {/* Detalhes do Caso */}
-        <Card className="lg:col-span-1">
-          <div className="p-4">
-            <h2 className="font-medium mb-4">Dados do Caso</h2>
-            {caseLoading ? (
-              <div className="space-y-3">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-                <div className="h-3 bg-muted rounded w-2/3"></div>
-              </div>
-            ) : caseDetail ? (
-              <div className="space-y-3 text-sm">
-                <div>
-                  <span className="font-medium">Cliente:</span>
-                  <div className="text-muted-foreground">{caseDetail.client.name}</div>
-                </div>
-                <div>
-                  <span className="font-medium">CPF:</span>
-                  <div className="text-muted-foreground">{caseDetail.client.cpf}</div>
-                </div>
-                <div>
-                  <span className="font-medium">Matrícula:</span>
-                  <div className="text-muted-foreground">{caseDetail.client.matricula}</div>
-                </div>
-                <div>
-                  <span className="font-medium">Órgão:</span>
-                  <div className="text-muted-foreground">{caseDetail.client.orgao}</div>
-                </div>
-                {caseDetail.client.telefone_preferencial && (
-                  <div>
-                    <span className="font-medium">Telefone:</span>
-                    <div className="text-muted-foreground">{caseDetail.client.telefone_preferencial}</div>
-                  </div>
-                )}
-                {caseDetail.client.observacoes && (
-                  <div className="border-t pt-3 mt-3">
-                    <span className="font-medium">Observações:</span>
-                    <div className="text-muted-foreground text-xs mt-1">{caseDetail.client.observacoes}</div>
-                  </div>
-                )}
-              </div>
-            ) : active ? (
-              <div className="text-muted-foreground text-sm">
-                Selecione uma simulação para ver os detalhes
-              </div>
-            ) : null}
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-100 p-2 rounded-md">
+              <Calculator className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Aprovadas Hoje</p>
+              <p className="text-2xl font-bold">{stats?.approvedToday || 0}</p>
+            </div>
           </div>
         </Card>
 
-        {/* Formulário e Resultados */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Formulário */}
-          <SimulationForm
-            initialData={formData}
-            onChange={setFormData}
-            loading={loading || !active}
-          />
-
-          {/* Resultados da Simulação */}
-          {active && (
-            <SimulationCard
-              result={{
-                banco: formData.banco,
-                valorLiberado: r.valorLiberado,
-                valorParcela: r.valorParcelaTotal,
-                coeficiente: r.coeficiente,
-                saldoDevedor: parseInt(formData.saldo),
-                valorTotalFinanciado: r.valorTotalFinanciado,
-                seguroObrigatorio: parseInt(formData.seguro),
-                valorLiquido: r.valorLiquido,
-                custoConsultoria: r.custoConsultoria,
-                liberadoCliente: r.liberadoCliente,
-                percentualConsultoria: parseFloat(formData.percentConsultoria) / 100,
-                taxaJuros: parseFloat(formData.percentOperacao),
-                prazo: parseInt(formData.parcelas)
-              }}
-              isActive={true}
-              onApprove={() => handleApprove(formData)}
-              onReject={() => handleReject(formData)}
-            />
-          )}
-
-        </div>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 p-2 rounded-md">
+              <Calculator className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Hoje</p>
+              <p className="text-2xl font-bold">{stats?.totalToday || 0}</p>
+            </div>
+          </div>
+        </Card>
       </div>
+
+      {/* Simulações List */}
+      {(!sims || sims.length === 0) ? (
+        <div className="text-center py-12">
+          <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h3 className="font-medium text-muted-foreground mb-1">
+            Nenhuma simulação pendente
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Todas as simulações foram processadas.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {sims.map((sim: any) => (
+            <Card
+              key={sim.id}
+              className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setActiveSimulation(sim.id)}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline">SIM #{sim.id}</Badge>
+                  <Badge variant="secondary">Pendente</Badge>
+                </div>
+
+                <div>
+                  <h3 className="font-medium">Caso #{sim.case_id}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Aguardando análise do calculista
+                  </p>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Criado em: {new Date(sim.created_at || Date.now()).toLocaleDateString('pt-BR')}
+                </div>
+
+                <Button variant="outline" className="w-full" size="sm">
+                  Analisar Simulação
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

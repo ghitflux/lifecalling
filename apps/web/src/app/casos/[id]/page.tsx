@@ -136,7 +136,7 @@ export default function CaseDetailPage() {
         <div className="text-center py-8">
           <div className="text-red-500 mb-4">Erro ao carregar detalhes do caso</div>
           <div className="text-sm text-gray-500">
-            {error.response?.status === 401
+            {(error as any).response?.status === 401
               ? "Você precisa estar logado para ver este conteúdo"
               : "Tente novamente mais tarde"}
           </div>
@@ -270,7 +270,21 @@ export default function CaseDetailPage() {
                 ✅ Simulação aprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
               </div>
               <SimulationCard
-                result={caseDetail.simulation.results}
+                result={{
+                  banco: "N/A",
+                  valorLiberado: caseDetail.simulation.results.valorLiberado,
+                  valorParcela: caseDetail.simulation.results.valorParcela,
+                  coeficiente: 0,
+                  saldoDevedor: 0,
+                  valorTotalFinanciado: 0,
+                  seguroObrigatorio: 0,
+                  valorLiquido: 0,
+                  custoConsultoria: 0,
+                  liberadoCliente: caseDetail.simulation.results.valorLiberado,
+                  percentualConsultoria: 0,
+                  taxaJuros: caseDetail.simulation.results.taxaJuros,
+                  prazo: caseDetail.simulation.results.prazo
+                }}
                 isActive={true}
               />
             </div>

@@ -88,7 +88,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto p-2">
-        <Button variant="destructive" className="w-full transition-all duration-200" onClick={logout}>
+        <Button variant="destructive" className="w-full transition-all duration-200" onClick={() => logout()}>
           <LogOut className="h-4 w-4 shrink-0" />
           <span className={cn(
             "ml-2 transition-all duration-200",
