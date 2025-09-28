@@ -4,6 +4,13 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosEr
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
+// Log para debug - configuração da API
+console.log('🔧 API Configuration:', {
+  baseURL: BASE_URL,
+  environment: process.env.NODE_ENV,
+  publicApiUrl: process.env.NEXT_PUBLIC_API_BASE_URL
+});
+
 // --- instancia base ----------------------------------------------
 export const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,

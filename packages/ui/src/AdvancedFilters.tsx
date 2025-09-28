@@ -1,7 +1,7 @@
 /* packages/ui/src/AdvancedFilters.tsx */
 import React from "react";
 import { Button } from "./Button";
-import { Dialog } from "./Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "./Dialog";
 import { Badge } from "./Badge";
 import { cn } from "./lib/utils";
 import { Filter, X, Calendar, DollarSign, Building, User, Hash } from "lucide-react";
@@ -202,78 +202,75 @@ export function AdvancedFilters({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
-        <div className={cn(
-          "relative bg-background rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] flex flex-col",
-          className
-        )}>
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
-            <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">Filtros Avançados</h2>
-              {hasActiveFilters && (
-                <Badge variant="secondary">
-                  {activeFilterCount} filtros ativos
-                </Badge>
-              )}
-            </div>
+      <DialogContent className={cn(
+        "max-w-2xl w-full max-h-[80vh] flex flex-col p-0",
+        className
+      )}>
+        {/* Header */}
+        <DialogHeader className="flex flex-row items-center justify-between p-6 border-b space-y-0">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            <DialogTitle className="text-lg font-semibold">Filtros Avançados</DialogTitle>
+            {hasActiveFilters && (
+              <Badge variant="secondary">
+                {activeFilterCount} filtros ativos
+              </Badge>
+            )}
+          </div>
+          <DialogClose asChild>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onOpenChange(false)}
             >
               <X className="h-4 w-4" />
             </Button>
-          </div>
+          </DialogClose>
+        </DialogHeader>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="grid gap-6">
-              {filterGroups.map((group) => {
-                const IconComponent = group.icon;
-                return (
-                  <div key={group.id} className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium">
-                      {IconComponent && <IconComponent className="h-4 w-4" />}
-                      {group.label}
-                    </label>
-                    {renderFilterControl(group)}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between p-6 border-t bg-muted/30">
-            <Button
-              variant="ghost"
-              onClick={onClear}
-              disabled={!hasActiveFilters}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Limpar Tudo
-            </Button>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={() => {
-                onApply();
-                onOpenChange(false);
-              }}>
-                Aplicar Filtros
-              </Button>
-            </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid gap-6">
+            {filterGroups.map((group) => {
+              const IconComponent = group.icon;
+              return (
+                <div key={group.id} className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    {IconComponent && <IconComponent className="h-4 w-4" />}
+                    {group.label}
+                  </label>
+                  {renderFilterControl(group)}
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t bg-muted/30">
+          <Button
+            variant="ghost"
+            onClick={onClear}
+            disabled={!hasActiveFilters}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar Tudo
+          </Button>
+
+          <div className="flex gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button onClick={() => {
+              onApply();
+              onOpenChange(false);
+            }}>
+              Aplicar Filtros
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 }

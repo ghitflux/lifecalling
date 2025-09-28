@@ -22,6 +22,7 @@ type AuthCtx = {
   login: (email: string, password: string, next?: string) => Promise<void>;
   logout: (redirectToLogin?: boolean) => Promise<void>;
   refresh: () => Promise<void>;
+  getAccessToken: () => string | null;
 };
 
 /* ======================
@@ -101,11 +102,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string, next?: string) => {
     setLoading(true);
-    await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
-    await refresh();
-    // redireciona para a rota desejada após login
-    const redirectTo = next || "/esteira";
-    window.location.href = redirectTo; // força um redirecionamento completo para evitar loops
+    try {
+      await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
+      await refresh();
+      // redireciona para a rota desejada após login
+      const redirectTo = next || "/esteira";
+      router.push(redirectTo); // usa router em vez de window.location.href
+    } catch (error) {
+      setLoading(false);
+      throw error; // propaga o erro para o componente de login
+    }
   };
 
   const logout = async (redirectToLogin = true) => {
@@ -117,8 +123,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const getAccessToken = () => {
+    // Tenta obter o token do cookie de acesso (se existir)
+    if (typeof window !== 'undefined') {
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      return cookies.access || null;
+    }
+    return null;
+  };
+
   const value = useMemo<AuthCtx>(
-    () => ({ user, loading, login, logout, refresh }),
+    () => ({ user, loading, login, logout, refresh, getAccessToken }),
     [user, loading]
   );
 

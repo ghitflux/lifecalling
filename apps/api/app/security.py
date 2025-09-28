@@ -15,9 +15,31 @@ def make_token(sub:int, kind:str, ttl:int):
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 def set_auth_cookies(resp:Response, uid:int, role:str):
-    resp.set_cookie("access", make_token(uid,"access", settings.access_ttl), httponly=True, samesite="lax")
-    resp.set_cookie("refresh", make_token(uid,"refresh", settings.refresh_ttl), httponly=True, samesite="lax")
-    resp.set_cookie("role", role, httponly=False, samesite="lax")  # role precisa ser acessível pelo middleware
+    # Configuração para desenvolvimento (sem domínio específico)
+    resp.set_cookie(
+        "access",
+        make_token(uid,"access", settings.access_ttl),
+        httponly=True,
+        samesite="lax",
+        secure=False  # CRÍTICO: False para localhost (HTTP)
+        # Sem domínio específico para permitir flexibilidade
+    )
+    resp.set_cookie(
+        "refresh",
+        make_token(uid,"refresh", settings.refresh_ttl),
+        httponly=True,
+        samesite="lax",
+        secure=False  # CRÍTICO: False para localhost (HTTP)
+        # Sem domínio específico para permitir flexibilidade
+    )
+    resp.set_cookie(
+        "role",
+        role,
+        httponly=False,
+        samesite="lax",
+        secure=False  # Consistência com outros cookies
+        # Sem domínio específico para permitir flexibilidade
+    )
 
 def get_current_user(access: str | None = Cookie(default=None), refresh: str | None = Cookie(default=None)):
     token = access or refresh

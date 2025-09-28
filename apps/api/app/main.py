@@ -8,18 +8,15 @@ from .routers import simulations
 
 app = FastAPI(title="Lifecalling API")
 
-origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")] if getattr(settings, "CORS_ORIGINS", "") else ["http://localhost:3000"]
-
+# Configuração CORS otimizada para desenvolvimento
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # front em dev
-    allow_credentials=True,                   # necessário para cookies HttpOnly
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Frontend dev e prod
+    allow_credentials=True,  # CRÍTICO: necessário para cookies HttpOnly
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    expose_headers=["Set-Cookie"],  # Expõe cookies para o frontend
 )
-
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://localhost:3001"], allow_credentials=True,
-                   allow_methods=["*"], allow_headers=["*"])
 
 # Routers
 app.include_router(auth.r)

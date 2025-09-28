@@ -5,7 +5,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useWebSocket } from "@/lib/websocket";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 
 function ApiInterceptor() {
   const router = useRouter();
@@ -53,7 +53,9 @@ export default function Providers({ children }: { children: ReactNode }) {
 }
 
 function WebSocketProvider() {
-  const { isConnected } = useWebSocket();
+  const { user, getAccessToken } = useAuth();
+  const token = getAccessToken();
+  const { isConnected } = useWebSocket(user ? token || undefined : undefined);
 
   useEffect(() => {
     if (isConnected) {

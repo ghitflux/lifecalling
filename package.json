@@ -13,9 +13,14 @@
     "storybook": "pnpm --filter ./apps/web storybook",
     "types:gen": "pnpm --filter @lifecalling/types gen && pnpm --filter @lifecalling/types build",
     "build": "pnpm --filter ./apps/web build",
-    "lint": "pnpm --filter ./apps/web lint"
+    "lint": "pnpm --filter ./apps/web lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.1",
     "@storybook/addon-a11y": "9.1.8",
     "@storybook/addon-themes": "^9.1.8",
     "@storybook/nextjs": "9.1.8",

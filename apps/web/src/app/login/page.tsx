@@ -26,11 +26,16 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      // Obtem o parâmetro 'next' da URL se disponível
+      const urlParams = new URLSearchParams(window.location.search);
+      const nextUrl = urlParams.get('next');
+
+      await login(email, password, nextUrl || undefined);
       toast.success("Login realizado com sucesso!");
       // O redirecionamento é feito automaticamente pelo hook useAuth
-    } catch (error) {
-      toast.error("Erro no login. Verifique suas credenciais.");
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.detail || "Erro no login. Verifique suas credenciais.";
+      toast.error(errorMessage);
       console.error("Login error:", error);
     } finally {
       setLoading(false);
@@ -43,11 +48,17 @@ export default function LoginPage() {
     setPassword(demoPassword);
     setLoading(true);
     try {
-      await login(demoEmail, demoPassword);
+      // Obtem o parâmetro 'next' da URL se disponível
+      const urlParams = new URLSearchParams(window.location.search);
+      const nextUrl = urlParams.get('next');
+
+      await login(demoEmail, demoPassword, nextUrl || undefined);
       toast.success("Login realizado com sucesso!");
       // O redirecionamento é feito automaticamente pelo hook useAuth
-    } catch (error) {
-      toast.error("Erro no login. Verifique suas credenciais.");
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.detail || "Erro no login. Verifique suas credenciais.";
+      toast.error(errorMessage);
+      console.error("Login error:", error);
     } finally {
       setLoading(false);
     }
@@ -58,35 +69,41 @@ export default function LoginPage() {
       level: "Administrador",
       color: "bg-red-500",
       users: [
-        { name: "Carlos Admin", email: "admin@demo.local", password: "123456" }
+        { name: "Carlos Admin", email: "admin@demo.local", password: "123456" },
+        { name: "Administrador Sistema", email: "admin@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Supervisor",
       color: "bg-blue-500",
       users: [
-        { name: "Sara Supervisor", email: "supervisor@demo.local", password: "123456" }
+        { name: "Sara Supervisor", email: "supervisor@demo.local", password: "123456" },
+        { name: "Supervisor Geral", email: "supervisor@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Financeiro",
       color: "bg-green-500",
       users: [
-        { name: "Fábio Financeiro", email: "financeiro@demo.local", password: "123456" }
+        { name: "Fábio Financeiro", email: "financeiro@demo.local", password: "123456" },
+        { name: "Analista Financeiro", email: "financeiro@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Calculista",
       color: "bg-yellow-500",
       users: [
-        { name: "Cida Calculista", email: "calculista@demo.local", password: "123456" }
+        { name: "Cida Calculista", email: "calculista@demo.local", password: "123456" },
+        { name: "Calculista Senior", email: "calculista@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Atendente",
       color: "bg-purple-500",
       users: [
-        { name: "Ana Atendente", email: "atendente@demo.local", password: "123456" }
+        { name: "Ana Atendente", email: "atendente@demo.local", password: "123456" },
+        { name: "Atendente Maria Silva", email: "atendente1@lifecalling.com", password: "123456" },
+        { name: "Atendente João Santos", email: "atendente2@lifecalling.com", password: "123456" }
       ]
     }
   ];

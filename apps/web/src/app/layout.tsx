@@ -17,7 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans bg-background text-foreground`}>
         <Providers>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Shell>{children}</Shell>
+          </AuthProvider>
         </Providers>
       </body>
     </html>
