@@ -56,8 +56,28 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
     );
   };
 
+  // Normalizar valor: "30.00" ou "30,00" = 30 reais
+  const normalizeValue = (value: string): number => {
+    if (!value) return 0;
+
+    // Remove espaços
+    let normalized = value.trim();
+
+    // Se contém vírgula e ponto, assume formato BR (1.234,56)
+    if (normalized.includes(',') && normalized.includes('.')) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    }
+    // Se contém apenas vírgula, substitui por ponto
+    else if (normalized.includes(',')) {
+      normalized = normalized.replace(',', '.');
+    }
+    // Se contém apenas ponto, mantém como está (assume formato US)
+
+    return parseFloat(normalized) || 0;
+  };
+
   const formatCurrency = (value: string) => {
-    const num = parseFloat(value || "0");
+    const num = normalizeValue(value);
     return num.toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -70,7 +90,7 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Financiamentos</h3>
+          <h3 className="text-lg font-semibold">Contratos</h3>
         </div>
         <div className="text-center py-8">
           <div className="animate-pulse">
@@ -87,7 +107,7 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Financiamentos</h3>
+          <h3 className="text-lg font-semibold">Contratos</h3>
         </div>
         <div className="text-center py-8 text-muted-foreground">
           <p>Erro ao carregar financiamentos</p>
@@ -101,12 +121,12 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Financiamentos</h3>
+          <h3 className="text-lg font-semibold">Contratos</h3>
         </div>
         <div className="text-center py-8 text-muted-foreground">
           <CreditCard className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>Nenhum financiamento encontrado</p>
-          <p className="text-sm">Este cliente ainda não possui financiamentos importados</p>
+          <p>Nenhum contrato encontrado</p>
+          <p className="text-sm">Este cliente ainda não possui contratos importados</p>
         </div>
       </Card>
     );
@@ -126,7 +146,7 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Financiamentos</h3>
+          <h3 className="text-lg font-semibold">Contratos</h3>
         </div>
         <Badge variant="outline" className="text-xs">
           {financiamentos.length} registros
@@ -148,19 +168,19 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
 
               <div className="overflow-x-auto">
                 <div className="min-w-full">
-                  <div className="grid grid-cols-8 gap-4 p-3 bg-gray-50 rounded-t-lg text-sm font-medium text-gray-700">
+                  <div className="grid grid-cols-8 gap-4 p-3 bg-muted/50 rounded-t-lg text-sm font-medium text-muted-foreground">
                     <div>STATUS</div>
                     <div>FIN.</div>
-                    <div>ÓRGÃO</div>
+                    <div>BANCO ENTIDADE</div>
                     <div>TOTAL</div>
                     <div>PAGO</div>
                     <div>VALOR</div>
                     <div>ÓRGÃO PAGTO</div>
                     <div>ENTIDADE</div>
                   </div>
-                  <div className="divide-y divide-gray-200">
+                  <div className="divide-y divide-border">
                     {items.map((fin) => (
-                      <div key={fin.id} className="grid grid-cols-8 gap-4 p-3 hover:bg-gray-50">
+                      <div key={fin.id} className="grid grid-cols-8 gap-4 p-3 hover:bg-muted/50 transition-colors">
                         <div>
                           {getStatusBadge(fin.status_code, fin.status_description)}
                         </div>

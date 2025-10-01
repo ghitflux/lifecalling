@@ -410,3 +410,64 @@ async def reopen_simulation(sim_id: int, user=Depends(require_roles("calculista"
     await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status": "calculista_pendente"})
 
     return {"ok": True, "message": "Simulação reaberta para edição"}
+
+@r.post("/{case_id}/send-to-finance")
+async def send_to_finance(case_id: int, user=Depends(require_roles("calculista","admin","supervisor"))):
+    """
+    Envia caso para financeiro após revisão do fechamento aprovado.
+    Usado quando o calculista revisa uma simulação aprovada pelo fechamento.
+    """
+    from ..routers.notifications import notify_case_status_change
+
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        if case.status != "fechamento_aprovado":
+            raise HTTPException(400, "Apenas casos com fechamento aprovado podem ser enviados para financeiro")
+
+        # Verificar se tem simulação aprovada
+        if not case.last_simulation_id:
+            raise HTTPException(400, "Caso não possui simulação aprovada")
+
+        sim = db.get(Simulation, case.last_simulation_id)
+        if not sim or sim.status != "approved":
+            raise HTTPException(400, "Simulação do caso não está aprovada")
+
+        # Atualizar status do caso
+        case.status = "financeiro_pendente"
+        case.last_update_at = datetime.utcnow()
+
+        # Criar evento
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="case.sent_to_finance",
+            payload={
+                "simulation_id": sim.id,
+                "sent_by": user.id
+            },
+            created_by=user.id
+        ))
+
+        db.commit()
+
+    # Notificar usuários do financeiro
+    notify_user_ids = []
+    from ..models import User
+    finance_users = db.query(User).filter(User.role == "financeiro", User.active == True).all()
+    for fu in finance_users:
+        notify_user_ids.append(fu.id)
+
+    if notify_user_ids:
+        await notify_case_status_change(
+            case_id=case.id,
+            new_status="financeiro_pendente",
+            changed_by_user_id=user.id,
+            notify_user_ids=notify_user_ids,
+            additional_payload={"simulation_id": sim.id}
+        )
+
+    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "financeiro_pendente"})
+
+    return {"ok": True, "message": "Caso enviado para financeiro"}

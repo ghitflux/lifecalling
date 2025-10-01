@@ -4,20 +4,16 @@ import { Button } from "./Button";
 import { Badge } from "./Badge";
 import { Card, CardContent } from "./Card";
 import { Input } from "./Input";
+import { StatusBadge, type Status } from "./StatusBadge";
 import { cn } from "./lib/utils";
-import { 
-  Eye, 
-  User, 
-  Calendar, 
-  Phone, 
-  FileText, 
-  Search, 
-  Filter,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  XCircle,
-  Pause
+import {
+  Eye,
+  User,
+  Calendar,
+  Phone,
+  FileText,
+  Search,
+  Filter
 } from "lucide-react";
 
 interface Client {
@@ -63,33 +59,7 @@ export function CasesTable({
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      novo: { variant: "secondary" as const, label: "Novo", icon: Clock },
-      em_andamento: { variant: "default" as const, label: "Em Andamento", icon: Clock },
-      aguardando_simulacao: { variant: "outline" as const, label: "Aguardando Simulação", icon: Pause },
-      simulacao_aprovada: { variant: "default" as const, label: "Simulação Aprovada", icon: CheckCircle },
-      contrato_enviado: { variant: "default" as const, label: "Contrato Enviado", icon: FileText },
-      finalizado: { variant: "default" as const, label: "Finalizado", icon: CheckCircle },
-      cancelado: { variant: "destructive" as const, label: "Cancelado", icon: XCircle },
-      rejeitado: { variant: "destructive" as const, label: "Rejeitado", icon: XCircle }
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      variant: "secondary" as const,
-      label: status,
-      icon: AlertCircle
-    };
-
-    const IconComponent = config.icon;
-
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <IconComponent className="w-3 h-3" />
-        {config.label}
-      </Badge>
-    );
-  };
+  // Usar o StatusBadge padronizado do design system
 
   const filteredCases = useMemo(() => {
     return cases.filter(case_ => {
@@ -263,7 +233,7 @@ export function CasesTable({
                   </div>
                   
                   <div className="flex flex-wrap gap-2">
-                    {getStatusBadge(case_.status)}
+                    <StatusBadge status={case_.status as Status} size="sm" />
                   </div>
                   
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -299,7 +269,7 @@ export function CasesTable({
                   </div>
                   
                   <div className="col-span-2">
-                    {getStatusBadge(case_.status)}
+                    <StatusBadge status={case_.status as Status} size="sm" />
                   </div>
                   
                   <div className="col-span-2 text-sm">

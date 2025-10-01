@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+WORKDIR /workspace
+
+# Instalar pnpm
+RUN corepack enable pnpm
+
+# Copiar workspace completo para suportar pnpm workspaces
+COPY pnpm-workspace.yaml package*.json pnpm-lock.yaml* ./
+COPY apps ./apps
+COPY packages ./packages
+
+# Instalar todas as dependências do workspace
+RUN pnpm install
+
+EXPOSE 3000
+
+# O comando será executado via docker-compose
+CMD ["pnpm", "run", "dev"]

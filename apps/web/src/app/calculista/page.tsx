@@ -37,6 +37,16 @@ export default function CalculistaPage(){
   const { data: allSims, isLoading: simsLoading } = useAllSimulations(activeTab === "concluidas");
   const { data: stats } = useCalculistaStats();
 
+  // Buscar casos com fechamento aprovado
+  const { data: retornoFechamento = [], isLoading: retornoLoading } = useQuery({
+    queryKey: ["/cases", "fechamento_aprovado"],
+    queryFn: async () => {
+      const response = await api.get("/cases?status=fechamento_aprovado&page_size=50");
+      return response.data.items || [];
+    },
+    enabled: activeTab === "retorno_fechamento"
+  });
+
   // Filtrar simulações
   const filteredSims = (allSims || []).filter((sim: any) => {
     // Filtro por status
@@ -197,11 +207,14 @@ export default function CalculistaPage(){
         placeholder="Buscar por nome ou CPF do cliente..."
       />
 
-      {/* Tabs: Pendentes / Concluídas Hoje */}
+      {/* Tabs: Pendentes / Retorno Fechamento / Concluídas Hoje */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
+          </TabsTrigger>
+          <TabsTrigger value="retorno_fechamento">
+            Retorno Fechamento ({retornoFechamento.length})
           </TabsTrigger>
           <TabsTrigger value="concluidas">
             Concluídas Hoje ({completedSims.length})
@@ -251,6 +264,62 @@ export default function CalculistaPage(){
                     <Button variant="outline" className="w-full" size="sm">
                       <Calculator className="h-4 w-4 mr-2" />
                       Analisar Simulação
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Retorno Fechamento */}
+        <TabsContent value="retorno_fechamento" className="mt-6">
+          {retornoLoading ? (
+            <CaseSkeleton />
+          ) : retornoFechamento.length === 0 ? (
+            <div className="text-center py-12">
+              <CheckCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="font-medium text-muted-foreground mb-1">
+                Nenhum caso de retorno de fechamento
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Casos aprovados pelo fechamento aparecerão aqui para revisão final.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {retornoFechamento.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-emerald-200"
+                  onClick={() => router.push(`/calculista/${caso.id}`)}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">Caso #{caso.id}</Badge>
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Fechamento Aprovado
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">{caso.client?.name || 'Cliente não identificado'}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        CPF: {caso.client?.cpf || '---'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Revisão final antes de enviar para financeiro
+                      </p>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Atualizado em: {new Date(caso.last_update_at || Date.now()).toLocaleDateString('pt-BR')}
+                    </div>
+
+                    <Button variant="outline" className="w-full" size="sm">
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Revisar e Enviar para Financeiro
                     </Button>
                   </div>
                 </Card>

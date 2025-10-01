@@ -17,6 +17,7 @@ export * from "./src/SimulationForm";
 export * from "./src/SimulationWorkspace";
 export * from "./src/SimulationResultCard";
 export * from "./src/SimulationHistoryCard";
+export * from "./src/SimulationHistoryModal";
 export * from "./src/lib/simulationUtils";
 export * from "./src/ChartContainer";
 export * from "./src/AreaChart";

@@ -11,7 +11,8 @@ import {
   Button,
   Badge,
   CaseSkeleton,
-  SimulationHistoryCard
+  SimulationHistoryCard,
+  SimulationHistoryModal
 } from "@lifecalling/ui";
 import { ArrowLeft, Calculator, CheckCircle, XCircle, History } from "lucide-react";
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
@@ -28,6 +29,7 @@ export default function CalculistaSimulationPage() {
   const [currentSimulation, setCurrentSimulation] = useState<SimulationInput | null>(null);
   const [currentTotals, setCurrentTotals] = useState<SimulationTotals | null>(null);
   const [simulationId, setSimulationId] = useState<number | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Verificar permissões
   useEffect(() => {
@@ -151,6 +153,30 @@ export default function CalculistaSimulationPage() {
     rejectSimulationMutation.mutate({ simId: simulationId });
   };
 
+  // Mutation para enviar para financeiro
+  const sendToFinanceMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/simulations/${caseId}/send-to-finance`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+      toast.success("Caso enviado para financeiro!");
+      router.push("/calculista");
+    },
+    onError: (error: any) => {
+      console.error("Erro ao enviar para financeiro:", error);
+      toast.error(error.response?.data?.detail || "Erro ao enviar para financeiro");
+    }
+  });
+
+  const handleSendToFinance = () => {
+    sendToFinanceMutation.mutate(caseId);
+  };
+
+  // Verificar se é retorno de fechamento aprovado
+  const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
+
   if (caseLoading) {
     return <CaseSkeleton />;
   }
@@ -172,23 +198,31 @@ export default function CalculistaSimulationPage() {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          onClick={() => router.push("/calculista")}
-          className="p-2"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Calculator className="h-6 w-6 text-primary" />
-            Simulação Multi-Bancos
-          </h1>
-          <p className="text-muted-foreground">
-            Caso #{caseId} - {caseDetail.client?.name}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/calculista")}
+            className="p-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold flex items-center gap-2">
+              <Calculator className="h-6 w-6 text-primary" />
+              {isFechamentoAprovado ? "Revisão Final - Retorno Fechamento" : "Simulação Multi-Bancos"}
+            </h1>
+            <p className="text-muted-foreground">
+              Caso #{caseId} - {caseDetail.client?.name}
+            </p>
+          </div>
         </div>
+        {isFechamentoAprovado && (
+          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Fechamento Aprovado
+          </Badge>
+        )}
       </div>
 
       {/* Case Details Summary */}
@@ -242,53 +276,74 @@ export default function CalculistaSimulationPage() {
               />
 
               {/* Ações */}
-              <div className="grid grid-cols-2 gap-3">
+              {isFechamentoAprovado ? (
                 <Button
-                  onClick={handleReject}
-                  variant="destructive"
-                  disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
-                  data-testid="reject-button"
+                  onClick={handleSendToFinance}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={sendToFinanceMutation.isPending}
+                  data-testid="send-to-finance-button"
                 >
-                  {rejectSimulationMutation.isPending ? (
+                  {sendToFinanceMutation.isPending ? (
                     <>
                       <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                      Rejeitando...
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reprovar
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  onClick={handleApprove}
-                  className="bg-green-600 hover:bg-green-700"
-                  disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
-                  data-testid="approve-button"
-                >
-                  {approveSimulationMutation.isPending ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                      Aprovando...
+                      Enviando...
                     </>
                   ) : (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Aprovar
+                      Enviar para Financeiro
                     </>
                   )}
                 </Button>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={handleReject}
+                    variant="destructive"
+                    disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
+                    data-testid="reject-button"
+                  >
+                    {rejectSimulationMutation.isPending ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                        Rejeitando...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Reprovar
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={handleApprove}
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
+                    data-testid="approve-button"
+                  >
+                    {approveSimulationMutation.isPending ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                        Aprovando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Aprovar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
 
               {/* Status */}
               <div className="bg-muted/30 rounded-lg p-4">
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4">
                     <span className="text-muted-foreground">Status:</span>
-                    <Badge variant="outline" className="text-green-600">
-                      Simulação Calculada
+                    <Badge variant="outline" className={isFechamentoAprovado ? "text-emerald-600" : "text-green-600"}>
+                      {isFechamentoAprovado ? "Aprovado pelo Fechamento" : "Simulação Calculada"}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-4">
@@ -299,6 +354,13 @@ export default function CalculistaSimulationPage() {
                   </div>
                 </div>
               </div>
+              {isFechamentoAprovado && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <p className="text-sm text-emerald-700">
+                    <strong>Retorno de Fechamento:</strong> Revise a simulação e, se necessário, edite os valores. Após confirmar, envie para o financeiro.
+                  </p>
+                </div>
+              )}
             </>
           ) : (
             <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
@@ -314,18 +376,41 @@ export default function CalculistaSimulationPage() {
         </div>
       </div>
 
-      {/* Histórico de Simulações */}
+      {/* Botão para abrir histórico */}
       {simulationHistory && simulationHistory.length > 0 && (
         <div className="mt-6">
-          <SimulationHistoryCard
-            history={simulationHistory}
-            onSelectSimulation={(entry) => {
-              // Ao clicar em uma simulação do histórico, mostra seus dados
-              toast.info(`Visualizando simulação #${entry.simulation_id}`);
-            }}
-          />
+          <Button
+            variant="outline"
+            onClick={() => setShowHistoryModal(true)}
+            className="w-full"
+          >
+            <History className="h-4 w-4 mr-2" />
+            Ver Histórico de Simulações ({simulationHistory.length})
+          </Button>
         </div>
       )}
+
+      {/* Modal de Histórico */}
+      <SimulationHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        history={simulationHistory || []}
+        caseId={caseId}
+        clientName={caseDetail?.client?.name}
+        onEditSimulation={(entry) => {
+          // Carregar simulação para edição
+          setCurrentSimulation({
+            banks: entry.banks,
+            prazo: entry.prazo,
+            coeficiente: "",
+            seguro: entry.totals.seguroObrigatorio || 0,
+            percentualConsultoria: entry.percentualConsultoria
+          });
+          setCurrentTotals(entry.totals);
+          toast.success("Simulação carregada para edição");
+          setShowHistoryModal(false);
+        }}
+      />
     </div>
   );
 }

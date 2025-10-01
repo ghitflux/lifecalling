@@ -4,22 +4,41 @@ from app.models import User, Client, Case
 from app.security import hash_password
 import random
 
+# 3 usuários para cada role conforme solicitado
 DEMO = [
-    ("Carlos Admin", "admin@demo.local", "admin"),
-    ("Sara Supervisor", "supervisor@demo.local", "supervisor"),
-    ("Fábio Financeiro", "financeiro@demo.local", "financeiro"),
-    ("Cida Calculista", "calculista@demo.local", "calculista"),
-    ("Ana Atendente", "atendente@demo.local", "atendente"),
-    # extras p/ seu modal
-    ("Gerente Vendas", "gerente@demo.local", "supervisor"),
-    ("Usuário Padrão", "user@demo.local", "atendente"),
+    # Administradores
+    ("Carlos Admin", "admin1@demo.local", "admin"),
+    ("Maria Administradora", "admin2@demo.local", "admin"),
+    ("João Administrador", "admin3@demo.local", "admin"),
+
+    # Supervisores
+    ("Sara Supervisor", "supervisor1@demo.local", "supervisor"),
+    ("Pedro Supervisor", "supervisor2@demo.local", "supervisor"),
+    ("Ana Supervisora", "supervisor3@demo.local", "supervisor"),
+
+    # Financeiro
+    ("Fábio Financeiro", "financeiro1@demo.local", "financeiro"),
+    ("Carla Financeira", "financeiro2@demo.local", "financeiro"),
+    ("Roberto Financeiro", "financeiro3@demo.local", "financeiro"),
+
+    # Calculistas
+    ("Cida Calculista", "calculista1@demo.local", "calculista"),
+    ("Marcos Calculista", "calculista2@demo.local", "calculista"),
+    ("Julia Calculista", "calculista3@demo.local", "calculista"),
+
+    # Atendentes
+    ("Ana Atendente", "atendente1@demo.local", "atendente"),
+    ("Lucas Atendente", "atendente2@demo.local", "atendente"),
+    ("Fernanda Atendente", "atendente3@demo.local", "atendente"),
 ]
 
 def upsert_user(name, email, role, password="123456"):
     with SessionLocal() as db:
         u = db.query(User).filter(User.email==email).first()
         if u:
+            u.name = name
             u.role = role
+            u.active = True
             db.commit()
             return
         u = User(
@@ -27,16 +46,20 @@ def upsert_user(name, email, role, password="123456"):
             email=email,
             role=role,
             password_hash=hash_password(password),
+            active=True,
             created_at=datetime.utcnow(),
         )
-        db.add(u); db.commit()
+        db.add(u)
+        db.commit()
 
 def create_demo_cases():
     """Cria casos de teste com diferentes status para testar o fluxo completo"""
 
     # Dados para casos de teste
-    BANCOS = ["Bradesco", "Itaú", "Caixa Econômica", "Banco do Brasil", "Santander", "Sicoob"]
-    ORGAOS = ["INSS", "Governo do Estado", "Prefeitura Municipal", "Ministério da Defesa", "Tribunal de Justiça"]
+    # BANCOS = ["Bradesco", "Itaú", "Caixa Econômica", "Banco do Brasil", "Santander", "Sicoob"]
+    # ORGAOS = ["INSS", "Governo do Estado", "Prefeitura Municipal", "Ministério da Defesa", "Tribunal de Justiça"]
+    # Use ORGAOS to randomly assign orgao when not explicitly provided
+    # (kept for future extensibility; currently orgao is hard-coded in CLIENTES_TESTE)
 
     CLIENTES_TESTE = [
         ("Maria Conceição Silva", "12345678901", "MAT001", "INSS"),
@@ -142,9 +165,10 @@ def create_demo_cases():
         print(f"  - Não atribuídos: {unassigned_count} casos")
 
 if __name__ == "__main__":
+    print("🌱 Criando usuários demo...")
     for name,email,role in DEMO:
         upsert_user(name,email,role)
-    print("Demo users ensured.")
+    print(f"✅ {len(DEMO)} usuários demo criados/atualizados.")
 
     # Criar casos de teste
     create_demo_cases()

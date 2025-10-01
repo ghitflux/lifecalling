@@ -104,7 +104,7 @@ def list_clients(
 
 
 @r.get("/{client_id}")
-def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista"))):
+def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
     """
     Retorna detalhes de um cliente específico com todos os seus contratos e casos.
     """
@@ -170,7 +170,7 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
 
 
 @r.get("/{client_id}/contracts")
-def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista"))):
+def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
     """
     Retorna apenas os contratos de um cliente específico.
     """
@@ -211,6 +211,34 @@ def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Dep
         } for ct in contracts
     ]
 
+
+@r.get("/{client_id}/cases")
+def get_client_cases(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+    """
+    Retorna apenas os casos de um cliente específico.
+    """
+    # Buscar no sistema principal
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar casos do cliente
+    cases = db.query(Case).filter_by(client_id=client.id).order_by(Case.id.desc()).all()
+
+    return {
+        "items": [
+            {
+                "id": case.id,
+                "status": case.status,
+                "entidade": case.entidade,
+                "referencia_competencia": case.referencia_competencia,
+                "created_at": case.created_at.isoformat() if case.created_at else None,
+                "last_update_at": case.last_update_at.isoformat() if case.last_update_at else None,
+                "assigned_to": case.assigned_user.name if case.assigned_user else None,
+            } for case in cases
+        ],
+        "total": len(cases)
+    }
 
 @r.get("/{client_id}/financiamentos")
 def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
@@ -255,3 +283,28 @@ def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), use
             "created_at": line.created_at.isoformat() if line.created_at else None
         } for line in financiamentos
     ]
+
+@r.delete("/{client_id}")
+def delete_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin"))):
+    """
+    Deleta um cliente (apenas admin).
+    Verifica se o cliente tem casos antes de deletar.
+    """
+    # Buscar cliente
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Verificar se tem casos associados
+    cases_count = db.query(Case).filter_by(client_id=client.id).count()
+    if cases_count > 0:
+        raise HTTPException(
+            400,
+            f"Não é possível excluir o cliente. Existem {cases_count} casos associados."
+        )
+
+    # Deletar cliente
+    db.delete(client)
+    db.commit()
+
+    return {"ok": True, "message": "Cliente excluído com sucesso"}

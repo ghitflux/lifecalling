@@ -1,15 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Button, Card, CaseDetails, SimulationResultCard } from "@lifecalling/ui";
-import { ArrowLeft } from "lucide-react";
+import { Button, Card, CaseDetails, SimulationResultCard, SimulationHistoryModal } from "@lifecalling/ui";
+import { ArrowLeft, History } from "lucide-react";
 
 export default function FechamentoDetalhesPage() {
   const params = useParams();
   const router = useRouter();
   const caseId = parseInt(params.id as string);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Buscar detalhes do caso
   const { data: caseData, isLoading } = useQuery({
@@ -18,6 +20,16 @@ export default function FechamentoDetalhesPage() {
       const response = await api.get(`/cases/${caseId}`);
       return response.data;
     },
+  });
+
+  // Buscar histórico de simulações
+  const { data: simulationHistory } = useQuery({
+    queryKey: ["simulationHistory", caseId],
+    queryFn: async () => {
+      const response = await api.get(`/simulations/${caseId}/history`);
+      return response.data?.items || [];
+    },
+    enabled: !!caseId
   });
 
   if (isLoading) {
@@ -85,6 +97,30 @@ export default function FechamentoDetalhesPage() {
           }}
         />
       )}
+
+      {/* Botão Histórico de Simulações */}
+      {simulationHistory && simulationHistory.length > 0 && (
+        <Button
+          variant="outline"
+          onClick={() => setShowHistoryModal(true)}
+          className="w-full"
+        >
+          <History className="h-4 w-4 mr-2" />
+          Ver Histórico de Simulações ({simulationHistory.length})
+        </Button>
+      )}
+
+      {/* Modal de Histórico */}
+      <SimulationHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        history={simulationHistory || []}
+        caseId={caseId}
+        clientName={caseData?.client?.name}
+        onEditSimulation={() => {
+          // Fechamento não permite edição
+        }}
+      />
     </div>
   );
 }

@@ -16,6 +16,15 @@ const BANKS = [
   "SICREDI",
   "PAN",
   "ORIGINAL",
+  "SAFRA",
+  "BMG",
+  "DAYCOVAL",
+  "C6",
+  "INTER",
+  "NUBANK",
+  "NEON",
+  "BANRISUL",
+  "BRB",
   "Margem*"
 ];
 
