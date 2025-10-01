@@ -5,9 +5,9 @@ class Settings(BaseModel):
     db_uri: str = None
     jwt_secret: str = os.getenv("JWT_SECRET","dev")
     jwt_iss: str = os.getenv("JWT_ISS","lifecalling")
-    access_ttl: int = int(os.getenv("JWT_ACCESS_TTL_SECONDS", "900"))
+    access_ttl: int = int(os.getenv("JWT_ACCESS_TTL_SECONDS", "3600"))
     refresh_ttl: int = int(os.getenv("JWT_REFRESH_TTL_SECONDS", "2592000"))
-    upload_dir: str = os.getenv("UPLOAD_DIR","/var/app/uploads")
+    upload_dir: str = os.getenv("UPLOAD_DIR", os.path.join(os.getcwd(), "uploads"))
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

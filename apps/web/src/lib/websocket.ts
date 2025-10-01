@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { makeWsUrl } from './ws';
 
 export interface WebSocketMessage {
   type: 'case.updated' | 'simulation.updated' | 'case.assigned' | 'case.created' | 'pong' | 'ping' | 'hello' | 'error';
@@ -14,11 +15,10 @@ export function useWebSocket(token?: string) {
   let reconnectAttempts = 0;
 
   useEffect(() => {
-    // WebSocket URL - conecta direto no backend
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
-
     const connectWebSocket = () => {
       try {
+        // Usa a função makeWsUrl para construir a URL segura
+        const wsUrl = makeWsUrl();
         // Adiciona token de autenticação se disponível
         const fullUrl = token ? `${wsUrl}?token=${token}` : wsUrl;
         wsRef.current = new WebSocket(fullUrl);

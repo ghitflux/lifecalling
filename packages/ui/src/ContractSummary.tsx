@@ -55,22 +55,22 @@ export function ContractSummary({
       title: "Contratos Ativos",
       value: stats.active,
       icon: Clock,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100"
+      color: "text-info",
+      bgColor: "bg-info-subtle border border-info/40"
     },
     {
       title: "Contratos Concluídos",
       value: stats.completed,
       icon: CheckCircle,
-      color: "text-green-600",
-      bgColor: "bg-green-100"
+      color: "text-success",
+      bgColor: "bg-success-subtle border border-success/40"
     },
     {
       title: "Contratos em Atraso",
       value: stats.overdue,
       icon: AlertTriangle,
-      color: "text-red-600",
-      bgColor: "bg-red-100"
+      color: "text-danger",
+      bgColor: "bg-danger-subtle border border-danger/40"
     },
     {
       title: "Ticket Médio",
@@ -112,7 +112,7 @@ export function ContractSummary({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+                <TrendingUp className="h-5 w-5 text-success" />
                 <h3 className="font-semibold">Receita Recebida</h3>
               </div>
               <span className="text-sm text-muted-foreground">
@@ -123,7 +123,7 @@ export function ContractSummary({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Recebido</span>
-                <span className="font-medium text-green-600">
+                <span className="font-medium text-success">
                   {formatCurrency(stats.receivedValue)}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export function ContractSummary({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-blue-600" />
+                <Target className="h-5 w-5 text-info" />
                 <h3 className="font-semibold">Taxa de Conclusão</h3>
               </div>
               <span className="text-sm text-muted-foreground">
@@ -164,7 +164,7 @@ export function ContractSummary({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Concluídos</span>
-                <span className="font-medium text-green-600">
+                <span className="font-medium text-success">
                   {stats.completed}
                 </span>
               </div>
@@ -194,12 +194,12 @@ export function ContractSummary({
       <div className="space-y-4">
         {/* Overdue Alert */}
         {stats.overdue > 0 && (
-          <Card className="p-4 border-red-200 bg-red-50">
+          <Card className="border-danger/40 bg-danger-subtle p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-danger" />
               <div className="space-y-1">
-                <h4 className="font-medium text-red-900">Atenção: Contratos em Atraso</h4>
-                <div className="text-sm text-red-700 space-y-1">
+                <h4 className="font-medium text-danger">Atenção: Contratos em Atraso</h4>
+                <div className="space-y-1 text-sm text-danger-foreground">
                   <p>• {stats.overdue} contratos com parcelas em atraso</p>
                   <p>• Valor total em atraso: {formatCurrency(stats.overdueValue)}</p>
                   <p>• Taxa de inadimplência: {overdueRate.toFixed(1)}%</p>
@@ -234,7 +234,7 @@ export function ContractSummary({
                 <div className="space-y-1">
                   <div className={cn(
                     "text-2xl font-bold",
-                    stats.total >= monthlyTarget ? "text-green-600" : "text-red-600"
+                    stats.total >= monthlyTarget ? "text-success" : "text-danger"
                   )}>
                     {stats.total >= monthlyTarget ? "✓" : Math.max(0, monthlyTarget - stats.total)}
                   </div>

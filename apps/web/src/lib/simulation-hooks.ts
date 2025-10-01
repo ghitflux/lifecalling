@@ -108,14 +108,33 @@ export function useRejectSimulation() {
  */
 export function usePendingSimulations() {
   return useQuery({
-    queryKey: ["simulations", "pending"],
+    queryKey: ["simulations", "draft"],
     queryFn: async () => {
-      const response = await api.get("/simulations?status=pending");
+      const response = await api.get("/simulations?status=draft");
       return response.data?.items || [];
     },
     refetchInterval: 30000, // Refetch a cada 30 segundos
     retry: 2,
     staleTime: 15000, // Considerar dados obsoletos após 15 segundos
+  });
+}
+
+/**
+ * Hook para buscar todas as simulações (incluindo concluídas de hoje)
+ */
+export function useAllSimulations(includeCompletedToday: boolean = false) {
+  return useQuery({
+    queryKey: ["simulations", includeCompletedToday ? "all" : "draft"],
+    queryFn: async () => {
+      const params = includeCompletedToday
+        ? "?include_completed_today=true"
+        : "?status=draft";
+      const response = await api.get(`/simulations${params}`);
+      return response.data?.items || [];
+    },
+    refetchInterval: 10000, // Refetch a cada 10 segundos
+    retry: 2,
+    staleTime: 5000, // Considerar dados obsoletos após 5 segundos
   });
 }
 
@@ -181,7 +200,7 @@ export function useUpdateCaseStatus() {
 }
 
 /**
- * Hook utilitário para obter estatísticas do calculista
+ * Hook utilitário para obter estatísticas avançadas do calculista
  */
 export function useCalculistaStats() {
   return useQuery({
@@ -189,28 +208,59 @@ export function useCalculistaStats() {
     queryFn: async () => {
       try {
         const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
-          api.get("/simulations?status=pending"),
+          api.get("/simulations?status=draft"),
           api.get("/simulations?status=approved&date=today"),
           api.get("/simulations?status=rejected&date=today")
         ]);
 
+        const pending = pendingRes.data?.count || 0;
+        const approvedToday = approvedRes.data?.count || 0;
+        const rejectedToday = rejectedRes.data?.count || 0;
+        const totalToday = approvedToday + rejectedToday;
+
+        // Calcular taxa de aprovação
+        const approvalRate = totalToday > 0
+          ? Math.round((approvedToday / totalToday) * 100)
+          : 0;
+
+        // Calcular volume financeiro (soma de liberadoCliente das aprovadas)
+        // IMPORTANTE: Agrupar por case_id para evitar somar duplicatas (múltiplas simulações do mesmo caso)
+        const uniqueCases = new Map<number, any>();
+        (approvedRes.data?.items || []).forEach((sim: any) => {
+          const caseId = sim.case_id;
+          // Manter apenas a simulação mais recente de cada caso (última atualização)
+          if (!uniqueCases.has(caseId) ||
+              new Date(sim.updated_at || sim.created_at) > new Date(uniqueCases.get(caseId).updated_at || uniqueCases.get(caseId).created_at)) {
+            uniqueCases.set(caseId, sim);
+          }
+        });
+
+        const volumeToday = Array.from(uniqueCases.values()).reduce((sum: number, sim: any) => {
+          return sum + (sim.totals?.liberadoCliente || 0);
+        }, 0);
+
         return {
-          pending: pendingRes.data?.count || 0,
-          approvedToday: approvedRes.data?.count || 0,
-          rejectedToday: rejectedRes.data?.count || 0,
-          totalToday: (approvedRes.data?.count || 0) + (rejectedRes.data?.count || 0)
+          pending,
+          approvedToday,
+          rejectedToday,
+          totalToday,
+          approvalRate,
+          volumeToday
         };
       } catch (error) {
-        // Retornar dados mock se API não suportar essas queries
+        console.error("Erro ao buscar estatísticas do calculista:", error);
+        // Retornar dados zerados em caso de erro
         return {
           pending: 0,
-          approvedToday: 12,
-          rejectedToday: 2,
-          totalToday: 14
+          approvedToday: 0,
+          rejectedToday: 0,
+          totalToday: 0,
+          approvalRate: 0,
+          volumeToday: 0
         };
       }
     },
-    refetchInterval: 60000, // Refetch a cada minuto
+    refetchInterval: 30000, // Refetch a cada 30 segundos
     retry: 1,
   });
 }

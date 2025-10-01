@@ -30,20 +30,51 @@ interface Client {
   telefone?: string;
 }
 
-interface SimulationResult {
-  banco?: string;
+interface SimulationBank {
+  bank: string;
+  parcela: number;
+  saldoDevedor: number;
   valorLiberado: number;
-  valorParcela: number;
+}
+
+interface SimulationTotals {
+  valorParcelaTotal: number;
+  saldoTotal: number;
+  liberadoTotal: number;
+  totalFinanciado: number;
+  valorLiquido: number;
+  custoConsultoria: number;
+  liberadoCliente: number;
+}
+
+interface SimulationResult {
+  // Estrutura antiga (para compatibilidade)
+  banco?: string;
+  valorLiberado?: number;
+  valorParcela?: number;
   coeficiente?: number;
   saldoDevedor?: number;
   valorTotalFinanciado?: number;
   seguroObrigatorio?: number;
   valorLiquido?: number;
   custoConsultoria?: number;
-  liberadoCliente: number;
+  liberadoCliente?: number;
   percentualConsultoria?: number;
-  taxaJuros: number;
-  prazo: number;
+  taxaJuros?: number;
+  prazo?: number;
+
+  // Nova estrutura multi-bancos
+  banks?: SimulationBank[];
+  totals?: SimulationTotals;
+}
+
+interface Simulation {
+  id: number;
+  status: 'pending' | 'approved' | 'rejected';
+  results?: SimulationResult;
+  manual_input?: any;
+  created_at: string;
+  updated_at?: string;
 }
 
 interface Attachment {
@@ -68,7 +99,7 @@ interface CaseDetailsProps {
     id: number;
     status: Status;
     client?: Client;
-    simulation?: SimulationResult;
+    simulation?: Simulation;
     contract?: {
       total_amount?: number;
       installments?: number;
@@ -217,9 +248,9 @@ export function CaseDetails({
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Telefone</label>
                 <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-blue-600" />
-                  <p className="font-medium text-blue-600">
-                    {caseData.client?.telefone || caseData.telefone_preferencial}
+                <Phone className="h-4 w-4 text-info" />
+                <p className="font-medium text-info">
+                  {caseData.client?.telefone || caseData.telefone_preferencial}
                   </p>
                 </div>
               </div>
@@ -235,69 +266,180 @@ export function CaseDetails({
       </Card>
 
       {/* Financial Information */}
-      {caseData.simulation && (
+      {caseData.simulation && caseData.simulation.status === 'approved' && caseData.simulation.results && (
         <Card className="p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
             Informações Financeiras
           </h2>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">VALOR LIBERADO</p>
-              <p className="text-xl font-bold text-green-600">
-                {formatCurrency(caseData.simulation.valorLiberado)}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">VALOR PARCELA</p>
-              <p className="text-xl font-bold">
-                {formatCurrency(caseData.simulation.valorParcela)}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">LIBERADO CLIENTE</p>
-              <p className="text-xl font-bold text-blue-600">
-                {formatCurrency(caseData.simulation.liberadoCliente)}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">PRAZO</p>
-              <p className="text-lg font-semibold">
-                {caseData.simulation.prazo} MESES
-              </p>
-            </div>
+          <div className="mb-4 rounded-lg border border-success/40 bg-success-subtle p-3 text-sm text-success-foreground">
+            ✅ Simulação aprovada em {formatDate(caseData.simulation.updated_at)}
           </div>
 
-          {/* Detalhes Adicionais */}
-          <div className="bg-muted/30 rounded-lg p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {caseData.simulation.valorTotalFinanciado && (
-                <div>
-                  <span className="text-muted-foreground">Total Financiado: </span>
-                  <span className="font-medium">{formatCurrency(caseData.simulation.valorTotalFinanciado)}</span>
+          {/* Verifica se é nova estrutura multi-bancos ou antiga */}
+          {caseData.simulation.results.totals ? (
+            // Nova estrutura multi-bancos
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">TOTAL LIBERADO</p>
+                  <p className="text-xl font-bold text-success">
+                    {formatCurrency(caseData.simulation.results.totals.liberadoTotal || 0)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">TOTAL PARCELAS</p>
+                  <p className="text-xl font-bold">
+                    {formatCurrency(caseData.simulation.results.totals.valorParcelaTotal || 0)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">LIBERADO CLIENTE</p>
+                  <p className="text-xl font-bold text-info">
+                    {formatCurrency(caseData.simulation.results.totals.liberadoCliente || 0)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">VALOR LÍQUIDO</p>
+                  <p className="text-lg font-semibold">
+                    {formatCurrency(caseData.simulation.results.totals.valorLiquido || 0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes dos Bancos */}
+              {caseData.simulation.results.banks && caseData.simulation.results.banks.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium mb-3">Detalhes por Banco</h4>
+                  <div className="space-y-2">
+                    {caseData.simulation.results.banks.map((bank, index) => (
+                      <div key={index} className="bg-muted/30 rounded-lg p-3">
+                        <div className="grid grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Banco:</span>
+                            <p className="font-medium">{bank.bank.replace(/_/g, ' ')}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Parcela:</span>
+                            <p className="font-medium">{formatCurrency(bank.parcela)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Saldo Dev:</span>
+                            <p className="font-medium">{formatCurrency(bank.saldoDevedor)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Liberado:</span>
+                            <p className="font-medium text-success">{formatCurrency(bank.valorLiberado)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              {caseData.simulation.custoConsultoria && (
-                <div>
-                  <span className="text-muted-foreground">Custo Consultoria: </span>
-                  <span className="font-medium">{formatCurrency(caseData.simulation.custoConsultoria)}</span>
+
+              {/* Totais Adicionais */}
+              <div className="bg-muted/30 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Total Financiado: </span>
+                    <span className="font-medium">{formatCurrency(caseData.simulation.results.totals.totalFinanciado)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Custo Consultoria: </span>
+                    <span className="font-medium">{formatCurrency(caseData.simulation.results.totals.custoConsultoria)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Saldo Total: </span>
+                    <span className="font-medium">{formatCurrency(caseData.simulation.results.totals.saldoTotal)}</span>
+                  </div>
                 </div>
-              )}
-              {caseData.simulation.taxaJuros && (
-                <div>
-                  <span className="text-muted-foreground">Taxa Juros: </span>
-                  <span className="font-medium">{caseData.simulation.taxaJuros}% a.m.</span>
+              </div>
+            </>
+          ) : (
+            // Estrutura antiga (para compatibilidade)
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">VALOR LIBERADO</p>
+                  <p className="text-xl font-bold text-success">
+                    {formatCurrency(caseData.simulation.results.valorLiberado || 0)}
+                  </p>
                 </div>
-              )}
-              {caseData.simulation.coeficiente && (
-                <div>
-                  <span className="text-muted-foreground">Coeficiente: </span>
-                  <span className="font-mono font-medium">{caseData.simulation.coeficiente.toFixed(7)}</span>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">VALOR PARCELA</p>
+                  <p className="text-xl font-bold">
+                    {formatCurrency(caseData.simulation.results.valorParcela || 0)}
+                  </p>
                 </div>
-              )}
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">LIBERADO CLIENTE</p>
+                  <p className="text-xl font-bold text-info">
+                    {formatCurrency(caseData.simulation.results.liberadoCliente || 0)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">VALOR LÍQUIDO</p>
+                  <p className="text-lg font-semibold">
+                    {formatCurrency(caseData.simulation.results.valorLiquido || 0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalhes Adicionais */}
+              <div className="bg-muted/30 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {caseData.simulation.results.valorTotalFinanciado && (
+                    <div>
+                      <span className="text-muted-foreground">Total Financiado: </span>
+                      <span className="font-medium">{formatCurrency(caseData.simulation.results.valorTotalFinanciado)}</span>
+                    </div>
+                  )}
+                  {caseData.simulation.results.custoConsultoria && (
+                    <div>
+                      <span className="text-muted-foreground">Custo Consultoria: </span>
+                      <span className="font-medium">{formatCurrency(caseData.simulation.results.custoConsultoria)}</span>
+                    </div>
+                  )}
+                  {caseData.simulation.results.coeficiente && (
+                    <div>
+                      <span className="text-muted-foreground">Coeficiente: </span>
+                      <span className="font-mono font-medium">{caseData.simulation.results.coeficiente.toFixed(7)}</span>
+                    </div>
+                  )}
+                  {caseData.simulation.results.saldoDevedor && (
+                    <div>
+                      <span className="text-muted-foreground">Saldo Devedor: </span>
+                      <span className="font-medium">{formatCurrency(caseData.simulation.results.saldoDevedor)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Simulation Status (pending/rejected) */}
+      {caseData.simulation && caseData.simulation.status !== 'approved' && (
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Status da Simulação
+          </h2>
+
+          {caseData.simulation.status === 'pending' && (
+            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3 text-sm text-warning-foreground">
+              ⏳ Simulação pendente de análise pelo calculista
             </div>
-          </div>
+          )}
+
+          {caseData.simulation.status === 'rejected' && (
+            <div className="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger-foreground">
+              ❌ Simulação reprovada em {formatDate(caseData.simulation.updated_at)}
+            </div>
+          )}
         </Card>
       )}
 

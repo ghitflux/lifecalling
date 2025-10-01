@@ -38,9 +38,30 @@
       "Bash(\"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\")",
       "Bash(docker exec:*)",
       "Bash(chcp:*)",
-      "Bash(PYTHONIOENCODING=utf-8 python seed_complete.py)"
+      "Bash(PYTHONIOENCODING=utf-8 python seed_complete.py)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(del start_environment.py)",
+      "Bash(npm run lint)",
+      "Bash(npm run build-storybook:*)",
+      "Bash(npm run:*)",
+      "Bash(alembic revision:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(dir:*)",
+      "Bash(alembic current:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python test_payroll_import.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python debug_parser.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python debug_full_parser.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python analyze_layout.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python find_exact_positions.py)",
+      "Bash(alembic:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker ps:*)",
+      "Bash(set PYTHONIOENCODING=utf-8)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "Enhanced Terminal"
 }

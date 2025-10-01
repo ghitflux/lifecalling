@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button, CollapseIcon } from "@lifecalling/ui";
 import { cn } from "@/lib/utils";
 import {
-  Home, Calculator, Banknote, FileText, BarChart3, Users, Settings, LogOut
+  Home, Calculator, Banknote, FileText, BarChart3, Users, Settings, LogOut, Upload, User as UserIcon
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -20,11 +20,13 @@ type Item = {
 
 const NAV: Item[] = [
   { label: "Supervisão",   href: "/dashboard",  icon: BarChart3,  roles: ["admin","supervisor"] },
-  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente"] },
+  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente","calculista"] },
   { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista"] },
-  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","atendente"] },
+  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","calculista"] },  // Removido atendente
   { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro"] },
   { label: "Contratos",    href: "/contratos",  icon: FileText,   roles: ["admin","supervisor","financeiro"] },
+  { label: "Clientes",     href: "/clientes",   icon: UserIcon,       roles: ["admin","supervisor","financeiro","calculista","atendente"] },
+  { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin","supervisor","financeiro","calculista"] },
   { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin","supervisor"] },
   { label: "Configurações",href: "/config",     icon: Settings,   roles: ["admin"] },
 ];
@@ -41,6 +43,11 @@ export default function Sidebar() {
   },[]);
   useEffect(()=>{
     localStorage.setItem("lc_sidebar", collapsed ? "1":"0");
+    // Dispatch storage event to notify other components
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'lc_sidebar',
+      newValue: collapsed ? "1" : "0"
+    }));
   },[collapsed]);
 
   return (
@@ -87,7 +94,20 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto p-2">
+      <div className="mt-auto p-2 space-y-3">
+        {/* User Info */}
+        <div className={cn(
+          "text-xs opacity-70 px-1 transition-all duration-200 border-t border-border/50 pt-3",
+          collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-70"
+        )}>
+          {user && (
+            <>
+              Logado como <b>{user.name}</b> — <i>{user.role}</i>
+            </>
+          )}
+        </div>
+
+        {/* Logout Button */}
         <Button variant="destructive" className="w-full transition-all duration-200" onClick={() => logout()}>
           <LogOut className="h-4 w-4 shrink-0" />
           <span className={cn(
@@ -97,16 +117,6 @@ export default function Sidebar() {
             Sair
           </span>
         </Button>
-        <div className={cn(
-          "mt-2 text-xs opacity-70 px-1 transition-all duration-200",
-          collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-70"
-        )}>
-          {user && (
-            <>
-              Logado como <b>{user.name}</b> — <i>{user.role}</i>
-            </>
-          )}
-        </div>
       </div>
     </aside>
   );

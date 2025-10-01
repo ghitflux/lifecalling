@@ -84,6 +84,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Só tenta buscar o usuário se não estivermos na página de login
+    const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
+
+    if (isLoginPage) {
+      if (!cancelled) {
+        setUser(null);
+        setLoading(false);
+      }
+      return;
+    }
+
     (async () => {
       try {
         const me = await fetchMe();

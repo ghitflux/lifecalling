@@ -1,8 +1,7 @@
 from fastapi import FastAPI
-from .config import settings
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, cases, imports, ws as wsmod
-from .routers import closing, finance, contracts
+from .routers import auth, cases, imports, ws as wsmod, clients, users
+from .routers import closing, finance, contracts, dashboard, notifications, contract_attachments
 from .db import Base, engine
 from .routers import simulations
 
@@ -20,12 +19,17 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth.r)
+app.include_router(users.r)
 app.include_router(simulations.r)
 app.include_router(cases.r)
 app.include_router(closing.r)
 app.include_router(finance.r)
 app.include_router(contracts.r)
+app.include_router(contract_attachments.r)
+app.include_router(dashboard.r)
+app.include_router(notifications.r)
 app.include_router(imports.r)
+app.include_router(clients.r)
 app.include_router(wsmod.ws_router)
 
 # Health check endpoint
@@ -55,7 +59,7 @@ def debug_cases():
                 "status": sample_case.status,
                 "client_id": sample_case.client_id,
                 "has_client": sample_case.client is not None,
-                "created_at": str(sample_case.created_at)
+                "last_update_at": str(sample_case.last_update_at)
             }
 
         return result
@@ -123,6 +127,56 @@ def reset_test_data():
         except Exception as e:
             db.rollback()
             return {"error": f"Erro ao resetar dados: {str(e)}"}
+
+
+@app.post("/debug/clear-all-data")
+def clear_all_data():
+    """Limpa todos os dados do banco - clients, cases, imports, etc."""
+    from .db import SessionLocal
+    from .models import (
+        Case, Client, CaseEvent, Simulation, Attachment,
+        ImportBatch, ImportRow, PayrollImportBatch, PayrollImportItem,
+        PayrollClient, PayrollContract, Contract, ContractAttachment
+    )
+
+    with SessionLocal() as db:
+        try:
+            # Primeiro, limpar referências que podem ter FK
+            from sqlalchemy import text
+            db.execute(text("UPDATE cases SET last_simulation_id = NULL WHERE last_simulation_id IS NOT NULL"))
+
+            # Limpar na ordem correta para evitar violações de FK
+            db.query(CaseEvent).delete()
+            db.query(Attachment).delete()
+            db.query(Simulation).delete()
+
+            # Import data
+            db.query(ImportRow).delete()
+            db.query(ImportBatch).delete()
+            db.query(PayrollImportItem).delete()
+            db.query(PayrollImportBatch).delete()
+
+            # Contract attachments antes de contracts
+            db.query(ContractAttachment).delete()
+
+            # Contracts antes de cases (devido a FK)
+            db.query(Contract).delete()
+            db.query(PayrollContract).delete()
+
+            # Cases depois de contracts
+            db.query(Case).delete()
+
+            # Clients por último
+            db.query(Client).delete()
+            db.query(PayrollClient).delete()
+
+            db.commit()
+            return {"message": "Todos os dados foram limpos com sucesso"}
+
+        except Exception as e:
+            db.rollback()
+            return {"error": f"Erro ao limpar dados: {str(e)}"}
+
 
 # Bootstrap DB (migrations via alembic, mas garantimos a existência)
 Base.metadata.create_all(bind=engine)

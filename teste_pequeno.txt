@@ -1,0 +1,11 @@
+Governo do Estado do Piauí                                                                                                              Pág:    1
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1042-BANCO SANTANDER S.A                                            Referência: 07/2025   Data da Geração: 31/07/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    000550-9  JOANA MARIA DOS SANTOS IBIAPIN 3-AGENTE SUPERIOR DE SERVICO   6490      001     088   024         458,04      001    47082976372
+  1    000822-2  FRANCISCO DAS CHAGAS REGO COUT 2-AGENTE TECNICO DE SERVICO    9380      001     072   048          60,00      001    28689160310
+  1    000822-2  FRANCISCO DAS CHAGAS REGO COUT 2-AGENTE TECNICO DE SERVICO    6870      001     096   034          77,20      001    28689160310

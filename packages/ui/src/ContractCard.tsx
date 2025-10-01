@@ -62,22 +62,22 @@ export function ContractCard({
 
   const statusConfig = {
     active: {
-      color: "bg-blue-100 text-blue-800",
+      color: "border-info/40 bg-info-subtle text-info-foreground",
       icon: Clock,
       label: "Ativo"
     },
     completed: {
-      color: "bg-green-100 text-green-800",
+      color: "border-success/40 bg-success-subtle text-success-foreground",
       icon: CheckCircle,
       label: "Concluído"
     },
     overdue: {
-      color: "bg-red-100 text-red-800",
+      color: "border-danger/40 bg-danger-subtle text-danger-foreground",
       icon: AlertCircle,
       label: "Em Atraso"
     },
     cancelled: {
-      color: "bg-gray-100 text-gray-800",
+      color: "border-border/40 bg-muted/40 text-muted-foreground",
       icon: AlertCircle,
       label: "Cancelado"
     }
@@ -101,7 +101,7 @@ export function ContractCard({
   return (
     <Card className={cn(
       "p-6 space-y-4",
-      isOverdue && "border-red-200 bg-red-50",
+      isOverdue && "border-danger/40 bg-danger-subtle",
       className
     )}>
       {/* Header */}
@@ -125,7 +125,7 @@ export function ContractCard({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-1">
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <DollarSign className="h-4 w-4 text-success" />
             <span className="text-sm text-muted-foreground">Valor Total</span>
           </div>
           <p className="font-semibold text-lg">{formatCurrency(totalAmount)}</p>
@@ -133,7 +133,7 @@ export function ContractCard({
 
         <div className="space-y-1">
           <div className="flex items-center gap-1">
-            <CreditCard className="h-4 w-4 text-blue-600" />
+            <CreditCard className="h-4 w-4 text-info" />
             <span className="text-sm text-muted-foreground">Parcela</span>
           </div>
           <p className="font-semibold">{formatCurrency(installmentAmount)}</p>
@@ -158,10 +158,12 @@ export function ContractCard({
           <span>Início: {formatDate(startDate)}</span>
         </div>
         {nextDueDate && (
-          <div className={cn(
-            "flex items-center gap-2",
-            isOverdue && "text-red-600 font-medium"
-          )}>
+          <div
+            className={cn(
+              "flex items-center gap-2",
+              isOverdue && "text-danger font-medium"
+            )}
+          >
             <Calendar className="h-4 w-4" />
             <span>Próximo: {formatDate(nextDueDate)}</span>
           </div>
@@ -170,9 +172,9 @@ export function ContractCard({
 
       {/* Overdue Alert */}
       {overdueAmount > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-red-100 border border-red-200 rounded-md">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <span className="text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-md border border-danger/40 bg-danger-subtle p-3">
+          <AlertCircle className="h-4 w-4 text-danger" />
+          <span className="text-sm text-danger-foreground">
             Valor em atraso: {formatCurrency(overdueAmount)}
           </span>
         </div>
@@ -191,11 +193,11 @@ export function ContractCard({
         </ToggleButton>
 
         {showInstallments && (
-          <div className="border rounded-md p-3 space-y-2 bg-gray-50">
+          <div className="rounded-md border border-border/40 bg-muted/30 p-3 space-y-2">
             <div className="text-sm font-medium">Parcelas:</div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-green-600">✓ Pagas: {paidInstallments}</span>
+                <span className="text-success">✓ Pagas: {paidInstallments}</span>
               </div>
               <div>
                 <span className="text-gray-600">○ Restantes: {totalInstallments - paidInstallments}</span>

@@ -15,78 +15,126 @@ import {
 } from "lucide-react";
 
 export type Status =
-  | "novo" | "em_atendimento" | "aguardando_aprovacao"
-  | "aprovado" | "reprovado"
-  | "calculista_pendente" | "fechamento_pendente" | "financeiro_pendente"
-  | "contrato_efetivado" | "encerrado"
-  | "atribuido" | "pendente" | "ativo";
+  | "novo" | "em_atendimento" | "disponivel"
+  | "calculista_pendente" | "calculo_aprovado" | "calculo_rejeitado"
+  | "fechamento_aprovado" | "fechamento_reprovado"
+  | "financeiro_pendente" | "contrato_efetivado" | "encerrado"
+  // Status legados (manter para compatibilidade)
+  | "aguardando_aprovacao" | "aprovado" | "reprovado"
+  | "fechamento_pendente" | "atribuido" | "pendente" | "ativo";
 
 const statusConfig: Record<Status, {
   color: string;
   icon: React.ElementType;
+  label: string;
 }> = {
+  // Status principais do fluxo
   novo: {
-    color: "bg-muted/30 text-muted-foreground border-muted/50",
-    icon: AlertCircle
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: AlertCircle,
+    label: "Novo"
   },
   em_atendimento: {
     color: "bg-info-subtle text-info-foreground border-info/30 shadow-[0_0_12px_hsl(var(--info)/0.2)]",
-    icon: Clock
+    icon: Clock,
+    label: "Em Atendimento"
   },
-  aguardando_aprovacao: {
-    color: "bg-warning-subtle text-warning-foreground border-warning/30 shadow-[0_0_12px_hsl(var(--warning)/0.2)]",
-    icon: Clock
-  },
-  aprovado: {
-    color: "bg-success-subtle text-success-foreground border-success/30",
-    icon: CheckCircle2
-  },
-  reprovado: {
-    color: "bg-danger-subtle text-danger-foreground border-danger/30",
-    icon: XCircle
+  disponivel: {
+    color: "bg-emerald-100 text-emerald-800 border-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.15)]",
+    icon: CheckCircle2,
+    label: "Disponível"
   },
   calculista_pendente: {
     color: "bg-primary-subtle text-primary border-primary/30 shadow-[0_0_12px_hsl(var(--primary)/0.2)]",
-    icon: Calculator
+    icon: Calculator,
+    label: "Aguardando Calculista"
   },
-  fechamento_pendente: {
-    color: "bg-accent-subtle text-accent border-accent/30",
-    icon: FileCheck
+  calculo_aprovado: {
+    color: "bg-success-subtle text-success-foreground border-success/30",
+    icon: CheckCircle2,
+    label: "Cálculo Aprovado"
+  },
+  calculo_rejeitado: {
+    color: "bg-danger-subtle text-danger-foreground border-danger/30",
+    icon: XCircle,
+    label: "Cálculo Rejeitado"
+  },
+  fechamento_aprovado: {
+    color: "bg-success-subtle text-success-foreground border-success/30",
+    icon: FileCheck,
+    label: "Fechamento Aprovado"
+  },
+  fechamento_reprovado: {
+    color: "bg-danger-subtle text-danger-foreground border-danger/30",
+    icon: XCircle,
+    label: "Fechamento Reprovado"
   },
   financeiro_pendente: {
     color: "bg-info-subtle text-info-foreground border-info/30",
-    icon: Banknote
+    icon: Banknote,
+    label: "Aguardando Financeiro"
   },
   contrato_efetivado: {
     color: "bg-success-subtle text-success-foreground border-success/30",
-    icon: FileText
+    icon: FileText,
+    label: "Contrato Efetivado"
   },
   encerrado: {
     color: "bg-muted/20 text-muted-foreground border-muted/30",
-    icon: Archive
+    icon: Archive,
+    label: "Encerrado"
+  },
+
+  // Status legados (compatibilidade)
+  aguardando_aprovacao: {
+    color: "bg-warning-subtle text-warning-foreground border-warning/30 shadow-[0_0_12px_hsl(var(--warning)/0.2)]",
+    icon: Clock,
+    label: "Aguardando Aprovação"
+  },
+  aprovado: {
+    color: "bg-success-subtle text-success-foreground border-success/30",
+    icon: CheckCircle2,
+    label: "Aprovado"
+  },
+  reprovado: {
+    color: "bg-danger-subtle text-danger-foreground border-danger/30",
+    icon: XCircle,
+    label: "Reprovado"
+  },
+  fechamento_pendente: {
+    color: "bg-accent-subtle text-accent border-accent/30",
+    icon: FileCheck,
+    label: "Aguardando Fechamento"
   },
   atribuido: {
-    color: "bg-blue-100 text-blue-800 border-blue/30",
-    icon: AlertCircle
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: AlertCircle,
+    label: "Atribuído"
   },
   pendente: {
-    color: "bg-yellow-100 text-yellow-800 border-yellow/30",
-    icon: Clock
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    icon: Clock,
+    label: "Pendente"
   },
   ativo: {
-    color: "bg-green-100 text-green-800 border-green/30",
-    icon: CheckCircle2
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: CheckCircle2,
+    label: "Ativo"
   },
 };
 
 export function StatusBadge({
   status,
   showIcon = true,
-  size = "default"
+  size = "default",
+  description,
+  className
 }: {
   status: Status | string;
   showIcon?: boolean;
   size?: "sm" | "default" | "lg";
+  description?: string;  // Tooltip description
+  className?: string;
 }) {
   const config = statusConfig[status as Status];
 
@@ -113,13 +161,15 @@ export function StatusBadge({
   return (
     <div
       className={cn(
-        "inline-flex items-center font-medium rounded-full border backdrop-blur-sm transition-all duration-200",
+        "inline-flex items-center font-medium rounded-full border backdrop-blur-sm transition-all duration-200 cursor-default",
         finalConfig.color,
-        sizeClasses[size]
+        sizeClasses[size],
+        className
       )}
+      title={description || finalConfig.label}  // HTML tooltip nativo
     >
       {showIcon && <Icon className={iconSizes[size]} />}
-      <span>{String(status).replace(/_/g, " ")}</span>
+      <span>{finalConfig.label}</span>
     </div>
   );
 }

@@ -22,6 +22,7 @@ class SimulationTotals(BaseModel):
     valorParcelaTotal: float
     saldoTotal: float
     liberadoTotal: float
+    seguroObrigatorio: float  # NOVO: Seguro Obrigatório Banco
     totalFinanciado: float
     valorLiquido: float
     custoConsultoria: float
@@ -65,6 +66,7 @@ def compute_simulation_totals(input_data: SimulationInput) -> SimulationTotals:
         valorParcelaTotal=round_half_up(valor_parcela_total),
         saldoTotal=round_half_up(saldo_total),
         liberadoTotal=round_half_up(liberado_total),
+        seguroObrigatorio=round_half_up(input_data.seguro or 0.0),  # NOVO
         totalFinanciado=round_half_up(total_financiado),
         valorLiquido=round_half_up(valor_liquido),
         custoConsultoria=round_half_up(custo_consultoria),

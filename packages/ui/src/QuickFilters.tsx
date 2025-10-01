@@ -37,10 +37,10 @@ export function QuickFilters({
   className,
   placeholder = "Buscar..."
 }: QuickFiltersProps) {
-  const hasActiveFilters = activeFilters.length > 0 || searchTerm.length > 0;
+  const hasActiveFilters = (activeFilters?.length || 0) > 0 || (searchTerm?.length || 0) > 0;
 
   const getFilterColor = (filter: QuickFilter) => {
-    const isActive = activeFilters.includes(filter.id);
+    const isActive = activeFilters?.includes(filter.id) || false;
     if (!isActive) return "outline";
 
     switch (filter.color) {
@@ -82,7 +82,7 @@ export function QuickFilters({
         </div>
 
         {availableFilters.map((filter) => {
-          const isActive = activeFilters.includes(filter.id);
+          const isActive = activeFilters?.includes(filter.id) || false;
           const IconComponent = filter.icon;
 
           return (

@@ -68,14 +68,14 @@ def normalize_currency(value: str) -> Decimal:
         return Decimal("0.00")
 
 
-def truncate_name(full_name: str, max_words: int = 3) -> str:
+def truncate_name(full_name: str, max_words: int = 4) -> str:
     """
     Limita o nome a um número máximo de palavras (sem cargo).
     Remove cargo que geralmente vem após números ou hífen.
 
     Exemplo:
         "JOANA MARIA DOS SANTOS IBIAPIN 3-AGENTE SUPERIOR DE SERVICO"
-        → "JOANA MARIA DOS"
+        → "JOANA MARIA DOS SANTOS"
     """
     # Remover espaços extras
     name = full_name.strip()
@@ -199,37 +199,70 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
             # Remover CPF e trabalhar com o restante
             remaining = raw_line[:-11].rstrip()
 
-            # Extrair campos numéricos da direita para esquerda
+            # Split tokens
             tokens = remaining.split()
 
-            if len(tokens) < 9:  # Mínimo: STATUS + MATRICULA + 7 campos numéricos
+            if len(tokens) < 9:  # Mínimo razoável
                 logger.warning(f"Linha {line_number}: Poucos tokens ({len(tokens)})")
                 stats["invalid_lines"] += 1
                 continue
 
-            # Da direita para esquerda: ORGAO_PGTO, VALOR, PAGO, TOTAL, LANC, ORGAO, FIN
-            # Layout correto: FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PGTO
-            orgao_pagamento = tokens[-1]       # ORGAO PGTO
-            valor_str = tokens[-2]             # VALOR
-            parcelas_pagas_str = tokens[-3]    # PAGO (parcelas já descontadas)
-            total_parcelas_str = tokens[-4]    # TOTAL (total de parcelas)
-            lanc = tokens[-5]                  # LANC
-            orgao = tokens[-6]                 # ORGAO
-            fin_code = tokens[-7]              # FIN
+            # Primeiro extrair STATUS e MATRICULA (sempre os 2 primeiros)
+            status_code = tokens[0]
+            matricula = tokens[1]
 
-            # O restante é STATUS + MATRICULA + NOME + CARGO
-            inicio_tokens = tokens[:-7]  # Mudou de -6 para -7
-            if len(inicio_tokens) < 2:
-                logger.warning(f"Linha {line_number}: Faltam STATUS/MATRICULA")
+            # Agora pegar os últimos campos numéricos (da direita para esquerda)
+            # ignorando STATUS e MATRICULA
+            remaining_tokens = tokens[2:]  # Pula STATUS e MATRICULA
+            numeric_tokens = []
+
+            for token in reversed(remaining_tokens):
+                # É numérico ou valor monetário (com vírgula)
+                if token.replace(',', '').replace('.', '').replace('-', '').isdigit():
+                    numeric_tokens.append(token)
+                    if len(numeric_tokens) >= 7:
+                        break
+
+            # Aceitar 6 ou 7 campos numéricos (LANC é opcional)
+            if len(numeric_tokens) < 6:
+                logger.warning(f"Linha {line_number}: Poucos campos numéricos ({len(numeric_tokens)}) - esperado 6-7")
                 stats["invalid_lines"] += 1
                 continue
 
-            status_code = inicio_tokens[0]
-            matricula = inicio_tokens[1]
-            nome_completo = " ".join(inicio_tokens[2:]) if len(inicio_tokens) > 2 else ""
+            # Inverter para ficar na ordem correta (da esquerda para direita)
+            numeric_tokens.reverse()
 
-            # Limitar nome a 3 primeiras palavras (sem cargo)
-            nome = truncate_name(nome_completo, max_words=3)
+            # Layout pode ser: FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PGTO (7 campos)
+            # ou: FIN ORGAO TOTAL PAGO VALOR ORGAO_PGTO (6 campos, sem LANC)
+            if len(numeric_tokens) == 7:
+                fin_code = numeric_tokens[0]              # FIN (4 dígitos)
+                orgao = numeric_tokens[1]                 # ORGAO (3 dígitos)
+                lanc = numeric_tokens[2]                  # LANC (3 dígitos)
+                total_parcelas_str = numeric_tokens[3]    # TOTAL parcelas
+                parcelas_pagas_str = numeric_tokens[4]    # PAGO parcelas
+                valor_str = numeric_tokens[5]             # VALOR (com vírgula)
+                orgao_pagamento = numeric_tokens[6]       # ORGAO PGTO (3 dígitos)
+            else:  # 6 campos
+                fin_code = numeric_tokens[0]              # FIN (4 dígitos)
+                orgao = numeric_tokens[1]                 # ORGAO (3 dígitos)
+                lanc = "000"                              # LANC não presente
+                total_parcelas_str = numeric_tokens[2]    # TOTAL parcelas
+                parcelas_pagas_str = numeric_tokens[3]    # PAGO parcelas
+                valor_str = numeric_tokens[4]             # VALOR (com vírgula)
+                orgao_pagamento = numeric_tokens[5]       # ORGAO PGTO (3 dígitos)
+
+            # O restante (entre MATRICULA e FIN) é NOME + CARGO
+            try:
+                fin_idx = remaining_tokens.index(fin_code)
+                nome_cargo_tokens = remaining_tokens[:fin_idx]
+                nome_completo = " ".join(nome_cargo_tokens) if nome_cargo_tokens else ""
+            except ValueError:
+                logger.warning(f"Linha {line_number}: FIN code não encontrado nos tokens")
+                stats["invalid_lines"] += 1
+                continue
+
+            # Limitar nome a 4 primeiras palavras (sem cargo)
+            nome = truncate_name(nome_completo, max_words=4) if nome_completo else ""
 
             # Validações
             if not matricula:
@@ -276,9 +309,9 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
                 "nome": nome,
                 "cargo": "",  # Não usado
 
-                # Status (fixo "1" para simplificar)
-                "status_code": "1",
-                "status_description": STATUS_LEGEND["1"],
+                # Status do desconto (usar o real, não fixar)
+                "status_code": status_code,
+                "status_description": STATUS_LEGEND.get(status_code, "Status Desconhecido"),
 
                 # Dados do financiamento
                 "financiamento_code": fin_code,
@@ -296,12 +329,21 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
 
         except Exception as e:
             stats["invalid_lines"] += 1
-            logger.error(f"Erro ao processar linha {line_number}: {e}")
+            error_msg = f"Linha {line_number}: {str(e)}"
+            logger.error(f"Erro ao processar {error_msg}")
+            # Guardar amostra de erros (até 10)
+            if "errors_sample" not in stats:
+                stats["errors_sample"] = []
+            if len(stats["errors_sample"]) < 10:
+                stats["errors_sample"].append(error_msg)
 
     # Log das estatísticas finais
     logger.info(f"Parse concluído: {stats['valid_lines']} linhas válidas, "
                 f"{stats['invalid_lines']} inválidas, {stats['duplicates']} duplicatas")
     logger.info(f"Distribuição de status: {stats['status_counts']}")
+
+    if stats.get("errors_sample"):
+        logger.warning(f"Amostra de erros: {stats['errors_sample'][:5]}")
 
     return lines
 
@@ -332,13 +374,18 @@ def parse_inetconsig_file(content: str) -> Tuple[Dict, List[Dict], Dict]:
     # Parse das linhas
     lines = parse_payroll_lines(content, meta)
 
+    # Calcular clientes únicos
+    unique_clients_set = set((line["cpf"], line["matricula"]) for line in lines)
+
     # Estatísticas finais
     stats = {
         "total_lines": len(lines),
-        "unique_clients": len(set((line["cpf"], line["matricula"]) for line in lines)),
+        "unique_clients": len(unique_clients_set),
         "status_distribution": {},
         "entity": f"{meta['entity_code']}-{meta['entity_name']}",
-        "reference": f"{meta['ref_month']:02d}/{meta['ref_year']}"
+        "reference": f"{meta['ref_month']:02d}/{meta['ref_year']}",
+        "unique_cpfs": len(set(line["cpf"] for line in lines)),
+        "unique_matriculas": len(set(line["matricula"] for line in lines))
     }
 
     # Calcular distribuição de status

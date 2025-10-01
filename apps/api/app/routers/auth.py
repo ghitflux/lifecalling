@@ -12,12 +12,43 @@ class LoginIn(BaseModel):
 
 @r.post("/login")
 def login(payload: LoginIn, resp: Response):
+    print(f"\n{'='*60}")
+    print(f"[LOGIN] Tentativa de login: {payload.email}")
+    print(f"{'='*60}")
+
     with SessionLocal() as db:
         user = db.query(User).filter(User.email==payload.email).first()
-        if not user or not verify_password(payload.password, user.password_hash):
+
+        if not user:
+            print(f"[LOGIN] ❌ Usuario nao encontrado: {payload.email}")
             raise HTTPException(401, "invalid credentials")
+
+        print(f"[LOGIN] ✓ Usuario encontrado: {user.name} (ID: {user.id})")
+        print(f"[LOGIN]   - Email: {user.email}")
+        print(f"[LOGIN]   - Role: {user.role}")
+        print(f"[LOGIN]   - Active: {user.active}")
+
+        print(f"[LOGIN] Verificando senha...")
+        if not verify_password(payload.password, user.password_hash):
+            print(f"[LOGIN] ❌ Senha incorreta")
+            raise HTTPException(401, "invalid credentials")
+
+        print(f"[LOGIN] ✓ Senha correta")
+
+        # Verificar se usuário está ativo
+        if not user.active:
+            print(f"[LOGIN] ❌ Usuario inativo")
+            raise HTTPException(403, "user is inactive")
+
+        print(f"[LOGIN] ✓ Usuario ativo")
+        print(f"[LOGIN] Setando cookies...")
+
         set_auth_cookies(resp, user.id, user.role)
-        return {"id": user.id, "name": user.name, "role": user.role}
+
+        print(f"[LOGIN] ✅ Login bem-sucedido!")
+        print(f"{'='*60}\n")
+
+        return {"id": user.id, "name": user.name, "role": user.role, "email": user.email}
 
 @r.get("/me")
 def me(user: User = Depends(get_current_user)):

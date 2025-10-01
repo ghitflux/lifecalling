@@ -2,9 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from ..rbac import require_roles
 from ..db import SessionLocal
-from ..models import Case, Simulation, CaseEvent
+from ..models import Case, Client, Simulation, CaseEvent
 from ..events import eventbus
+from ..services.simulation_service import (
+    SimulationInput,
+    compute_simulation_totals,
+    validate_simulation_input
+)
 from datetime import datetime
+from decimal import Decimal
+from sqlalchemy import func
 
 r = APIRouter(prefix="/simulations", tags=["simulations"])
 
@@ -29,54 +36,377 @@ async def create_sim(data: SimCreate, user=Depends(require_roles("admin","superv
     return {"id": sim.id, "status": sim.status}
 
 @r.get("")
-def list_pending(status: str = "pending", limit:int=50, user=Depends(require_roles("admin","supervisor","calculista"))):
+def list_pending(
+    status: str = "draft",
+    limit: int = 50,
+    date: str = None,
+    include_completed_today: bool = False,  # NOVO parâmetro
+    user=Depends(require_roles("admin","supervisor","calculista"))
+):
+    """
+    Lista simulações pendentes ou concluídas.
+
+    Parâmetros:
+    - status: Status da simulação (draft, approved, rejected)
+    - limit: Número máximo de resultados
+    - date: Filtro por data ("today")
+    - include_completed_today: Se True, inclui simulações approved/rejected de hoje junto com draft
+    """
     with SessionLocal() as db:
-        q = db.query(Simulation, Case).join(Case, Simulation.case_id==Case.id).filter(Simulation.status==status).order_by(Simulation.id.desc()).limit(limit)
+        from datetime import datetime
+        from sqlalchemy import or_, and_
+
+        # Base query
+        q = db.query(Simulation, Case, Client).join(Case, Simulation.case_id==Case.id).join(Client, Case.client_id==Client.id)
+
+        # Filtro de status com suporte para múltiplos
+        if include_completed_today:
+            # Inclui draft + approved/rejected de hoje
+            today = datetime.utcnow().date()
+            q = q.filter(
+                or_(
+                    Simulation.status == "draft",
+                    and_(
+                        Simulation.status.in_(["approved", "rejected"]),
+                        func.date(Simulation.updated_at) == today
+                    )
+                )
+            )
+        else:
+            # Apenas o status especificado
+            q = q.filter(Simulation.status == status)
+
+        # Filtro por data se especificado
+        if date == "today":
+            today = datetime.utcnow().date()
+            q = q.filter(func.date(Simulation.updated_at) == today)
+
+        # Aplicar ordenação e limite
+        q = q.order_by(Simulation.updated_at.desc(), Simulation.id.desc()).limit(limit)
+
         items=[]
-        for sim, case in q.all():
-            items.append({"id": sim.id, "case_id": case.id, "status": sim.status, "case": {
-                "id": case.id, "status": case.status, "client_id": case.client_id
-            }})
-        return {"items": items}
+        for sim, case, client in q.all():
+            items.append({
+                "id": sim.id,
+                "case_id": case.id,
+                "status": sim.status,
+                "created_at": sim.created_at.isoformat() if sim.created_at else None,
+                "updated_at": sim.updated_at.isoformat() if sim.updated_at else None,
+                "case": {
+                    "id": case.id,
+                    "status": case.status,
+                    "client_id": case.client_id
+                },
+                "client": {
+                    "id": client.id,
+                    "name": client.name,
+                    "cpf": client.cpf
+                },
+                # Adicionar totais se simulação foi calculada
+                "totals": {
+                    "liberadoCliente": float(sim.liberado_cliente or 0)
+                } if sim.status in ["approved", "rejected"] else None
+            })
+
+        count = len(items)
+        print(f"[DEBUG] Found {count} simulations with status={status}, include_completed_today={include_completed_today}, date={date}")
+        return {"items": items, "count": count}
 
 class SimSave(BaseModel):
     manual_input: dict
     results: dict
 
+@r.post("/{case_id}")
+async def create_or_update_simulation(case_id: int, data: SimulationInput, user=Depends(require_roles("calculista","supervisor","admin"))):
+    """
+    Criar ou atualizar simulação em modo draft.
+    Retorna os totais calculados.
+    """
+    with SessionLocal() as db:
+        # Verificar se caso existe
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Validar entrada
+        errors = validate_simulation_input(data)
+        if errors:
+            raise HTTPException(400, {"detail": "Dados inválidos", "errors": errors})
+
+        # Calcular totais
+        totals = compute_simulation_totals(data)
+
+        # Verificar se já existe simulação draft para este caso
+        existing_sim = db.query(Simulation).filter(
+            Simulation.case_id == case_id,
+            Simulation.status == "draft"
+        ).first()
+
+        if existing_sim:
+            # Atualizar simulação existente
+            sim = existing_sim
+        else:
+            # Criar nova simulação
+            sim = Simulation(case_id=case_id, status="draft", created_by=user.id)
+            db.add(sim)
+
+        # Atualizar dados
+        sim.banks_json = [bank.dict() for bank in data.banks]
+        sim.prazo = data.prazo
+        sim.coeficiente = data.coeficiente
+        sim.seguro = Decimal(str(data.seguro))
+        sim.percentual_consultoria = Decimal(str(data.percentualConsultoria))
+
+        # Salvar totais calculados
+        sim.valor_parcela_total = Decimal(str(totals.valorParcelaTotal))
+        sim.saldo_total = Decimal(str(totals.saldoTotal))
+        sim.liberado_total = Decimal(str(totals.liberadoTotal))
+        sim.total_financiado = Decimal(str(totals.totalFinanciado))
+        sim.valor_liquido = Decimal(str(totals.valorLiquido))
+        sim.custo_consultoria = Decimal(str(totals.custoConsultoria))
+        sim.custo_consultoria_liquido = Decimal(str(totals.custoConsultoriaLiquido))
+        sim.liberado_cliente = Decimal(str(totals.liberadoCliente))
+        sim.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(sim)
+
+        return {
+            "id": sim.id,
+            "status": sim.status,
+            "totals": totals.dict()
+        }
+
 @r.post("/{sim_id}/approve")
-async def approve(sim_id:int, data: SimSave, user=Depends(require_roles("calculista","admin","supervisor"))):
+async def approve(sim_id: int, user=Depends(require_roles("calculista","admin","supervisor"))):
+    """Aprovar simulação"""
+    from ..routers.notifications import notify_case_status_change
+
     with SessionLocal() as db:
         sim = db.get(Simulation, sim_id)
         if not sim:
-            raise HTTPException(404, "sim not found")
-        sim.manual_input = data.manual_input
-        sim.results = data.results
+            raise HTTPException(404, "Simulação não encontrada")
+
+        if sim.status != "draft":
+            raise HTTPException(400, "Apenas simulações em draft podem ser aprovadas")
+
+        # Atualizar status da simulação
         sim.status = "approved"
         sim.updated_at = datetime.utcnow()
+
+        # Atualizar caso
         case = db.get(Case, sim.case_id)
         case.status = "calculo_aprovado"
+        case.last_simulation_id = sim.id
         case.last_update_at = datetime.utcnow()
-        db.add(CaseEvent(case_id=case.id, type="simulation.approved", payload=sim.results, created_by=user.id))
+
+        # Adicionar simulação ao histórico
+        if not case.simulation_history:
+            case.simulation_history = []
+
+        history_entry = {
+            "simulation_id": sim.id,
+            "action": "approved",
+            "status": "approved",
+            "timestamp": datetime.utcnow().isoformat(),
+            "approved_by": user.id,
+            "approved_by_name": user.name,
+            "totals": {
+                "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                "saldoTotal": float(sim.saldo_total or 0),
+                "liberadoTotal": float(sim.liberado_total or 0),
+                    "seguroObrigatorio": float(sim.seguro or 0),  # NOVO
+                "totalFinanciado": float(sim.total_financiado or 0),
+                "valorLiquido": float(sim.valor_liquido or 0),
+                "custoConsultoria": float(sim.custo_consultoria or 0),
+                "custoConsultoriaLiquido": float(sim.custo_consultoria_liquido or 0),
+                "liberadoCliente": float(sim.liberado_cliente or 0)
+            },
+            "banks": sim.banks_json,
+            "prazo": sim.prazo,
+            "percentualConsultoria": float(sim.percentual_consultoria or 0)
+        }
+
+        case.simulation_history.append(history_entry)
+
+        # Criar evento
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="simulation.approved",
+            payload={
+                "simulation_id": sim.id,
+                "liberado_cliente": float(sim.liberado_cliente or 0),
+                "total_financiado": float(sim.total_financiado or 0)
+            },
+            created_by=user.id
+        ))
+
         db.commit()
-    await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status":"approved"})
-    await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status":"calculo_aprovado"})
+
+    # Notificar atendente responsável
+    notify_user_ids = []
+    if case.assigned_user_id:
+        notify_user_ids.append(case.assigned_user_id)
+
+    if notify_user_ids:
+        await notify_case_status_change(
+            case_id=case.id,
+            new_status="calculo_aprovado",
+            changed_by_user_id=user.id,
+            notify_user_ids=notify_user_ids,
+            additional_payload={
+                "liberado_cliente": float(sim.liberado_cliente or 0),
+                "total_financiado": float(sim.total_financiado or 0)
+            }
+        )
+
+    await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status": "approved"})
+    await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status": "calculo_aprovado"})
     return {"ok": True}
 
+class RejectInput(BaseModel):
+    reason: str = "Simulação rejeitada pelo calculista"
+
 @r.post("/{sim_id}/reject")
-async def reject(sim_id:int, data: SimSave, user=Depends(require_roles("calculista","admin","supervisor"))):
+async def reject(sim_id: int, data: RejectInput, user=Depends(require_roles("calculista","admin","supervisor"))):
+    """Rejeitar simulação"""
+    from ..routers.notifications import notify_case_status_change
+
     with SessionLocal() as db:
         sim = db.get(Simulation, sim_id)
         if not sim:
-            raise HTTPException(404, "sim not found")
-        sim.manual_input = data.manual_input
-        sim.results = data.results
+            raise HTTPException(404, "Simulação não encontrada")
+
+        if sim.status != "draft":
+            raise HTTPException(400, "Apenas simulações em draft podem ser rejeitadas")
+
+        # Atualizar status da simulação
         sim.status = "rejected"
         sim.updated_at = datetime.utcnow()
+
+        # Atualizar caso
         case = db.get(Case, sim.case_id)
-        case.status = "calculo_reprovado"
+        case.status = "calculo_rejeitado"
         case.last_update_at = datetime.utcnow()
-        db.add(CaseEvent(case_id=case.id, type="simulation.rejected", payload=sim.results, created_by=user.id))
+
+        # Adicionar simulação ao histórico
+        if not case.simulation_history:
+            case.simulation_history = []
+
+        history_entry = {
+            "simulation_id": sim.id,
+            "action": "rejected",
+            "status": "rejected",
+            "timestamp": datetime.utcnow().isoformat(),
+            "rejected_by": user.id,
+            "rejected_by_name": user.name,
+            "reason": data.reason,
+            "totals": {
+                "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                "saldoTotal": float(sim.saldo_total or 0),
+                "liberadoTotal": float(sim.liberado_total or 0),
+                    "seguroObrigatorio": float(sim.seguro or 0),  # NOVO
+                "totalFinanciado": float(sim.total_financiado or 0),
+                "valorLiquido": float(sim.valor_liquido or 0),
+                "custoConsultoria": float(sim.custo_consultoria or 0),
+                "liberadoCliente": float(sim.liberado_cliente or 0)
+            },
+            "banks": sim.banks_json,
+            "prazo": sim.prazo,
+            "percentualConsultoria": float(sim.percentual_consultoria or 0)
+        }
+
+        case.simulation_history.append(history_entry)
+
+        # Criar evento
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="simulation.rejected",
+            payload={
+                "simulation_id": sim.id,
+                "reason": data.reason
+            },
+            created_by=user.id
+        ))
+
         db.commit()
-    await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status":"rejected"})
-    await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status":"calculo_reprovado"})
+
+    # Notificar atendente responsável
+    notify_user_ids = []
+    if case.assigned_user_id:
+        notify_user_ids.append(case.assigned_user_id)
+
+    if notify_user_ids:
+        await notify_case_status_change(
+            case_id=case.id,
+            new_status="calculo_rejeitado",
+            changed_by_user_id=user.id,
+            notify_user_ids=notify_user_ids,
+            additional_payload={"reason": data.reason}
+        )
+
+    await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status": "rejected"})
+    await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status": "calculo_rejeitado"})
     return {"ok": True}
+
+@r.get("/{case_id}/history")
+def get_simulation_history(case_id: int, user=Depends(require_roles("calculista","admin","supervisor","atendente"))):
+    """
+    Retorna o histórico de simulações de um caso (aprovadas e rejeitadas).
+    """
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        history = case.simulation_history or []
+
+        # Ordenar por timestamp (mais recente primeiro)
+        history_sorted = sorted(history, key=lambda x: x.get("timestamp", ""), reverse=True)
+
+        return {"items": history_sorted, "count": len(history_sorted)}
+
+@r.post("/{sim_id}/reopen")
+async def reopen_simulation(sim_id: int, user=Depends(require_roles("calculista","admin","supervisor"))):
+    """
+    Reabre uma simulação aprovada ou rejeitada para edição.
+    Muda o status de volta para 'draft' e atualiza o status do caso.
+    """
+    with SessionLocal() as db:
+        sim = db.get(Simulation, sim_id)
+        if not sim:
+            raise HTTPException(404, "Simulação não encontrada")
+
+        if sim.status not in ["approved", "rejected"]:
+            raise HTTPException(400, "Apenas simulações aprovadas ou rejeitadas podem ser reabertas")
+
+        # Salvar status anterior
+        previous_status = sim.status
+
+        # Reabrir simulação
+        sim.status = "draft"
+        sim.updated_at = datetime.utcnow()
+
+        # Atualizar caso
+        case = db.get(Case, sim.case_id)
+        case.status = "calculista_pendente"
+        case.last_update_at = datetime.utcnow()
+
+        # Criar evento
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="simulation.reopened",
+            payload={
+                "simulation_id": sim.id,
+                "previous_status": previous_status,
+                "reopened_by": user.id
+            },
+            created_by=user.id
+        ))
+
+        db.commit()
+
+    await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status": "draft"})
+    await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status": "calculista_pendente"})
+
+    return {"ok": True, "message": "Simulação reaberta para edição"}

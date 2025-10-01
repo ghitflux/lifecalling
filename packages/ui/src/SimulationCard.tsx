@@ -14,6 +14,7 @@ interface SimulationResult {
   seguroObrigatorio?: number;
   valorLiquido?: number;
   custoConsultoria?: number;
+  custoConsultoriaLiquido?: number;
   liberadoCliente: number;
   percentualConsultoria?: number;
   taxaJuros: number;
@@ -99,6 +100,12 @@ export function SimulationCard({
           <p className="text-sm text-muted-foreground">CUSTO CONSULTORIA</p>
           <p className="text-lg font-semibold">
             R$ {(result.custoConsultoria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">CUSTO CONSULTORIA LÍQUIDO (86%)</p>
+          <p className="text-lg font-semibold">
+            R$ {(result.custoConsultoriaLiquido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
         </div>
         <div className="space-y-1">

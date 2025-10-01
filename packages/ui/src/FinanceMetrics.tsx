@@ -29,6 +29,10 @@ export interface FinanceMetricsProps {
   pendingCount: number;
   overdueCount: number;
   averageTicket: number;
+  totalTax?: number; // 14% do total de consultorias
+  totalExpenses?: number; // Total de despesas
+  totalRevenue?: number; // Total de receitas
+  netProfit?: number; // Receitas - Despesas - Impostos
   className?: string;
 }
 
@@ -39,6 +43,10 @@ export function FinanceMetrics({
   pendingCount,
   overdueCount,
   averageTicket,
+  totalTax,
+  totalExpenses,
+  totalRevenue,
+  netProfit,
   className
 }: FinanceMetricsProps) {
   const formatCurrency = (value: number) => {
@@ -52,7 +60,7 @@ export function FinanceMetrics({
 
   const targetProgress = monthlyTarget ? (totalVolume / monthlyTarget) * 100 : 0;
 
-  const metrics: MetricItem[] = [
+  const baseMetrics: MetricItem[] = [
     {
       label: "Volume Total",
       value: formatCurrency(totalVolume),
@@ -75,27 +83,63 @@ export function FinanceMetrics({
     }
   ];
 
+  const additionalMetrics: MetricItem[] = [];
+
+  if (totalRevenue !== undefined) {
+    additionalMetrics.push({
+      label: "Receitas",
+      value: formatCurrency(totalRevenue),
+      variant: "success"
+    });
+  }
+
+  if (totalExpenses !== undefined) {
+    additionalMetrics.push({
+      label: "Despesas",
+      value: formatCurrency(totalExpenses),
+      variant: "warning"
+    });
+  }
+
+  if (totalTax !== undefined) {
+    additionalMetrics.push({
+      label: "Impostos (14%)",
+      value: formatCurrency(totalTax),
+      variant: "danger"
+    });
+  }
+
+  if (netProfit !== undefined) {
+    additionalMetrics.push({
+      label: "Lucro Líquido",
+      value: formatCurrency(netProfit),
+      variant: netProfit > 0 ? "success" : "danger"
+    });
+  }
+
+  const metrics = [...baseMetrics, ...additionalMetrics];
+
   const getVariantIcon = (variant: string) => {
     switch (variant) {
       case "success":
-        return <TrendingUp className="h-4 w-4 text-green-600" />;
+        return <TrendingUp className="h-4 w-4 text-success" />;
       case "warning":
-        return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+        return <AlertTriangle className="h-4 w-4 text-warning" />;
       case "danger":
-        return <TrendingDown className="h-4 w-4 text-red-600" />;
+        return <TrendingDown className="h-4 w-4 text-danger" />;
       default:
-        return <DollarSign className="h-4 w-4 text-blue-600" />;
+        return <DollarSign className="h-4 w-4 text-info" />;
     }
   };
 
   const getVariantColor = (variant: string) => {
     switch (variant) {
       case "success":
-        return "text-green-600";
+        return "text-success";
       case "warning":
-        return "text-yellow-600";
+        return "text-warning";
       case "danger":
-        return "text-red-600";
+        return "text-danger";
       default:
         return "text-foreground";
     }
@@ -104,7 +148,7 @@ export function FinanceMetrics({
   return (
     <div className={cn("space-y-6", className)}>
       {/* Main Metrics Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
         {metrics.map((metric, index) => (
           <Card key={index} className="p-4">
             <div className="space-y-2">
@@ -162,11 +206,16 @@ export function FinanceMetrics({
               </div>
               <div className="text-center">
                 <div className="font-medium">Status</div>
-                <div className={cn(
-                  "font-medium",
-                  targetProgress >= 100 ? "text-green-600" :
-                  targetProgress >= 80 ? "text-yellow-600" : "text-red-600"
-                )}>
+                <div
+                  className={cn(
+                    "font-medium",
+                    targetProgress >= 100
+                      ? "text-success"
+                      : targetProgress >= 80
+                        ? "text-warning"
+                        : "text-danger"
+                  )}
+                >
                   {targetProgress >= 100 ? "✓ Atingida" :
                    targetProgress >= 80 ? "⚠ Próxima" : "✗ Distante"}
                 </div>
@@ -178,12 +227,12 @@ export function FinanceMetrics({
 
       {/* Alerts */}
       {(overdueCount > 0 || pendingCount > 15) && (
-        <Card className="p-4 border-orange-200 bg-orange-50">
+        <Card className="border-warning/40 bg-warning-subtle p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-warning" />
             <div className="space-y-1">
-              <h4 className="font-medium text-orange-900">Atenção Necessária</h4>
-              <div className="text-sm text-orange-700 space-y-1">
+              <h4 className="font-medium text-warning">Atenção Necessária</h4>
+              <div className="space-y-1 text-sm text-warning-foreground">
                 {overdueCount > 0 && (
                   <p>• {overdueCount} contratos com pagamento em atraso</p>
                 )}

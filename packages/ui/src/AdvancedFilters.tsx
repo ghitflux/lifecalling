@@ -49,11 +49,11 @@ export function AdvancedFilters({
   className
 }: AdvancedFiltersProps) {
   const getGroupValue = (groupId: string): string[] => {
-    return values.find(v => v.groupId === groupId)?.values || [];
+    return values?.find(v => v.groupId === groupId)?.values || [];
   };
 
   const updateGroupValue = (groupId: string, newValues: string[]) => {
-    const updatedValues = values.filter(v => v.groupId !== groupId);
+    const updatedValues = (values || []).filter(v => v.groupId !== groupId);
     if (newValues.length > 0) {
       updatedValues.push({ groupId, values: newValues });
     }
@@ -102,7 +102,7 @@ export function AdvancedFilters({
             </div>
             <select
               onChange={(e) => {
-                if (e.target.value && !currentValues.includes(e.target.value)) {
+                if (e.target.value && currentValues.indexOf(e.target.value) === -1) {
                   updateGroupValue(group.id, [...currentValues, e.target.value]);
                 }
                 e.target.value = "";
@@ -110,7 +110,7 @@ export function AdvancedFilters({
               className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="">{group.placeholder || "Adicionar..."}</option>
-              {group.options?.filter(option => !currentValues.includes(option.value)).map((option) => (
+              {group.options?.filter(option => currentValues.indexOf(option.value) === -1).map((option) => (
                 <option key={option.id} value={option.value}>
                   {option.label} {option.count !== undefined && `(${option.count})`}
                 </option>
@@ -197,8 +197,8 @@ export function AdvancedFilters({
     }
   };
 
-  const hasActiveFilters = values.length > 0;
-  const activeFilterCount = values.reduce((total, group) => total + group.values.length, 0);
+  const hasActiveFilters = (values?.length || 0) > 0;
+  const activeFilterCount = values?.reduce((total, group) => total + (group.values?.length || 0), 0) || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

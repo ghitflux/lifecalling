@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { Users, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("admin@demo.local");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
@@ -69,41 +69,45 @@ export default function LoginPage() {
       level: "Administrador",
       color: "bg-red-500",
       users: [
-        { name: "Carlos Admin", email: "admin@demo.local", password: "123456" },
-        { name: "Administrador Sistema", email: "admin@lifecalling.com", password: "123456" }
+        { name: "Admin Principal", email: "admin@lifecalling.com", password: "admin123" },
+        { name: "Admin Secundário", email: "admin2@lifecalling.com", password: "admin123" },
+        { name: "Admin Backup", email: "admin3@lifecalling.com", password: "admin123" }
       ]
     },
     {
       level: "Supervisor",
       color: "bg-blue-500",
       users: [
-        { name: "Sara Supervisor", email: "supervisor@demo.local", password: "123456" },
-        { name: "Supervisor Geral", email: "supervisor@lifecalling.com", password: "123456" }
-      ]
-    },
-    {
-      level: "Financeiro",
-      color: "bg-green-500",
-      users: [
-        { name: "Fábio Financeiro", email: "financeiro@demo.local", password: "123456" },
-        { name: "Analista Financeiro", email: "financeiro@lifecalling.com", password: "123456" }
+        { name: "Supervisor João", email: "supervisor@lifecalling.com", password: "super123" },
+        { name: "Supervisor Maria", email: "supervisor2@lifecalling.com", password: "super123" },
+        { name: "Supervisor Pedro", email: "supervisor3@lifecalling.com", password: "super123" }
       ]
     },
     {
       level: "Calculista",
       color: "bg-yellow-500",
       users: [
-        { name: "Cida Calculista", email: "calculista@demo.local", password: "123456" },
-        { name: "Calculista Senior", email: "calculista@lifecalling.com", password: "123456" }
+        { name: "Calculista Lucas", email: "calculista@lifecalling.com", password: "calc123" },
+        { name: "Calculista Julia", email: "calculista2@lifecalling.com", password: "calc123" },
+        { name: "Calculista Bruno", email: "calculista3@lifecalling.com", password: "calc123" }
+      ]
+    },
+    {
+      level: "Financeiro",
+      color: "bg-green-500",
+      users: [
+        { name: "Financeiro Carlos", email: "financeiro@lifecalling.com", password: "fin123" },
+        { name: "Financeiro Ana", email: "financeiro2@lifecalling.com", password: "fin123" },
+        { name: "Financeiro Rita", email: "financeiro3@lifecalling.com", password: "fin123" }
       ]
     },
     {
       level: "Atendente",
       color: "bg-purple-500",
       users: [
-        { name: "Ana Atendente", email: "atendente@demo.local", password: "123456" },
-        { name: "Atendente Maria Silva", email: "atendente1@lifecalling.com", password: "123456" },
-        { name: "Atendente João Santos", email: "atendente2@lifecalling.com", password: "123456" }
+        { name: "Atendente Paula", email: "atendente@lifecalling.com", password: "atend123" },
+        { name: "Atendente Marcos", email: "atendente2@lifecalling.com", password: "atend123" },
+        { name: "Atendente Sandra", email: "atendente3@lifecalling.com", password: "atend123" }
       ]
     }
   ];

@@ -8,7 +8,7 @@ import {
   QuickFilters,
   AdvancedFilters,
   FilterProvider,
-  useFilters,
+  useFiltersContext as useFilters,
   type QuickFilter,
   type FilterGroup,
   type AdvancedFilterValue
