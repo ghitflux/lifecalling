@@ -6,6 +6,7 @@ import { ProgressBar } from "./ProgressBar";
 import { Badge } from "./Badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
+import { CaseHistory } from "./CaseHistory";
 import { cn } from "./lib/utils";
 import { DollarSign, Calendar, TrendingUp, AlertCircle, CreditCard, Upload, FileText, Eye, X, Trash2, XCircle, Download, FileImage, File, ArrowLeft } from "lucide-react";
 
@@ -761,26 +762,8 @@ export function FinanceCard({
               </TabsContent>
 
               {/* Aba Histórico */}
-              <TabsContent value="history" className="space-y-2">
-                {fullCaseDetails.events.length > 0 ? (
-                  fullCaseDetails.events.map((event) => (
-                    <div key={event.id} className="p-3 rounded border border-border/40 bg-muted/30">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{event.type}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(event.created_at).toLocaleString('pt-BR')}
-                        </span>
-                      </div>
-                      {event.payload && Object.keys(event.payload).length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {JSON.stringify(event.payload, null, 2)}
-                        </p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">Nenhum evento registrado</p>
-                )}
+              <TabsContent value="history">
+                <CaseHistory events={fullCaseDetails.events} />
               </TabsContent>
 
               {/* Aba Anexos */}

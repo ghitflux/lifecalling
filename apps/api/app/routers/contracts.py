@@ -49,7 +49,15 @@ def list_contracts(
             "installments": ct.installments,
             "paid_installments": ct.paid_installments,
             "disbursed_at": ct.disbursed_at.isoformat() if ct.disbursed_at else None,
-            "case_status": ct.case.status
+            "created_at": ct.created_at.isoformat() if ct.created_at else None,
+            "updated_at": ct.updated_at.isoformat() if ct.updated_at else None,
+            "case_status": ct.case.status,
+            "client": {
+                "id": ct.case.client.id,
+                "name": ct.case.client.name,
+                "cpf": ct.case.client.cpf,
+                "matricula": ct.case.client.matricula
+            }
         } for ct in rows]
 
         return {"items": items, "total": total, "page": page, "page_size": page_size}

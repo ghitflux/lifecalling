@@ -8,18 +8,19 @@ from ..rbac import require_roles
 from ..events import eventbus
 import io
 import csv
+import os
 
 r = APIRouter(prefix="/finance", tags=["finance"])
 
 @r.get("/queue")
 def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
     from sqlalchemy.orm import joinedload
-    from ..models import Simulation
+    from ..models import Simulation, Attachment, ContractAttachment
     with SessionLocal() as db:
         rows = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status=="fechamento_aprovado").order_by(Case.id.desc()).all()
+        ).filter(Case.status.in_(["fechamento_aprovado", "financeiro_pendente", "contrato_efetivado"])).order_by(Case.id.desc()).all()
 
         items = []
         for c in rows:
@@ -67,25 +68,43 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
             # Buscar contrato se existir para incluir anexos
             contract = db.query(Contract).filter(Contract.case_id == c.id).first()
             if contract:
-                from ..models import ContractAttachment
-                attachments = db.query(ContractAttachment).filter(
+                contract_attachments = db.query(ContractAttachment).filter(
                     ContractAttachment.contract_id == contract.id
                 ).all()
                 item["contract"] = {
                     "id": contract.id,
                     "total_amount": float(contract.total_amount) if contract.total_amount else 0,
                     "installments": contract.installments,
+                    "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                    "status": contract.status,
                     "attachments": [
                         {
                             "id": a.id,
                             "filename": a.filename,
                             "size": a.size,
+                            "mime": a.mime,
+                            "mime_type": a.mime,
                             "uploaded_at": a.created_at.isoformat() if a.created_at else None
-                        } for a in attachments
+                        } for a in contract_attachments
                     ]
                 }
             else:
                 item["contract"] = None
+
+            case_attachments = db.query(Attachment).filter(
+                Attachment.case_id == c.id
+            ).order_by(Attachment.created_at.desc()).all()
+            item["attachments"] = [
+                {
+                    "id": att.id,
+                    "filename": os.path.basename(att.path),
+                    "size": att.size,
+                    "mime": att.mime,
+                    "mime_type": att.mime,
+                    "uploaded_at": att.created_at.isoformat() if att.created_at else None
+                }
+                for att in case_attachments
+            ]
 
             items.append(item)
 
@@ -364,16 +383,22 @@ async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("ad
             ct = Contract(case_id=c.id)
 
         # Usa os valores da simulação
-        ct.total_amount = simulation.valor_liberado
+        total_amount = simulation.liberado_cliente or simulation.liberado_total
+        if total_amount is None:
+            raise HTTPException(400, "Simulation is missing disbursement totals")
+
+        ct.total_amount = total_amount
         ct.installments = simulation.prazo
         ct.disbursed_at = data.disbursed_at or datetime.utcnow()
         ct.updated_at = datetime.utcnow()
+        ct.status = "ativo"
         db.add(ct)
+        db.flush()
 
         c.status = "contrato_efetivado"
         c.last_update_at = datetime.utcnow()
         db.add(CaseEvent(case_id=c.id, type="finance.disbursed",
-                         payload={"contract_id": None, "amount": float(simulation.valor_liberado), "installments": simulation.prazo},
+                         payload={"contract_id": ct.id, "amount": float(total_amount), "installments": simulation.prazo},
                          created_by=user.id))
         db.commit()
         db.refresh(ct)

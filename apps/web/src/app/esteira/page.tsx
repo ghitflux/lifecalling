@@ -172,14 +172,23 @@ export default function EsteiraPage() {
     }
   };
 
-  // Definir filtros disponíveis por status
+  // Calcular contadores por status
+  const allCases = activeTab === "global" ? globalCases : myCases;
+  const getStatusCount = (status: string) => {
+    return allCases.filter((c: Case) => c.status === status).length;
+  };
+
+  // Definir filtros disponíveis por status com contadores
   const statusFilters = [
-    { id: "novo", label: "Novo", value: "novo", icon: FileText, color: "primary" as const },
-    { id: "em_atendimento", label: "Em Atendimento", value: "em_atendimento", icon: AlertCircle, color: "warning" as const },
-    { id: "calculista_pendente", label: "Calculista", value: "calculista_pendente", icon: Clock, color: "secondary" as const },
-    { id: "calculo_aprovado", label: "Aprovado", value: "calculo_aprovado", icon: CheckCircle, color: "success" as const },
-    { id: "fechamento_aprovado", label: "Fechamento", value: "fechamento_aprovado", icon: Target, color: "success" as const },
-    { id: "arquivado", label: "Arquivado", value: "arquivado", icon: Archive, color: "default" as const },
+    { id: "novo", label: "Novo", value: "novo", icon: FileText, color: "primary" as const, count: getStatusCount("novo") },
+    { id: "em_atendimento", label: "Em Atendimento", value: "em_atendimento", icon: AlertCircle, color: "warning" as const, count: getStatusCount("em_atendimento") },
+    { id: "calculista_pendente", label: "Calculista", value: "calculista_pendente", icon: Clock, color: "secondary" as const, count: getStatusCount("calculista_pendente") },
+    { id: "calculo_aprovado", label: "Aprovado", value: "calculo_aprovado", icon: CheckCircle, color: "success" as const, count: getStatusCount("calculo_aprovado") },
+    { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", icon: Target, color: "success" as const, count: getStatusCount("fechamento_aprovado") },
+    { id: "efetivado", label: "Efetivados", value: "efetivado", icon: DollarSign, color: "success" as const, count: getStatusCount("efetivado") },
+    { id: "cancelado", label: "Cancelados", value: "cancelado", icon: AlertCircle, color: "destructive" as const, count: getStatusCount("cancelado") },
+    { id: "devolvido", label: "Devolvidos", value: "devolvido", icon: TrendingUp, color: "warning" as const, count: getStatusCount("devolvido") },
+    { id: "arquivado", label: "Arquivado", value: "arquivado", icon: Archive, color: "default" as const, count: getStatusCount("arquivado") },
   ];
 
   // Handlers de filtro para aba global
@@ -283,7 +292,7 @@ export default function EsteiraPage() {
               }}
               activeFilters={globalStatusFilter}
               onFilterToggle={handleGlobalFilterToggle}
-              availableFilters={statusFilters}
+              availableFilters={statusFilters as any}
               onClearAll={handleGlobalClearFilters}
               placeholder="Buscar por CPF ou nome do cliente..."
             />
@@ -366,7 +375,7 @@ export default function EsteiraPage() {
               }}
               activeFilters={myStatusFilter}
               onFilterToggle={handleMyFilterToggle}
-              availableFilters={statusFilters}
+              availableFilters={statusFilters as any}
               onClearAll={handleMyClearFilters}
               placeholder="Buscar nos meus atendimentos..."
             />

@@ -1,5 +1,22 @@
 from pydantic import BaseModel
 import os
+from pathlib import Path
+
+# Carregar variáveis de ambiente do .env.local (se existir) ou .env
+try:
+    from dotenv import load_dotenv
+    # Prioridade: .env.local > .env
+    env_local = Path(__file__).parent.parent / ".env.local"
+    env_file = Path(__file__).parent.parent / ".env"
+
+    if env_local.exists():
+        load_dotenv(env_local)
+        print(f"✅ Loaded environment from: {env_local}")
+    elif env_file.exists():
+        load_dotenv(env_file)
+        print(f"✅ Loaded environment from: {env_file}")
+except ImportError:
+    print("⚠️ python-dotenv not installed, using system environment variables")
 
 class Settings(BaseModel):
     db_uri: str = None

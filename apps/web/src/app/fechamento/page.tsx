@@ -15,7 +15,7 @@ import {
 } from "@lifecalling/ui";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, User, Calendar, DollarSign, Building } from "lucide-react";
+import { RefreshCw, User, Calendar, DollarSign, Building, X } from "lucide-react";
 
 function FechamentoContent() {
   useLiveCaseEvents();
@@ -40,20 +40,12 @@ function FechamentoContent() {
   // Definir filtros rápidos disponíveis
   const availableQuickFilters: QuickFilter[] = [
     {
-      id: "pendente",
-      label: "Pendentes",
-      value: "pendente",
+      id: "calculista_pendente",
+      label: "Aguardando Análise",
+      value: "calculista_pendente",
       icon: User,
       color: "warning",
-      count: items.filter((item: any) => item.status === "pendente").length
-    },
-    {
-      id: "em_analise",
-      label: "Em Análise",
-      value: "em_analise",
-      icon: Calendar,
-      color: "primary",
-      count: items.filter((item: any) => item.status === "em_analise").length
+      count: items.filter((item: any) => item.status === "calculista_pendente").length
     },
     {
       id: "aprovado",
@@ -62,6 +54,22 @@ function FechamentoContent() {
       icon: DollarSign,
       color: "success",
       count: items.filter((item: any) => item.status === "aprovado").length
+    },
+    {
+      id: "rejeitado",
+      label: "Rejeitados",
+      value: "rejeitado",
+      icon: X,
+      color: "danger",
+      count: items.filter((item: any) => item.status === "rejeitado").length
+    },
+    {
+      id: "devolvido",
+      label: "Devolvidos",
+      value: "devolvido",
+      icon: RefreshCw,
+      color: "warning",
+      count: items.filter((item: any) => item.status === "devolvido").length
     }
   ];
 

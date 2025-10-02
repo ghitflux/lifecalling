@@ -49,6 +49,38 @@ export default function ClienteDetalhe() {
     enabled: !!selectedCaseId && showHistoryModal
   });
 
+  // Buscar todos os anexos de todos os casos do cliente
+  const { data: allAttachments } = useQuery({
+    queryKey: ["clientAttachments", id],
+    queryFn: async () => {
+      if (!clientCases || clientCases.length === 0) return [];
+
+      // Buscar anexos de cada caso
+      const attachmentPromises = clientCases.map(async (caso: any) => {
+        try {
+          const response = await api.get(`/cases/${caso.id}/attachments`);
+          return {
+            caseId: caso.id,
+            caseStatus: caso.status,
+            attachments: response.data || []
+          };
+        } catch (error) {
+          console.error(`Erro ao buscar anexos do caso ${caso.id}:`, error);
+          return {
+            caseId: caso.id,
+            caseStatus: caso.status,
+            attachments: []
+          };
+        }
+      });
+
+      const results = await Promise.all(attachmentPromises);
+      // Filtrar apenas casos que têm anexos
+      return results.filter(r => r.attachments.length > 0);
+    },
+    enabled: !!id && !!clientCases && clientCases.length > 0
+  });
+
   const formatCPF = (cpf: string) => {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
@@ -249,6 +281,66 @@ export default function ClienteDetalhe() {
                     <Eye className="h-4 w-4 mr-1" />
                     Ver Detalhes
                   </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Anexos de Todos os Casos */}
+      {allAttachments && allAttachments.length > 0 && (
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Anexos de Todos os Casos ({allAttachments.reduce((acc, c) => acc + c.attachments.length, 0)})
+          </h2>
+
+          <div className="space-y-6">
+            {allAttachments.map((caseData: any) => (
+              <div key={caseData.caseId} className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Badge variant="outline" className="font-mono">
+                    Caso #{caseData.caseId}
+                  </Badge>
+                  <StatusBadge status={caseData.caseStatus} size="sm" />
+                  <span className="text-sm text-muted-foreground">
+                    {caseData.attachments.length} {caseData.attachments.length === 1 ? 'anexo' : 'anexos'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {caseData.attachments.map((attachment: any) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center justify-between p-3 rounded border bg-card hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0 w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" title={attachment.filename}>
+                            {attachment.filename}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {(attachment.size / 1024).toFixed(1)} KB
+                            {attachment.uploaded_at && (
+                              <> • {new Date(attachment.uploaded_at).toLocaleDateString('pt-BR')}</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/casos/${caseData.caseId}`)}
+                        title="Ver caso"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

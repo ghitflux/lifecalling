@@ -374,12 +374,6 @@ export function CaseDetails({
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">LIBERADO CLIENTE</p>
-                  <p className="text-xl font-bold text-info">
-                    {formatCurrency(caseData.simulation.results.liberadoCliente || 0)}
-                  </p>
-                </div>
-                <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">VALOR LÍQUIDO</p>
                   <p className="text-lg font-semibold">
                     {formatCurrency(caseData.simulation.results.valorLiquido || 0)}

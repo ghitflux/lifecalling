@@ -19,14 +19,14 @@ type Item = {
 };
 
 const NAV: Item[] = [
-  { label: "Supervisão",   href: "/dashboard",  icon: BarChart3,  roles: ["admin","supervisor"] },
-  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente","calculista"] },
-  { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista"] },
-  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","calculista"] },  // Removido atendente
-  { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro"] },
-  { label: "Contratos",    href: "/contratos",  icon: FileText,   roles: ["admin","supervisor","financeiro"] },
-  { label: "Clientes",     href: "/clientes",   icon: UserIcon,       roles: ["admin","supervisor","financeiro","calculista","atendente"] },
-  { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin","supervisor","financeiro","calculista"] },
+  // Removido: Dashboard/Supervisão
+  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente","calculista","financeiro"] },
+  { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista","financeiro"] },
+  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","calculista","financeiro"] },
+  { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro","calculista"] },
+  { label: "Contratos",    href: "/contratos",  icon: FileText,   roles: ["admin","supervisor","financeiro","calculista"] },
+  { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente"] },
+  { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin","supervisor"] },
   { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin","supervisor"] },
   { label: "Configurações",href: "/config",     icon: Settings,   roles: ["admin"] },
 ];

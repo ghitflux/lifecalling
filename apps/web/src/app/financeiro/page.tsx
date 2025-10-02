@@ -3,13 +3,12 @@ import { useLiveCaseEvents } from "@/lib/ws";
 import {
   useFinanceQueue,
   useFinanceDisburseSimple,
-  useFinanceMetrics,
   useUploadContractAttachment,
   useCancelContract,
   useDeleteContract,
   useFinanceCaseDetails
 } from "@/lib/hooks";
-import { FinanceCard, FinanceMetrics, ExpenseModal, IncomeModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters } from "@lifecalling/ui";
+import { FinanceCard, ExpenseModal, IncomeModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination } from "@lifecalling/ui";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -20,7 +19,6 @@ export default function Page(){
   useLiveCaseEvents();
   const queryClient = useQueryClient();
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
-  const { data: metrics, isLoading: loadingMetrics } = useFinanceMetrics();
   const disb = useFinanceDisburseSimple();
   const cancelContract = useCancelContract();
   const deleteContract = useDeleteContract();
@@ -35,6 +33,10 @@ export default function Page(){
   // Filtros rápidos
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Paginação
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Detalhes completos do caso
   const { data: fullCaseDetails } = useFinanceCaseDetails(selectedCaseId || 0);
@@ -247,20 +249,31 @@ export default function Page(){
   };
 
   // Filtros rápidos de status
+  const statusCounts = {
+    aprovado: items.filter((i: any) => !i.contract && ["fechamento_aprovado", "financeiro_pendente"].includes(i.status)).length,
+    liberado: items.filter((i: any) => !!i.contract).length,
+    devolvido: items.filter((i: any) => i.status === "devolvido_financeiro").length,
+    cancelado: items.filter((i: any) => i.status === "contrato_cancelado").length,
+    todos: items.length
+  };
+
   const availableFilters = [
-    { id: "approved", label: "Aprovado", value: "approved", color: "success" as const, count: items.filter((i: any) => i.status === "fechamento_aprovado" && !i.contract).length },
-    { id: "disbursed", label: "Liberado", value: "disbursed", color: "primary" as const, count: items.filter((i: any) => i.contract).length },
+    { id: "aprovado", label: "Aprovado", value: "aprovado", color: "success" as const, count: statusCounts.aprovado },
+    { id: "liberado", label: "Liberado", value: "liberado", color: "primary" as const, count: statusCounts.liberado },
+    { id: "devolvido", label: "Devolvido", value: "devolvido", color: "warning" as const, count: statusCounts.devolvido },
+    { id: "cancelado", label: "Cancelado", value: "cancelado", color: "danger" as const, count: statusCounts.cancelado },
+    { id: "todos", label: "Todos", value: "todos", color: "secondary" as const, count: statusCounts.todos }
   ];
 
   const handleFilterToggle = (filterId: string) => {
-    setStatusFilter(prev =>
-      prev.includes(filterId) ? prev.filter(f => f !== filterId) : [...prev, filterId]
-    );
+    setStatusFilter(prev => (prev.includes(filterId) ? [] : [filterId]));
+    setPage(1); // Reset para primeira página ao filtrar
   };
 
   const handleClearFilters = () => {
     setStatusFilter([]);
     setSearchTerm("");
+    setPage(1);
   };
 
   // Filtrar items
@@ -277,13 +290,38 @@ export default function Page(){
 
     // Filtro de status
     if (statusFilter.length > 0) {
-      const hasContract = !!item.contract;
-      if (statusFilter.includes("approved") && hasContract) return false;
-      if (statusFilter.includes("disbursed") && !hasContract) return false;
+      const active = statusFilter[0];
+      switch (active) {
+        case "aprovado":
+          if (!( !item.contract && ["fechamento_aprovado", "financeiro_pendente"].includes(item.status) )) {
+            return false;
+          }
+          break;
+        case "liberado":
+          if (!item.contract) return false;
+          break;
+        case "devolvido":
+          if (item.status !== "devolvido_financeiro") return false;
+          break;
+        case "cancelado":
+          if (item.status !== "contrato_cancelado") return false;
+          break;
+        case "todos":
+          break;
+        default:
+          break;
+      }
     }
 
     return true;
   });
+
+  // Calcular paginação
+  const totalItems = filteredItems.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedItems = filteredItems.slice(startIndex, endIndex);
 
   return (
     <div className="p-6 space-y-6">
@@ -308,7 +346,10 @@ export default function Page(){
       {/* Filtros Rápidos */}
       <QuickFilters
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        onSearchChange={(value) => {
+          setSearchTerm(value);
+          setPage(1); // Reset para primeira página ao buscar
+        }}
         activeFilters={statusFilter}
         onFilterToggle={handleFilterToggle}
         availableFilters={availableFilters}
@@ -324,9 +365,10 @@ export default function Page(){
           <div className="text-center py-12">
             <p className="text-muted-foreground">Carregando atendimentos...</p>
           </div>
-        ) : filteredItems.length > 0 ? (
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            {filteredItems.map((item: any) => {
+        ) : totalItems > 0 ? (
+          <>
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+              {paginatedItems.map((item: any) => {
               const contractId = item.contract?.id;
               const clientBankInfo = item.client ? {
                 banco: item.client.banco,
@@ -383,6 +425,23 @@ export default function Page(){
               );
             })}
           </div>
+
+          {/* Paginação */}
+          {totalItems > pageSize && (
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              itemsPerPageOptions={[10, 20, 50]}
+            />
+          )}
+        </>
         ) : (
           <Card className="p-12 text-center border-dashed">
             <p className="text-lg text-muted-foreground">✨ Nenhum atendimento encontrado</p>
@@ -392,19 +451,6 @@ export default function Page(){
           </Card>
         )}
       </div>
-
-      {/* KPIs / Métricas Financeiras */}
-      {loadingMetrics ? (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">Carregando métricas...</p>
-        </div>
-      ) : metrics ? (
-        <FinanceMetrics {...metrics} />
-      ) : (
-        <Card className="p-8 text-center border-dashed">
-          <p className="text-muted-foreground">Nenhuma métrica disponível</p>
-        </Card>
-      )}
 
       {/* Gestão de Receitas e Despesas com Tabs */}
       <Card className="p-6">
@@ -494,7 +540,7 @@ export default function Page(){
               ) : (
                 <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
                   <p>Nenhuma receita manual cadastrada</p>
-                  <p className="text-sm mt-1">Clique em "Adicionar Receita" para começar</p>
+                  <p className="text-sm mt-1">Clique em &quot;Adicionar Receita&quot; para começar</p>
                 </div>
               )}
             </div>
@@ -574,7 +620,7 @@ export default function Page(){
               ) : (
                 <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
                   <p>Nenhuma despesa cadastrada</p>
-                  <p className="text-sm mt-1">Clique em "Adicionar Despesa" para começar</p>
+                  <p className="text-sm mt-1">Clique em &quot;Adicionar Despesa&quot; para começar</p>
                 </div>
               )}
             </div>

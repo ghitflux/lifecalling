@@ -41,6 +41,80 @@ export function usePatchCase() {
   });
 }
 
+export function useAttachments(caseId: number) {
+  return useQuery({
+    queryKey: ["case", caseId, "attachments"],
+    queryFn: async () => (await api.get(`/cases/${caseId}/attachments`)).data.items ?? [],
+    enabled: !!caseId
+  });
+}
+
+export function useDeleteAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ caseId, attachmentId }: { caseId: number; attachmentId: number }) =>
+      (await api.delete(`/cases/${caseId}/attachments/${attachmentId}`)).data,
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["case", vars.caseId, "attachments"] });
+      qc.invalidateQueries({ queryKey: ["case", vars.caseId] });
+      toast.success("Anexo removido com sucesso");
+    },
+    onError: () => {
+      toast.error("Erro ao remover anexo");
+    }
+  });
+}
+
+/** Histórico de telefones do cliente */
+export function useClientPhones(clientId: number) {
+  return useQuery({
+    queryKey: ["client", clientId, "phones"],
+    queryFn: async () => (await api.get(`/clients/${clientId}/phones`)).data?.items ?? [],
+    enabled: !!clientId && clientId > 0
+  });
+}
+
+export function useAddClientPhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clientId, phone, isPrimary }: { clientId: number; phone: string; isPrimary?: boolean }) =>
+      (await api.post(`/clients/${clientId}/phones`, { phone, is_primary: isPrimary })).data,
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["client", vars.clientId, "phones"] });
+      qc.invalidateQueries({ queryKey: ["case"] });
+      toast.success("Telefone registrado com sucesso");
+    },
+    onError: () => {
+      toast.error("Erro ao registrar telefone");
+    }
+  });
+}
+
+export function useDeleteClientPhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clientId, phoneId }: { clientId: number; phoneId: number }) =>
+      (await api.delete(`/clients/${clientId}/phones/${phoneId}`)).data,
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["client", vars.clientId, "phones"] });
+      toast.success("Telefone removido do histórico");
+    },
+    onError: () => {
+      toast.error("Erro ao remover telefone");
+    }
+  });
+}
+
+/** Histórico de eventos do caso */
+export function useCaseEvents(caseId: number) {
+  return useQuery({
+    queryKey: ["case", caseId, "events"],
+    queryFn: async () => (await api.get(`/cases/${caseId}/events`)).data.events ?? [],
+    enabled: !!caseId,
+    refetchInterval: 30000 // Atualiza a cada 30 segundos
+  });
+}
+
 export function useUploadAttachment(caseId: number) {
   const qc = useQueryClient();
   return useMutation({
@@ -53,6 +127,7 @@ export function useUploadAttachment(caseId: number) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["case", caseId] });
+      qc.invalidateQueries({ queryKey: ["case", caseId, "attachments"] });
     },
   });
 }
@@ -223,6 +298,7 @@ export function useFinanceDisburse() {
     mutationFn: async (payload:{case_id:number; total_amount:number; installments:number; disbursed_at?:string}) =>
       (await api.post("/finance/disburse", payload)).data,
     onSuccess: ()=> {
+      qc.invalidateQueries({ queryKey: ["financeQueue"] });
       qc.invalidateQueries({queryKey:["finance","queue"]});
       qc.invalidateQueries({queryKey:["contracts"]});
       qc.invalidateQueries({queryKey:["cases"]});
@@ -258,6 +334,7 @@ export function useCancelContract() {
       return response.data;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financeQueue'] });
       qc.invalidateQueries({ queryKey: ['finance', 'queue'] });
       qc.invalidateQueries({ queryKey: ['contracts'] });
       qc.invalidateQueries({ queryKey: ['cases'] });
@@ -273,6 +350,7 @@ export function useDeleteContract() {
       return response.data;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financeQueue'] });
       qc.invalidateQueries({ queryKey: ['finance', 'queue'] });
       qc.invalidateQueries({ queryKey: ['contracts'] });
       qc.invalidateQueries({ queryKey: ['cases'] });
@@ -288,6 +366,7 @@ export function useReturnToCalculista() {
       return response.data;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financeQueue'] });
       qc.invalidateQueries({ queryKey: ['finance', 'queue'] });
       qc.invalidateQueries({ queryKey: ['cases'] });
     },
@@ -319,6 +398,7 @@ export function useUploadContractAttachment() {
     },
     onSuccess: (_, { contractId }) => {
       qc.invalidateQueries({ queryKey: ["contract", contractId, "attachments"] });
+      qc.invalidateQueries({ queryKey: ["financeQueue"] });
       qc.invalidateQueries({ queryKey: ["finance", "queue"] }); // Invalidar também a queue do financeiro
     },
   });
@@ -331,6 +411,7 @@ export function useDeleteContractAttachment(contractId: number) {
       (await api.delete(`/contracts/${contractId}/attachments/${attachmentId}`)).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contract", contractId, "attachments"] });
+      qc.invalidateQueries({ queryKey: ["financeQueue"] });
       qc.invalidateQueries({ queryKey: ["finance", "queue"] });
     },
   });

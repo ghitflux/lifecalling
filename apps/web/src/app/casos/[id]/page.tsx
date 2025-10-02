@@ -11,7 +11,7 @@ import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSendToCalculista, useReassignCase, useUsers } from "@/lib/hooks";
+import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 
@@ -29,7 +29,6 @@ interface CaseDetail {
     telefone_preferencial?: string;
     numero_cliente?: string;
     observacoes?: string;
-    telefone_historico?: string[]; // Histórico de números salvos
     // Dados bancários
     banco?: string;
     agencia?: string;
@@ -99,7 +98,6 @@ export default function CaseDetailPage() {
   const [telefone, setTelefone] = useState("");
   const [numeroCliente, setNumeroCliente] = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const [telefoneHistorico, setTelefoneHistorico] = useState<string[]>([]);
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
 
@@ -119,16 +117,7 @@ export default function CaseDetailPage() {
   // Hook para listar usuários ativos
   const { data: users } = useUsers();
 
-  const handleSendToCalculista = async () => {
-    try {
-      await sendCalc.mutateAsync(caseId);
-      toast.success("Caso enviado para calculista com sucesso!");
-    } catch (error) {
-      toast.error("Erro ao enviar para calculista. Tente novamente.");
-    }
-  };
-
-  // Query para buscar detalhes do caso
+  // Query para buscar detalhes do caso (DEVE VIR ANTES de usar caseDetail)
   const { data: caseDetail, isLoading, error } = useQuery({
     queryKey: ["case", caseId],
     queryFn: async () => {
@@ -150,6 +139,30 @@ export default function CaseDetailPage() {
     retry: false, // Não tentar novamente em caso de erro de auth
   });
 
+  // Hook para carregar anexos do caso
+  const { data: attachments, isLoading: attachmentsLoading } = useAttachments(caseId);
+
+  // Hook para deletar anexos
+  const deleteAttachment = useDeleteAttachment();
+
+  // Hooks para telefones do cliente (agora seguro usar caseDetail)
+  const clientId = caseDetail?.client?.id;
+  const { data: clientPhones = [] } = useClientPhones(clientId || 0);
+  const addPhone = useAddClientPhone();
+  const deletePhone = useDeleteClientPhone();
+
+  // Hook para eventos do caso
+  const { data: caseEvents = [] } = useCaseEvents(caseId);
+
+  const handleSendToCalculista = async () => {
+    try {
+      await sendCalc.mutateAsync(caseId);
+      toast.success("Caso enviado para calculista com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao enviar para calculista. Tente novamente.");
+    }
+  };
+
   // Buscar role do usuário atual
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -169,7 +182,6 @@ export default function CaseDetailPage() {
       setTelefone(formatPhone(caseDetail.client.telefone_preferencial || ""));
       setNumeroCliente(caseDetail.client.numero_cliente || "");
       setObservacoes(caseDetail.client.observacoes || "");
-      setTelefoneHistorico(caseDetail.client.telefone_historico || []);
       setBanco(caseDetail.client.banco || "");
       setAgencia(caseDetail.client.agencia || "");
       setConta(caseDetail.client.conta || "");
@@ -178,17 +190,6 @@ export default function CaseDetailPage() {
       setSelectedAssignee(caseDetail.assigned_user_id?.toString() || "");
     }
   }, [caseDetail]);
-
-  // Função para adicionar número ao histórico quando salvar
-  const adicionarNumeroAoHistorico = (novoTelefone: string) => {
-    if (novoTelefone && novoTelefone !== caseDetail?.client.telefone_preferencial) {
-      const historicoAtualizado = [...telefoneHistorico];
-      if (!historicoAtualizado.includes(novoTelefone)) {
-        historicoAtualizado.push(novoTelefone);
-        setTelefoneHistorico(historicoAtualizado);
-      }
-    }
-  };
 
   // Mutation para atualizar caso
   const updateCaseMutation = useMutation({
@@ -207,10 +208,11 @@ export default function CaseDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["case", caseId] });
-      toast.success("Caso atualizado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["case", caseId, "events"] });
+      toast.success("Alterações salvas com sucesso!");
     },
     onError: () => {
-      toast.error("Erro ao atualizar caso");
+      toast.error("Erro ao salvar alterações");
     },
   });
 
@@ -241,7 +243,6 @@ export default function CaseDetailPage() {
       telefone_preferencial?: string;
       numero_cliente?: string;
       observacoes?: string;
-      telefone_historico?: string[];
       banco?: string;
       agencia?: string;
       conta?: string;
@@ -252,8 +253,6 @@ export default function CaseDetailPage() {
     const unformattedPhone = unformatPhone(telefone);
     if (unformattedPhone !== (caseDetail?.client.telefone_preferencial || "")) {
       updates.telefone_preferencial = unformattedPhone;
-      adicionarNumeroAoHistorico(caseDetail?.client.telefone_preferencial || "");
-      updates.telefone_historico = telefoneHistorico;
     }
     if (numeroCliente !== (caseDetail?.client.numero_cliente || "")) {
       updates.numero_cliente = numeroCliente;
@@ -364,17 +363,17 @@ export default function CaseDetailPage() {
         </Card>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Dados do Cliente */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Coluna 1: Dados do Cliente */}
         <Card className="p-6 space-y-4">
           <h2 className="text-lg font-medium">Dados do Cliente</h2>
-          
+
           <div className="space-y-3">
             <div>
               <Label>Nome</Label>
               <Input value={caseDetail.client.name} disabled />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>CPF</Label>
@@ -385,71 +384,10 @@ export default function CaseDetailPage() {
                 <Input value={caseDetail.client.matricula} disabled />
               </div>
             </div>
-            
+
             <div>
               <Label>Órgão</Label>
               <Input value={caseDetail.client.orgao || ""} disabled />
-            </div>
-
-            {/* Informações Financeiras do Cliente */}
-            {caseDetail.client.financiamentos && caseDetail.client.financiamentos.length > 0 && (
-              <div className="space-y-3 border-t pt-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Informações Financeiras</h3>
-                {caseDetail.client.financiamentos.map((financiamento, index) => (
-                  <div
-                    key={financiamento.id}
-                    className="rounded-lg border border-border/40 bg-muted/40 p-3 space-y-2"
-                  >
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Status:</span>
-                        <div className="font-medium">{financiamento.status_description}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Total:</span>
-                        <div className="font-medium">{financiamento.total_parcelas} parcelas</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Pago:</span>
-                        <div className="font-medium">{financiamento.parcelas_pagas} parcelas</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Valor:</span>
-                        <div className="font-medium">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL'
-                          }).format(parseFloat(financiamento.valor_parcela_ref))}
-                        </div>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Órgão Pagto:</span>
-                        <div className="font-medium">{financiamento.orgao_pagamento_nome || financiamento.orgao_pagamento}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <div>
-              <Label>Telefone Preferencial</Label>
-              <Input
-                value={telefone}
-                onChange={handlePhoneChange}
-                placeholder="(11) 99999-9999"
-                maxLength={15}
-              />
-            </div>
-
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                placeholder="Adicione observações sobre o caso..."
-                rows={4}
-              />
             </div>
 
             {/* Informações Financeiras do Cliente */}
@@ -548,38 +486,126 @@ export default function CaseDetailPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSave}
-                disabled={updateCaseMutation.isPending}
-                className="flex-1"
-              >
-                {updateCaseMutation.isPending ? "Salvando..." : "Salvar Alterações"}
-              </Button>
-            </div>
           </div>
         </Card>
 
-        {/* Upload de Anexos */}
+        {/* Coluna 2: Anexos e Telefones */}
         <Card className="p-6 space-y-4">
-          <h2 className="text-lg font-medium">Documentos</h2>
-          <AttachmentUploader caseId={caseId} />
+          <h2 className="text-lg font-medium">Documentos e Contato</h2>
+
+          {/* Telefone */}
+          <div className="space-y-3">
+            <div>
+              <Label>Telefone Preferencial</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={telefone}
+                  onChange={handlePhoneChange}
+                  placeholder="(11) 99999-9999"
+                  maxLength={15}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!clientId) {
+                      toast.error("Carregando dados do cliente...");
+                      return;
+                    }
+                    const unformatted = unformatPhone(telefone);
+                    if (unformatted && unformatted.length >= 10) {
+                      addPhone.mutate({
+                        clientId: clientId,
+                        phone: unformatted,
+                        isPrimary: true
+                      });
+                    } else {
+                      toast.error("Digite um telefone válido");
+                    }
+                  }}
+                  disabled={addPhone.isPending || !telefone || !clientId}
+                >
+                  {addPhone.isPending ? "Salvando..." : "Registrar"}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label>Observações</Label>
+              <Textarea
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Adicione observações sobre o caso..."
+                rows={3}
+              />
+            </div>
+
+            <Button
+              onClick={handleSave}
+              disabled={updateCaseMutation.isPending}
+              className="w-full"
+            >
+              {updateCaseMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </div>
+
+          {/* Upload de Anexos */}
+          <div className="border-t pt-4">
+            <h3 className="font-medium mb-2">Upload de Anexos</h3>
+            <AttachmentUploader caseId={caseId} />
+          </div>
 
           <div className="border-t pt-4">
             <h3 className="font-medium mb-2">Anexos Existentes</h3>
-            {caseDetail.attachments && caseDetail.attachments.length > 0 ? (
+            {attachmentsLoading ? (
+              <div className="text-sm text-muted-foreground">
+                Carregando anexos...
+              </div>
+            ) : attachments && attachments.length > 0 ? (
               <div className="space-y-2">
-                {caseDetail.attachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-2 border rounded">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{attachment.filename}</span>
+                {attachments.map((attachment: any) => (
+                  <div key={attachment.id} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-sm font-medium">{attachment.filename}</span>
                       <span className="text-xs text-muted-foreground">
                         ({(attachment.size / 1024).toFixed(1)} KB)
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(attachment.uploaded_at).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {attachment.uploaded_at ? new Date(attachment.uploaded_at).toLocaleDateString() : 'Data não disponível'}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 hover:bg-primary/10"
+                        onClick={() => {
+                          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+                          window.open(`${baseUrl}/cases/${caseId}/attachments/${attachment.id}/download`, '_blank');
+                        }}
+                        title="Ver/Baixar anexo"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-danger hover:text-danger hover:bg-danger/10"
+                        onClick={() => {
+                          if (confirm(`Deseja remover o anexo "${attachment.filename}"?`)) {
+                            deleteAttachment.mutate({
+                              caseId: caseId,
+                              attachmentId: attachment.id
+                            });
+                          }
+                        }}
+                        disabled={deleteAttachment.isPending}
+                        title="Remover anexo"
+                      >
+                        ×
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -590,20 +616,51 @@ export default function CaseDetailPage() {
             )}
           </div>
 
-           {/* Histórico de Números Salvos */}
+           {/* Histórico de Números */}
            <div className="border-t pt-4">
              <h3 className="font-medium mb-2">Histórico de Números</h3>
-             {telefoneHistorico && telefoneHistorico.length > 0 ? (
+             {clientPhones && clientPhones.length > 0 ? (
                <div className="space-y-2">
-                  {telefoneHistorico.map((numero, index) => (
+                  {clientPhones.map((phoneRecord: any) => (
                     <div
-                      key={index}
+                      key={phoneRecord.id}
                       className="flex items-center justify-between rounded border border-border/40 bg-muted/40 p-2"
                     >
-                     <span className="text-sm">{numero}</span>
-                     <span className="text-xs text-muted-foreground">
-                       Número anterior
-                     </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{formatPhone(phoneRecord.phone)}</span>
+                        {phoneRecord.is_primary && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            Principal
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {phoneRecord.created_at ? new Date(phoneRecord.created_at).toLocaleDateString() : ''}
+                        </span>
+                        {!phoneRecord.is_primary && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-danger hover:text-danger hover:bg-danger/10"
+                            onClick={() => {
+                              if (!clientId) {
+                                toast.error("Erro ao carregar dados do cliente");
+                                return;
+                              }
+                              if (confirm("Deseja remover este telefone do histórico?")) {
+                                deletePhone.mutate({
+                                  clientId: clientId,
+                                  phoneId: phoneRecord.id
+                                });
+                              }
+                            }}
+                            disabled={deletePhone.isPending || !clientId}
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
                    </div>
                  ))}
                </div>
@@ -614,62 +671,120 @@ export default function CaseDetailPage() {
              )}
            </div>
         </Card>
-      </div>
 
-      {/* Informações da Simulação */}
-      {caseDetail.simulation && (
-        <Card className="p-6 space-y-4">
-          <h2 className="text-lg font-medium">Simulação do Atendimento</h2>
+        {/* Coluna 3: Simulação do Atendimento */}
+        {caseDetail.simulation ? (
+          <Card className="p-6 space-y-4">
+            <h2 className="text-lg font-medium">Simulação do Atendimento</h2>
 
-          {caseDetail.simulation.status === 'pending' && (
-            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3 text-sm text-warning-foreground">
-              ⏳ Simulação pendente de análise pelo calculista
-            </div>
-          )}
-
-          {caseDetail.simulation.status === 'approved' && caseDetail.simulation.totals && (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-success/40 bg-success-subtle p-3 text-sm text-success-foreground">
-                ✅ Simulação aprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
+            {caseDetail.simulation.status === 'pending' && (
+              <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3 text-sm text-warning-foreground">
+                ⏳ Simulação pendente de análise pelo calculista
               </div>
-              <SimulationResultCard
-                totals={{
-                  valorParcelaTotal: caseDetail.simulation.totals.valorParcelaTotal,
-                  saldoTotal: caseDetail.simulation.totals.saldoTotal,
-                  liberadoTotal: caseDetail.simulation.totals.liberadoTotal,
-                  totalFinanciado: caseDetail.simulation.totals.totalFinanciado,
-                  valorLiquido: caseDetail.simulation.totals.valorLiquido,
-                  custoConsultoria: caseDetail.simulation.totals.custoConsultoria,
-                  liberadoCliente: caseDetail.simulation.totals.liberadoCliente,
-                  seguroObrigatorio: caseDetail.simulation.totals.seguroObrigatorio,
-                  custoConsultoriaLiquido: caseDetail.simulation.totals.custoConsultoriaLiquido
-                }}
-                simulation={{
-                  banks: caseDetail.simulation.banks || [],
-                  prazo: caseDetail.simulation.prazo || 0,
-                  coeficiente: "",
-                  seguro: caseDetail.simulation.totals.seguroObrigatorio || 0,
-                  percentualConsultoria: caseDetail.simulation.percentualConsultoria || 0
-                }}
-                isActive={true}
-              />
-            </div>
-          )}
+            )}
 
-          {caseDetail.simulation.status === 'rejected' && (
-            <div className="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger-foreground">
-              ❌ Simulação reprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
+            {caseDetail.simulation.status === 'approved' && caseDetail.simulation.totals && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-success/40 bg-success-subtle p-3 text-sm text-success-foreground">
+                  ✅ Simulação aprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
+                </div>
+                <SimulationResultCard
+                  totals={{
+                    valorParcelaTotal: caseDetail.simulation.totals.valorParcelaTotal,
+                    saldoTotal: caseDetail.simulation.totals.saldoTotal,
+                    liberadoTotal: caseDetail.simulation.totals.liberadoTotal,
+                    totalFinanciado: caseDetail.simulation.totals.totalFinanciado,
+                    valorLiquido: caseDetail.simulation.totals.valorLiquido,
+                    custoConsultoria: caseDetail.simulation.totals.custoConsultoria,
+                    liberadoCliente: caseDetail.simulation.totals.liberadoCliente,
+                    seguroObrigatorio: caseDetail.simulation.totals.seguroObrigatorio,
+                    custoConsultoriaLiquido: caseDetail.simulation.totals.custoConsultoriaLiquido
+                  }}
+                  simulation={{
+                    banks: caseDetail.simulation.banks || [],
+                    prazo: caseDetail.simulation.prazo || 0,
+                    coeficiente: "",
+                    seguro: caseDetail.simulation.totals.seguroObrigatorio || 0,
+                    percentualConsultoria: caseDetail.simulation.percentualConsultoria || 0
+                  }}
+                  isActive={true}
+                />
+              </div>
+            )}
+
+            {caseDetail.simulation.status === 'rejected' && (
+              <div className="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger-foreground">
+                ❌ Simulação reprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
+              </div>
+            )}
+          </Card>
+        ) : (
+          <Card className="p-6">
+            <h2 className="text-lg font-medium mb-2">Simulação do Atendimento</h2>
+            <div className="text-sm text-muted-foreground">
+              Nenhuma simulação cadastrada ainda
             </div>
-          )}
-        </Card>
-      )}
+          </Card>
+        )}
+      </div>
 
       {/* Histórico do Caso */}
       <Card className="p-6">
         <h2 className="text-lg font-medium mb-4">Histórico do Atendimento</h2>
-        <div className="text-sm text-muted-foreground">
-          Histórico de eventos será implementado em breve...
-        </div>
+        {caseEvents && caseEvents.length > 0 ? (
+          <div className="space-y-4">
+            {caseEvents.map((event: any) => (
+              <div key={event.id} className="flex gap-4 pb-4 border-b last:border-b-0">
+                <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-primary"></div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        {event.type === 'case.created' && '📋 Caso criado'}
+                        {event.type === 'case.assigned' && '👤 Caso atribuído'}
+                        {event.type === 'case.status_changed' && '🔄 Status alterado'}
+                        {event.type === 'case.updated' && '✏️ Caso atualizado'}
+                        {event.type === 'attachment.added' && '📎 Anexo adicionado'}
+                        {event.type === 'attachment.deleted' && '🗑️ Anexo removido'}
+                        {event.type === 'simulation.created' && '📊 Simulação criada'}
+                        {event.type === 'simulation.approved' && '✅ Simulação aprovada'}
+                        {event.type === 'simulation.rejected' && '❌ Simulação rejeitada'}
+                        {event.type === 'case.sent_to_calculista' && '🧮 Enviado para calculista'}
+                        {!['case.created', 'case.assigned', 'case.status_changed', 'case.updated', 'attachment.added', 'attachment.deleted', 'simulation.created', 'simulation.approved', 'simulation.rejected', 'case.sent_to_calculista'].includes(event.type) && `📌 ${event.type}`}
+                      </span>
+                      {event.created_by && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                          {event.created_by.name}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(event.created_at).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  {event.payload && Object.keys(event.payload).length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      {event.payload.filename && `Arquivo: ${event.payload.filename}`}
+                      {event.payload.status && `Novo status: ${event.payload.status}`}
+                      {event.payload.assigned_to && `Atribuído para: ${event.payload.assigned_to}`}
+                      {event.payload.deleted_by && `Removido por: ${event.payload.deleted_by}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground text-center py-8">
+            Nenhum evento registrado ainda
+          </div>
+        )}
       </Card>
     </div>
   );

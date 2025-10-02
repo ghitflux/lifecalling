@@ -28,6 +28,7 @@ export * from "./src/GridSystem";
 export * from "./src/CaseCard";
 export * from "./src/CaseDetails";
 export * from "./src/CaseNotesEditor";
+export * from "./src/CaseHistory";
 
 // New Components
 export * from "./src/ProgressBar";

@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Button, Input, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Badge } from "@lifecalling/ui";
+import { Button, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Badge } from "@lifecalling/ui";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Users, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login, user } = useAuth();
   const router = useRouter();
 
@@ -26,13 +28,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Obtem o parâmetro 'next' da URL se disponível
       const urlParams = new URLSearchParams(window.location.search);
       const nextUrl = urlParams.get('next');
 
       await login(email, password, nextUrl || undefined);
       toast.success("Login realizado com sucesso!");
-      // O redirecionamento é feito automaticamente pelo hook useAuth
     } catch (error: any) {
       const errorMessage = error?.response?.data?.detail || "Erro no login. Verifique suas credenciais.";
       toast.error(errorMessage);
@@ -48,13 +48,11 @@ export default function LoginPage() {
     setPassword(demoPassword);
     setLoading(true);
     try {
-      // Obtem o parâmetro 'next' da URL se disponível
       const urlParams = new URLSearchParams(window.location.search);
       const nextUrl = urlParams.get('next');
 
       await login(demoEmail, demoPassword, nextUrl || undefined);
       toast.success("Login realizado com sucesso!");
-      // O redirecionamento é feito automaticamente pelo hook useAuth
     } catch (error: any) {
       const errorMessage = error?.response?.data?.detail || "Erro no login. Verifique suas credenciais.";
       toast.error(errorMessage);
@@ -69,109 +67,160 @@ export default function LoginPage() {
       level: "Administrador",
       color: "bg-red-500",
       users: [
-        { name: "Carlos Admin", email: "admin1@demo.local", password: "123456" },
-        { name: "Maria Administradora", email: "admin2@demo.local", password: "123456" },
-        { name: "João Administrador", email: "admin3@demo.local", password: "123456" }
+        { name: "Admin Um", email: "admin1@lifecalling.com", password: "123456" },
+        { name: "Admin Dois", email: "admin2@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Supervisor",
       color: "bg-blue-500",
       users: [
-        { name: "Sara Supervisor", email: "supervisor1@demo.local", password: "123456" },
-        { name: "Pedro Supervisor", email: "supervisor2@demo.local", password: "123456" },
-        { name: "Ana Supervisora", email: "supervisor3@demo.local", password: "123456" }
+        { name: "Supervisor Um", email: "supervisor1@lifecalling.com", password: "123456" },
+        { name: "Supervisor Dois", email: "supervisor2@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Financeiro",
       color: "bg-green-500",
       users: [
-        { name: "Fábio Financeiro", email: "financeiro1@demo.local", password: "123456" },
-        { name: "Carla Financeira", email: "financeiro2@demo.local", password: "123456" },
-        { name: "Roberto Financeiro", email: "financeiro3@demo.local", password: "123456" }
+        { name: "Financeiro Um", email: "financeiro1@lifecalling.com", password: "123456" },
+        { name: "Financeiro Dois", email: "financeiro2@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Calculista",
       color: "bg-yellow-500",
       users: [
-        { name: "Cida Calculista", email: "calculista1@demo.local", password: "123456" },
-        { name: "Marcos Calculista", email: "calculista2@demo.local", password: "123456" },
-        { name: "Julia Calculista", email: "calculista3@demo.local", password: "123456" }
+        { name: "Calculista Um", email: "calculista1@lifecalling.com", password: "123456" },
+        { name: "Calculista Dois", email: "calculista2@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Atendente",
       color: "bg-purple-500",
       users: [
-        { name: "Ana Atendente", email: "atendente1@demo.local", password: "123456" },
-        { name: "Lucas Atendente", email: "atendente2@demo.local", password: "123456" },
-        { name: "Fernanda Atendente", email: "atendente3@demo.local", password: "123456" }
+        { name: "Atendente Um", email: "atendente1@lifecalling.com", password: "123456" },
+        { name: "Atendente Dois", email: "atendente2@lifecalling.com", password: "123456" },
+        { name: "Atendente Três", email: "atendente3@lifecalling.com", password: "123456" },
+        { name: "Atendente Quatro", email: "atendente4@lifecalling.com", password: "123456" },
+        { name: "Atendente Cinco", email: "atendente5@lifecalling.com", password: "123456" },
+        { name: "Atendente Seis", email: "atendente6@lifecalling.com", password: "123456" },
+        { name: "Atendente Sete", email: "atendente7@lifecalling.com", password: "123456" }
       ]
     }
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Lifecalling
-          </CardTitle>
-          <p className="text-center text-muted-foreground">
-            Entre com suas credenciais para acessar o sistema
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Senha
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Sua senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
-            <Button className="w-full" disabled={loading} type="submit">
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
-          
-          {/* Botão para abrir modal de credenciais */}
-          <div className="mt-4 text-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCredentialsModalOpen(true)}
-              className="text-xs"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Ver Credenciais Demo
-            </Button>
+    <div className="min-h-screen flex">
+      {/* Lado Esquerdo - Imagem */}
+      <div className="hidden md:flex md:w-1/2 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/20" />
+        <Image
+          src="/assets/atendente.webp"
+          alt="Atendente de Call Center"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
+      </div>
+
+      {/* Lado Direito - Formulário */}
+      <div className="w-full md:w-1/2 flex items-center justify-center p-8 bg-background relative">
+        <div className="w-full max-w-md space-y-8">
+          {/* Logo */}
+          <div className="flex flex-col items-center space-y-2">
+            <Image
+              src="/assets/lifeservice.png"
+              alt="Life Service"
+              width={280}
+              height={80}
+              className="mb-2"
+              priority
+            />
+            <p className="text-sm text-muted-foreground">Sistema de Call Center</p>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Card de Login */}
+          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-8 shadow-lg">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h1 className="text-2xl font-semibold">Bem-vindo</h1>
+                <p className="text-sm text-muted-foreground">Entre com suas credenciais</p>
+              </div>
+
+              <form onSubmit={onSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    Senha
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      required
+                      className="h-11 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full h-11"
+                  disabled={loading}
+                  type="submit"
+                >
+                  {loading ? "Entrando..." : "Entrar"}
+                </Button>
+              </form>
+
+              {/* Botão Credenciais Demo */}
+              <div className="pt-4 border-t border-border">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCredentialsModalOpen(true)}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Ver Credenciais Demo
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Rodapé */}
+          <p className="text-center text-xs text-muted-foreground">
+            © 2024 Life Serviços. Todos os direitos reservados.
+          </p>
+        </div>
+      </div>
 
       {/* Modal de Credenciais */}
       <Dialog open={credentialsModalOpen} onOpenChange={setCredentialsModalOpen}>
@@ -185,7 +234,7 @@ export default function LoginPage() {
               Clique em qualquer usuário para fazer login automaticamente
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Mostrar senhas:</span>
@@ -198,7 +247,7 @@ export default function LoginPage() {
                 {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
-            
+
             {demoUsers.map((levelGroup, levelIndex) => (
               <div key={levelIndex} className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -209,7 +258,7 @@ export default function LoginPage() {
                     ({levelGroup.users.length} usuários)
                   </span>
                 </div>
-                
+
                 <div className="grid gap-2">
                   {levelGroup.users.map((user, userIndex) => (
                     <div

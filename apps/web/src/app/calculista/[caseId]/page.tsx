@@ -399,14 +399,28 @@ export default function CalculistaSimulationPage() {
         clientName={caseDetail?.client?.name}
         onEditSimulation={(entry) => {
           // Carregar simulação para edição
+          // Converter estrutura do backend para o formato esperado
+          const banksConverted = entry.banks.map((b: any) => ({
+            bank: b.banco || b.bank,
+            parcela: b.parcela,
+            saldoDevedor: b.saldoDevedor,
+            valorLiberado: b.valorLiberado
+          }));
+
           setCurrentSimulation({
-            banks: entry.banks,
+            banks: banksConverted,
             prazo: entry.prazo,
             coeficiente: "",
             seguro: entry.totals.seguroObrigatorio || 0,
             percentualConsultoria: entry.percentualConsultoria
           });
-          setCurrentTotals(entry.totals);
+
+          // Garantir que custoConsultoriaLiquido seja sempre number
+          const totals = {
+            ...entry.totals,
+            custoConsultoriaLiquido: entry.totals.custoConsultoriaLiquido || (entry.totals.custoConsultoria * 0.86)
+          };
+          setCurrentTotals(totals);
           toast.success("Simulação carregada para edição");
           setShowHistoryModal(false);
         }}

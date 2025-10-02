@@ -174,6 +174,7 @@ async def notify_case_status_change(
         status_messages = {
             "calculo_aprovado": f"✅ Simulação aprovada por {changed_by_name}",
             "calculo_rejeitado": f"❌ Simulação rejeitada por {changed_by_name}",
+            "calculista_pendente": f"📊 Novo caso aguardando simulação - Enviado por {changed_by_name}",
             "fechamento_aprovado": f"✅ Fechamento aprovado por {changed_by_name}",
             "fechamento_reprovado": f"❌ Fechamento reprovado por {changed_by_name}",
             "financeiro_pendente": f"💰 Caso enviado para financeiro por {changed_by_name}",

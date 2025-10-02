@@ -8,7 +8,7 @@ const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|
   "/financeiro":   ["admin","supervisor","financeiro"],
   "/contratos":    ["admin","supervisor","financeiro"],
   "/casos":        ["admin","supervisor","atendente","calculista","financeiro"],
-  "/dashboard":    ["admin","supervisor"],
+  // "/dashboard":    ["admin","supervisor"], // removido
   "/usuarios":     ["admin","supervisor"],
   "/config":       ["admin"],
 };
@@ -21,7 +21,7 @@ export function middleware(req: NextRequest) {
   console.log(`[Middleware] ${req.method} ${pathname}`);
 
   // sempre libera /login, /_next, assets, /api
-  if (pathname.startsWith("/login") || pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname === "/") {
+  if (pathname.startsWith("/login") || pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname.startsWith("/assets") || pathname === "/") {
     return NextResponse.next();
   }
 

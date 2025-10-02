@@ -67,11 +67,7 @@ export function FilterProvider({
   }, []);
 
   const toggleQuickFilter = useCallback((filterId: string) => {
-    setQuickFiltersState(prev =>
-      prev.includes(filterId)
-        ? prev.filter(id => id !== filterId)
-        : [...prev, filterId]
-    );
+    setQuickFiltersState(prev => (prev.includes(filterId) ? [] : [filterId]));
   }, []);
 
   const setQuickFilters = useCallback((filters: string[]) => {

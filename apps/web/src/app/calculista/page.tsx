@@ -48,7 +48,17 @@ export default function CalculistaPage(){
   });
 
   // Filtrar simulações
-  const filteredSims = (allSims || []).filter((sim: any) => {
+  const allSimulations = allSims || [];
+
+  const statusCounts = {
+    draft: allSimulations.filter((sim: any) => sim.status === "draft").length,
+    approved: allSimulations.filter((sim: any) => sim.status === "approved").length,
+    rejected: allSimulations.filter((sim: any) => sim.status === "rejected").length,
+    devolvido_financeiro: allSimulations.filter((sim: any) => sim.status === "devolvido_financeiro").length,
+    fechamento_aprovado: allSimulations.filter((sim: any) => sim.status === "fechamento_aprovado").length
+  };
+
+  const filteredSims = allSimulations.filter((sim: any) => {
     // Filtro por status
     if (statusFilter.length > 0 && !statusFilter.includes(sim.status)) {
       return false;
@@ -189,16 +199,14 @@ export default function CalculistaPage(){
         onSearchChange={setSearchTerm}
         activeFilters={statusFilter}
         onFilterToggle={(filterId) => {
-          setStatusFilter((prev) =>
-            prev.includes(filterId)
-              ? prev.filter((id) => id !== filterId)
-              : [...prev, filterId]
-          );
+          setStatusFilter((prev) => (prev.includes(filterId) ? [] : [filterId]));
         }}
         availableFilters={[
-          { id: "draft", label: "Pendente", value: "draft", color: "primary" as const },
-          { id: "approved", label: "Aprovado", value: "approved", color: "success" as const },
-          { id: "rejected", label: "Rejeitado", value: "rejected", color: "danger" as const }
+          { id: "draft", label: "Pendente", value: "draft", color: "primary" as const, count: statusCounts.draft },
+          { id: "approved", label: "Aprovado", value: "approved", color: "success" as const, count: statusCounts.approved },
+          { id: "rejected", label: "Rejeitado", value: "rejected", color: "danger" as const, count: statusCounts.rejected },
+          { id: "devolvido_financeiro", label: "Devolvido Financeiro", value: "devolvido_financeiro", color: "warning" as const, count: statusCounts.devolvido_financeiro },
+          { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", color: "primary" as const, count: statusCounts.fechamento_aprovado }
         ]}
         onClearAll={() => {
           setStatusFilter([]);

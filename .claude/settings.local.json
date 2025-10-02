@@ -58,7 +58,8 @@
       "Bash(docker logs:*)",
       "Bash(docker restart:*)",
       "Bash(docker ps:*)",
-      "Bash(set PYTHONIOENCODING=utf-8)"
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []

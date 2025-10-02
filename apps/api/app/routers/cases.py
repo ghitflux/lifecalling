@@ -9,7 +9,7 @@ from sqlalchemy import or_
 from ..rbac import require_roles
 from ..security import get_current_user
 from ..db import SessionLocal
-from ..models import Case, Client, CaseEvent
+from ..models import Case, Client, CaseEvent, Contract, ContractAttachment
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
 from ..config import settings
@@ -171,11 +171,39 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "filename": os.path.basename(a.path),
                 "size": a.size,
                 "mime": a.mime,
+                "mime_type": a.mime,
                 "uploaded_at": a.created_at.isoformat() if a.created_at else None,
                 "uploaded_by": a.uploaded_by,
             }
             for a in attachments
         ]
+
+        contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+        if contract:
+            contract_attachments = db.query(ContractAttachment).filter(
+                ContractAttachment.contract_id == contract.id
+            ).all()
+            result["contract"] = {
+                "id": contract.id,
+                "status": contract.status,
+                "total_amount": float(contract.total_amount or 0),
+                "installments": contract.installments,
+                "paid_installments": contract.paid_installments,
+                "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                "created_at": contract.created_at.isoformat() if contract.created_at else None,
+                "updated_at": contract.updated_at.isoformat() if contract.updated_at else None,
+                "attachments": [
+                    {
+                        "id": att.id,
+                        "filename": att.filename,
+                        "size": att.size,
+                        "mime": att.mime,
+                        "mime_type": att.mime,
+                        "created_at": att.created_at.isoformat() if att.created_at else None,
+                    }
+                    for att in contract_attachments
+                ],
+            }
 
         return result
 
@@ -420,6 +448,116 @@ def upload_attachment(
             "size": a.size,
             "uploaded_at": a.created_at.isoformat() if a.created_at else None,
         }
+
+
+@r.delete("/{case_id}/attachments/{attachment_id}")
+def delete_attachment(
+    case_id: int,
+    attachment_id: int,
+    user=Depends(
+        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente")
+    ),
+):
+    """
+    Remove um anexo de um caso.
+    - Atendentes podem remover anexos que eles mesmos enviaram
+    - Admin/Supervisor podem remover qualquer anexo
+    """
+    from ..models import Attachment
+
+    with SessionLocal() as db:
+        # Verificar se o caso existe
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Buscar o anexo
+        attachment = db.query(Attachment).filter(
+            Attachment.id == attachment_id,
+            Attachment.case_id == case_id
+        ).first()
+
+        if not attachment:
+            raise HTTPException(404, "Anexo não encontrado")
+
+        # Verificar permissões
+        if user.role not in ["admin", "supervisor"]:
+            # Atendentes só podem remover seus próprios anexos
+            if attachment.uploaded_by != user.id:
+                raise HTTPException(
+                    403,
+                    "Você só pode remover anexos que você mesmo enviou"
+                )
+
+        # Salvar informações antes de deletar
+        filename = os.path.basename(attachment.path)
+        file_path = attachment.path
+
+        # Remover arquivo físico
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Erro ao remover arquivo físico {file_path}: {e}")
+            # Continua mesmo se falhar ao remover o arquivo
+
+        # Remover registro do banco
+        db.delete(attachment)
+
+        # Adicionar evento
+        db.add(
+            CaseEvent(
+                case_id=case_id,
+                type="attachment.deleted",
+                payload={"filename": filename, "deleted_by": user.name},
+                created_by=user.id,
+            )
+        )
+
+        db.commit()
+
+        return {"ok": True, "message": f"Anexo '{filename}' removido com sucesso"}
+
+
+@r.get("/{case_id}/attachments/{attachment_id}/download")
+def download_attachment(
+    case_id: int,
+    attachment_id: int,
+    user=Depends(get_current_user)
+):
+    """
+    Download de um anexo específico.
+    Retorna o arquivo para visualização/download no navegador.
+    """
+    from fastapi.responses import FileResponse
+    from ..models import Attachment
+
+    with SessionLocal() as db:
+        # Verificar se o caso existe
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Buscar o anexo
+        attachment = db.query(Attachment).filter(
+            Attachment.id == attachment_id,
+            Attachment.case_id == case_id
+        ).first()
+
+        if not attachment:
+            raise HTTPException(404, "Anexo não encontrado")
+
+        # Verificar se o arquivo existe
+        if not os.path.exists(attachment.path):
+            raise HTTPException(404, "Arquivo não encontrado no servidor")
+
+        # Retornar arquivo para download
+        filename = os.path.basename(attachment.path)
+        return FileResponse(
+            path=attachment.path,
+            filename=filename,
+            media_type=attachment.mime or "application/octet-stream"
+        )
 
 
 @r.get("", response_model=PageOut)
@@ -689,12 +827,21 @@ def check_case_expiry(case_id: int, user=Depends(require_roles("admin", "supervi
 
 @r.post("/{case_id}/to-calculista")
 async def to_calculista(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
-    from ..models import Simulation
+    from ..models import Simulation, User
+    from .notifications import create_notification_for_user
+
+    sim_id = None
+    calculista_ids = []
+    client_name = "Cliente"
 
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
             raise HTTPException(404)
+
+        # Salvar dados antes de fechar a sessão
+        client_name = c.client.name if c.client else "Cliente"
+
         sim = Simulation(case_id=c.id, status="draft", created_by=user.id)
         db.add(sim)
         c.status = "calculista_pendente"
@@ -710,9 +857,30 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
         )
         db.commit()
         db.refresh(sim)
+        sim_id = sim.id
+
+        # Buscar todos os calculistas para notificar
+        calculistas = db.query(User).filter(
+            User.role == "calculista",
+            User.active == True
+        ).all()
+        calculista_ids = [calc.id for calc in calculistas]
+
+    # Enviar notificações para os calculistas (agora fora da sessão, mas com dados já carregados)
+    for calc_id in calculista_ids:
+        await create_notification_for_user(
+            user_id=calc_id,
+            event="case.to_calculista",
+            payload={
+                "case_id": case_id,
+                "message": f"📊 Novo caso enviado por {user.name}",
+                "client_name": client_name,
+                "simulation_id": sim_id
+            }
+        )
 
     await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "calculista_pendente"})
-    return {"simulation_id": sim.id}
+    return {"simulation_id": sim_id}
 
 
 @r.post("/scheduler/run-maintenance")
@@ -866,18 +1034,24 @@ async def return_to_calculista(
         if not case:
             raise HTTPException(404, "Caso não encontrado")
 
-        case.status = "calculista"
+        previous_status = case.status
+        case.status = "devolvido_financeiro"
         case.last_update_at = datetime.utcnow()
 
         db.add(
             CaseEvent(
                 case_id=case.id,
-                type="finance.returned_to_calculista",
-                payload={"returned_by": user.id, "previous_status": "fechamento_aprovado"},
+                type="case.return_to_calculista",
+                payload={
+                    "returned_by": user.id,
+                    "returned_by_name": user.name,
+                    "previous_status": previous_status,
+                    "reason": "Devolvido do financeiro para recálculo"
+                },
                 created_by=user.id,
             )
         )
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "calculista"})
+    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "devolvido_financeiro"})
     return {"success": True, "message": "Caso retornado ao calculista com sucesso"}
