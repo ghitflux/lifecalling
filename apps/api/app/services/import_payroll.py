@@ -1,3 +1,7 @@
+from app.services.import_helpers import ensure_client_case
+# importe modelos que você insere durante a importação
+# ex.: from app.models import Simulation, PayrollLine
+
 from sqlalchemy.orm import Session
 from .payroll_parser import parse_header, parse_rows
 from ..models import PayrollClient, PayrollContract, PayrollImportBatch, PayrollImportItem, Client, Case
@@ -171,6 +175,15 @@ def import_payroll_text(db: Session, *, text: str, file_name: str, user_id: int 
                 nome=row.nome,
                 orgao=hdr.entidade_name
             )
+
+            client, enrollment, case = ensure_client_case(
+    db,
+    cpf=row.get("cpf") or row.get("CPF"),
+    matricula=row.get("matricula") or row.get("matrícula") or row.get("mat"),
+    orgao=row.get("orgao") or row.get("órgão") or row.get("entity_name"),
+    nome=row.get("nome") or row.get("name"),
+)
+
 
             # Contabilizar ação no cliente
             if cli_before is None:

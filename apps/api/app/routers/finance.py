@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from datetime import datetime
 from ..db import SessionLocal
 from ..models import Case, CaseEvent, Contract
 from ..rbac import require_roles
 from ..events import eventbus
+import io
+import csv
 
 r = APIRouter(prefix="/finance", tags=["finance"])
 
@@ -88,9 +91,133 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
 
         return {"items": items}
 
+@r.get("/case/{case_id}")
+def get_case_details(case_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Retorna detalhes completos de um caso para exibição no modal financeiro"""
+    from sqlalchemy.orm import joinedload
+    from ..models import Simulation, Attachment, Client
+
+    with SessionLocal() as db:
+        # Buscar o caso com relacionamentos
+        case = db.query(Case).options(
+            joinedload(Case.client),
+            joinedload(Case.last_simulation)
+        ).filter(Case.id == case_id).first()
+
+        if not case:
+            raise HTTPException(404, "Case not found")
+
+        # Dados do cliente
+        client_data = {
+            "id": case.client.id,
+            "name": case.client.name,
+            "cpf": case.client.cpf,
+            "matricula": case.client.matricula,
+            "orgao": case.client.orgao,
+            "telefone_preferencial": case.client.telefone_preferencial,
+            "numero_cliente": case.client.numero_cliente,
+            "observacoes": case.client.observacoes,
+            "banco": case.client.banco,
+            "agencia": case.client.agencia,
+            "conta": case.client.conta,
+            "chave_pix": case.client.chave_pix,
+            "tipo_chave_pix": case.client.tipo_chave_pix
+        }
+
+        # Simulação aprovada
+        simulation_data = None
+        if case.last_simulation_id:
+            sim = db.get(Simulation, case.last_simulation_id)
+            if sim and sim.status == "approved":
+                simulation_data = {
+                    "id": sim.id,
+                    "status": sim.status,
+                    "prazo": sim.prazo,
+                    "coeficiente": sim.coeficiente,
+                    "seguro": float(sim.seguro or 0),
+                    "percentual_consultoria": float(sim.percentual_consultoria or 0),
+                    "banks_json": sim.banks_json,
+                    "totals": {
+                        "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                        "saldoTotal": float(sim.saldo_total or 0),
+                        "liberadoTotal": float(sim.liberado_total or 0),
+                        "totalFinanciado": float(sim.total_financiado or 0),
+                        "valorLiquido": float(sim.valor_liquido or 0),
+                        "custoConsultoria": float(sim.custo_consultoria or 0),
+                        "custoConsultoriaLiquido": float(sim.custo_consultoria_liquido or 0),
+                        "liberadoCliente": float(sim.liberado_cliente or 0)
+                    }
+                }
+
+        # Contrato efetivado (se existir)
+        contract_data = None
+        contract = db.query(Contract).filter(Contract.case_id == case.id).first()
+        if contract:
+            from ..models import ContractAttachment
+            attachments = db.query(ContractAttachment).filter(
+                ContractAttachment.contract_id == contract.id
+            ).all()
+            contract_data = {
+                "id": contract.id,
+                "total_amount": float(contract.total_amount or 0),
+                "installments": contract.installments,
+                "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                "status": contract.status,
+                "attachments": [
+                    {
+                        "id": a.id,
+                        "filename": a.filename,
+                        "size": a.size,
+                        "mime": a.mime,
+                        "created_at": a.created_at.isoformat() if a.created_at else None
+                    } for a in attachments
+                ]
+            }
+
+        # Eventos do caso (histórico/comentários)
+        events = db.query(CaseEvent).filter(
+            CaseEvent.case_id == case.id
+        ).order_by(CaseEvent.created_at.desc()).all()
+
+        events_data = [
+            {
+                "id": e.id,
+                "type": e.type,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "payload": e.payload,
+                "created_by": e.created_by
+            } for e in events
+        ]
+
+        # Anexos do caso
+        attachments = db.query(Attachment).filter(
+            Attachment.case_id == case.id
+        ).all()
+
+        attachments_data = [
+            {
+                "id": a.id,
+                "path": a.path,
+                "mime": a.mime,
+                "size": a.size,
+                "created_at": a.created_at.isoformat() if a.created_at else None
+            } for a in attachments
+        ]
+
+        return {
+            "id": case.id,
+            "status": case.status,
+            "created_at": case.created_at.isoformat() if case.created_at else None,
+            "client": client_data,
+            "simulation": simulation_data,
+            "contract": contract_data,
+            "events": events_data,
+            "attachments": attachments_data
+        }
+
 @r.get("/metrics")
 def finance_metrics(user=Depends(require_roles("admin","supervisor","financeiro"))):
-    from ..models import Contract, Payment, Simulation
+    from ..models import Contract, Simulation
     from sqlalchemy import func
     from datetime import datetime, timedelta
 
@@ -138,8 +265,15 @@ def finance_metrics(user=Depends(require_roles("admin","supervisor","financeiro"
         # Consultoria líquida (86% = 100% - 14%)
         total_consultoria_liquida = total_consultoria * 0.86
 
-        # Receitas = consultoria líquida
-        total_revenue = total_consultoria_liquida
+        # Buscar receitas manuais dos últimos 30 dias
+        from ..models import FinanceIncome
+        manual_incomes = db.query(FinanceIncome).filter(
+            FinanceIncome.date >= thirty_days_ago
+        ).all()
+        total_manual_income = sum([float(inc.amount or 0) for inc in manual_incomes])
+
+        # Receitas totais = consultoria líquida + receitas manuais
+        total_revenue = total_consultoria_liquida + total_manual_income
 
         # Buscar despesas do mês atual
         from ..models import FinanceExpense
@@ -166,6 +300,7 @@ def finance_metrics(user=Depends(require_roles("admin","supervisor","financeiro"
             "totalContracts": total_contracts,
             "totalTax": round(total_tax, 2),
             "totalExpenses": round(total_expenses, 2),
+            "totalManualIncome": round(total_manual_income, 2),
             "totalRevenue": round(total_revenue, 2),
             "netProfit": round(net_profit, 2)
         }
@@ -330,125 +465,152 @@ async def delete_contract(contract_id: int, user=Depends(require_roles("admin","
     await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "fechamento_aprovado"})
     return {"success": True, "message": "Contract deleted successfully"}
 
-# Gestão de Despesas Mensais
+# Gestão de Despesas Individuais
 
 class ExpenseInput(BaseModel):
-    month: int  # 1-12
-    year: int  # 2024, 2025, etc
+    date: str  # "YYYY-MM-DD"
+    expense_type: str  # Tipo da despesa
+    expense_name: str  # Nome da despesa
     amount: float
-    description: str | None = None
+    # Mantido para compatibilidade
+    month: int | None = None
+    year: int | None = None
 
 @r.get("/expenses")
 def list_expenses(user=Depends(require_roles("admin","supervisor","financeiro"))):
-    """Lista todas as despesas mensais"""
+    """Lista todas as despesas individuais"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
         expenses = db.query(FinanceExpense).order_by(
-            FinanceExpense.year.desc(),
-            FinanceExpense.month.desc()
+            FinanceExpense.date.desc()
         ).all()
+
+        total = sum([float(exp.amount) for exp in expenses])
 
         return {
             "items": [
                 {
                     "id": exp.id,
-                    "month": exp.month,
-                    "year": exp.year,
+                    "date": exp.date.isoformat() if exp.date else None,
+                    "expense_type": exp.expense_type,
+                    "expense_name": exp.expense_name,
                     "amount": float(exp.amount),
-                    "description": exp.description,
                     "created_at": exp.created_at.isoformat() if exp.created_at else None
                 }
                 for exp in expenses
-            ]
+            ],
+            "total": round(total, 2)
         }
 
-@r.get("/expenses/{month}/{year}")
+@r.get("/expenses/{expense_id}")
 def get_expense(
-    month: int,
-    year: int,
+    expense_id: int,
     user=Depends(require_roles("admin","supervisor","financeiro"))
 ):
-    """Obtém despesa de um mês específico"""
+    """Obtém uma despesa específica"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
-        expense = db.query(FinanceExpense).filter(
-            FinanceExpense.month == month,
-            FinanceExpense.year == year
-        ).first()
+        expense = db.get(FinanceExpense, expense_id)
 
         if not expense:
-            return {"expense": None}
+            raise HTTPException(404, "Despesa não encontrada")
 
         return {
-            "expense": {
-                "id": expense.id,
-                "month": expense.month,
-                "year": expense.year,
-                "amount": float(expense.amount),
-                "description": expense.description,
-                "created_at": expense.created_at.isoformat() if expense.created_at else None
-            }
+            "id": expense.id,
+            "date": expense.date.isoformat() if expense.date else None,
+            "expense_type": expense.expense_type,
+            "expense_name": expense.expense_name,
+            "amount": float(expense.amount),
+            "created_at": expense.created_at.isoformat() if expense.created_at else None
         }
 
 @r.post("/expenses")
-def create_or_update_expense(data: ExpenseInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
-    """Cria ou atualiza despesa de um mês"""
+def create_expense(data: ExpenseInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Cria uma nova despesa individual"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
 
         # Validações
-        if data.month < 1 or data.month > 12:
-            raise HTTPException(400, "Mês deve estar entre 1 e 12")
-
         if data.amount < 0:
             raise HTTPException(400, "Valor não pode ser negativo")
 
-        # Verificar se já existe
-        expense = db.query(FinanceExpense).filter(
-            FinanceExpense.month == data.month,
-            FinanceExpense.year == data.year
-        ).first()
+        # Parse da data
+        try:
+            expense_date = datetime.fromisoformat(data.date)
+        except:
+            raise HTTPException(400, "Data inválida. Use formato YYYY-MM-DD")
 
-        if expense:
-            # Atualizar
-            expense.amount = data.amount
-            expense.description = data.description
-            expense.updated_at = datetime.utcnow()
-        else:
-            # Criar
-            expense = FinanceExpense(
-                month=data.month,
-                year=data.year,
-                amount=data.amount,
-                description=data.description,
-                created_by=user.id
-            )
-            db.add(expense)
+        # Criar despesa
+        expense = FinanceExpense(
+            date=expense_date,
+            month=expense_date.month,
+            year=expense_date.year,
+            expense_type=data.expense_type,
+            expense_name=data.expense_name,
+            amount=data.amount,
+            created_by=user.id
+        )
+        db.add(expense)
+        db.commit()
+        db.refresh(expense)
+
+        return {
+            "id": expense.id,
+            "date": expense.date.isoformat() if expense.date else None,
+            "expense_type": expense.expense_type,
+            "expense_name": expense.expense_name,
+            "amount": float(expense.amount)
+        }
+
+@r.put("/expenses/{expense_id}")
+def update_expense(expense_id: int, data: ExpenseInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Atualiza uma despesa existente"""
+    with SessionLocal() as db:
+        from ..models import FinanceExpense
+
+        expense = db.get(FinanceExpense, expense_id)
+        if not expense:
+            raise HTTPException(404, "Despesa não encontrada")
+
+        # Validações
+        if data.amount < 0:
+            raise HTTPException(400, "Valor não pode ser negativo")
+
+        # Parse da data
+        try:
+            expense_date = datetime.fromisoformat(data.date)
+        except:
+            raise HTTPException(400, "Data inválida. Use formato YYYY-MM-DD")
+
+        # Atualizar campos
+        expense.date = expense_date
+        expense.month = expense_date.month
+        expense.year = expense_date.year
+        expense.expense_type = data.expense_type
+        expense.expense_name = data.expense_name
+        expense.amount = data.amount
+        expense.updated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(expense)
 
         return {
             "id": expense.id,
-            "month": expense.month,
-            "year": expense.year,
-            "amount": float(expense.amount),
-            "description": expense.description
+            "date": expense.date.isoformat() if expense.date else None,
+            "expense_type": expense.expense_type,
+            "expense_name": expense.expense_name,
+            "amount": float(expense.amount)
         }
 
-@r.delete("/expenses/{month}/{year}")
+@r.delete("/expenses/{expense_id}")
 def delete_expense(
-    month: int,
-    year: int,
+    expense_id: int,
     user=Depends(require_roles("admin","supervisor"))
 ):
-    """Remove despesa de um mês"""
+    """Remove uma despesa"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
-        expense = db.query(FinanceExpense).filter(
-            FinanceExpense.month == month,
-            FinanceExpense.year == year
-        ).first()
+        expense = db.get(FinanceExpense, expense_id)
 
         if not expense:
             raise HTTPException(404, "Despesa não encontrada")
@@ -457,3 +619,322 @@ def delete_expense(
         db.commit()
 
         return {"message": "Despesa removida com sucesso"}
+
+# Gestão de Receitas Manuais
+
+class IncomeInput(BaseModel):
+    date: str  # "YYYY-MM-DD"
+    income_type: str  # Tipo da receita
+    income_name: str | None = None  # Nome/descrição da receita
+    amount: float
+
+@r.get("/incomes")
+def list_incomes(user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Lista todas as receitas manuais"""
+    with SessionLocal() as db:
+        from ..models import FinanceIncome
+        incomes = db.query(FinanceIncome).order_by(
+            FinanceIncome.date.desc()
+        ).all()
+
+        total = sum([float(inc.amount) for inc in incomes])
+
+        return {
+            "items": [
+                {
+                    "id": inc.id,
+                    "date": inc.date.isoformat() if inc.date else None,
+                    "income_type": inc.income_type,
+                    "income_name": inc.income_name,
+                    "amount": float(inc.amount),
+                    "created_by": inc.created_by,
+                    "created_at": inc.created_at.isoformat() if inc.created_at else None
+                }
+                for inc in incomes
+            ],
+            "total": round(total, 2)
+        }
+
+@r.post("/incomes")
+def create_income(data: IncomeInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Cria uma nova receita manual"""
+    with SessionLocal() as db:
+        from ..models import FinanceIncome
+
+        # Validações
+        if data.amount < 0:
+            raise HTTPException(400, "Valor não pode ser negativo")
+
+        # Parse da data
+        try:
+            income_date = datetime.fromisoformat(data.date)
+        except:
+            raise HTTPException(400, "Data inválida. Use formato YYYY-MM-DD")
+
+        income = FinanceIncome(
+            date=income_date,
+            income_type=data.income_type,
+            income_name=data.income_name,
+            amount=data.amount,
+            created_by=user.id
+        )
+        db.add(income)
+        db.commit()
+        db.refresh(income)
+
+        return {
+            "id": income.id,
+            "date": income.date.isoformat() if income.date else None,
+            "income_type": income.income_type,
+            "income_name": income.income_name,
+            "amount": float(income.amount),
+            "created_by": income.created_by,
+            "created_at": income.created_at.isoformat() if income.created_at else None
+        }
+
+@r.put("/incomes/{income_id}")
+def update_income(income_id: int, data: IncomeInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Atualiza uma receita existente"""
+    with SessionLocal() as db:
+        from ..models import FinanceIncome
+
+        income = db.get(FinanceIncome, income_id)
+        if not income:
+            raise HTTPException(404, "Receita não encontrada")
+
+        # Validações
+        if data.amount < 0:
+            raise HTTPException(400, "Valor não pode ser negativo")
+
+        # Parse da data
+        try:
+            income_date = datetime.fromisoformat(data.date)
+        except:
+            raise HTTPException(400, "Data inválida. Use formato YYYY-MM-DD")
+
+        # Atualizar campos
+        income.date = income_date
+        income.income_type = data.income_type
+        income.income_name = data.income_name
+        income.amount = data.amount
+        income.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(income)
+
+        return {
+            "id": income.id,
+            "date": income.date.isoformat() if income.date else None,
+            "income_type": income.income_type,
+            "income_name": income.income_name,
+            "amount": float(income.amount)
+        }
+
+@r.delete("/incomes/{income_id}")
+def delete_income(income_id: int, user=Depends(require_roles("admin","supervisor"))):
+    """Remove uma receita manual"""
+    with SessionLocal() as db:
+        from ..models import FinanceIncome
+
+        income = db.get(FinanceIncome, income_id)
+        if not income:
+            raise HTTPException(404, "Receita não encontrada")
+
+        db.delete(income)
+        db.commit()
+
+        return {"message": "Receita removida com sucesso"}
+
+# Séries Temporais para Gráficos
+
+@r.get("/timeseries")
+def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Retorna séries temporais agregadas por mês para alimentar gráficos"""
+    from ..models import FinanceIncome, FinanceExpense, Simulation
+    from sqlalchemy import func, extract
+    from datetime import datetime, timedelta
+    from collections import defaultdict
+
+    with SessionLocal() as db:
+        # Definir intervalo de tempo (últimos 6 meses)
+        six_months_ago = datetime.utcnow() - timedelta(days=180)
+
+        # Agregação de receitas por mês (consultoria líquida)
+        revenue_query = db.query(
+            extract('year', Simulation.updated_at).label('year'),
+            extract('month', Simulation.updated_at).label('month'),
+            func.sum(Simulation.custo_consultoria_liquido).label('total')
+        ).join(Case).filter(
+            Simulation.status == "approved",
+            Simulation.updated_at >= six_months_ago
+        ).group_by('year', 'month').all()
+
+        revenue_dict = {}
+        for row in revenue_query:
+            key = f"{int(row.year)}-{int(row.month):02d}"
+            revenue_dict[key] = float(row.total or 0)
+
+        # Agregação de receitas manuais por mês
+        manual_income_query = db.query(
+            extract('year', FinanceIncome.date).label('year'),
+            extract('month', FinanceIncome.date).label('month'),
+            func.sum(FinanceIncome.amount).label('total')
+        ).filter(
+            FinanceIncome.date >= six_months_ago
+        ).group_by('year', 'month').all()
+
+        for row in manual_income_query:
+            key = f"{int(row.year)}-{int(row.month):02d}"
+            revenue_dict[key] = revenue_dict.get(key, 0) + float(row.total or 0)
+
+        # Agregação de despesas por mês
+        expenses_query = db.query(
+            FinanceExpense.year,
+            FinanceExpense.month,
+            FinanceExpense.amount
+        ).filter(
+            FinanceExpense.year >= six_months_ago.year
+        ).all()
+
+        expenses_dict = {}
+        for row in expenses_query:
+            key = f"{row.year}-{row.month:02d}"
+            expenses_dict[key] = float(row.amount or 0)
+
+        # Calcular impostos (14% da consultoria) por mês
+        tax_query = db.query(
+            extract('year', Simulation.updated_at).label('year'),
+            extract('month', Simulation.updated_at).label('month'),
+            func.sum(Simulation.custo_consultoria).label('total')
+        ).join(Case).filter(
+            Simulation.status == "approved",
+            Simulation.updated_at >= six_months_ago
+        ).group_by('year', 'month').all()
+
+        tax_dict = {}
+        for row in tax_query:
+            key = f"{int(row.year)}-{int(row.month):02d}"
+            tax_dict[key] = float(row.total or 0) * 0.14
+
+        # Gerar lista de meses completa
+        months = []
+        current = datetime.utcnow().replace(day=1)
+        for i in range(6):
+            month_key = current.strftime("%Y-%m")
+            month_label = current.strftime("%b/%Y")
+            months.insert(0, {
+                "key": month_key,
+                "label": month_label
+            })
+            # Voltar um mês
+            if current.month == 1:
+                current = current.replace(year=current.year - 1, month=12)
+            else:
+                current = current.replace(month=current.month - 1)
+
+        # Montar séries
+        revenue_series = []
+        expenses_series = []
+        tax_series = []
+        net_profit_series = []
+
+        for month in months:
+            key = month["key"]
+            revenue = revenue_dict.get(key, 0)
+            expenses = expenses_dict.get(key, 0)
+            tax = tax_dict.get(key, 0)
+            net_profit = revenue - expenses - tax
+
+            revenue_series.append({"date": month["label"], "value": round(revenue, 2)})
+            expenses_series.append({"date": month["label"], "value": round(expenses, 2)})
+            tax_series.append({"date": month["label"], "value": round(tax, 2)})
+            net_profit_series.append({"date": month["label"], "value": round(net_profit, 2)})
+
+        return {
+            "revenue": revenue_series,
+            "expenses": expenses_series,
+            "tax": tax_series,
+            "netProfit": net_profit_series
+        }
+
+# Exportação de Relatórios
+
+@r.get("/export")
+def export_finance_report(user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Gera relatório CSV consolidado de finanças"""
+    from ..models import FinanceIncome, FinanceExpense, Simulation
+    from datetime import datetime, timedelta
+
+    with SessionLocal() as db:
+        # Buscar dados dos últimos 6 meses
+        six_months_ago = datetime.utcnow() - timedelta(days=180)
+
+        # Preparar dados para o CSV
+        rows = []
+
+        # Consultorias aprovadas
+        simulations = db.query(Simulation).join(Case).filter(
+            Simulation.status == "approved",
+            Simulation.updated_at >= six_months_ago
+        ).all()
+
+        for sim in simulations:
+            rows.append({
+                "date": sim.updated_at.strftime("%Y-%m-%d") if sim.updated_at else "",
+                "type": "consultoria",
+                "description": f"Consultoria líquida - Caso #{sim.case_id}",
+                "amount": float(sim.custo_consultoria_liquido or 0)
+            })
+            rows.append({
+                "date": sim.updated_at.strftime("%Y-%m-%d") if sim.updated_at else "",
+                "type": "tax",
+                "description": f"Imposto (14%) - Caso #{sim.case_id}",
+                "amount": float(sim.custo_consultoria or 0) * 0.14
+            })
+
+        # Receitas manuais
+        incomes = db.query(FinanceIncome).filter(
+            FinanceIncome.date >= six_months_ago
+        ).all()
+
+        for inc in incomes:
+            rows.append({
+                "date": inc.date.strftime("%Y-%m-%d") if inc.date else "",
+                "type": "manual_income",
+                "description": inc.description or "Receita manual",
+                "amount": float(inc.amount or 0)
+            })
+
+        # Despesas
+        expenses = db.query(FinanceExpense).filter(
+            FinanceExpense.year >= six_months_ago.year
+        ).all()
+
+        for exp in expenses:
+            rows.append({
+                "date": f"{exp.year}-{exp.month:02d}-01",
+                "type": "expense",
+                "description": exp.description or f"Despesas {exp.month}/{exp.year}",
+                "amount": float(exp.amount or 0)
+            })
+
+        # Ordenar por data
+        rows.sort(key=lambda x: x["date"], reverse=True)
+
+        # Gerar CSV
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=["date", "type", "description", "amount"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+        # Retornar como arquivo CSV
+        csv_content = output.getvalue()
+        output.close()
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=finance_report.csv"
+            }
+        )

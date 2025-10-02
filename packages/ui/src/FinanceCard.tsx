@@ -5,8 +5,9 @@ import { Button } from "./Button";
 import { ProgressBar } from "./ProgressBar";
 import { Badge } from "./Badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 import { cn } from "./lib/utils";
-import { DollarSign, Calendar, TrendingUp, AlertCircle, CreditCard, Upload, FileText, Eye, X, Trash2, XCircle, Download, FileImage, File } from "lucide-react";
+import { DollarSign, Calendar, TrendingUp, AlertCircle, CreditCard, Upload, FileText, Eye, X, Trash2, XCircle, Download, FileImage, File, ArrowLeft } from "lucide-react";
 
 interface SimulationResult {
   banco?: string;
@@ -41,6 +42,7 @@ export interface FinanceCardProps {
   onDisburse?: (id: number) => void;
   onCancel?: (id: number) => void;
   onDelete?: (id: number) => void;
+  onReturnToCalc?: (id: number) => void;
   className?: string;
   // Dados bancários do cliente
   clientBankInfo?: {
@@ -73,6 +75,75 @@ export interface FinanceCardProps {
       payload?: any;
     }>;
   };
+  // Dados completos do caso (do endpoint /finance/case/{id})
+  fullCaseDetails?: {
+    id: number;
+    status: string;
+    created_at: string;
+    client: {
+      id: number;
+      name: string;
+      cpf: string;
+      matricula: string;
+      orgao?: string;
+      telefone_preferencial?: string;
+      numero_cliente?: string;
+      observacoes?: string;
+      banco?: string;
+      agencia?: string;
+      conta?: string;
+      chave_pix?: string;
+      tipo_chave_pix?: string;
+    };
+    simulation?: {
+      id: number;
+      prazo: number;
+      coeficiente: string;
+      seguro: number;
+      percentual_consultoria: number;
+      banks_json: any[];
+      totals: {
+        valorParcelaTotal: number;
+        saldoTotal: number;
+        liberadoTotal: number;
+        totalFinanciado: number;
+        valorLiquido: number;
+        custoConsultoria: number;
+        custoConsultoriaLiquido: number;
+        liberadoCliente: number;
+      };
+    };
+    contract?: {
+      id: number;
+      total_amount: number;
+      installments: number;
+      disbursed_at: string;
+      status: string;
+      attachments: Array<{
+        id: number;
+        filename: string;
+        size: number;
+        mime: string;
+        created_at: string;
+      }>;
+    };
+    events: Array<{
+      id: number;
+      type: string;
+      created_at: string;
+      payload: any;
+      created_by: number;
+    }>;
+    attachments: Array<{
+      id: number;
+      path: string;
+      mime: string;
+      size: number;
+      created_at: string;
+    }>;
+  };
+  // Callback para carregar detalhes completos
+  onLoadFullDetails?: (caseId: number) => void;
 }
 
 export function FinanceCard({
@@ -90,12 +161,15 @@ export function FinanceCard({
   onDisburse,
   onCancel,
   onDelete,
+  onReturnToCalc,
   className,
   clientBankInfo,
   attachments = [],
   onUploadAttachment,
   isUploadingAttachment = false,
-  caseDetails
+  caseDetails,
+  fullCaseDetails,
+  onLoadFullDetails
 }: FinanceCardProps) {
   // Usar dados da simulação quando disponível, caso contrário usar props antigas
   const finalTotalAmount = simulationResult?.valorLiberado || totalAmount || 0;
@@ -107,6 +181,13 @@ export function FinanceCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
+
+  // Carregar detalhes completos quando modal abrir
+  React.useEffect(() => {
+    if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
+      onLoadFullDetails(id);
+    }
+  }, [showDetailsModal, id, onLoadFullDetails, fullCaseDetails]);
 
   const progress = finalInstallments > 0 ? (paidInstallments / finalInstallments) * 100 : 0;
 
@@ -166,7 +247,7 @@ export function FinanceCard({
 
   const statusLabels = {
     pending: "Pendente",
-    approved: "Aprovado",
+    approved: "Fechamento Aprovado",
     disbursed: "Liberado",
     overdue: "Em atraso"
   };
@@ -190,8 +271,25 @@ export function FinanceCard({
         <div className="space-y-1">
           <h3 className="font-semibold text-lg">{clientName}</h3>
           <p className="text-sm text-muted-foreground">Caso #{id}</p>
+          {/* CPF e Matrícula */}
+          {caseDetails && (
+            <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+              {caseDetails.cpf && (
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">CPF:</span>
+                  <span>{caseDetails.cpf}</span>
+                </div>
+              )}
+              {caseDetails.matricula && (
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">Mat:</span>
+                  <span>{caseDetails.matricula}</span>
+                </div>
+              )}
+            </div>
+          )}
           {simulationResult?.banco && (
-            <div className="bg-primary/10 px-2 py-1 rounded-md">
+            <div className="bg-primary/10 px-2 py-1 rounded-md mt-2">
               <span className="text-xs font-medium text-primary">{simulationResult.banco}</span>
             </div>
           )}
@@ -203,16 +301,6 @@ export function FinanceCard({
 
       {/* Financial Details */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-1">
-            <DollarSign className="h-4 w-4 text-success" />
-            <span className="text-sm text-muted-foreground">Valor Liberado</span>
-          </div>
-          <p className="text-lg font-semibold text-success">
-            {formatCurrency(finalTotalAmount)}
-          </p>
-        </div>
-
         <div className="space-y-1">
           <div className="flex items-center gap-1">
             <TrendingUp className="h-4 w-4 text-info" />
@@ -248,49 +336,30 @@ export function FinanceCard({
         )}
       </div>
 
-      {/* Seção adicional com dados da simulação */}
-      {simulationResult && (
-        <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {simulationResult.valorTotalFinanciado && (
-              <div>
-                <span className="text-muted-foreground">Total Financiado: </span>
-                <span className="font-medium">{formatCurrency(simulationResult.valorTotalFinanciado)}</span>
-              </div>
-            )}
-            {simulationResult.custoConsultoria && (
-              <div>
-                <span className="text-muted-foreground">Custo Consultoria: </span>
-                <span className="font-medium">{formatCurrency(simulationResult.custoConsultoria)}</span>
-              </div>
-            )}
-            {simulationResult.custoConsultoriaLiquido && (
-              <div>
-                <span className="text-muted-foreground">Custo Consultoria Líquido (86%): </span>
-                <span className="font-medium">{formatCurrency(simulationResult.custoConsultoriaLiquido)}</span>
-              </div>
-            )}
-            {simulationResult.taxaJuros && (
-              <div>
-                <span className="text-muted-foreground">Taxa Juros: </span>
-                <span className="font-medium">{simulationResult.taxaJuros}% a.m.</span>
-              </div>
-            )}
-            {simulationResult.coeficiente && (
-              <div>
-                <span className="text-muted-foreground">Coeficiente: </span>
-                <span className="font-mono font-medium">{simulationResult.coeficiente.toFixed(7)}</span>
-              </div>
-            )}
-          </div>
+      {/* Valores Destacados - Liberado Cliente e Consultoria Líquida */}
+      {simulationResult && (simulationResult.liberadoCliente || simulationResult.custoConsultoriaLiquido) && (
+        <div className="grid grid-cols-2 gap-3">
+          {simulationResult.liberadoCliente && (
+            <div className="rounded-lg border border-success/40 bg-success/10 p-3">
+              <div className="text-xs text-success font-medium mb-1">Liberado para Cliente</div>
+              <div className="text-xl font-bold text-success">{formatCurrency(simulationResult.liberadoCliente)}</div>
+            </div>
+          )}
+          {simulationResult.custoConsultoriaLiquido && (
+            <div className="rounded-lg border border-info/40 bg-info/10 p-3">
+              <div className="text-xs text-info font-medium mb-1">Consultoria Líquida (86%)</div>
+              <div className="text-xl font-bold text-info">{formatCurrency(simulationResult.custoConsultoriaLiquido)}</div>
+            </div>
+          )}
         </div>
       )}
+
 
       {/* Informações Bancárias do Cliente */}
 
 
-      {/* Seção de Anexos - Apenas para contratos efetivados */}
-      {status === "disbursed" && (
+      {/* Seção de Anexos */}
+      {(status === "approved" || status === "disbursed") && (
         <div className="rounded-lg border border-border/40 bg-muted/30 p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -399,14 +468,6 @@ export function FinanceCard({
         </div>
       )}
 
-      {/* Due Date */}
-      {dueDate && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
-          <span>Vencimento: {formatDate(dueDate)}</span>
-        </div>
-      )}
-
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
         {status === "pending" && (onApprove || onReject) && (
@@ -435,28 +496,49 @@ export function FinanceCard({
           </>
         )}
 
-        {status === "approved" && onDisburse && (
-          <div className="w-full space-y-3">
-            <div className="rounded-lg border border-info/40 bg-info-subtle p-3 space-y-2">
-              <h4 className="text-sm font-medium text-info">Valores da Simulação</h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Valor a Liberar:</span>
-                  <div className="font-semibold text-success">{formatCurrency(finalTotalAmount)}</div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Parcelas:</span>
-                  <div className="font-semibold">{finalInstallments}x</div>
-                </div>
-              </div>
+        {status === "approved" && (
+          <div className="w-full space-y-2">
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowDetailsModal(true)}
+                className="flex-1"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Ver Detalhes
+              </Button>
+              {onReturnToCalc && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onReturnToCalc(id)}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Retornar ao Calculista
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Deletar
+                </Button>
+              )}
             </div>
-            <Button
-              size="sm"
-              onClick={() => onDisburse(id)}
-              className="w-full"
-            >
-              Efetivar Liberação
-            </Button>
+            {onDisburse && (
+              <Button
+                size="sm"
+                onClick={() => onDisburse(id)}
+                className="w-full"
+              >
+                Efetivar Liberação
+              </Button>
+            )}
           </div>
         )}
 
@@ -511,93 +593,227 @@ export function FinanceCard({
             <DialogTitle>Detalhes do Atendimento #{id}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* Informações do Cliente */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Dados do Cliente</h3>
-                <div className="space-y-2">
+          {fullCaseDetails ? (
+            <Tabs defaultValue="client" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="client">Cliente</TabsTrigger>
+                <TabsTrigger value="simulation">Simulação</TabsTrigger>
+                <TabsTrigger value="contract">Contrato</TabsTrigger>
+                <TabsTrigger value="history">Histórico</TabsTrigger>
+                <TabsTrigger value="attachments">Anexos</TabsTrigger>
+              </TabsList>
+
+              {/* Aba Cliente */}
+              <TabsContent value="client" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm text-muted-foreground">Nome:</span>
-                    <p className="font-medium">{clientName}</p>
+                    <span className="text-sm text-muted-foreground">Nome</span>
+                    <p className="font-medium">{fullCaseDetails.client.name}</p>
                   </div>
-                  {caseDetails?.cpf && (
+                  <div>
+                    <span className="text-sm text-muted-foreground">CPF</span>
+                    <p className="font-medium">{fullCaseDetails.client.cpf}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Matrícula</span>
+                    <p className="font-medium">{fullCaseDetails.client.matricula}</p>
+                  </div>
+                  {fullCaseDetails.client.orgao && (
                     <div>
-                      <span className="text-sm text-muted-foreground">CPF:</span>
-                      <p className="font-medium">{caseDetails.cpf}</p>
+                      <span className="text-sm text-muted-foreground">Órgão</span>
+                      <p className="font-medium">{fullCaseDetails.client.orgao}</p>
                     </div>
                   )}
-                  {caseDetails?.matricula && (
+                  {fullCaseDetails.client.telefone_preferencial && (
                     <div>
-                      <span className="text-sm text-muted-foreground">Matrícula:</span>
-                      <p className="font-medium">{caseDetails.matricula}</p>
+                      <span className="text-sm text-muted-foreground">Telefone</span>
+                      <p className="font-medium">{fullCaseDetails.client.telefone_preferencial}</p>
+                    </div>
+                  )}
+                  {fullCaseDetails.client.banco && (
+                    <>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Banco</span>
+                        <p className="font-medium">{fullCaseDetails.client.banco}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Agência</span>
+                        <p className="font-medium">{fullCaseDetails.client.agencia}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Conta</span>
+                        <p className="font-medium">{fullCaseDetails.client.conta}</p>
+                      </div>
+                    </>
+                  )}
+                  {fullCaseDetails.client.chave_pix && (
+                    <div className="col-span-2">
+                      <span className="text-sm text-muted-foreground">Chave PIX ({fullCaseDetails.client.tipo_chave_pix})</span>
+                      <p className="font-medium">{fullCaseDetails.client.chave_pix}</p>
+                    </div>
+                  )}
+                  {fullCaseDetails.client.observacoes && (
+                    <div className="col-span-2">
+                      <span className="text-sm text-muted-foreground">Observações</span>
+                      <p className="font-medium">{fullCaseDetails.client.observacoes}</p>
                     </div>
                   )}
                 </div>
-              </div>
+              </TabsContent>
 
+              {/* Aba Simulação */}
+              <TabsContent value="simulation" className="space-y-4">
+                {fullCaseDetails.simulation ? (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="rounded-lg border border-success/40 bg-success-subtle p-3">
+                        <span className="text-xs font-medium text-success">Valor Liberado</span>
+                        <p className="font-bold">{formatCurrency(fullCaseDetails.simulation.totals.liberadoTotal)}</p>
+                      </div>
+                      <div className="rounded-lg border border-info/40 bg-info-subtle p-3">
+                        <span className="text-xs font-medium text-info">Liberado Cliente</span>
+                        <p className="font-bold">{formatCurrency(fullCaseDetails.simulation.totals.liberadoCliente)}</p>
+                      </div>
+                      <div className="rounded-lg border border-accent/40 bg-accent-subtle p-3">
+                        <span className="text-xs font-medium text-accent">Valor Parcela</span>
+                        <p className="font-bold">{formatCurrency(fullCaseDetails.simulation.totals.valorParcelaTotal)}</p>
+                      </div>
+                      <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
+                        <span className="text-xs font-medium text-warning">Prazo</span>
+                        <p className="font-bold">{fullCaseDetails.simulation.prazo} meses</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Total Financiado</span>
+                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.totals.totalFinanciado)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Custo Consultoria</span>
+                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.totals.custoConsultoria)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Consultoria Líquida (86%)</span>
+                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.totals.custoConsultoriaLiquido)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Seguro Obrigatório</span>
+                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.seguro)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Coeficiente</span>
+                        <p className="font-medium font-mono">{fullCaseDetails.simulation.coeficiente}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">% Consultoria</span>
+                        <p className="font-medium">{fullCaseDetails.simulation.percentual_consultoria}%</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Nenhuma simulação encontrada</p>
+                )}
+              </TabsContent>
 
-            </div>
+              {/* Aba Contrato */}
+              <TabsContent value="contract" className="space-y-4">
+                {fullCaseDetails.contract ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Valor Total</span>
+                        <p className="font-medium">{formatCurrency(fullCaseDetails.contract.total_amount)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Parcelas</span>
+                        <p className="font-medium">{fullCaseDetails.contract.installments}x</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Data Liberação</span>
+                        <p className="font-medium">{new Date(fullCaseDetails.contract.disbursed_at).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <p className="font-medium capitalize">{fullCaseDetails.contract.status}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mt-4">
+                      <h4 className="font-semibold">Anexos do Contrato ({fullCaseDetails.contract.attachments.length})</h4>
+                      {fullCaseDetails.contract.attachments.map((att) => (
+                        <div key={att.id} className="flex items-center justify-between p-2 rounded border">
+                          <div className="flex items-center gap-2">
+                            {getFileIcon(att.filename, att.mime)}
+                            <div>
+                              <p className="text-sm font-medium">{att.filename}</p>
+                              <p className="text-xs text-muted-foreground">{formatFileSize(att.size)}</p>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Contrato ainda não efetivado</p>
+                )}
+              </TabsContent>
 
-            {/* Dados Financeiros */}
-            {simulationResult && (
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Detalhes Financeiros</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="rounded-lg border border-success/40 bg-success-subtle p-3">
-                    <span className="text-xs font-medium text-success">Valor Liberado</span>
-                    <p className="font-bold text-card-foreground">{formatCurrency(simulationResult.valorLiberado)}</p>
-                  </div>
-                  <div className="rounded-lg border border-info/40 bg-info-subtle p-3">
-                    <span className="text-xs font-medium text-info">Liberado Cliente</span>
-                    <p className="font-bold text-card-foreground">{formatCurrency(simulationResult.liberadoCliente)}</p>
-                  </div>
-                  <div className="rounded-lg border border-accent/40 bg-accent-subtle p-3">
-                    <span className="text-xs font-medium text-accent">Valor Parcela</span>
-                    <p className="font-bold text-card-foreground">{formatCurrency(simulationResult.valorParcela)}</p>
-                  </div>
-                  <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
-                    <span className="text-xs font-medium text-warning">Prazo</span>
-                    <p className="font-bold text-card-foreground">{simulationResult.prazo} meses</p>
-                  </div>
-                </div>
-              </div>
-            )}
+              {/* Aba Histórico */}
+              <TabsContent value="history" className="space-y-2">
+                {fullCaseDetails.events.length > 0 ? (
+                  fullCaseDetails.events.map((event) => (
+                    <div key={event.id} className="p-3 rounded border border-border/40 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{event.type}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(event.created_at).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      {event.payload && Object.keys(event.payload).length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {JSON.stringify(event.payload, null, 2)}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Nenhum evento registrado</p>
+                )}
+              </TabsContent>
 
-            {/* Todos os Anexos */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Documentos Anexados ({attachments.length})</h3>
-              {attachments.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center justify-between rounded border border-border/40 bg-muted/40 p-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {getFileIcon(attachment.filename, attachment.mime_type)}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{attachment.filename}</p>
+              {/* Aba Anexos */}
+              <TabsContent value="attachments" className="space-y-2">
+                {fullCaseDetails.attachments.length > 0 ? (
+                  fullCaseDetails.attachments.map((att) => (
+                    <div key={att.id} className="flex items-center justify-between p-3 rounded border">
+                      <div className="flex items-center gap-3">
+                        {getFileIcon(att.path, att.mime)}
+                        <div>
+                          <p className="text-sm font-medium">{att.path.split('/').pop()}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatFileSize(attachment.size)} • {new Date(attachment.uploaded_at).toLocaleDateString('pt-BR')}
+                            {formatFileSize(att.size)} • {new Date(att.created_at).toLocaleDateString('pt-BR')}
                           </p>
                         </div>
                       </div>
-                      {attachment.url && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(attachment.url, '_blank')}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Baixar
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline">
+                        <Download className="h-4 w-4" />
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">Nenhum documento anexado</p>
-              )}
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Nenhum anexo do caso</p>
+                )}
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="space-y-4 py-8">
+              <div className="text-center text-muted-foreground">
+                <p>Carregando detalhes...</p>
+              </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 

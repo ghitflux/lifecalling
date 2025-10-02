@@ -1,4 +1,4 @@
-/* packages/ui/src/ExpenseModal.tsx */
+/* packages/ui/src/IncomeModal.tsx */
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Button } from "./Button";
@@ -6,46 +6,48 @@ import { Input } from "./Input";
 import { cn } from "./lib/utils";
 import { DollarSign, Calendar, FileText } from "lucide-react";
 
-export interface ExpenseData {
+export interface IncomeData {
   id?: number;
   date: string;  // "YYYY-MM-DD"
-  expense_type: string;
-  expense_name: string;
+  income_type: string;
+  income_name?: string;
   amount: number;
 }
 
-export interface ExpenseModalProps {
+export interface IncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ExpenseData) => void;
-  initialData?: ExpenseData | null;
+  onSubmit: (data: IncomeData) => void;
+  initialData?: IncomeData | null;
   loading?: boolean;
 }
 
-export function ExpenseModal({
+export function IncomeModal({
   isOpen,
   onClose,
   onSubmit,
   initialData,
   loading = false
-}: ExpenseModalProps) {
-  const currentDate = new Date().toISOString().split('T')[0];
-  const [formData, setFormData] = useState<ExpenseData>({
-    date: currentDate,
-    expense_type: "",
-    expense_name: "",
+}: IncomeModalProps) {
+  const currentDate = new Date();
+  const [formData, setFormData] = useState<IncomeData>({
+    date: currentDate.toISOString().split('T')[0],
+    income_type: "",
+    income_name: "",
     amount: 0
   });
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
-    } else {
-      const today = new Date().toISOString().split('T')[0];
       setFormData({
-        date: today,
-        expense_type: "",
-        expense_name: "",
+        ...initialData,
+        date: initialData.date ? initialData.date.split('T')[0] : currentDate.toISOString().split('T')[0]
+      });
+    } else {
+      setFormData({
+        date: currentDate.toISOString().split('T')[0],
+        income_type: "",
+        income_name: "",
         amount: 0
       });
     }
@@ -56,14 +58,13 @@ export function ExpenseModal({
     onSubmit(formData);
   };
 
-  const expenseTypes = [
-    "Aluguel",
-    "Salários",
-    "Impostos",
-    "Marketing",
-    "Infraestrutura",
-    "Manutenção",
-    "Serviços",
+  const incomeTypes = [
+    "Receita Manual",
+    "Bônus",
+    "Comissão",
+    "Serviços Extras",
+    "Investimentos",
+    "Parcerias",
     "Outros"
   ];
 
@@ -72,7 +73,7 @@ export function ExpenseModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {initialData ? "Editar Despesa" : "Adicionar Despesa"}
+            {initialData ? "Editar Receita" : "Adicionar Receita"}
           </DialogTitle>
         </DialogHeader>
 
@@ -81,32 +82,32 @@ export function ExpenseModal({
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Data da Despesa
+              Data da Receita
             </label>
             <Input
               type="date"
-              value={formData.date}
+              value={formData.date || ""}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               disabled={loading}
               required
             />
           </div>
 
-          {/* Tipo de Despesa */}
+          {/* Tipo de Receita */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Tipo de Despesa
+              Tipo de Receita
             </label>
             <select
-              value={formData.expense_type}
-              onChange={(e) => setFormData({ ...formData, expense_type: e.target.value })}
+              value={formData.income_type}
+              onChange={(e) => setFormData({ ...formData, income_type: e.target.value })}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               disabled={loading}
               required
             >
               <option value="">Selecione...</option>
-              {expenseTypes.map((type) => (
+              {incomeTypes.map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>
@@ -114,19 +115,18 @@ export function ExpenseModal({
             </select>
           </div>
 
-          {/* Nome da Despesa */}
+          {/* Nome da Receita */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Nome da Despesa
+              Nome da Receita
             </label>
             <Input
               type="text"
-              value={formData.expense_name}
-              onChange={(e) => setFormData({ ...formData, expense_name: e.target.value })}
-              placeholder="Ex: Aluguel do escritório central"
+              value={formData.income_name || ""}
+              onChange={(e) => setFormData({ ...formData, income_name: e.target.value })}
+              placeholder="Ex: Bônus de desempenho trimestral"
               disabled={loading}
-              required
             />
           </div>
 
@@ -134,7 +134,7 @@ export function ExpenseModal({
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              Valor da Despesa
+              Valor da Receita
             </label>
             <Input
               type="number"
@@ -147,7 +147,7 @@ export function ExpenseModal({
               required
             />
             <p className="text-xs text-muted-foreground">
-              Informe o valor individual desta despesa
+              Informe o valor individual desta receita
             </p>
           </div>
 
@@ -173,7 +173,7 @@ export function ExpenseModal({
                   Salvando...
                 </>
               ) : (
-                "Salvar Despesa"
+                "Salvar Receita"
               )}
             </Button>
           </div>

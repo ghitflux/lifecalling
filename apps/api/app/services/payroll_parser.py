@@ -108,14 +108,14 @@ def parse_rows(text: str) -> Iterable[PayrollRow]:
         matricula = parts['matricula']
         if not matricula:
             skipped_fields += 1
-            logger.warning(f"Linha ignorada - Matrícula vazia")
+            logger.warning("Linha ignorada - Matrícula vazia")
             continue
 
         # Normalizar nome
         nome = parts['nome']
         if not nome:
             skipped_fields += 1
-            logger.warning(f"Linha ignorada - Nome vazio")
+            logger.warning("Linha ignorada - Nome vazio")
             continue
 
         # Processar valor (formato brasileiro: 1.234,56)

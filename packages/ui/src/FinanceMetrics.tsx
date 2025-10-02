@@ -31,6 +31,7 @@ export interface FinanceMetricsProps {
   averageTicket: number;
   totalTax?: number; // 14% do total de consultorias
   totalExpenses?: number; // Total de despesas
+  totalManualIncome?: number; // Receitas manuais
   totalRevenue?: number; // Total de receitas
   netProfit?: number; // Receitas - Despesas - Impostos
   className?: string;
@@ -45,6 +46,7 @@ export function FinanceMetrics({
   averageTicket,
   totalTax,
   totalExpenses,
+  totalManualIncome,
   totalRevenue,
   netProfit,
   className
@@ -85,9 +87,17 @@ export function FinanceMetrics({
 
   const additionalMetrics: MetricItem[] = [];
 
+  if (totalManualIncome !== undefined) {
+    additionalMetrics.push({
+      label: "Receitas Manuais",
+      value: formatCurrency(totalManualIncome),
+      variant: "success"
+    });
+  }
+
   if (totalRevenue !== undefined) {
     additionalMetrics.push({
-      label: "Receitas",
+      label: "Receitas Totais",
       value: formatCurrency(totalRevenue),
       variant: "success"
     });

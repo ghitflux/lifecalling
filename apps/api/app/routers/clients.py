@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
+from typing import List
 from ..db import SessionLocal
 from ..rbac import require_roles
-from ..models import Client, Case, PayrollClient, PayrollContract, PayrollLine
+from ..models import Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone
 from pydantic import BaseModel
+from datetime import datetime
 
 r = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -308,3 +310,180 @@ def delete_client(client_id: int, db: Session = Depends(get_db), user=Depends(re
     db.commit()
 
     return {"ok": True, "message": "Cliente excluído com sucesso"}
+
+
+# Rotas de histórico de telefones
+
+class PhoneUpdate(BaseModel):
+    phone: str
+
+@r.get("/{client_id}/phones")
+def get_client_phones(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+    """
+    Retorna o histórico de telefones de um cliente.
+    Lista todos os telefones já utilizados, ordenados por is_primary e data de criação.
+    """
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar telefones
+    phones = db.query(ClientPhone).filter_by(client_id=client_id).order_by(
+        ClientPhone.is_primary.desc(),
+        ClientPhone.created_at.desc()
+    ).all()
+
+    return {
+        "items": [
+            {
+                "id": phone.id,
+                "phone": phone.phone,
+                "is_primary": phone.is_primary,
+                "created_at": phone.created_at.isoformat() if phone.created_at else None,
+                "updated_at": phone.updated_at.isoformat() if phone.updated_at else None
+            } for phone in phones
+        ],
+        "count": len(phones)
+    }
+
+@r.post("/{client_id}/phones")
+def add_or_update_client_phone(client_id: int, data: PhoneUpdate, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "atendente"))):
+    """
+    Adiciona ou atualiza o telefone principal de um cliente.
+    - Remove is_primary de todos os telefones anteriores
+    - Adiciona ou marca o novo telefone como is_primary=True
+    - Atualiza Client.telefone_preferencial por compatibilidade
+    """
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Normalizar telefone (remover espaços, caracteres especiais)
+    phone_normalized = ''.join(filter(str.isdigit, data.phone))
+
+    if not phone_normalized:
+        raise HTTPException(400, "Telefone inválido")
+
+    # Desmarcar todos os telefones anteriores como não primários
+    db.query(ClientPhone).filter_by(client_id=client_id, is_primary=True).update({"is_primary": False})
+
+    # Verificar se o telefone já existe
+    existing_phone = db.query(ClientPhone).filter_by(client_id=client_id, phone=phone_normalized).first()
+
+    if existing_phone:
+        # Atualizar telefone existente como primário
+        existing_phone.is_primary = True
+        existing_phone.updated_at = datetime.utcnow()
+        phone_record = existing_phone
+    else:
+        # Criar novo telefone
+        phone_record = ClientPhone(
+            client_id=client_id,
+            phone=phone_normalized,
+            is_primary=True
+        )
+        db.add(phone_record)
+
+    # Atualizar campo legado do cliente
+    client.telefone_preferencial = phone_normalized
+
+    db.commit()
+    db.refresh(phone_record)
+
+    return {
+        "id": phone_record.id,
+        "phone": phone_record.phone,
+        "is_primary": phone_record.is_primary,
+        "created_at": phone_record.created_at.isoformat() if phone_record.created_at else None,
+        "updated_at": phone_record.updated_at.isoformat() if phone_record.updated_at else None
+    }
+
+@r.delete("/{client_id}/phones/{phone_id}")
+def delete_client_phone(client_id: int, phone_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor"))):
+    """
+    Remove um telefone do histórico do cliente (apenas admin/supervisor).
+    Não permite remover o telefone primário.
+    """
+    # Buscar telefone
+    phone = db.query(ClientPhone).filter_by(id=phone_id, client_id=client_id).first()
+    if not phone:
+        raise HTTPException(404, "Telefone não encontrado")
+
+    # Não permitir remover telefone primário
+    if phone.is_primary:
+        raise HTTPException(400, "Não é possível remover o telefone principal. Defina outro telefone como principal primeiro.")
+
+    # Deletar telefone
+    db.delete(phone)
+    db.commit()
+
+    return {"ok": True, "message": "Telefone removido do histórico"}
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[int]
+
+@r.post("/bulk-delete")
+def bulk_delete_clients(
+    payload: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
+    """
+    Exclusão em lote de clientes (apenas admin).
+    Verifica se clientes têm casos associados antes de excluir.
+    """
+    if not payload.ids:
+        raise HTTPException(400, "Lista de IDs vazia")
+
+    if len(payload.ids) > 100:
+        raise HTTPException(400, "Máximo de 100 clientes por vez")
+
+    results = {
+        "deleted": [],
+        "failed": [],
+        "total_requested": len(payload.ids)
+    }
+
+    for client_id in payload.ids:
+        try:
+            client = db.get(Client, client_id)
+            if not client:
+                results["failed"].append({
+                    "id": client_id,
+                    "reason": "Cliente não encontrado"
+                })
+                continue
+
+            # Verificar se tem casos associados
+            cases_count = db.query(Case).filter_by(client_id=client.id).count()
+            if cases_count > 0:
+                results["failed"].append({
+                    "id": client_id,
+                    "reason": f"Cliente possui {cases_count} caso(s) associado(s)"
+                })
+                continue
+
+            # Excluir telefones (CASCADE já faz isso automaticamente)
+            # Mas vamos garantir explicitamente
+            db.query(ClientPhone).filter_by(client_id=client_id).delete()
+
+            # Excluir cliente
+            db.delete(client)
+            results["deleted"].append(client_id)
+
+        except Exception as e:
+            results["failed"].append({
+                "id": client_id,
+                "reason": str(e)
+            })
+            print(f"Erro ao excluir cliente {client_id}: {e}")
+
+    db.commit()
+
+    return {
+        **results,
+        "success_count": len(results["deleted"]),
+        "failed_count": len(results["failed"])
+    }

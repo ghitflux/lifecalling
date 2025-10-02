@@ -454,6 +454,393 @@ docker compose -f docker.compose.yml exec api alembic revision --autogenerate -m
 
 ---
 
-**Data da Validação D1**: 25/09/2025  
-**Status**: ✅ APROVADO PARA D2  
-**Próxima Revisão**: D2 - Implementação completa
+## 🚀 Deploy para Produção
+
+### Pré-requisitos de Produção
+
+- **Servidor**: Linux (Ubuntu 20.04+ recomendado)
+- **Docker**: 20.10+
+- **Docker Compose**: 2.0+
+- **RAM**: Mínimo 2GB (recomendado 4GB)
+- **Storage**: 10GB+ disponíveis
+- **Domínio**: Configurado com DNS apontando para o servidor
+
+### Variáveis de Ambiente (Produção)
+
+Crie um arquivo `.env` com as seguintes variáveis:
+
+```env
+# Banco de Dados
+POSTGRES_USER=lifecalling_prod
+POSTGRES_PASSWORD=<senha-forte-aqui>
+POSTGRES_DB=lifecalling_prod
+DATABASE_URL=postgresql://lifecalling_prod:<senha>@db:5432/lifecalling_prod
+
+# API
+SECRET_KEY=<gere-uma-chave-forte-256-bits>
+UPLOAD_DIR=/var/app/uploads
+API_PORT=8000
+
+# Next.js
+NEXT_PUBLIC_API_URL=https://api.seudominio.com
+NEXTAUTH_SECRET=<gere-outra-chave-forte>
+NEXTAUTH_URL=https://app.seudominio.com
+
+# Segurança
+ALLOWED_ORIGINS=https://app.seudominio.com,https://www.seudominio.com
+```
+
+### Passos para Deploy
+
+#### 1. Preparar o Servidor
+
+```bash
+# Atualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Instalar Docker Compose
+sudo apt install docker-compose-plugin -y
+
+# Criar usuário para a aplicação
+sudo useradd -m -s /bin/bash lifecalling
+sudo usermod -aG docker lifecalling
+```
+
+#### 2. Clonar e Configurar
+
+```bash
+# Clonar repositório
+cd /home/lifecalling
+git clone https://github.com/ghitflux/lifecalling.git
+cd lifecalling
+
+# Copiar e configurar variáveis de ambiente
+cp .env.example .env
+nano .env  # Editar com valores de produção
+```
+
+#### 3. Build e Deploy
+
+```bash
+# Build das imagens
+docker compose -f docker-compose.prod.yml build
+
+# Iniciar serviços
+docker compose -f docker-compose.prod.yml up -d
+
+# Executar migrações
+docker compose -f docker-compose.prod.yml exec api alembic upgrade head
+
+# Criar usuários iniciais
+docker compose -f docker-compose.prod.yml exec api python -m app.seed_demo
+```
+
+#### 4. Configurar Nginx (Proxy Reverso)
+
+```nginx
+# /etc/nginx/sites-available/lifecalling
+server {
+    listen 80;
+    server_name app.seudominio.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+server {
+    listen 80;
+    server_name api.seudominio.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_http_version 1.1;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+```bash
+# Ativar configuração
+sudo ln -s /etc/nginx/sites-available/lifecalling /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# Configurar SSL com Let's Encrypt
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d app.seudominio.com -d api.seudominio.com
+```
+
+#### 5. Monitoramento e Logs
+
+```bash
+# Ver logs em tempo real
+docker compose -f docker-compose.prod.yml logs -f
+
+# Ver logs específicos
+docker compose -f docker-compose.prod.yml logs api -f
+docker compose -f docker-compose.prod.yml logs web -f
+
+# Status dos containers
+docker compose -f docker-compose.prod.yml ps
+```
+
+### Backup e Recuperação
+
+#### Backup do Banco de Dados
+
+```bash
+# Criar backup
+docker compose exec db pg_dump -U lifecalling_prod lifecalling_prod > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restaurar backup
+docker compose exec -T db psql -U lifecalling_prod lifecalling_prod < backup_20251002_153000.sql
+```
+
+#### Backup de Uploads
+
+```bash
+# Criar backup de arquivos
+tar -czf uploads_backup_$(date +%Y%m%d).tar.gz /var/app/uploads
+
+# Restaurar arquivos
+tar -xzf uploads_backup_20251002.tar.gz -C /
+```
+
+---
+
+## 🔧 Pontos Pendentes e Ajustes Necessários
+
+### Backend (Alta Prioridade)
+
+#### 1. Endpoint `POST /cases/{id}/return-to-calculista`
+- **Status**: ⚠️ Não implementado
+- **Necessário**: Criar endpoint no FastAPI
+- **Arquivo**: `apps/api/app/routers/cases.py`
+- **Lógica**:
+  ```python
+  @r.post("/{case_id}/return-to-calculista")
+  async def return_to_calculista(case_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+      with SessionLocal() as db:
+          case = db.get(Case, case_id)
+          if not case:
+              raise HTTPException(404, "Case not found")
+
+          # Retornar para status calculista
+          case.status = "calculista_pendente"
+          case.last_update_at = datetime.utcnow()
+
+          # Registrar evento
+          db.add(CaseEvent(
+              case_id=case_id,
+              type="case.returned_to_calculista",
+              payload={"returned_by": user.id},
+              created_by=user.id
+          ))
+
+          db.commit()
+
+      await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "calculista_pendente"})
+      return {"success": True}
+  ```
+
+#### 2. Validação de Dados de Simulação
+- **Status**: ⚠️ Necessário validar
+- **Problema**: Campo `valor_liberado` pode estar null na tabela `simulations`
+- **Solução**: Adicionar migration para garantir NOT NULL
+- **Arquivo**: Criar nova migration Alembic
+
+#### 3. Logs de Auditoria
+- **Status**: ❌ Não implementado
+- **Necessário**: Criar tabela `audit_logs`
+- **Funcionalidade**: Registrar todas ações administrativas
+  - Reatribuições de casos
+  - Exclusões em lote
+  - Alterações de status críticos
+  - Aprovações/rejeições financeiras
+
+### Frontend (Média Prioridade)
+
+#### 1. Modal de Confirmação para Deletar
+- **Status**: ⚠️ Implementação parcial
+- **Arquivo**: `packages/ui/src/FinanceCard.tsx`
+- **Necessário**: Adicionar estado `showDeleteConfirm` e Dialog component
+- **Código pendente**:
+  ```tsx
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  {/* Modal de confirmação de exclusão */}
+  <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Confirmar Exclusão</DialogTitle>
+      </DialogHeader>
+      <p>Tem certeza que deseja deletar este caso? Esta ação não pode ser desfeita.</p>
+      <DialogFooter>
+        <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+          Cancelar
+        </Button>
+        <Button variant="destructive" onClick={() => {
+          onDelete?.(id);
+          setShowDeleteConfirm(false);
+        }}>
+          Deletar Permanentemente
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+  ```
+
+#### 2. Tratamento de Erros de Upload
+- **Status**: ⚠️ Tratamento básico
+- **Necessário**: Melhorar feedback de erros
+- **Validações adicionais**:
+  - Tamanho máximo do arquivo (10MB)
+  - Tipos de arquivo permitidos
+  - Mensagem de erro específica por tipo de falha
+
+#### 3. Skeleton Loaders
+- **Status**: ❌ Não implementado
+- **Necessário**: Substituir "Carregando..." por skeletons animados
+- **Componentes afetados**:
+  - FinanceCard
+  - FinanceMetrics
+  - Tabelas de receitas/despesas
+
+### Banco de Dados (Alta Prioridade)
+
+#### 1. Índices para Performance
+- **Status**: ⚠️ Parcialmente implementado
+- **Necessário**: Criar índices adicionais
+- **SQL**:
+  ```sql
+  -- Índice composto para filtros frequentes
+  CREATE INDEX idx_cases_status_created ON cases(status, created_at DESC);
+  CREATE INDEX idx_contracts_disbursed_at ON contracts(disbursed_at DESC);
+  CREATE INDEX idx_simulations_case_status ON simulations(case_id, status);
+
+  -- Índice para busca de clientes
+  CREATE INDEX idx_clients_name_trgm ON clients USING gin(name gin_trgm_ops);
+  CREATE INDEX idx_clients_cpf ON clients(cpf);
+  ```
+
+#### 2. Constraints de Integridade
+- **Status**: ⚠️ Básico implementado
+- **Necessário**: Adicionar constraints adicionais
+- **Exemplos**:
+  ```sql
+  -- Garantir que valor liberado é positivo
+  ALTER TABLE simulations ADD CONSTRAINT chk_liberado_positive
+    CHECK (liberado_total > 0);
+
+  -- Garantir que parcelas pagas não excedem total
+  ALTER TABLE contracts ADD CONSTRAINT chk_installments_valid
+    CHECK (paid_installments <= installments);
+  ```
+
+### Testes (Alta Prioridade)
+
+#### 1. Testes E2E do Fluxo Financeiro
+- **Status**: ❌ Não implementado
+- **Necessário**: Criar testes com Playwright/Cypress
+- **Fluxo a testar**:
+  1. Login como financeiro
+  2. Ver lista de casos aprovados
+  3. Anexar documento
+  4. Efetivar liberação
+  5. Verificar caso liberado
+  6. Ver detalhes completos
+
+#### 2. Testes de Integração API
+- **Status**: ❌ Não implementado
+- **Necessário**: Testes pytest para endpoints críticos
+- **Exemplos**:
+  - `POST /finance/disburse-simple`
+  - `POST /cases/{id}/return-to-calculista`
+  - `POST /finance/incomes`
+  - `POST /finance/expenses`
+
+### Documentação (Média Prioridade)
+
+#### 1. API Documentation
+- **Status**: ✅ Swagger implementado
+- **Necessário**: Melhorar descrições e exemplos
+- **Adicionar**: Exemplos de request/response em cada endpoint
+
+#### 2. Manual do Usuário
+- **Status**: ❌ Não criado
+- **Necessário**: Documentação para usuários finais
+- **Tópicos**:
+  - Como fazer upload de documentos
+  - Como efetivar liberação
+  - Como adicionar receitas/despesas
+  - Fluxo completo de um caso
+
+### Segurança (Alta Prioridade)
+
+#### 1. Rate Limiting
+- **Status**: ❌ Não implementado
+- **Necessário**: Proteção contra ataques de força bruta
+- **Implementar**: slowapi ou similar
+
+#### 2. Validação de Arquivos Upload
+- **Status**: ⚠️ Validação básica
+- **Necessário**: Scan de malware e validação de conteúdo
+- **Ferramentas**: ClamAV ou similar
+
+#### 3. Logs de Segurança
+- **Status**: ❌ Não implementado
+- **Necessário**: Registro de tentativas de login, acesso negado, etc.
+
+---
+
+## 📋 Checklist de Validação Pré-Deploy
+
+### Backend
+- [ ] Todos os endpoints críticos testados
+- [ ] Migrações aplicadas sem erros
+- [ ] Variáveis de ambiente configuradas
+- [ ] Logs estruturados e informativos
+- [ ] Tratamento de erros robusto
+- [ ] Backup automático configurado
+
+### Frontend
+- [ ] Build de produção funcionando
+- [ ] Variáveis de ambiente corretas
+- [ ] Feedback visual em todas ações
+- [ ] Tratamento de erros de rede
+- [ ] Performance otimizada (bundle size)
+- [ ] SEO básico implementado
+
+### Infraestrutura
+- [ ] SSL/TLS configurado
+- [ ] Firewall configurado
+- [ ] Nginx como proxy reverso
+- [ ] Containers com health checks
+- [ ] Monitoramento ativo
+- [ ] Alertas configurados
+
+### Dados
+- [ ] Seed data removido
+- [ ] Dados de teste limpos
+- [ ] Backup inicial criado
+- [ ] Índices de performance criados
+- [ ] Constraints validadas
+
+---
+
+**Data da Validação D1**: 25/09/2025
+**Status**: ✅ APROVADO PARA D2
+**Última Atualização**: 02/10/2025
+**Próxima Revisão**: Deploy para Produção

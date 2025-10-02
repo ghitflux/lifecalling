@@ -38,19 +38,15 @@ export function AdvancedCard({
       <div className="relative border-b p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{title}</h3>
-              {badge}
-            </div>
+            <h3 className="font-semibold text-foreground">{title}</h3>
             {subtitle && (
               <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
             )}
           </div>
-          {actions || (
-            <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {badge}
+            {actions}
+          </div>
         </div>
       </div>
 

@@ -41,6 +41,25 @@ class Client(Base):
 
     __table_args__ = (UniqueConstraint('cpf','matricula', name='uq_client_cpf_matricula'),)
 
+class ClientPhone(Base):
+    """
+    Histórico de telefones de um cliente.
+    Mantém registro de todos os telefones já utilizados.
+    """
+    __tablename__ = "client_phones"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    phone = Column(String(20), nullable=False)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    client = relationship("Client")
+
+    __table_args__ = (
+        UniqueConstraint('client_id', 'phone', name='uq_client_phone'),
+    )
+
 class Case(Base):
     __tablename__ = "cases"
     id = Column(Integer, primary_key=True)
@@ -182,16 +201,33 @@ class Notification(Base):
 class FinanceExpense(Base):
     __tablename__ = "finance_expenses"
     id = Column(Integer, primary_key=True)
-    month = Column(Integer, nullable=False)  # 1-12
-    year = Column(Integer, nullable=False)  # 2024, 2025, etc
-    description = Column(Text, nullable=True)
+    month = Column(Integer, nullable=False)  # 1-12 (mantido para compatibilidade)
+    year = Column(Integer, nullable=False)  # 2024, 2025, etc (mantido para compatibilidade)
+    date = Column(DateTime, nullable=False)  # Data da despesa
+    expense_type = Column(String(100), nullable=False)  # Tipo da despesa (ex: "Aluguel", "Salários")
+    expense_name = Column(String(255), nullable=False)  # Nome/descrição da despesa
+    description = Column(Text, nullable=True)  # Campo legado (deprecated)
     amount = Column(Numeric(14, 2), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
-    # Constraint: apenas uma despesa por mês/ano
-    __table_args__ = (UniqueConstraint('month', 'year', name='uq_finance_expense_month_year'),)
+    # Sem constraint único - permite múltiplas despesas por mês
+    __table_args__ = tuple()
+
+    # Relacionamentos
+    creator = relationship("User")
+
+class FinanceIncome(Base):
+    __tablename__ = "finance_incomes"
+    id = Column(Integer, primary_key=True)
+    date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    income_type = Column(String(100), nullable=False)  # Tipo da receita (ex: "Receita Manual", "Bônus")
+    income_name = Column(String(255), nullable=True)  # Nome/descrição da receita
+    amount = Column(Numeric(14, 2), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
     creator = relationship("User")

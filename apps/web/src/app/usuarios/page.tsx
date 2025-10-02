@@ -17,21 +17,28 @@ import {
   Button,
   FilterComponent,
   useFilters,
-  type FilterOption
+  type FilterOption,
 } from "@lifecalling/ui";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-interface User {
+/**
+ * IMPORTANTE:
+ * - Evitamos conflito de tipos com o `User` do pacote UI.
+ * - Definimos um tipo local `AppUser` e fazemos mapeamentos para o tipo
+ *   esperado pelos componentes do UI (via `toUiUser` / `fromUiUser`).
+ */
+
+interface AppUser {
   id: number;
   name: string;
   email: string;
   role: string;
   active: boolean;
-  status?: string; // Para compatibilidade com tabela
+  status?: string; // compat (usamos default quando faltar)
   created_at: string;
-  last_login?: string;
+  last_login?: string | null;
   department?: string;
   phone?: string;
 }
@@ -43,88 +50,129 @@ interface UserStats {
   admin_users: number;
 }
 
+// Normalização vinda da API para o App
+const mapApiUser = (u: any): AppUser => ({
+  id: u.id,
+  name: u.name ?? u.nome ?? "",
+  email: u.email ?? "",
+  role: u.role ?? u.permissao ?? "user",
+  active: u.active ?? u.is_active ?? (u.status ? String(u.status).toLowerCase() === "active" : true),
+  status: u.status ?? (u.active ?? u.is_active ? "active" : "inactive"),
+  created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
+  last_login: u.last_login ?? u.lastLogin ?? null,
+  department: u.department ?? u.dept ?? undefined,
+  phone: u.phone ?? u.telefone ?? undefined,
+});
+
+// Mapeia AppUser -> shape aceito pelos componentes do UI
+const toUiUser = (u: AppUser) => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  // UI normalmente espera `status` como string obrigatória
+  status: u.status ?? (u.active ? "active" : "inactive"),
+  created_at: u.created_at,
+  last_login: u.last_login ?? null,
+  department: u.department ?? "",
+  phone: u.phone ?? "",
+  // alguns componentes também exibem flags booleanas
+  active: u.active,
+});
+
+// (Opcional) mapeia dados vindos do form do UI -> AppUser parcial para API
+const fromUiUser = (u: any): Partial<AppUser> => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  status: u.status,
+  // mantém coerência entre status e active
+  active: typeof u.active === "boolean" ? u.active : String(u.status).toLowerCase() === "active",
+  department: u.department || undefined,
+  phone: u.phone || undefined,
+});
+
 export default function UsuariosPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
   // Configuração dos filtros
   const filterOptions: FilterOption[] = [
     {
-      key: 'role',
-      label: 'Função',
-      type: 'select',
+      key: "role",
+      label: "Função",
+      type: "select",
       options: [
-        { value: 'admin', label: 'Administrador' },
-        { value: 'supervisor', label: 'Supervisor' },
-        { value: 'user', label: 'Usuário' },
-        { value: 'viewer', label: 'Visualizador' }
+        { value: "admin", label: "Administrador" },
+        { value: "supervisor", label: "Supervisor" },
+        { value: "user", label: "Usuário" },
+        { value: "viewer", label: "Visualizador" },
       ],
-      placeholder: 'Selecionar função'
+      placeholder: "Selecionar função",
     },
     {
-      key: 'active',
-      label: 'Status',
-      type: 'select',
+      key: "active",
+      label: "Status",
+      type: "select",
       options: [
-        { value: 'true', label: 'Ativo' },
-        { value: 'false', label: 'Inativo' }
+        { value: "true", label: "Ativo" },
+        { value: "false", label: "Inativo" },
       ],
-      placeholder: 'Selecionar status'
+      placeholder: "Selecionar status",
     },
     {
-      key: 'department',
-      label: 'Departamento',
-      type: 'select',
+      key: "department",
+      label: "Departamento",
+      type: "select",
       options: [
-        { value: 'ti', label: 'TI' },
-        { value: 'rh', label: 'Recursos Humanos' },
-        { value: 'financeiro', label: 'Financeiro' },
-        { value: 'operacional', label: 'Operacional' },
-        { value: 'juridico', label: 'Jurídico' }
+        { value: "ti", label: "TI" },
+        { value: "rh", label: "Recursos Humanos" },
+        { value: "financeiro", label: "Financeiro" },
+        { value: "operacional", label: "Operacional" },
+        { value: "juridico", label: "Jurídico" },
       ],
-      placeholder: 'Selecionar departamento'
+      placeholder: "Selecionar departamento",
     },
     {
-      key: 'created_date',
-      label: 'Data de Criação',
-      type: 'daterange',
-      placeholder: 'Período de criação'
+      key: "created_date",
+      label: "Data de Criação",
+      type: "daterange",
+      placeholder: "Período de criação",
     },
     {
-      key: 'has_login',
-      label: 'Já fez login',
-      type: 'boolean'
-    }
+      key: "has_login",
+      label: "Já fez login",
+      type: "boolean",
+    },
   ];
 
   // Hook de filtros
   const {
-    // filters, // removed – not exposed by useFilters
     searchTerm,
     setFilter,
-    removeFilter,
     clearAllFilters,
     setSearchTerm,
-    activeFiltersCount,
     hasActiveFilters,
-    getFilteredData
+    getFilteredData,
   } = useFilters({
     onFiltersChange: (newFilters) => {
-      console.log('Filtros atualizados:', newFilters);
+      // console.log('Filtros atualizados:', newFilters);
     },
     onSearch: (term) => {
-      console.log('Busca atualizada:', term);
-    }
+      // console.log('Busca atualizada:', term);
+    },
   });
 
   // Queries
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<AppUser[]>({
     queryKey: ["users"],
     queryFn: async () => {
       const response = await api.get("/users");
-      return response.data?.items || [];
+      const raw = response.data?.items ?? response.data?.results ?? response.data ?? [];
+      return Array.isArray(raw) ? raw.map(mapApiUser) : [];
     },
     refetchInterval: 30000,
   });
@@ -140,7 +188,7 @@ export default function UsuariosPage() {
 
   // Mutations
   const createUserMutation = useMutation({
-    mutationFn: async (userData: Partial<User>) => {
+    mutationFn: async (userData: Partial<AppUser>) => {
       const response = await api.post("/users", userData);
       return response.data;
     },
@@ -151,12 +199,12 @@ export default function UsuariosPage() {
       setShowForm(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao criar usuário");
+      toast.error(error?.response?.data?.detail || "Erro ao criar usuário");
     },
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: async ({ id, ...userData }: Partial<User> & { id: number }) => {
+    mutationFn: async ({ id, ...userData }: Partial<AppUser> & { id: number }) => {
       const response = await api.put(`/users/${id}`, userData);
       return response.data;
     },
@@ -168,7 +216,7 @@ export default function UsuariosPage() {
       setShowForm(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao atualizar usuário");
+      toast.error(error?.response?.data?.detail || "Erro ao atualizar usuário");
     },
   });
 
@@ -182,70 +230,59 @@ export default function UsuariosPage() {
       toast.success("Usuário removido com sucesso!");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao remover usuário");
+      toast.error(error?.response?.data?.detail || "Erro ao remover usuário");
     },
   });
 
   // Função personalizada de filtro para usuários
-  const filterUsers = (user: User, filters: any, searchTerm: string): boolean => {
-    // Filtro de busca por texto
-    if (searchTerm) {
-      const searchableText = `${user.name} ${user.email} ${user.department || ''}`.toLowerCase();
-      if (!searchableText.includes(searchTerm.toLowerCase())) {
-        return false;
-      }
+  const filterUsers = (user: AppUser, filters: any, term: string): boolean => {
+    // Busca de texto
+    if (term) {
+      const searchable = `${user.name} ${user.email} ${user.department ?? ""}`.toLowerCase();
+      if (!searchable.includes(term.toLowerCase())) return false;
     }
 
-    // Filtro por função
-    if (filters.role && user.role !== filters.role) {
-      return false;
+    // Função/role
+    if (filters.role && user.role !== filters.role) return false;
+
+    // Ativo/inativo (coagir string -> boolean quando vier do UI)
+    if (filters.active !== undefined && filters.active !== "") {
+      const isActive = typeof filters.active === "boolean" ? filters.active : String(filters.active) === "true";
+      if (user.active !== isActive) return false;
     }
 
-    // Filtro por status ativo/inativo
-    if (filters.active !== undefined && filters.active !== '') {
-      const isActive = filters.active === 'true';
-      if (user.active !== isActive) {
-        return false;
-      }
+    // Departamento
+    if (filters.department && user.department !== filters.department) return false;
+
+    // Período de criação
+    if (filters.created_date?.start && filters.created_date?.end) {
+      const d = new Date(user.created_at);
+      const start = new Date(filters.created_date.start);
+      const end = new Date(filters.created_date.end);
+      if (d < start || d > end) return false;
     }
 
-    // Filtro por departamento
-    if (filters.department && user.department !== filters.department) {
-      return false;
-    }
-
-    // Filtro por data de criação
-    if (filters.created_date && filters.created_date.start && filters.created_date.end) {
-      const userDate = new Date(user.created_at);
-      const startDate = new Date(filters.created_date.start);
-      const endDate = new Date(filters.created_date.end);
-      if (userDate < startDate || userDate > endDate) {
-        return false;
-      }
-    }
-
-    // Filtro por login
-    if (typeof filters.has_login === 'boolean') {
+    // Já fez login
+    if (filters.has_login !== undefined && filters.has_login !== "") {
+      const hasLoginFilter = typeof filters.has_login === "boolean" ? filters.has_login : String(filters.has_login) === "true";
       const hasLogin = Boolean(user.last_login);
-      if (hasLogin !== filters.has_login) {
-        return false;
-      }
+      if (hasLogin !== hasLoginFilter) return false;
     }
 
     return true;
   };
 
-  // Dados filtrados
-  const filteredUsers = useMemo(() => {
-    return getFilteredData(users, filterUsers);
+  // Dados filtrados (no cliente)
+  const filteredUsers: AppUser[] = useMemo(() => {
+    return getFilteredData<AppUser>(users, filterUsers);
   }, [users, getFilteredData]);
 
   // Handlers
-  const handleCreateUser = (userData: Partial<User>) => {
+  const handleCreateUser = (userData: Partial<AppUser>) => {
     createUserMutation.mutate(userData);
   };
 
-  const handleUpdateUser = (userData: Partial<User>) => {
+  const handleUpdateUser = (userData: Partial<AppUser>) => {
     if (editingUser) {
       updateUserMutation.mutate({ ...userData, id: editingUser.id });
     }
@@ -257,7 +294,7 @@ export default function UsuariosPage() {
     }
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: AppUser) => {
     setEditingUser(user);
     setShowForm(true);
   };
@@ -270,9 +307,7 @@ export default function UsuariosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gerenciamento de Usuários</h1>
-          <p className="text-muted-foreground">
-            Gerencie usuários, permissões e acessos do sistema
-          </p>
+          <p className="text-muted-foreground">Gerencie usuários, permissões e acessos do sistema</p>
         </div>
         {canManageUsers && (
           <Button
@@ -291,30 +326,10 @@ export default function UsuariosPage() {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <UserCard
-            title="Total de Usuários"
-            value={stats.total_users}
-            icon={<Users className="h-4 w-4" />}
-            trend={{ value: 12, isPositive: true }}
-          />
-          <UserCard
-            title="Usuários Ativos"
-            value={stats.active_users}
-            icon={<UserCheck className="h-4 w-4" />}
-            trend={{ value: 8, isPositive: true }}
-          />
-          <UserCard
-            title="Usuários Inativos"
-            value={stats.inactive_users}
-            icon={<UserX className="h-4 w-4" />}
-            trend={{ value: 3, isPositive: false }}
-          />
-          <UserCard
-            title="Administradores"
-            value={stats.admin_users}
-            icon={<Shield className="h-4 w-4" />}
-            trend={{ value: 1, isPositive: true }}
-          />
+          <UserCard title="Total de Usuários" value={stats.total_users} icon={<Users className="h-4 w-4" />} trend={{ value: 12, isPositive: true }} />
+          <UserCard title="Usuários Ativos" value={stats.active_users} icon={<UserCheck className="h-4 w-4" />} trend={{ value: 8, isPositive: true }} />
+          <UserCard title="Usuários Inativos" value={stats.inactive_users} icon={<UserX className="h-4 w-4" />} trend={{ value: 3, isPositive: false }} />
+          <UserCard title="Administradores" value={stats.admin_users} icon={<Shield className="h-4 w-4" />} trend={{ value: 1, isPositive: true }} />
         </div>
       )}
 
@@ -328,8 +343,8 @@ export default function UsuariosPage() {
         }}
         onSearch={setSearchTerm}
         searchPlaceholder="Buscar por nome, email ou departamento..."
-        showSearch={true}
-        showFilterCount={true}
+        showSearch
+        showFilterCount
         className="mb-6"
       />
 
@@ -346,11 +361,7 @@ export default function UsuariosPage() {
               )}
             </span>
             {hasActiveFilters && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearAllFilters}
-              >
+              <Button variant="outline" size="sm" onClick={clearAllFilters}>
                 Limpar Filtros
               </Button>
             )}
@@ -358,14 +369,14 @@ export default function UsuariosPage() {
           <CardDescription>
             {hasActiveFilters
               ? `Mostrando ${filteredUsers.length} usuários filtrados`
-              : `Lista completa de ${users.length} usuários do sistema`
-            }
+              : `Lista completa de ${users.length} usuários do sistema`}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Passamos o shape esperado pelo UI para evitar conflitos de tipo */}
           <UserTable
-            users={filteredUsers}
-            onEdit={canManageUsers ? handleEditUser : undefined}
+            users={filteredUsers.map(toUiUser) as any}
+            onEdit={canManageUsers ? ((u: any) => handleEditUser(mapApiUser(u))) : undefined}
             onDelete={canManageUsers ? handleDeleteUser : undefined}
             loading={usersLoading}
           />
@@ -375,8 +386,11 @@ export default function UsuariosPage() {
       {/* Form Modal */}
       {showForm && (
         <UserForm
-          user={editingUser}
-          onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
+          user={editingUser ? (toUiUser(editingUser) as any) : undefined}
+          onSubmit={(formData: any) => {
+            const payload = fromUiUser(formData);
+            editingUser ? handleUpdateUser(payload) : handleCreateUser(payload);
+          }}
           onCancel={() => {
             setShowForm(false);
             setEditingUser(null);

@@ -46,18 +46,24 @@ export default function EsteiraPage() {
   // Query para métricas do usuário
   const { data: myStats, isLoading: loadingStats } = useMyStats();
 
-  // Query para listar atendimentos globais (apenas não atribuídos)
+  // Query para listar atendimentos globais
   const { data: globalData, isLoading: loadingGlobal, error: errorGlobal } = useQuery({
     queryKey: ["cases", "global", globalPage, globalPageSize, globalStatusFilter, globalSearchTerm],
     queryFn: async () => {
       const params = new URLSearchParams({
-        assigned: "0",
         page: globalPage.toString(),
         page_size: globalPageSize.toString(),
       });
 
+      // Admin e supervisor veem TODOS os casos quando aplicam filtros
+      // Atendentes veem apenas casos disponíveis (assigned=0)
       if (globalStatusFilter.length > 0) {
-        params.append("status", globalStatusFilter[0]); // Backend aceita apenas um status por vez
+        params.append("status", globalStatusFilter[0]);
+        // Não adicionar filtro de assigned quando houver filtro de status
+        // Isso permite que admin/supervisor vejam todos os casos naquele status
+      } else {
+        // Sem filtro de status, mostrar apenas casos não atribuídos
+        params.append("assigned", "0");
       }
 
       if (globalSearchTerm) {
@@ -258,10 +264,6 @@ export default function EsteiraPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Esteira de Atendimentos</h1>
-        <div className="flex gap-2">
-          <Button variant="outline">Filtros</Button>
-          <Button>Novo Atendimento</Button>
-        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

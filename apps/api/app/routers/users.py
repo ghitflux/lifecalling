@@ -204,16 +204,89 @@ def users_stats(current_user: User = Depends(require_roles("admin", "supervisor"
     with SessionLocal() as db:
         total_users = db.query(User).count()
         active_users = db.query(User).filter(User.active == True).count()
-        
+
         # Contagem por role
         roles_count = {}
         for role in ["admin", "supervisor", "financeiro", "calculista", "atendente"]:
             count = db.query(User).filter(User.role == role, User.active == True).count()
             roles_count[role] = count
-        
+
         return {
             "total_users": total_users,
             "active_users": active_users,
             "inactive_users": total_users - active_users,
             "roles_distribution": roles_count
+        }
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[int]
+
+@r.post("/bulk-delete")
+def bulk_delete_users(
+    payload: BulkDeleteRequest,
+    current_user: User = Depends(require_roles("admin"))
+):
+    """
+    Exclusão em lote de usuários (apenas admin).
+    Verifica se usuários têm casos atribuídos e não permite deletar o próprio usuário.
+    """
+    from ..models import Case
+
+    if not payload.ids:
+        raise HTTPException(400, "Lista de IDs vazia")
+
+    if len(payload.ids) > 50:
+        raise HTTPException(400, "Máximo de 50 usuários por vez")
+
+    with SessionLocal() as db:
+        results = {
+            "deleted": [],
+            "failed": [],
+            "total_requested": len(payload.ids)
+        }
+
+        for user_id in payload.ids:
+            try:
+                # Não permitir deletar a si mesmo
+                if user_id == current_user.id:
+                    results["failed"].append({
+                        "id": user_id,
+                        "reason": "Não é possível deletar seu próprio usuário"
+                    })
+                    continue
+
+                user = db.get(User, user_id)
+                if not user:
+                    results["failed"].append({
+                        "id": user_id,
+                        "reason": "Usuário não encontrado"
+                    })
+                    continue
+
+                # Verificar se tem casos atribuídos
+                assigned_cases = db.query(Case).filter_by(assigned_user_id=user_id).count()
+                if assigned_cases > 0:
+                    results["failed"].append({
+                        "id": user_id,
+                        "reason": f"Usuário possui {assigned_cases} caso(s) atribuído(s)"
+                    })
+                    continue
+
+                # Excluir usuário
+                db.delete(user)
+                results["deleted"].append(user_id)
+
+            except Exception as e:
+                results["failed"].append({
+                    "id": user_id,
+                    "reason": str(e)
+                })
+                print(f"Erro ao excluir usuário {user_id}: {e}")
+
+        db.commit()
+
+        return {
+            **results,
+            "success_count": len(results["deleted"]),
+            "failed_count": len(results["failed"])
         }

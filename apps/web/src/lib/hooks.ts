@@ -70,6 +70,93 @@ export function useSendToCalculista() {
   });
 }
 
+export function useReassignCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({caseId, assigneeId}:{caseId:number, assigneeId:number})=>
+      (await api.patch(`/cases/${caseId}/assignee`, {assignee_id: assigneeId})).data,
+    onSuccess: (_, vars)=> {
+      qc.invalidateQueries({queryKey:["case", vars.caseId]});
+      qc.invalidateQueries({queryKey:["cases"]});
+      toast.success("Caso reatribuído com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao reatribuir caso");
+    }
+  });
+}
+
+export function useUsers(role?: string) {
+  const sp = new URLSearchParams();
+  if (role) sp.set("role", role);
+  return useQuery({
+    queryKey: ["users", role],
+    queryFn: async () => {
+      const response = await api.get<Array<{id:number, name:string, email:string, role:string, active:boolean}>>(`/users?${sp.toString()}`);
+      // Backend retorna array diretamente, não um objeto com items
+      return response.data;
+    }
+  });
+}
+
+// Bulk delete hooks
+export function useBulkDeleteCases() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => (await api.post('/cases/bulk-delete', { ids })).data,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["cases"] });
+      if (data.success_count > 0) {
+        toast.success(`${data.success_count} caso(s) excluído(s) com sucesso`);
+      }
+      if (data.failed_count > 0) {
+        toast.error(`${data.failed_count} caso(s) falharam ao excluir`);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao excluir casos");
+    }
+  });
+}
+
+export function useBulkDeleteClients() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => (await api.post('/clients/bulk-delete', { ids })).data,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      if (data.success_count > 0) {
+        toast.success(`${data.success_count} cliente(s) excluído(s) com sucesso`);
+      }
+      if (data.failed_count > 0) {
+        toast.error(`${data.failed_count} cliente(s) falharam ao excluir`);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao excluir clientes");
+    }
+  });
+}
+
+export function useBulkDeleteUsers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => (await api.post('/users/bulk-delete', { ids })).data,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      if (data.success_count > 0) {
+        toast.success(`${data.success_count} usuário(s) excluído(s) com sucesso`);
+      }
+      if (data.failed_count > 0) {
+        toast.error(`${data.failed_count} usuário(s) falharam ao excluir`);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao excluir usuários");
+    }
+  });
+}
+
 export function useSims(status: "pending"|"approved"|"rejected"="pending") {
   return useQuery({
     queryKey: ["sims", status],
@@ -122,7 +209,13 @@ export function useClosingReject() {
 
 /** Financeiro */
 export function useFinanceQueue() {
-  return useQuery({ queryKey:["finance","queue"], queryFn: async ()=> (await api.get("/finance/queue")).data.items ?? [] });
+  return useQuery({
+    queryKey: ["financeQueue"],
+    queryFn: async () => {
+      const response = await api.get("/finance/queue");
+      return response.data.items ?? [];
+    }
+  });
 }
 export function useFinanceDisburse() {
   const qc = useQueryClient();
@@ -145,10 +238,15 @@ export function useFinanceDisburseSimple() {
       return response.data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['finance', 'queue'] });
+      qc.invalidateQueries({ queryKey: ['finance'] });
+      qc.invalidateQueries({ queryKey: ['financeQueue'] });
       qc.invalidateQueries({ queryKey: ['contracts'] });
       qc.invalidateQueries({ queryKey: ['cases'] });
     },
+    onError: (error: any) => {
+      console.error('Erro ao efetivar liberação:', error);
+      toast.error(error.response?.data?.detail || "Erro ao efetivar liberação");
+    }
   });
 }
 
@@ -177,6 +275,20 @@ export function useDeleteContract() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['finance', 'queue'] });
       qc.invalidateQueries({ queryKey: ['contracts'] });
+      qc.invalidateQueries({ queryKey: ['cases'] });
+    },
+  });
+}
+
+export function useReturnToCalculista() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/cases/${caseId}/return-to-calculista`);
+      return response.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance', 'queue'] });
       qc.invalidateQueries({ queryKey: ['cases'] });
     },
   });
@@ -230,6 +342,68 @@ export function useFinanceMetrics() {
     queryKey:["finance","metrics"],
     queryFn: async ()=> (await api.get("/finance/metrics")).data,
     refetchInterval: 60000 // Refetch a cada minuto
+  });
+}
+
+/** Receitas Manuais */
+export function useFinanceIncomes() {
+  return useQuery({
+    queryKey:["finance","incomes"],
+    queryFn: async ()=> (await api.get("/finance/incomes")).data.items ?? []
+  });
+}
+
+export function useCreateIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {date?: string; amount: number; description?: string}) =>
+      (await api.post("/finance/incomes", data)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["finance","incomes"]});
+      qc.invalidateQueries({queryKey:["finance","metrics"]});
+    }
+  });
+}
+
+export function useUpdateIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({id, data}: {id: number; data: {date?: string; amount: number; description?: string}}) =>
+      (await api.put(`/finance/incomes/${id}`, data)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["finance","incomes"]});
+      qc.invalidateQueries({queryKey:["finance","metrics"]});
+    }
+  });
+}
+
+export function useDeleteIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) =>
+      (await api.delete(`/finance/incomes/${id}`)).data,
+    onSuccess: ()=> {
+      qc.invalidateQueries({queryKey:["finance","incomes"]});
+      qc.invalidateQueries({queryKey:["finance","metrics"]});
+    }
+  });
+}
+
+/** Detalhes do Caso Financeiro */
+export function useFinanceCaseDetails(caseId: number) {
+  return useQuery({
+    queryKey:["finance","case", caseId],
+    queryFn: async ()=> (await api.get(`/finance/case/${caseId}`)).data,
+    enabled: !!caseId
+  });
+}
+
+/** Séries Temporais para Gráficos */
+export function useFinanceTimeseries() {
+  return useQuery({
+    queryKey:["finance","timeseries"],
+    queryFn: async ()=> (await api.get("/finance/timeseries")).data,
+    refetchInterval: 60000
   });
 }
 

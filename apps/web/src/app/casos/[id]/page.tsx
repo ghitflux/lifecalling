@@ -6,16 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSendToCalculista } from "@/lib/hooks";
+import { useSendToCalculista, useReassignCase, useUsers } from "@/lib/hooks";
+import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 
 interface CaseDetail {
   id: number;
   status: string;
+  assigned_to?: string;
+  assigned_user_id?: number;
   client: {
     id: number;
     name: string;
@@ -91,11 +95,13 @@ export default function CaseDetailPage() {
   const params = useParams();
   const caseId = parseInt(params.id as string);
   const queryClient = useQueryClient();
-  
+
   const [telefone, setTelefone] = useState("");
   const [numeroCliente, setNumeroCliente] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [telefoneHistorico, setTelefoneHistorico] = useState<string[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
 
   // Estados para dados bancários
   const [banco, setBanco] = useState("");
@@ -106,6 +112,12 @@ export default function CaseDetailPage() {
 
   // Hook para enviar para calculista
   const sendCalc = useSendToCalculista();
+
+  // Hook para reatribuir caso (apenas admin/supervisor)
+  const reassign = useReassignCase();
+
+  // Hook para listar usuários ativos
+  const { data: users } = useUsers();
 
   const handleSendToCalculista = async () => {
     try {
@@ -138,10 +150,23 @@ export default function CaseDetailPage() {
     retry: false, // Não tentar novamente em caso de erro de auth
   });
 
+  // Buscar role do usuário atual
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await api.get("/auth/me");
+        setUserRole(response.data.role);
+      } catch (error) {
+        console.error("Erro ao buscar role do usuário:", error);
+      }
+    };
+    fetchUserRole();
+  }, []);
+
   // Atualiza os campos quando os dados chegam
   useEffect(() => {
     if (caseDetail) {
-      setTelefone(caseDetail.client.telefone_preferencial || "");
+      setTelefone(formatPhone(caseDetail.client.telefone_preferencial || ""));
       setNumeroCliente(caseDetail.client.numero_cliente || "");
       setObservacoes(caseDetail.client.observacoes || "");
       setTelefoneHistorico(caseDetail.client.telefone_historico || []);
@@ -150,6 +175,7 @@ export default function CaseDetailPage() {
       setConta(caseDetail.client.conta || "");
       setChavePix(caseDetail.client.chave_pix || "");
       setTipoChavePix(caseDetail.client.tipo_chave_pix || "cpf");
+      setSelectedAssignee(caseDetail.assigned_user_id?.toString() || "");
     }
   }, [caseDetail]);
 
@@ -189,6 +215,27 @@ export default function CaseDetailPage() {
   });
 
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setTelefone(formatted);
+  };
+
+  const handleReassign = async () => {
+    if (!selectedAssignee) {
+      toast.error("Selecione um atendente");
+      return;
+    }
+
+    try {
+      await reassign.mutateAsync({
+        caseId,
+        assigneeId: parseInt(selectedAssignee)
+      });
+    } catch (error) {
+      console.error("Erro ao reatribuir:", error);
+    }
+  };
+
   const handleSave = () => {
     const updates: {
       telefone_preferencial?: string;
@@ -202,8 +249,9 @@ export default function CaseDetailPage() {
       tipo_chave_pix?: string;
     } = {};
 
-    if (telefone !== (caseDetail?.client.telefone_preferencial || "")) {
-      updates.telefone_preferencial = telefone;
+    const unformattedPhone = unformatPhone(telefone);
+    if (unformattedPhone !== (caseDetail?.client.telefone_preferencial || "")) {
+      updates.telefone_preferencial = unformattedPhone;
       adicionarNumeroAoHistorico(caseDetail?.client.telefone_preferencial || "");
       updates.telefone_historico = telefoneHistorico;
     }
@@ -269,6 +317,11 @@ export default function CaseDetailPage() {
           <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
           <div className="flex items-center gap-2 mt-1">
             <StatusBadge status={caseDetail.status as Status} />
+            {caseDetail.assigned_to && (
+              <span className="text-sm text-muted-foreground">
+                Atribuído a: <strong>{caseDetail.assigned_to}</strong>
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-3">
@@ -278,6 +331,38 @@ export default function CaseDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Reatribuir Caso (apenas admin/supervisor) */}
+      {(userRole === "admin" || userRole === "supervisor") && users && users.length > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Label>Reatribuir para outro atendente</Label>
+              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um atendente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u: any) => u.active)
+                    .map((u: any) => (
+                      <SelectItem key={u.id} value={u.id.toString()}>
+                        {u.name} ({u.role})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleReassign}
+              disabled={reassign.isPending || !selectedAssignee}
+              className="mt-6"
+            >
+              {reassign.isPending ? "Reatribuindo..." : "Reatribuir"}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Dados do Cliente */}
@@ -351,8 +436,9 @@ export default function CaseDetailPage() {
               <Label>Telefone Preferencial</Label>
               <Input
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
+                onChange={handlePhoneChange}
                 placeholder="(11) 99999-9999"
+                maxLength={15}
               />
             </div>
 

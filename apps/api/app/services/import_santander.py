@@ -2,6 +2,7 @@
 Parser para arquivos de importação no layout iNETConsig
 Usado por bancos como Santander e outros que seguem este padrão.
 """
+from app.services.import_helpers import ensure_client_case
 import re
 import logging
 from datetime import datetime
@@ -130,6 +131,8 @@ def parse_txt(content: str) -> Dict:
             "nome": nome,
             "linha": line_num
         })
+
+        
 
     # Log final das estatísticas
     logger.info(f"Parse concluído: {stats['processed_lines']} registros processados, "

@@ -35,6 +35,8 @@ export * from "./src/ToggleButton";
 export * from "./src/FinanceCard";
 export * from "./src/FinanceMetrics";
 export * from "./src/ExpenseModal";
+export * from "./src/IncomeModal";
+export * from "./src/FinanceChart";
 export * from "./src/ContractCard";
 export * from "./src/ContractSummary";
 export * from "./src/components/CardFechamento";

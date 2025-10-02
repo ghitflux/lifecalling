@@ -4,6 +4,7 @@ from ..rbac import require_roles
 from ..db import SessionLocal
 from ..models import Case, Client, Simulation, CaseEvent
 from ..events import eventbus
+from ..constants import enrich_banks_with_names
 from ..services.simulation_service import (
     SimulationInput,
     compute_simulation_totals,
@@ -222,7 +223,7 @@ async def approve(sim_id: int, user=Depends(require_roles("calculista","admin","
                 "custoConsultoriaLiquido": float(sim.custo_consultoria_liquido or 0),
                 "liberadoCliente": float(sim.liberado_cliente or 0)
             },
-            "banks": sim.banks_json,
+            "banks": enrich_banks_with_names(sim.banks_json or []),
             "prazo": sim.prazo,
             "percentualConsultoria": float(sim.percentual_consultoria or 0)
         }
@@ -311,7 +312,7 @@ async def reject(sim_id: int, data: RejectInput, user=Depends(require_roles("cal
                 "custoConsultoria": float(sim.custo_consultoria or 0),
                 "liberadoCliente": float(sim.liberado_cliente or 0)
             },
-            "banks": sim.banks_json,
+            "banks": enrich_banks_with_names(sim.banks_json or []),
             "prazo": sim.prazo,
             "percentualConsultoria": float(sim.percentual_consultoria or 0)
         }
@@ -353,6 +354,7 @@ async def reject(sim_id: int, data: RejectInput, user=Depends(require_roles("cal
 def get_simulation_history(case_id: int, user=Depends(require_roles("calculista","admin","supervisor","atendente"))):
     """
     Retorna o histórico de simulações de um caso (aprovadas e rejeitadas).
+    Enriquece a lista de bancos com bank_name se não existir.
     """
     with SessionLocal() as db:
         case = db.get(Case, case_id)
@@ -361,8 +363,20 @@ def get_simulation_history(case_id: int, user=Depends(require_roles("calculista"
 
         history = case.simulation_history or []
 
+        # Enriquecer histórico com nomes de bancos se necessário
+        enriched_history = []
+        for entry in history:
+            enriched_entry = entry.copy()
+            banks = entry.get("banks", [])
+
+            # Se algum banco não tem bank_name, enriquecer a lista
+            if banks and not any("bank_name" in bank for bank in banks):
+                enriched_entry["banks"] = enrich_banks_with_names(banks)
+
+            enriched_history.append(enriched_entry)
+
         # Ordenar por timestamp (mais recente primeiro)
-        history_sorted = sorted(history, key=lambda x: x.get("timestamp", ""), reverse=True)
+        history_sorted = sorted(enriched_history, key=lambda x: x.get("timestamp", ""), reverse=True)
 
         return {"items": history_sorted, "count": len(history_sorted)}
 

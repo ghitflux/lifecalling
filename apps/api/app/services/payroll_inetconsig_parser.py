@@ -9,7 +9,7 @@ import re
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 # Configure logging for import diagnostics
 logger = logging.getLogger(__name__)
@@ -58,14 +58,25 @@ def normalize_cpf(cpf: str) -> str:
 
 
 def normalize_currency(value: str) -> Decimal:
-    """Converte valor brasileiro (1.234,56) para Decimal"""
+    """Converte valores como "1.234,56", "30.00" ou "17,94" em Decimal."""
+    if not value:
+        return Decimal("0")
+    # Remove espaços
+    val = value.strip()
+    # Se contém vírgula e ponto, assume formato brasileiro: remove pontos de milhar e troca vírgula por ponto
+    if "," in val and "." in val:
+        normalized = val.replace(".", "").replace(",", ".")
+    # Se contém apenas vírgula, vírgula é o separador decimal
+    elif "," in val:
+        normalized = val.replace(",", ".")
+    # Se contém apenas ponto, ponto é o separador decimal
+    else:
+        normalized = val
     try:
-        # Remove pontos de milhares e substitui vírgula por ponto
-        normalized = value.replace(".", "").replace(",", ".")
         return Decimal(normalized)
-    except (ValueError, TypeError):
-        logger.warning(f"Erro ao normalizar valor: {value}")
-        return Decimal("0.00")
+    except Exception:
+        # Logar erro se necessário
+        return Decimal("0")
 
 
 def truncate_name(full_name: str, max_words: int = 4) -> str:
@@ -154,7 +165,7 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
     # Cache para nomes de órgãos pagadores
     orgao_names = {}
 
-    logger.info(f"Iniciando parse híbrido (split + posicional)")
+    logger.info("Iniciando parse híbrido (split + posicional)")
 
     for raw_line in content.splitlines():
         # Extrair nomes de órgãos pagadores das linhas de rodapé
