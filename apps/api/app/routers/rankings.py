@@ -1,13 +1,31 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, and_
+from sqlalchemy import func, case
 from ..db import get_db     # ou SessionLocal, conforme seu projeto
 from ..rbac import require_roles
-from ..models import User, Case, Contract, CaseEvent   # ajuste imports
+from ..models import User, Case, Contract   # ajuste imports
 from datetime import datetime, timedelta, date
 import io
 import csv
+
+# ========== IMPORTS DE MOCKS (REMOVER JUNTO COM OS ARQUIVOS) ==========
+try:
+    from .rankings_mock_config import USE_MOCK_DATA, MOCK_WARNING
+    from .rankings_mock_data import (
+        get_mock_agents_ranking,
+        get_mock_targets,
+        get_mock_teams_ranking,
+        get_mock_export_csv_agents,
+        get_mock_export_csv_teams
+    )
+    MOCKS_AVAILABLE = True
+    if USE_MOCK_DATA:
+        print(MOCK_WARNING)
+except ImportError:
+    MOCKS_AVAILABLE = False
+    USE_MOCK_DATA = False
+# ========== FIM DOS IMPORTS DE MOCKS ==========
 
 r = APIRouter(prefix="/rankings", tags=["rankings"])
 
@@ -43,6 +61,11 @@ def ranking_agents(
     - ticket médio
     - trend (comparado ao período anterior de mesma duração)
     """
+    # ========== USAR MOCK SE CONFIGURADO ==========
+    if USE_MOCK_DATA and MOCKS_AVAILABLE:
+        return get_mock_agents_ranking(from_, to, page, per_page, agent_id)
+    # ========== FIM DO MOCK ==========
+
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
     # Estratégia para encontrar o atendente dono do contrato:
@@ -58,12 +81,16 @@ def ranking_agents(
                 func.count(Contract.id).label("qtd"),
                 func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
             )
-            .join(Case, Case.id == Contract.case_id)
-            .filter(
-                Contract.status == "ativo",
-                func.date(Contract.signed_at).between(start, end)
-            )
+            .join(Case, Case.id == Contract.case_id, isouter=True)
+            # Remover filtro de status para incluir todos os contratos
+            # .filter(Contract.status == "ativo")
     )
+
+    # Aplicar filtro de data apenas se especificado, usando created_at como fallback
+    if from_ and to:
+        base_q = base_q.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+        )
 
     if agent_id:
         base_q = base_q.filter(owner_user_id == agent_id)
@@ -79,31 +106,34 @@ def ranking_agents(
     rows = base.all()
 
     # total de atendentes distintos no período para paginação
-    total_distinct = (
+    total_distinct_q = (
         db.query(func.count(func.distinct(owner_user_id)))
-          .join(Case, Case.id == Contract.case_id)
-          .filter(
-              Contract.status == "ativo",
-              func.date(Contract.signed_at).between(start, end)
-          )
+          .join(Case, Case.id == Contract.case_id, isouter=True)
+          # Remover filtro de status
     )
+    if from_ and to:
+        total_distinct_q = total_distinct_q.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+        )
     if agent_id:
-        total_distinct = total_distinct.filter(owner_user_id == agent_id)
-    total_items = int(total_distinct.scalar() or 0)
+        total_distinct_q = total_distinct_q.filter(owner_user_id == agent_id)
+    total_items = int(total_distinct_q.scalar() or 0)
 
     # período anterior para trend
-    prev = (db.query(
+    prev_q = (db.query(
                 owner_user_id.label("user_id"),
                 func.count(Contract.id).label("qtd"),
                 func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
             )
-            .join(Case, Case.id == Contract.case_id)
-            .filter(
-                Contract.status == "ativo",
-                func.date(Contract.signed_at).between(prev_start, prev_end)
-            )
+            .join(Case, Case.id == Contract.case_id, isouter=True)
+            # Remover filtro de status
             .group_by(owner_user_id)
-           ).all()
+    )
+    if from_ and to:
+        prev_q = prev_q.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(prev_start, prev_end)
+        )
+    prev = prev_q.all()
     prev_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in prev}
 
     # montar resposta enriquecida
@@ -141,6 +171,11 @@ def get_targets(
     Preferência: usar campo JSON existente em User (ex.: User.settings['targets']).
     Se não existir, retornar vazio (frontend trata como 0).
     """
+    # ========== USAR MOCK SE CONFIGURADO ==========
+    if USE_MOCK_DATA and MOCKS_AVAILABLE:
+        return get_mock_targets()
+    # ========== FIM DO MOCK ==========
+
     # Exemplo lendo de User.settings (JSONB). Adapte o nome do campo:
     rows = db.query(User).all()
     items = []
@@ -148,11 +183,17 @@ def get_targets(
         meta = {}
         if hasattr(u, "settings") and isinstance(u.settings, dict):
             meta = (u.settings or {}).get("targets", {})
+
+        # Meta padrão: R$ 10.000/mês de consultoria líquida
+        meta_consultoria = float(meta.get("consultoria", 0) or 0.0)
+        if meta_consultoria == 0:
+            meta_consultoria = 10000.00  # Meta padrão
+
         items.append({
             "user_id": u.id,
             "name": u.name,
             "meta_contratos": int(meta.get("contracts", 0) or 0),
-            "meta_consultoria": float(meta.get("consultoria", 0) or 0.0),
+            "meta_consultoria": meta_consultoria,
         })
     return {"items": items}
 
@@ -171,7 +212,8 @@ def set_targets(
     updated = []
     for it in items:
         u = db.get(User, it["user_id"])
-        if not u: continue
+        if not u:
+            continue
         if not hasattr(u, "settings") or not isinstance(u.settings, dict):
             u.settings = {}
         u.settings.setdefault("targets", {})
@@ -188,6 +230,11 @@ def ranking_teams(
     db: Session = Depends(get_db),
     user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
 ):
+    # ========== USAR MOCK SE CONFIGURADO ==========
+    if USE_MOCK_DATA and MOCKS_AVAILABLE:
+        return get_mock_teams_ranking(from_, to)
+    # ========== FIM DO MOCK ==========
+
     # Como não há User.department explícito, agregamos por User.role
     start, end, *_ = _parse_range(from_, to)
     owner_user_id = case(
@@ -199,12 +246,16 @@ def ranking_teams(
             func.count(Contract.id).label("contracts"),
             func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
         )
-        .join(Case, Case.id == Contract.case_id)
+        .join(Case, Case.id == Contract.case_id, isouter=True)
         .join(User, User.id == owner_user_id)
-        .filter(Contract.status=="ativo", func.date(Contract.signed_at).between(start, end))
         .group_by(func.coalesce(User.role, "Sem Time"))
         .order_by(func.sum(Contract.consultoria_valor_liquido).desc())
     )
+
+    # Aplicar filtro de data apenas se especificado
+    if from_ and to:
+        q = q.filter(func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end))
+
     rows = q.all()
     return {"items":[{"team":r.team,"contracts":int(r.contracts or 0),"consultoria_liq":float(r.consult_sum or 0)} for r in rows]}
 
@@ -216,6 +267,29 @@ def export_csv(
     db: Session = Depends(get_db),
     user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
 ):
+    # ========== USAR MOCK SE CONFIGURADO ==========
+    if USE_MOCK_DATA and MOCKS_AVAILABLE:
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        if kind == "agents":
+            # Cabeçalho
+            writer.writerow([
+                "user_id","name","contracts","consultoria_liq","ticket_medio","trend_contracts","trend_consult",
+                "meta_contratos","meta_consultoria","atingimento_contratos","atingimento_consultoria"
+            ])
+            # Dados mockados
+            writer.writerows(get_mock_export_csv_agents())
+        elif kind == "teams":
+            writer.writerow(["team","contracts","consultoria_liq"])
+            writer.writerows(get_mock_export_csv_teams())
+        else:
+            raise HTTPException(status_code=400, detail="kind deve ser 'agents' ou 'teams'")
+
+        csv_data = output.getvalue()
+        return Response(content=csv_data, media_type="text/csv")
+    # ========== FIM DO MOCK ==========
+
     # gere CSV em memória conforme 'agents' ou 'teams'
     start, end, prev_start, prev_end = _parse_range(from_, to)
 

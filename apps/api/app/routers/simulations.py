@@ -524,7 +524,7 @@ async def send_to_finance(case_id: int, user=Depends(require_roles("calculista",
     # Notificar usuários do financeiro
     notify_user_ids = []
     from ..models import User
-    finance_users = db.query(User).filter(User.role == "financeiro", User.active == True).all()
+    finance_users = db.query(User).filter(User.role == "financeiro", User.active).all()
     for fu in finance_users:
         notify_user_ids.append(fu.id)
 

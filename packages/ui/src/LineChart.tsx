@@ -42,7 +42,7 @@ export function LineChart({
             contentStyle={{
               backgroundColor: "hsl(var(--card))",
               border: "1px solid hsl(var(--border))",
-              borderRadius: "var(--radius-sm)"
+              borderRadius: "12px"
             }}
           />
           <Legend />

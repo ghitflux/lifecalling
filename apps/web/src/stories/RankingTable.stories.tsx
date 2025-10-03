@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/nextjs';
+import type { Meta, StoryObj } from '@storybook/react';
 import { RankingTable } from '@lifecalling/ui';
 
 const meta: Meta<typeof RankingTable> = {

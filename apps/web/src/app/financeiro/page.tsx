@@ -32,7 +32,7 @@ export default function Page(){
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [editingIncome, setEditingIncome] = useState<any>(null);
 
-  // Filtros para transaÃ§Ãµes
+  // Filtros para transações
   const [transactionType, setTransactionType] = useState<string>("");  // "", "receita", "despesa"
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -41,18 +41,18 @@ export default function Page(){
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
 
-  // Filtros rÃ¡pidos
+  // Filtros rápidos
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // PaginaÃ§Ã£o
+  // Paginação
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   // Detalhes completos do caso
   const { data: fullCaseDetails } = useFinanceCaseDetails(selectedCaseId || 0);
 
-  // Buscar transaÃ§Ãµes unificadas (receitas e despesas)
+  // Buscar transações unificadas (receitas e despesas)
   const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
     queryKey: ["transactions", startDate, endDate, transactionType],
     queryFn: async () => {
@@ -69,8 +69,8 @@ export default function Page(){
   const transactions = transactionsData?.items || [];
   const totals = transactionsData?.totals || { receitas: 0, despesas: 0, saldo: 0 };
 
-  // Buscar mÃ©tricas do financeiro
-  const { data: metricsData } = useQuery({
+  // Buscar métricas do financeiro
+  const { data: metricsData, isLoading: metricsLoading } = useQuery({
     queryKey: ["financeMetrics"],
     queryFn: async () => {
       const response = await api.get("/finance/metrics");
@@ -122,7 +122,7 @@ export default function Page(){
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-      toast.success("Despesa excluÃ­da!");
+      toast.success("Despesa excluída!");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Erro ao excluir despesa");
@@ -160,7 +160,7 @@ export default function Page(){
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-      toast.success("Receita excluÃ­da!");
+      toast.success("Receita excluída!");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Erro ao excluir receita");
@@ -170,30 +170,30 @@ export default function Page(){
   const handleDisburse = async (id: number) => {
     try {
       await disb.mutateAsync(id);
-      toast.success("LiberaÃ§Ã£o efetivada com sucesso!");
+      toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
       console.error('Erro ao efetivar:', error);
-      toast.error("Erro ao efetivar liberaÃ§Ã£o. Tente novamente.");
+      toast.error("Erro ao efetivar liberação. Tente novamente.");
     }
   };
 
   const handleCancel = async (contractId: number) => {
     try {
       await cancelContract.mutateAsync(contractId);
-      toast.success("OperaÃ§Ã£o cancelada com sucesso!");
+      toast.success("Operação cancelada com sucesso!");
     } catch (error) {
       console.error('Erro ao cancelar:', error);
-      toast.error("Erro ao cancelar operaÃ§Ã£o. Tente novamente.");
+      toast.error("Erro ao cancelar operação. Tente novamente.");
     }
   };
 
   const handleDelete = async (contractId: number) => {
     try {
       await deleteContract.mutateAsync(contractId);
-      toast.success("OperaÃ§Ã£o deletada com sucesso!");
+      toast.success("Operação deletada com sucesso!");
     } catch (error) {
       console.error('Erro ao deletar:', error);
-      toast.error("Erro ao deletar operaÃ§Ã£o. Tente novamente.");
+      toast.error("Erro ao deletar operação. Tente novamente.");
     }
   };
 
@@ -379,8 +379,8 @@ export default function Page(){
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">GestÃ£o Financeira</h1>
-          <p className="text-muted-foreground mt-1">VisÃ£o geral das operaÃ§Ãµes financeiras</p>
+          <h1 className="text-3xl font-bold">Gestão Financeira</h1>
+          <p className="text-muted-foreground mt-1">Visão geral das operações financeiras</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -389,7 +389,7 @@ export default function Page(){
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
-            Exportar RelatÃ³rio
+            Exportar Relatório
           </Button>
         </div>
       </div>
@@ -400,29 +400,33 @@ export default function Page(){
           title="Receita Total"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={TrendingUp}
-          trend={{ value: 12.5, isPositive: true }}
-          subtitle="Ãšltimos 30 dias"
+          subtitle="Últimos 30 dias"
+          isLoading={metricsLoading}
+          gradientVariant="emerald"
         />
         <KPICard
           title="Despesas"
           value={`R$ ${(metrics.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={TrendingDown}
-          trend={{ value: 8.2, isPositive: false }}
-          subtitle="Ãšltimos 30 dias"
+          subtitle="Últimos 30 dias"
+          isLoading={metricsLoading}
+          gradientVariant="rose"
         />
         <KPICard
-          title="Lucro LÃ­quido"
+          title="Lucro Líquido"
           value={`R$ ${(metrics.netProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={DollarSign}
-          trend={{ value: 15.3, isPositive: true }}
           subtitle="Receitas - Despesas - Impostos"
+          isLoading={metricsLoading}
+          gradientVariant="violet"
         />
         <KPICard
           title="Contratos Efetivados"
           value={metrics.totalContracts || 0}
           icon={Receipt}
-          trend={{ value: 5, isPositive: true }}
-          subtitle="Total geral"
+          subtitle="Últimos 30 dias"
+          isLoading={metricsLoading}
+          gradientVariant="blue"
         />
       </div>
 
@@ -442,7 +446,7 @@ export default function Page(){
 
       {/* Lista de Casos Financeiros */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Atendimentos para LiberaÃ§Ã£o</h2>
+        <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
 
         {loadingQueue ? (
           <div className="text-center py-12">
@@ -600,7 +604,7 @@ export default function Page(){
           {/* Tabela Unificada */}
           {loadingTransactions ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">Carregando transaÃ§Ãµes...</p>
+              <p className="text-muted-foreground">Carregando transações...</p>
             </div>
           ) : transactions.length > 0 ? (
             <>
@@ -614,7 +618,7 @@ export default function Page(){
                         <th className="text-left p-3 font-semibold">Categoria</th>
                         <th className="text-left p-3 font-semibold">Nome</th>
                         <th className="text-right p-3 font-semibold">Valor</th>
-                        <th className="text-right p-3 font-semibold">AÃ§Ãµes</th>
+                        <th className="text-right p-3 font-semibold">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -683,8 +687,8 @@ export default function Page(){
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
-              <p>Nenhuma transaÃ§Ã£o encontrada</p>
-              <p className="text-sm mt-1">Adicione receitas ou despesas para comeÃ§ar</p>
+              <p>Nenhuma transação encontrada</p>
+              <p className="text-sm mt-1">Adicione receitas ou despesas para começar</p>
             </div>
           )}
         </div>
@@ -761,7 +765,7 @@ export default function Page(){
                       <p className="font-medium">{contractDetails.client.cpf}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">MatrÃ­cula</p>
+                      <p className="text-sm text-muted-foreground">Matrícula</p>
                       <p className="font-medium">{contractDetails.client.matricula}</p>
                     </div>
                     <div>
@@ -808,13 +812,13 @@ export default function Page(){
                 </h3>
                 <div className="grid grid-cols-2 gap-3 pl-6">
                   <div>
-                    <p className="text-sm text-muted-foreground">Data de LiberaÃ§Ã£o</p>
+                    <p className="text-sm text-muted-foreground">Data de Liberação</p>
                     <p className="font-medium">
                       {contractDetails.disbursed_at ? new Date(contractDetails.disbursed_at).toLocaleDateString('pt-BR') : '-'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Data de CriaÃ§Ã£o</p>
+                    <p className="text-sm text-muted-foreground">Data de Criação</p>
                     <p className="font-medium">
                       {contractDetails.created_at ? new Date(contractDetails.created_at).toLocaleDateString('pt-BR') : '-'}
                     </p>
@@ -853,7 +857,7 @@ export default function Page(){
                 </>
               )}
 
-              {/* AÃ§Ãµes */}
+              {/* Ações */}
               {!loadingContractDetails && contractDetails && (
                 <div className="flex gap-3 pt-4 border-t">
                 <Button

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy.orm import joinedload
 from ..db import SessionLocal
-from ..models import Case, CaseEvent, Client
+from ..models import Case, CaseEvent
 from ..rbac import require_roles
 from ..events import eventbus
 
@@ -91,7 +91,7 @@ class CloseIn(BaseModel):
 @r.post("/approve")
 async def approve(data: CloseIn, user=Depends(require_roles("admin","supervisor","atendente"))):
     from .notifications import notify_case_status_change
-    from ..models import Simulation, User
+    from ..models import Simulation
 
     with SessionLocal() as db:
         c = db.get(Case, data.case_id)
@@ -133,7 +133,7 @@ async def approve(data: CloseIn, user=Depends(require_roles("admin","supervisor"
 @r.post("/reject")
 async def reject(data: CloseIn, user=Depends(require_roles("admin","supervisor","atendente"))):
     from .notifications import notify_case_status_change
-    from ..models import Simulation, User
+    from ..models import Simulation
 
     with SessionLocal() as db:
         c = db.get(Case, data.case_id)

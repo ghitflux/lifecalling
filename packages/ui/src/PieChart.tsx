@@ -69,7 +69,7 @@ export function PieChart({
     const name = p?.payload?.[nameKey] ?? p?.name;
     const value = Number(p?.payload?.[dataKey] ?? p?.value) || 0;
     return (
-      <div className="rounded-lg bg-card px-3 py-2 text-xs text-foreground shadow-xl border">
+      <div className="bg-card px-3 py-2 text-xs text-foreground shadow-xl border" style={{ borderRadius: '12px' }}>
         {name}: {value.toLocaleString()}
       </div>
     );

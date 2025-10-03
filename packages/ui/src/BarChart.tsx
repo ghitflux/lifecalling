@@ -51,7 +51,7 @@ export function BarChart({
             contentStyle={{
               backgroundColor: "hsl(var(--card))",
               border: "1px solid hsl(var(--border))",
-              borderRadius: "var(--radius-sm)"
+              borderRadius: "12px"
             }}
           />
           <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />

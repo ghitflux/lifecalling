@@ -19,6 +19,7 @@ interface KPICardProps {
   isLoading?: boolean;
   className?: string;
   children?: React.ReactNode;
+  miniChart?: React.ReactNode;
 }
 
 const gradientMap: Record<GradientVariant, string> = {
@@ -48,6 +49,7 @@ export function KPICard({
   isLoading = false,
   className,
   children,
+  miniChart,
 }: KPICardProps) {
   const TrendIcon =
     trend === undefined
@@ -97,7 +99,7 @@ export function KPICard({
         )}
       >
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-slate-300">{title}</p>
             <div className="mt-2 flex items-end gap-3">
               {isLoading ? (
@@ -110,12 +112,19 @@ export function KPICard({
               <p className="mt-2 text-sm text-slate-400">{subtitle}</p>
             )}
           </div>
-          {Icon && (
+          {Icon && !miniChart && (
             <div className="rounded-2xl bg-slate-900/60 p-3 text-slate-200 shadow-inner shadow-white/10">
               <Icon className="h-6 w-6" strokeWidth={1.5} />
             </div>
           )}
         </div>
+
+        {/* Mini Chart */}
+        {miniChart && (
+          <div className="mt-4 -mb-2 -mx-2">
+            {miniChart}
+          </div>
+        )}
 
         {(trend !== undefined || children) && (
           <div className="mt-4 flex items-center justify-between gap-3 text-sm">

@@ -236,88 +236,51 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
 
 @r.get("/metrics")
 def finance_metrics(user=Depends(require_roles("admin","supervisor","financeiro"))):
-    from ..models import Contract, Simulation
+    from ..models import Contract, FinanceIncome, FinanceExpense
     from sqlalchemy import func
     from datetime import datetime, timedelta
 
     with SessionLocal() as db:
-        # Total de casos pendentes
-        pending_count = db.query(Case).filter(Case.status == "fechamento_aprovado").count()
-
-        # Total de contratos efetivados
-        total_contracts = db.query(Contract).count()
-
-        # Volume total financiado (últimos 30 dias)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        total_volume = db.query(func.sum(Contract.total_amount)).filter(
-            Contract.created_at >= thirty_days_ago
-        ).scalar() or 0
 
-        # Ticket médio
-        avg_ticket = db.query(func.avg(Contract.total_amount)).scalar() or 0
+        # Usar uma única query agregada para contratos
+        contract_stats = db.query(
+            func.count(Contract.id).label("total_contracts"),
+            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("total_consultoria_liq")
+        ).filter(
+            Contract.status == "ativo",
+            Contract.signed_at >= thirty_days_ago
+        ).first()
 
-        # Contratos em atraso (mock por enquanto)
-        overdue_count = 2
+        total_contracts = contract_stats.total_contracts or 0
+        total_consultoria_liquida = float(contract_stats.total_consultoria_liq or 0)
 
-        # Meta mensal (mock)
-        monthly_target = 3000000
+        # Receitas e despesas em queries agregadas
+        total_manual_income = float(db.query(
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
+        ).filter(FinanceIncome.date >= thirty_days_ago).scalar() or 0)
 
-        # Taxa de aprovação (aproximada)
-        approved_cases = db.query(Case).filter(Case.status.in_(["fechamento_aprovado", "contrato_efetivado"])).count()
-        total_cases = db.query(Case).count()
-        approval_rate = (approved_cases / total_cases * 100) if total_cases > 0 else 0
+        total_expenses = float(db.query(
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
+        ).filter(FinanceExpense.date >= thirty_days_ago).scalar() or 0)
 
-        # NOVOS CÁLCULOS: Impostos e Receitas
-        # Buscar todas as simulações aprovadas dos últimos 30 dias
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        approved_simulations = db.query(Simulation).join(Case).filter(
-            Simulation.status == "approved",
-            Simulation.updated_at >= thirty_days_ago
-        ).all()
-
-        # Calcular total de consultoria
-        total_consultoria = sum([float(sim.custo_consultoria or 0) for sim in approved_simulations])
-
-        # Imposto: 14% da consultoria
-        total_tax = total_consultoria * 0.14
-
-        # Consultoria líquida (86% = 100% - 14%)
-        total_consultoria_liquida = total_consultoria * 0.86
-
-        # Buscar receitas manuais dos últimos 30 dias
-        from ..models import FinanceIncome
-        manual_incomes = db.query(FinanceIncome).filter(
-            FinanceIncome.date >= thirty_days_ago
-        ).all()
-        total_manual_income = sum([float(inc.amount or 0) for inc in manual_incomes])
-
-        # Receitas totais = consultoria líquida + receitas manuais
+        # Receita total = consultoria líquida (já é 86%) + receitas manuais
         total_revenue = total_consultoria_liquida + total_manual_income
 
-        # Buscar despesas dos últimos 30 dias
-        from ..models import FinanceExpense
-        expenses = db.query(FinanceExpense).filter(
-            FinanceExpense.date >= thirty_days_ago
-        ).all()
-
-        total_expenses = sum([float(exp.amount or 0) for exp in expenses])
+        # Impostos: 14% sobre consultoria bruta (consultoria_liq / 0.86 * 0.14)
+        total_tax = (total_consultoria_liquida / 0.86 * 0.14) if total_consultoria_liquida > 0 else 0
 
         # Lucro líquido = Receitas - Despesas - Impostos
         net_profit = total_revenue - total_expenses - total_tax
 
         return {
-            "totalVolume": float(total_volume),
-            "monthlyTarget": monthly_target,
-            "approvalRate": round(approval_rate, 1),
-            "pendingCount": pending_count,
-            "overdueCount": overdue_count,
-            "averageTicket": float(avg_ticket),
-            "totalContracts": total_contracts,
-            "totalTax": round(total_tax, 2),
-            "totalExpenses": round(total_expenses, 2),
-            "totalManualIncome": round(total_manual_income, 2),
             "totalRevenue": round(total_revenue, 2),
-            "netProfit": round(net_profit, 2)
+            "totalExpenses": round(total_expenses, 2),
+            "netProfit": round(net_profit, 2),
+            "totalContracts": int(total_contracts),
+            "totalTax": round(total_tax, 2),
+            "totalManualIncome": round(total_manual_income, 2),
+            "totalConsultoriaLiq": round(total_consultoria_liquida, 2)
         }
 
 class DisburseIn(BaseModel):

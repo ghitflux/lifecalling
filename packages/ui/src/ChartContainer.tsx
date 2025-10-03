@@ -19,9 +19,9 @@ export function ChartContainer({
 }: ChartContainerProps) {
   return (
     <div className={cn(
-      "rounded-xl border bg-card p-6 shadow-sm",
+      "border bg-card p-6 shadow-sm",
       className
-    )}>
+    )} style={{ borderRadius: '12px' }}>
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold">{title}</h3>
