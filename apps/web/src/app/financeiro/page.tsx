@@ -382,7 +382,7 @@ export default function Page(){
           <h1 className="text-3xl font-bold">GestÃ£o Financeira</h1>
           <p className="text-muted-foreground mt-1">VisÃ£o geral das operaÃ§Ãµes financeiras</p>
         </div>
-        {(!contractDetails) && (<div className="py-12 text-center text-muted-foreground">Carregando contrato...</div>)}{contractDetails && (<> <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <Button
             onClick={handleExportReport}
             variant="outline"
@@ -725,16 +725,27 @@ export default function Page(){
                   <h2 className="text-2xl font-bold">{loadingContractDetails || !contractDetails ? "Carregando contrato..." : `Detalhes do Contrato #${contractDetails.id}`}</h2>
                   {contractDetails && (<p className="text-muted-foreground mt-1">Atendimento #{contractDetails.case_id}</p>)}
                 </div>
-                {(!contractDetails) && (<div className="py-12 text-center text-muted-foreground">Carregando contrato...</div>)}{contractDetails && (<> <button
-                  onClick={() => setShowContractModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  âœ•
-                </button>
+                {loadingContractDetails || !contractDetails ? (
+                  <div className="py-12 text-center text-muted-foreground">Carregando contrato...</div>
+                ) : (
+                  <button
+                    onClick={() => setShowContractModal(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
-              {/* Cliente */}
-              {contractDetails.client && (
+              {/* Loading State */}
+              {loadingContractDetails || !contractDetails ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <p>Carregando detalhes do contrato...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Cliente */}
+                  {contractDetails.client && (
                 <div className="space-y-2">
                   <h3 className="font-semibold flex items-center gap-2">
                     <User className="h-4 w-4" />
@@ -839,9 +850,12 @@ export default function Page(){
                   </div>
                 </div>
               )}
+                </>
+              )}
 
               {/* AÃ§Ãµes */}
-              <div className="flex gap-3 pt-4 border-t">
+              {!loadingContractDetails && contractDetails && (
+                <div className="flex gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
                   className="flex-1"
@@ -858,7 +872,8 @@ export default function Page(){
                 >
                   Fechar
                 </Button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
