@@ -98,33 +98,36 @@ export function KPICard({
           "bg-slate-950/80 p-6 text-slate-100"
         )}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-slate-300">{title}</p>
-            <div className="mt-2 flex items-end gap-3">
-              {isLoading ? (
-                <span className="h-8 w-32 animate-pulse rounded-lg bg-white/10" />
-              ) : (
-                <p className="text-3xl font-semibold tracking-tight">{value}</p>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className={miniChart ? "flex-shrink-0" : "flex-1"}>
+              <p className="text-sm font-medium text-slate-300">{title}</p>
+              <div className="mt-2 flex items-end gap-3">
+                {isLoading ? (
+                  <span className="h-8 w-32 animate-pulse rounded-lg bg-white/10" />
+                ) : (
+                  <p className="text-3xl font-semibold tracking-tight">{value}</p>
+                )}
+              </div>
+              {subtitle && (
+                <p className="mt-2 text-sm text-slate-400">{subtitle}</p>
               )}
             </div>
-            {subtitle && (
-              <p className="mt-2 text-sm text-slate-400">{subtitle}</p>
+
+            {/* Mini Chart ao lado */}
+            {miniChart && (
+              <div className="flex-1 min-w-[120px] max-w-[200px]">
+                {miniChart}
+              </div>
+            )}
+
+            {Icon && !miniChart && (
+              <div className="rounded-2xl bg-slate-900/60 p-3 text-slate-200 shadow-inner shadow-white/10">
+                <Icon className="h-6 w-6" strokeWidth={1.5} />
+              </div>
             )}
           </div>
-          {Icon && !miniChart && (
-            <div className="rounded-2xl bg-slate-900/60 p-3 text-slate-200 shadow-inner shadow-white/10">
-              <Icon className="h-6 w-6" strokeWidth={1.5} />
-            </div>
-          )}
         </div>
-
-        {/* Mini Chart */}
-        {miniChart && (
-          <div className="mt-4 -mb-2 -mx-2">
-            {miniChart}
-          </div>
-        )}
 
         {(trend !== undefined || children) && (
           <div className="mt-4 flex items-center justify-between gap-3 text-sm">

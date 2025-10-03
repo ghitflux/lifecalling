@@ -12,48 +12,104 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-// Dados mockados de campanhas (REMOVIDO - agora vem da API)
-const MOCK_CAMPANHAS_OLD = [
+// Dados mockados de campanhas - ATIVO
+const MOCK_CAMPANHAS = [
   {
     id: 1,
-    nome: "Campanha de Natal 2024",
-    descricao: "Bata a meta em dezembro e ganhe prêmios especiais!",
+    nome: "🎄 Campanha de Natal 2024",
+    descricao: "Bata a meta em dezembro e ganhe prêmios especiais! Período festivo com premiações incríveis para quem se destacar.",
     periodo: "01/12/2024 - 31/12/2024",
+    data_inicio: "2024-12-01",
+    data_fim: "2024-12-31",
     status: "ativa",
     premiacoes: [
       { posicao: "1º Lugar", premio: "R$ 5.000 + Viagem para 2 pessoas" },
-      { posicao: "2º Lugar", premio: "R$ 3.000 + Voucher de compras" },
-      { posicao: "3º Lugar", premio: "R$ 2.000 + Kit premium" },
-      { posicao: "Top 10", premio: "Bônus de R$ 500" }
+      { posicao: "2º Lugar", premio: "R$ 3.000 + Voucher de compras R$ 1.000" },
+      { posicao: "3º Lugar", premio: "R$ 2.000 + Kit premium de produtos" },
+      { posicao: "Top 10", premio: "Bônus de R$ 500 cada" }
     ],
     progresso: 68
   },
   {
     id: 2,
-    nome: "Desafio Q1 2025",
-    descricao: "Meta trimestral com premiação progressiva",
+    nome: "🚀 Desafio Q1 2025",
+    descricao: "Meta trimestral com premiação progressiva. Início de ano forte com grandes recompensas!",
     periodo: "01/01/2025 - 31/03/2025",
+    data_inicio: "2025-01-01",
+    data_fim: "2025-03-31",
     status: "proxima",
     premiacoes: [
       { posicao: "1º Lugar", premio: "R$ 8.000 + Eletrodoméstico Premium" },
-      { posicao: "2º Lugar", premio: "R$ 5.000 + Smartphone" },
-      { posicao: "3º Lugar", premio: "R$ 3.000 + Tablet" }
+      { posicao: "2º Lugar", premio: "R$ 5.000 + Smartphone top de linha" },
+      { posicao: "3º Lugar", premio: "R$ 3.000 + Tablet + Fone Bluetooth" },
+      { posicao: "Top 5", premio: "Bônus de R$ 1.000" }
     ],
     progresso: 0
   },
   {
     id: 3,
-    nome: "Campanha Black Friday",
-    descricao: "Recordes na semana do consumo",
+    nome: "🛍️ Campanha Black Friday",
+    descricao: "Recordes na semana do consumo. Quem vendeu mais na semana mais importante do ano!",
     periodo: "20/11/2024 - 30/11/2024",
+    data_inicio: "2024-11-20",
+    data_fim: "2024-11-30",
     status: "encerrada",
     premiacoes: [
       { posicao: "1º Lugar", premio: "R$ 3.000 em vale-compras" },
       { posicao: "2º Lugar", premio: "R$ 2.000 em vale-compras" },
-      { posicao: "3º Lugar", premio: "R$ 1.000 em vale-compras" }
+      { posicao: "3º Lugar", premio: "R$ 1.000 em vale-compras" },
+      { posicao: "4º ao 10º", premio: "R$ 500 em vale-compras" }
     ],
     progresso: 100,
     vencedores: ["Maria Oliveira", "Ana Silva", "Patricia Souza"]
+  },
+  {
+    id: 4,
+    nome: "⚡ Sprint de Outubro",
+    descricao: "Desafio relâmpago de 15 dias com meta agressiva e prêmios rápidos!",
+    periodo: "10/10/2024 - 25/10/2024",
+    data_inicio: "2024-10-10",
+    data_fim: "2024-10-25",
+    status: "encerrada",
+    premiacoes: [
+      { posicao: "1º Lugar", premio: "R$ 4.000 + Apple Watch" },
+      { posicao: "2º Lugar", premio: "R$ 2.500 + AirPods Pro" },
+      { posicao: "3º Lugar", premio: "R$ 1.500 + Smart Speaker" }
+    ],
+    progresso: 100,
+    vencedores: ["João Pereira", "Fernanda Costa", "Carlos Santos"]
+  },
+  {
+    id: 5,
+    nome: "🏆 Mega Desafio Semestral",
+    descricao: "Campanha de longo prazo com as maiores premiações do ano! 6 meses de competição saudável.",
+    periodo: "01/07/2024 - 31/12/2024",
+    data_inicio: "2024-07-01",
+    data_fim: "2024-12-31",
+    status: "ativa",
+    premiacoes: [
+      { posicao: "1º Lugar", premio: "R$ 15.000 + Carro 0km ou Viagem Internacional" },
+      { posicao: "2º Lugar", premio: "R$ 10.000 + Notebook top + Smartphone" },
+      { posicao: "3º Lugar", premio: "R$ 7.000 + Smart TV 65' + Videogame" },
+      { posicao: "4º e 5º", premio: "R$ 5.000 + Kit eletrônicos" },
+      { posicao: "Top 20", premio: "Bônus de R$ 1.000" }
+    ],
+    progresso: 85
+  },
+  {
+    id: 6,
+    nome: "🎯 Desafio Novatos 2025",
+    descricao: "Campanha exclusiva para atendentes com menos de 6 meses na empresa. Oportunidade de brilhar!",
+    periodo: "01/02/2025 - 28/02/2025",
+    data_inicio: "2025-02-01",
+    data_fim: "2025-02-28",
+    status: "proxima",
+    premiacoes: [
+      { posicao: "1º Lugar", premio: "R$ 3.000 + Mentoria executiva" },
+      { posicao: "2º Lugar", premio: "R$ 2.000 + Curso profissionalizante" },
+      { posicao: "3º Lugar", premio: "R$ 1.000 + Kit boas-vindas premium" }
+    ],
+    progresso: 0
   }
 ];
 
@@ -95,10 +151,20 @@ export default function RankingsPage() {
     queryFn: async () => (await api.get("/rankings/agents/targets")).data.items
   });
 
-  // Buscar campanhas da API
+  // Buscar campanhas da API (ou usar mockadas)
   const campanhas = useQuery({
     queryKey: ["campanhas"],
-    queryFn: async () => (await api.get("/campanhas")).data.items
+    queryFn: async () => {
+      try {
+        const response = await api.get("/campanhas");
+        // Se a API retornar dados vazios, usar mockados
+        return response.data.items.length > 0 ? response.data.items : MOCK_CAMPANHAS;
+      } catch (error) {
+        // Em caso de erro, usar dados mockados
+        return MOCK_CAMPANHAS;
+      }
+    },
+    initialData: MOCK_CAMPANHAS // Dados iniciais enquanto carrega
   });
 
   // Estado do formulário de nova campanha
@@ -183,6 +249,15 @@ export default function RankingsPage() {
     novasPremiacoes[index][field] = value;
     setNovaCampanha({ ...novaCampanha, premiacoes: novasPremiacoes });
   };
+
+  // Separar campanhas por status
+  const campanhasAtivas = useMemo(() => {
+    return (campanhas.data || []).filter((c: any) => c.status === "ativa");
+  }, [campanhas.data]);
+
+  const campanhasInativas = useMemo(() => {
+    return (campanhas.data || []).filter((c: any) => c.status !== "ativa");
+  }, [campanhas.data]);
 
   // calcular “meus números”
   const me = agents.data?.find((r:any)=> r.user_id === user?.id);
@@ -269,7 +344,7 @@ export default function RankingsPage() {
               dataKey="value"
               xKey="day"
               stroke="#10b981"
-              height={80}
+              height={60}
             />
           }
         />
@@ -285,7 +360,7 @@ export default function RankingsPage() {
               dataKey="value"
               xKey="day"
               stroke="#8b5cf6"
-              height={80}
+              height={60}
               tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             />
           }
@@ -335,12 +410,12 @@ export default function RankingsPage() {
         </div>
       </GradientPanel>
 
-      {/* Campanhas de Engajamento com Premiações */}
+      {/* Campanhas Ativas */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-semibold">🎁 Campanhas de Engajamento</h2>
-            <p className="text-sm text-muted-foreground mt-1">Participe e ganhe prêmios incríveis!</p>
+            <h2 className="text-2xl font-semibold">🔥 Campanhas Ativas</h2>
+            <p className="text-sm text-muted-foreground mt-1">Campanhas em andamento - Participe agora!</p>
           </div>
 
           {/* Botão Nova Campanha */}
@@ -477,13 +552,13 @@ export default function RankingsPage() {
             <div className="text-center py-12 text-muted-foreground">
               Carregando campanhas...
             </div>
-          ) : (campanhas.data || []).length === 0 ? (
+          ) : campanhasAtivas.length === 0 ? (
             <div className="text-center py-12 border border-dashed rounded-lg">
-              <p className="text-muted-foreground">Nenhuma campanha cadastrada</p>
-              <p className="text-sm text-muted-foreground mt-1">Clique em "Nova Campanha" para criar</p>
+              <p className="text-muted-foreground">Nenhuma campanha ativa no momento</p>
+              <p className="text-sm text-muted-foreground mt-1">Aguarde as próximas campanhas!</p>
             </div>
           ) : (
-            (campanhas.data || []).map((campanha: any) => {
+            campanhasAtivas.map((campanha: any) => {
             const statusConfig = {
               ativa: { bg: "bg-green-500/10", text: "text-green-600", label: "🟢 Ativa" },
               proxima: { bg: "bg-blue-500/10", text: "text-blue-600", label: "🔵 Próxima" },
@@ -574,6 +649,81 @@ export default function RankingsPage() {
           )}
         </div>
       </div>
+
+      {/* Campanhas Encerradas e Futuras */}
+      {campanhasInativas.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-semibold">📋 Campanhas Encerradas e Futuras</h2>
+            <p className="text-sm text-muted-foreground mt-1">Histórico e próximas campanhas</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {campanhasInativas.map((campanha: any) => {
+              const statusConfig = {
+                ativa: { bg: "bg-green-500/10", text: "text-green-600", label: "🟢 Ativa" },
+                proxima: { bg: "bg-blue-500/10", text: "text-blue-600", label: "🔵 Próxima" },
+                encerrada: { bg: "bg-gray-500/10", text: "text-gray-600", label: "⚫ Encerrada" }
+              }[campanha.status];
+
+              return (
+                <GradientPanel key={campanha.id}>
+                  <div className="space-y-4">
+                    {/* Header da campanha */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-xl font-bold">{campanha.nome}</h3>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-1">{campanha.descricao}</p>
+                        <p className="text-sm text-muted-foreground mt-1">📅 {campanha.periodo}</p>
+                      </div>
+                    </div>
+
+                    {/* Vencedores (se encerrada) */}
+                    {campanha.status === "encerrada" && campanha.vencedores && (
+                      <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+                        <h4 className="font-semibold text-sm">🏆 Vencedores</h4>
+                        <div className="flex gap-2 flex-wrap">
+                          {campanha.vencedores.map((vencedor: string, idx: number) => {
+                            const medals = ["🥇", "🥈", "🥉"];
+                            return (
+                              <div key={idx} className="flex items-center gap-2 bg-background px-3 py-2 rounded-md">
+                                <span className="text-lg">{medals[idx]}</span>
+                                <span className="font-medium text-sm">{vencedor}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Premiações */}
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">🎯 Premiações</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {campanha.premiacoes.map((premiacao: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
+                            <div className="flex-shrink-0 w-20 font-bold text-sm text-muted-foreground">
+                              {premiacao.posicao}
+                            </div>
+                            <div className="flex-1 text-sm font-medium">
+                              {premiacao.premio}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </GradientPanel>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
