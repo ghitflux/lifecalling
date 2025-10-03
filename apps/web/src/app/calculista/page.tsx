@@ -37,11 +37,11 @@ export default function CalculistaPage(){
   const { data: allSims, isLoading: simsLoading } = useAllSimulations(activeTab === "concluidas");
   const { data: stats } = useCalculistaStats();
 
-  // Buscar casos com fechamento aprovado
+  // Buscar casos com status relevantes para Retorno de Fechamento
   const { data: retornoFechamento = [], isLoading: retornoLoading } = useQuery({
-    queryKey: ["/cases", "fechamento_aprovado"],
+    queryKey: ["/cases", "retorno_fechamento_and_fechamento_aprovado"],
     queryFn: async () => {
-      const response = await api.get("/cases?status=fechamento_aprovado&page_size=50");
+      const response = await api.get("/cases?status=retorno_fechamento,fechamento_aprovado&page_size=50");
       return response.data.items || [];
     },
     enabled: activeTab === "retorno_fechamento"

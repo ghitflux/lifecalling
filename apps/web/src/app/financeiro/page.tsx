@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useLiveCaseEvents } from "@/lib/ws";
 import {
   useFinanceQueue,
@@ -32,7 +32,7 @@ export default function Page(){
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [editingIncome, setEditingIncome] = useState<any>(null);
 
-  // Filtros para transações
+  // Filtros para transaÃ§Ãµes
   const [transactionType, setTransactionType] = useState<string>("");  // "", "receita", "despesa"
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -41,18 +41,18 @@ export default function Page(){
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
 
-  // Filtros rápidos
+  // Filtros rÃ¡pidos
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Paginação
+  // PaginaÃ§Ã£o
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   // Detalhes completos do caso
   const { data: fullCaseDetails } = useFinanceCaseDetails(selectedCaseId || 0);
 
-  // Buscar transações unificadas (receitas e despesas)
+  // Buscar transaÃ§Ãµes unificadas (receitas e despesas)
   const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
     queryKey: ["transactions", startDate, endDate, transactionType],
     queryFn: async () => {
@@ -69,7 +69,7 @@ export default function Page(){
   const transactions = transactionsData?.items || [];
   const totals = transactionsData?.totals || { receitas: 0, despesas: 0, saldo: 0 };
 
-  // Buscar métricas do financeiro
+  // Buscar mÃ©tricas do financeiro
   const { data: metricsData } = useQuery({
     queryKey: ["financeMetrics"],
     queryFn: async () => {
@@ -81,15 +81,14 @@ export default function Page(){
   const metrics = metricsData || {};
 
   // Buscar detalhes do contrato
-  const { data: contractDetails } = useQuery({
+  const { data: contractDetails, isLoading: loadingContractDetails } = useQuery({
     queryKey: ["contract", selectedContractId],
     queryFn: async () => {
       if (!selectedContractId) return null;
       const response = await api.get(`/finance/contracts/${selectedContractId}`);
       return response.data;
     },
-    enabled: !!selectedContractId && showContractModal
-  });
+    enabled: !!selectedContractId});
 
   // Mutation para salvar despesa
   const saveExpenseMutation = useMutation({
@@ -123,7 +122,7 @@ export default function Page(){
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-      toast.success("Despesa excluída!");
+      toast.success("Despesa excluÃ­da!");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Erro ao excluir despesa");
@@ -161,7 +160,7 @@ export default function Page(){
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-      toast.success("Receita excluída!");
+      toast.success("Receita excluÃ­da!");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Erro ao excluir receita");
@@ -171,30 +170,30 @@ export default function Page(){
   const handleDisburse = async (id: number) => {
     try {
       await disb.mutateAsync(id);
-      toast.success("Liberação efetivada com sucesso!");
+      toast.success("LiberaÃ§Ã£o efetivada com sucesso!");
     } catch (error) {
       console.error('Erro ao efetivar:', error);
-      toast.error("Erro ao efetivar liberação. Tente novamente.");
+      toast.error("Erro ao efetivar liberaÃ§Ã£o. Tente novamente.");
     }
   };
 
   const handleCancel = async (contractId: number) => {
     try {
       await cancelContract.mutateAsync(contractId);
-      toast.success("Operação cancelada com sucesso!");
+      toast.success("OperaÃ§Ã£o cancelada com sucesso!");
     } catch (error) {
       console.error('Erro ao cancelar:', error);
-      toast.error("Erro ao cancelar operação. Tente novamente.");
+      toast.error("Erro ao cancelar operaÃ§Ã£o. Tente novamente.");
     }
   };
 
   const handleDelete = async (contractId: number) => {
     try {
       await deleteContract.mutateAsync(contractId);
-      toast.success("Operação deletada com sucesso!");
+      toast.success("OperaÃ§Ã£o deletada com sucesso!");
     } catch (error) {
       console.error('Erro ao deletar:', error);
-      toast.error("Erro ao deletar operação. Tente novamente.");
+      toast.error("Erro ao deletar operaÃ§Ã£o. Tente novamente.");
     }
   };
 
@@ -300,7 +299,7 @@ export default function Page(){
     window.open(`${api.defaults.baseURL}/finance/export`, '_blank');
   };
 
-  // Filtros rápidos de status
+  // Filtros rÃ¡pidos de status
   const statusCounts = {
     aprovado: items.filter((i: any) => !i.contract && ["fechamento_aprovado", "financeiro_pendente"].includes(i.status)).length,
     liberado: items.filter((i: any) => !!i.contract).length,
@@ -319,7 +318,7 @@ export default function Page(){
 
   const handleFilterToggle = (filterId: string) => {
     setStatusFilter(prev => (prev.includes(filterId) ? [] : [filterId]));
-    setPage(1); // Reset para primeira página ao filtrar
+    setPage(1); // Reset para primeira pÃ¡gina ao filtrar
   };
 
   const handleClearFilters = () => {
@@ -368,7 +367,7 @@ export default function Page(){
     return true;
   });
 
-  // Calcular paginação
+  // Calcular paginaÃ§Ã£o
   const totalItems = filteredItems.length;
   const totalPages = Math.ceil(totalItems / pageSize);
   const startIndex = (page - 1) * pageSize;
@@ -380,17 +379,17 @@ export default function Page(){
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestão Financeira</h1>
-          <p className="text-muted-foreground mt-1">Visão geral das operações financeiras</p>
+          <h1 className="text-3xl font-bold">GestÃ£o Financeira</h1>
+          <p className="text-muted-foreground mt-1">VisÃ£o geral das operaÃ§Ãµes financeiras</p>
         </div>
-        <div className="flex items-center gap-3">
+        {(!contractDetails) && (<div className="py-12 text-center text-muted-foreground">Carregando contrato...</div>)}{contractDetails && (<> <div className="flex items-center gap-3">
           <Button
             onClick={handleExportReport}
             variant="outline"
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
-            Exportar Relatório
+            Exportar RelatÃ³rio
           </Button>
         </div>
       </div>
@@ -402,17 +401,17 @@ export default function Page(){
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={TrendingUp}
           trend={{ value: 12.5, isPositive: true }}
-          subtitle="Últimos 30 dias"
+          subtitle="Ãšltimos 30 dias"
         />
         <KPICard
           title="Despesas"
           value={`R$ ${(metrics.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={TrendingDown}
           trend={{ value: 8.2, isPositive: false }}
-          subtitle="Últimos 30 dias"
+          subtitle="Ãšltimos 30 dias"
         />
         <KPICard
-          title="Lucro Líquido"
+          title="Lucro LÃ­quido"
           value={`R$ ${(metrics.netProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           icon={DollarSign}
           trend={{ value: 15.3, isPositive: true }}
@@ -427,12 +426,12 @@ export default function Page(){
         />
       </div>
 
-      {/* Filtros Rápidos */}
+      {/* Filtros RÃ¡pidos */}
       <QuickFilters
         searchTerm={searchTerm}
         onSearchChange={(value) => {
           setSearchTerm(value);
-          setPage(1); // Reset para primeira página ao buscar
+          setPage(1); // Reset para primeira pÃ¡gina ao buscar
         }}
         activeFilters={statusFilter}
         onFilterToggle={handleFilterToggle}
@@ -443,7 +442,7 @@ export default function Page(){
 
       {/* Lista de Casos Financeiros */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
+        <h2 className="text-2xl font-semibold">Atendimentos para LiberaÃ§Ã£o</h2>
 
         {loadingQueue ? (
           <div className="text-center py-12">
@@ -462,7 +461,7 @@ export default function Page(){
                 tipo_chave_pix: item.client.tipo_chave_pix
               } : undefined;
 
-              // Extrair valores da simulação
+              // Extrair valores da simulaÃ§Ã£o
               const simulationResult = item.simulation ? {
                 banco: item.simulation.banks?.[0]?.banco || "",
                 valorLiberado: item.simulation.totals.liberadoTotal,
@@ -476,7 +475,7 @@ export default function Page(){
                 custoConsultoriaLiquido: item.simulation.totals.custoConsultoriaLiquido || (item.simulation.totals.custoConsultoria * 0.86),
                 liberadoCliente: item.simulation.totals.liberadoCliente,
                 percentualConsultoria: item.simulation.percentualConsultoria,
-                taxaJuros: 1.99, // Mock - adicionar no backend se necessário
+                taxaJuros: 1.99, // Mock - adicionar no backend se necessÃ¡rio
                 prazo: item.simulation.prazo
               } : undefined;
 
@@ -510,7 +509,7 @@ export default function Page(){
             })}
           </div>
 
-          {/* Paginação */}
+          {/* PaginaÃ§Ã£o */}
           {totalItems > pageSize && (
             <Pagination
               currentPage={page}
@@ -528,7 +527,7 @@ export default function Page(){
         </>
         ) : (
           <Card className="p-12 text-center border-dashed">
-            <p className="text-lg text-muted-foreground">✨ Nenhum atendimento encontrado</p>
+            <p className="text-lg text-muted-foreground">âœ¨ Nenhum atendimento encontrado</p>
             <p className="text-sm text-muted-foreground mt-1">
               {statusFilter.length > 0 || searchTerm ? "Tente ajustar os filtros" : "Todos os atendimentos financeiros foram processados."}
             </p>
@@ -536,7 +535,7 @@ export default function Page(){
         )}
       </div>
 
-      {/* Gestão de Receitas e Despesas */}
+      {/* GestÃ£o de Receitas e Despesas */}
       <Card className="p-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -568,7 +567,7 @@ export default function Page(){
           </div>
 
           {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Data Inicial</label>
               <input
@@ -587,24 +586,21 @@ export default function Page(){
                 className="w-full px-3 py-2 border rounded-md bg-background"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Tipo</label>
-              <select
-                value={transactionType}
-                onChange={(e) => setTransactionType(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
-              >
-                <option value="">Todos</option>
-                <option value="receita">Receitas</option>
-                <option value="despesa">Despesas</option>
-              </select>
-            </div>
           </div>
+
+          {/* Abas de Tipos de TransaÃ§Ã£o */}
+          <Tabs value={transactionType || "todas"} onValueChange={(v) => setTransactionType(v === "todas" ? "" : v)}>
+            <TabsList>
+              <TabsTrigger value="todas">Todas</TabsTrigger>
+              <TabsTrigger value="receita">Receitas</TabsTrigger>
+              <TabsTrigger value="despesa">Despesas</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* Tabela Unificada */}
           {loadingTransactions ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">Carregando transações...</p>
+              <p className="text-muted-foreground">Carregando transaÃ§Ãµes...</p>
             </div>
           ) : transactions.length > 0 ? (
             <>
@@ -618,7 +614,7 @@ export default function Page(){
                         <th className="text-left p-3 font-semibold">Categoria</th>
                         <th className="text-left p-3 font-semibold">Nome</th>
                         <th className="text-right p-3 font-semibold">Valor</th>
-                        <th className="text-right p-3 font-semibold">Ações</th>
+                        <th className="text-right p-3 font-semibold">AÃ§Ãµes</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -687,8 +683,8 @@ export default function Page(){
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
-              <p>Nenhuma transação encontrada</p>
-              <p className="text-sm mt-1">Adicione receitas ou despesas para começar</p>
+              <p>Nenhuma transaÃ§Ã£o encontrada</p>
+              <p className="text-sm mt-1">Adicione receitas ou despesas para comeÃ§ar</p>
             </div>
           )}
         </div>
@@ -719,21 +715,21 @@ export default function Page(){
       />
 
       {/* Modal de Detalhes do Contrato */}
-      {showContractModal && contractDetails && (
+      {showContractModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowContractModal(false)}>
           <div className="bg-card border rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 space-y-6">
               {/* Header */}
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">Detalhes do Contrato #{contractDetails.id}</h2>
-                  <p className="text-muted-foreground mt-1">Atendimento #{contractDetails.case_id}</p>
+                  <h2 className="text-2xl font-bold">{loadingContractDetails || !contractDetails ? "Carregando contrato..." : `Detalhes do Contrato #${contractDetails.id}`}</h2>
+                  {contractDetails && (<p className="text-muted-foreground mt-1">Atendimento #{contractDetails.case_id}</p>)}
                 </div>
-                <button
+                {(!contractDetails) && (<div className="py-12 text-center text-muted-foreground">Carregando contrato...</div>)}{contractDetails && (<> <button
                   onClick={() => setShowContractModal(false)}
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
 
@@ -754,11 +750,11 @@ export default function Page(){
                       <p className="font-medium">{contractDetails.client.cpf}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Matrícula</p>
+                      <p className="text-sm text-muted-foreground">MatrÃ­cula</p>
                       <p className="font-medium">{contractDetails.client.matricula}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Órgão</p>
+                      <p className="text-sm text-muted-foreground">Ã“rgÃ£o</p>
                       <p className="font-medium">{contractDetails.client.orgao || '-'}</p>
                     </div>
                   </div>
@@ -777,7 +773,7 @@ export default function Page(){
                     <p className="font-bold text-lg">R$ {contractDetails.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Consultoria Líquida</p>
+                    <p className="text-sm text-muted-foreground">Consultoria LÃ­quida</p>
                     <p className="font-bold text-lg text-success">R$ {contractDetails.consultoria_valor_liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div>
@@ -801,13 +797,13 @@ export default function Page(){
                 </h3>
                 <div className="grid grid-cols-2 gap-3 pl-6">
                   <div>
-                    <p className="text-sm text-muted-foreground">Data de Liberação</p>
+                    <p className="text-sm text-muted-foreground">Data de LiberaÃ§Ã£o</p>
                     <p className="font-medium">
                       {contractDetails.disbursed_at ? new Date(contractDetails.disbursed_at).toLocaleDateString('pt-BR') : '-'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Data de Criação</p>
+                    <p className="text-sm text-muted-foreground">Data de CriaÃ§Ã£o</p>
                     <p className="font-medium">
                       {contractDetails.created_at ? new Date(contractDetails.created_at).toLocaleDateString('pt-BR') : '-'}
                     </p>
@@ -828,7 +824,7 @@ export default function Page(){
                         <div>
                           <p className="font-medium text-sm">{att.filename}</p>
                           <p className="text-xs text-muted-foreground">
-                            {(att.size / 1024).toFixed(2)} KB • {att.created_at ? new Date(att.created_at).toLocaleDateString('pt-BR') : '-'}
+                            {(att.size / 1024).toFixed(2)} KB â€¢ {att.created_at ? new Date(att.created_at).toLocaleDateString('pt-BR') : '-'}
                           </p>
                         </div>
                         <Button
@@ -844,7 +840,7 @@ export default function Page(){
                 </div>
               )}
 
-              {/* Ações */}
+              {/* AÃ§Ãµes */}
               <div className="flex gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
@@ -870,3 +866,4 @@ export default function Page(){
     </div>
   );
 }
+

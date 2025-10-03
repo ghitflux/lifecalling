@@ -491,8 +491,10 @@ async def send_to_finance(case_id: int, user=Depends(require_roles("calculista",
         if not case:
             raise HTTPException(404, "Caso não encontrado")
 
-        if case.status != "retorno_fechamento":
-            raise HTTPException(400, "Apenas casos em retorno de fechamento podem ser enviados para financeiro")
+        # Permitir envio ao financeiro tanto para casos marcados como 'retorno_fechamento'
+        # quanto para casos já aprovados no fechamento ('fechamento_aprovado')
+        if case.status not in ("retorno_fechamento", "fechamento_aprovado"):
+            raise HTTPException(400, "Apenas casos de retorno de fechamento ou fechamento aprovado podem ser enviados para financeiro")
 
         # Verificar se tem simulação aprovada
         if not case.last_simulation_id:
