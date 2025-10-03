@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import jwt
 import bcrypt
-from fastapi import HTTPException, Response, Cookie
+from fastapi import HTTPException, Response, Cookie, Header
 from .config import settings
 from .db import SessionLocal
 from .models import User
@@ -41,8 +41,23 @@ def set_auth_cookies(resp:Response, uid:int, role:str):
         # Sem domínio específico para permitir flexibilidade
     )
 
-def get_current_user(access: str | None = Cookie(default=None), refresh: str | None = Cookie(default=None)):
-    token = access or refresh
+def get_current_user(
+    access: str | None = Cookie(default=None),
+    refresh: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None)
+):
+    # Suporte a Authorization: Bearer <token>
+    bearer_token = None
+    if authorization:
+        try:
+            parts = authorization.split(" ", 1)
+            if len(parts) == 2 and parts[0].lower() == "bearer":
+                bearer_token = parts[1].strip()
+        except Exception:
+            # Ignora formatações inválidas do header
+            bearer_token = None
+
+    token = bearer_token or access or refresh
     if not token:
         raise HTTPException(401, "unauthorized")
     try:

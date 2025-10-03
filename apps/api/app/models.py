@@ -159,8 +159,17 @@ class Contract(Base):
     disbursed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+    # Campos para receita e ranking
+    consultoria_valor_liquido = Column(Numeric(14,2))  # 86% da consultoria
+    signed_at = Column(DateTime)  # Data de assinatura/efetivação
+    created_by = Column(Integer, ForeignKey("users.id"))  # Quem efetivou (financeiro)
+    agent_user_id = Column(Integer, ForeignKey("users.id"))  # Atendente do caso (para ranking)
+
     case = relationship("Case")
     attachments = relationship("ContractAttachment", back_populates="contract", cascade="all, delete-orphan")
+    creator = relationship("User", foreign_keys=[created_by])
+    agent = relationship("User", foreign_keys=[agent_user_id])
 
 class ContractAttachment(Base):
     __tablename__ = "contract_attachments"

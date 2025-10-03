@@ -70,3 +70,9 @@ export * from "./src/icons";
 
 // Utils
 export * from "./src/lib/utils";
+
+export * from "./src/GradientPanel";
+export * from "./src/MiniAreaChart";
+export * from "./src/MiniBarChart";
+export * from "./src/DonutChart";
+export * from "./src/RankingTable";

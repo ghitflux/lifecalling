@@ -7,6 +7,7 @@ import { CreditCard, Calendar, Building2, Hash, TrendingUp } from "lucide-react"
 
 interface Financiamento {
   id: number;
+  matricula: string;  // Matrícula do financiamento
   financiamento_code: string;
   total_parcelas: number;
   parcelas_pagas: number;
@@ -90,7 +91,7 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Contratos</h3>
+          <h3 className="text-lg font-semibold">Financiamentos</h3>
         </div>
         <div className="text-center py-8">
           <div className="animate-pulse">
@@ -107,7 +108,7 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Contratos</h3>
+          <h3 className="text-lg font-semibold">Financiamentos</h3>
         </div>
         <div className="text-center py-8 text-muted-foreground">
           <p>Erro ao carregar financiamentos</p>
@@ -121,55 +122,85 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Contratos</h3>
+          <h3 className="text-lg font-semibold">Financiamentos</h3>
         </div>
         <div className="text-center py-8 text-muted-foreground">
           <CreditCard className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>Nenhum contrato encontrado</p>
-          <p className="text-sm">Este cliente ainda não possui contratos importados</p>
+          <p>Nenhum financiamento encontrado</p>
+          <p className="text-sm">Este cliente ainda não possui financiamentos importados</p>
         </div>
       </Card>
     );
   }
 
-  // Agrupar por referência para mostrar seções
-  const financiamentosPorRef = financiamentos.reduce((acc, fin) => {
-    if (!acc[fin.referencia]) {
-      acc[fin.referencia] = [];
+  // Agrupar primeiro por matrícula, depois por referência
+  const financiamentosPorMatricula = financiamentos.reduce((acc, fin) => {
+    if (!acc[fin.matricula]) {
+      acc[fin.matricula] = {};
     }
-    acc[fin.referencia].push(fin);
+    if (!acc[fin.matricula][fin.referencia]) {
+      acc[fin.matricula][fin.referencia] = [];
+    }
+    acc[fin.matricula][fin.referencia].push(fin);
     return acc;
-  }, {} as Record<string, Financiamento[]>);
+  }, {} as Record<string, Record<string, Financiamento[]>>);
+
+  const totalMatriculas = Object.keys(financiamentosPorMatricula).length;
 
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Contratos</h3>
+          <h3 className="text-lg font-semibold">Financiamentos</h3>
         </div>
-        <Badge variant="outline" className="text-xs">
-          {financiamentos.length} registros
-        </Badge>
+        <div className="flex items-center gap-2">
+          {totalMatriculas > 1 && (
+            <Badge variant="secondary" className="text-xs">
+              {totalMatriculas} matrículas
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-xs">
+            {financiamentos.length} registros
+          </Badge>
+        </div>
       </div>
 
-      <div className="space-y-6">
-        {Object.entries(financiamentosPorRef)
-          .sort(([a], [b]) => b.localeCompare(a)) // Mais recente primeiro
-          .map(([referencia, items]) => (
-            <div key={referencia} className="space-y-3">
-              <div className="flex items-center gap-2 border-b pb-2">
-                <Calendar className="h-4 w-4 text-blue-500" />
-                <h4 className="font-medium text-sm">Referência: {referencia}</h4>
-                <Badge variant="secondary" className="text-xs ml-auto">
-                  {items.length} financiamentos
-                </Badge>
-              </div>
+      <div className="space-y-8">
+        {Object.entries(financiamentosPorMatricula)
+          .sort(([a], [b]) => a.localeCompare(b))  // Ordenar matrículas
+          .map(([matricula, financiamentosPorRef]) => (
+            <div key={matricula} className="space-y-4">
+              {/* Cabeçalho da Matrícula */}
+              {totalMatriculas > 1 && (
+                <div className="flex items-center gap-2 bg-primary/5 p-3 rounded-lg border border-primary/20">
+                  <Hash className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-primary">Matrícula: {matricula}</span>
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    {Object.values(financiamentosPorRef).flat().length} financiamentos
+                  </Badge>
+                </div>
+              )}
+
+              {/* Financiamentos agrupados por referência */}
+              <div className="space-y-6 pl-6">
+                {Object.entries(financiamentosPorRef)
+                  .sort(([a], [b]) => b.localeCompare(a)) // Mais recente primeiro
+                  .map(([referencia, items]) => (
+                    <div key={referencia} className="space-y-3">
+                      <div className="flex items-center gap-2 border-b pb-2">
+                        <Calendar className="h-4 w-4 text-blue-500" />
+                        <h4 className="font-medium text-sm">Referência: {referencia}</h4>
+                        <Badge variant="secondary" className="text-xs ml-auto">
+                          {items.length} financiamentos
+                        </Badge>
+                      </div>
 
               <div className="overflow-x-auto">
                 <div className="min-w-full">
-                  <div className="grid grid-cols-8 gap-4 p-3 bg-muted/50 rounded-t-lg text-sm font-medium text-muted-foreground">
+                  <div className="grid grid-cols-9 gap-4 p-3 bg-muted/50 rounded-t-lg text-sm font-medium text-muted-foreground">
                     <div>STATUS</div>
+                    <div>MATRÍCULA</div>
                     <div>FIN.</div>
                     <div>BANCO ENTIDADE</div>
                     <div>TOTAL</div>
@@ -180,9 +211,12 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
                   </div>
                   <div className="divide-y divide-border">
                     {items.map((fin) => (
-                      <div key={fin.id} className="grid grid-cols-8 gap-4 p-3 hover:bg-muted/50 transition-colors">
+                      <div key={fin.id} className="grid grid-cols-9 gap-4 p-3 hover:bg-muted/50 transition-colors">
                         <div>
                           {getStatusBadge(fin.status_code, fin.status_description)}
+                        </div>
+                        <div>
+                          <span className="font-mono text-xs text-muted-foreground">{fin.matricula}</span>
                         </div>
                         <div>
                           <div className="flex items-center gap-1">
@@ -233,6 +267,9 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          ))}
               </div>
             </div>
           ))}

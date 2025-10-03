@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -9,9 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
+import { ProgressBar } from "@/components/ProgressBar";
 
 export default function ImportacaoPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "processing" | "completed" | "error">("idle");
+  const [importStats, setImportStats] = useState<any>(null);
+  const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
 
   // Query para listar importações
@@ -24,9 +29,57 @@ export default function ImportacaoPage() {
     refetchInterval: 5000 // Refetch a cada 5 segundos
   });
 
+  // Cleanup do intervalo ao desmontar
+  useEffect(() => {
+    return () => {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
+    };
+  }, []);
+
+  // Simular progresso de upload e processamento
+  const startProgressSimulation = (totalDuration: number) => {
+    setUploadProgress(0);
+    setUploadStatus("uploading");
+
+    let progress = 0;
+    const uploadDuration = totalDuration * 0.2; // 20% para upload
+    const processingDuration = totalDuration * 0.8; // 80% para processamento
+
+    // Fase de upload (0-20%)
+    const uploadInterval = setInterval(() => {
+      progress += 2;
+      setUploadProgress(Math.min(progress, 20));
+
+      if (progress >= 20) {
+        clearInterval(uploadInterval);
+        setUploadStatus("processing");
+
+        // Fase de processamento (20-95%)
+        const processingInterval = setInterval(() => {
+          progress += 1;
+          setUploadProgress(Math.min(progress, 95));
+
+          if (progress >= 95) {
+            clearInterval(processingInterval);
+          }
+        }, processingDuration / 75);
+
+        progressInterval.current = processingInterval;
+      }
+    }, uploadDuration / 10);
+  };
+
   // Mutation para upload de arquivo
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
+      // Estimar duração baseado no tamanho do arquivo
+      const fileSizeMB = file.size / (1024 * 1024);
+      const estimatedDuration = Math.max(2000, fileSizeMB * 500); // mínimo 2s
+
+      startProgressSimulation(estimatedDuration);
+
       const formData = new FormData();
       formData.append("file", file);
       const response = await api.post("/imports", formData, {
@@ -39,6 +92,23 @@ export default function ImportacaoPage() {
     onSuccess: (data) => {
       const counters = data.counters || {};
       const summary = data.summary || {};
+
+      // Completar progresso
+      setUploadProgress(100);
+      setUploadStatus("completed");
+
+      // Armazenar stats para exibir
+      setImportStats({
+        clients_created: counters.clients_created || 0,
+        clients_updated: counters.clients_updated || 0,
+        cases_created: counters.cases_created || 0,
+        lines_processed: counters.lines_created || 0,
+      });
+
+      // Limpar intervalo
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
 
       // Mensagem principal de sucesso com mais detalhes
       toast.success(
@@ -65,13 +135,31 @@ export default function ImportacaoPage() {
         );
       }
 
-      setSelectedFile(null);
+      // Resetar após alguns segundos
+      setTimeout(() => {
+        setSelectedFile(null);
+        setUploadStatus("idle");
+        setUploadProgress(0);
+        setImportStats(null);
+      }, 5000);
+
       queryClient.invalidateQueries({ queryKey: ["imports"] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["cases"] });
     },
     onError: (error: any) => {
+      setUploadStatus("error");
+      setUploadProgress(0);
+
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
+
       toast.error(error.response?.data?.detail || "Erro ao enviar arquivo");
+
+      setTimeout(() => {
+        setUploadStatus("idle");
+      }, 3000);
     },
   });
 
@@ -167,7 +255,7 @@ export default function ImportacaoPage() {
             </p>
           </div>
 
-          {selectedFile && (
+          {selectedFile && uploadStatus === "idle" && (
             <div className="bg-muted/30 rounded-lg p-4">
               <div className="flex items-center gap-3">
                 <FileText className="h-8 w-8 text-blue-600" />
@@ -186,6 +274,15 @@ export default function ImportacaoPage() {
                 </Button>
               </div>
             </div>
+          )}
+
+          {/* Barra de Progresso */}
+          {(uploadStatus === "uploading" || uploadStatus === "processing" || uploadStatus === "completed") && (
+            <ProgressBar
+              progress={uploadProgress}
+              status={uploadStatus}
+              stats={importStats}
+            />
           )}
         </div>
       </Card>
@@ -221,10 +318,15 @@ export default function ImportacaoPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {/* Status - sempre concluído para payroll */}
-                  <Badge className="bg-green-100 text-green-800">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Processado
+                  {/* Status com total de clientes */}
+                  <Badge className="bg-green-100 text-green-800 flex items-center gap-1.5">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Processado</span>
+                    {importItem.total_clients !== undefined && (
+                      <span className="ml-1 font-semibold">
+                        {importItem.total_clients.toLocaleString()}
+                      </span>
+                    )}
                   </Badge>
 
                   {/* Entidade Code */}

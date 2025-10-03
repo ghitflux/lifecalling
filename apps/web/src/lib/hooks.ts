@@ -374,10 +374,6 @@ export function useReturnToCalculista() {
 }
 
 /** Contratos */
-export function useContracts() {
-  return useQuery({ queryKey:["contracts"], queryFn: async ()=> (await api.get("/contracts")).data.items ?? [] });
-}
-
 export function useContractAttachments(contractId: number) {
   return useQuery({
     queryKey: ["contract", contractId, "attachments"],
@@ -488,7 +484,78 @@ export function useFinanceTimeseries() {
   });
 }
 
-/** Dashboard */
+/** Analytics Dashboard */
+export type AnalyticsRange = {
+  from?: string;
+  to?: string;
+};
+
+type AnalyticsBucket = "day" | "week" | "month";
+
+const ANALYTICS_STALE_TIME = 60_000;
+
+const buildAnalyticsParams = (range?: AnalyticsRange) => {
+  const params: Record<string, string> = {};
+  if (range?.from) params.from = range.from;
+  if (range?.to) params.to = range.to;
+  return params;
+};
+
+export function useAnalyticsKpis(range?: AnalyticsRange) {
+  return useQuery({
+    queryKey: ["analytics", "kpis", range?.from ?? null, range?.to ?? null],
+    queryFn: async () => (await api.get("/analytics/kpis", { params: buildAnalyticsParams(range) })).data,
+    staleTime: ANALYTICS_STALE_TIME,
+    enabled: Boolean(range?.from && range?.to),
+  });
+}
+
+export function useAnalyticsSeries(range: AnalyticsRange | undefined, bucket: AnalyticsBucket) {
+  return useQuery({
+    queryKey: ["analytics", "series", range?.from ?? null, range?.to ?? null, bucket],
+    queryFn: async () => {
+      const params = buildAnalyticsParams(range);
+      params.bucket = bucket;
+      return (await api.get("/analytics/series", { params })).data;
+    },
+    staleTime: ANALYTICS_STALE_TIME,
+    enabled: Boolean(range?.from && range?.to),
+  });
+}
+
+export function useAnalyticsFunnel(range?: AnalyticsRange) {
+  return useQuery({
+    queryKey: ["analytics", "funnel", range?.from ?? null, range?.to ?? null],
+    queryFn: async () => (await api.get("/analytics/funnel", { params: buildAnalyticsParams(range) })).data,
+    staleTime: ANALYTICS_STALE_TIME,
+    enabled: Boolean(range?.from && range?.to),
+  });
+}
+
+export function useAnalyticsModules(range: AnalyticsRange | undefined, bucket: AnalyticsBucket) {
+  return useQuery({
+    queryKey: ["analytics", "modules", range?.from ?? null, range?.to ?? null, bucket],
+    queryFn: async () => {
+      const params = buildAnalyticsParams(range);
+      params.bucket = bucket;
+      return (await api.get("/analytics/by-module", { params })).data;
+    },
+    staleTime: ANALYTICS_STALE_TIME,
+    enabled: Boolean(range?.from && range?.to),
+  });
+}
+
+export function useAnalyticsHealth() {
+  return useQuery({
+    queryKey: ["analytics", "health"],
+    queryFn: async () => (await api.get("/analytics/health")).data,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
+
+/** Dashboard (legacy) */
 export function useDashboardStats() {
   return useQuery({
     queryKey:["dashboard","stats"],
@@ -541,7 +608,7 @@ export function useMyStats() {
   return useQuery({
     queryKey:["dashboard","my-stats"],
     queryFn: async ()=> (await api.get("/dashboard/my-stats")).data,
-    refetchInterval: 30000 // Atualiza a cada 30 segundos
+    refetchInterval: 30000
   });
 }
 

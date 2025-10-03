@@ -8,15 +8,38 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@lifecalling/ui";
 import { api } from "@/lib/api";
 import Link from "next/link";
-import { Search, User, FileText, Users } from "lucide-react";
+import { Search, User, FileText, Users, X, Building2, Activity, Target, CheckCircle, TrendingUp, Briefcase } from "lucide-react";
+import { KPICard } from "@lifecalling/ui";
 
 export default function Clientes() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBanco, setSelectedBanco] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedOrgao, setSelectedOrgao] = useState<string | null>(null);
+  const [semContratos, setSemContratos] = useState<boolean>(false);
+
+  // Query para filtros disponíveis
+  const { data: filtersData } = useQuery({
+    queryKey: ["/clients/filters"],
+    queryFn: async () => {
+      const response = await api.get("/clients/filters");
+      return response.data;
+    },
+  });
+
+  // Query para estatísticas/KPIs
+  const { data: stats } = useQuery({
+    queryKey: ["/clients/stats"],
+    queryFn: async () => {
+      const response = await api.get("/clients/stats");
+      return response.data;
+    },
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["/clients", page, pageSize, searchTerm],
+    queryKey: ["/clients", page, pageSize, searchTerm, selectedBanco, selectedStatus, selectedOrgao, semContratos],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -25,6 +48,22 @@ export default function Clientes() {
 
       if (searchTerm) {
         params.append("q", searchTerm);
+      }
+
+      if (selectedBanco) {
+        params.append("banco", selectedBanco);
+      }
+
+      if (selectedStatus) {
+        params.append("status", selectedStatus);
+      }
+
+      if (selectedOrgao) {
+        params.append("orgao", selectedOrgao);
+      }
+
+      if (semContratos) {
+        params.append("sem_contratos", "true");
       }
 
       const response = await api.get(`/clients?${params.toString()}`);
@@ -55,8 +94,41 @@ export default function Clientes() {
         </div>
       </div>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          title="Total de Clientes"
+          value={stats?.total_clients || 0}
+          subtitle={`${stats?.new_clients || 0} novos (30 dias)`}
+          icon={Users}
+          color="primary"
+        />
+        <KPICard
+          title="Casos Ativos"
+          value={stats?.active_cases || 0}
+          subtitle={`de ${stats?.total_cases || 0} casos`}
+          icon={Target}
+          color="warning"
+        />
+        <KPICard
+          title="Casos Finalizados"
+          value={stats?.completed_cases || 0}
+          subtitle={`${stats?.conversion_rate || 0}% de conversão`}
+          icon={CheckCircle}
+          color="success"
+        />
+        <KPICard
+          title="Total de Contratos"
+          value={stats?.total_contracts || 0}
+          subtitle={`${stats?.clients_with_contracts || 0} clientes com contrato`}
+          icon={Briefcase}
+          color="info"
+        />
+      </div>
+
       {/* Filtros */}
-      <Card className="p-4">
+      <Card className="p-4 space-y-4">
+        {/* Busca */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -65,7 +137,7 @@ export default function Clientes() {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setPage(1); // Reset para primeira página ao buscar
+                setPage(1);
               }}
               className="pl-10"
             />
@@ -73,6 +145,148 @@ export default function Clientes() {
           <div className="text-sm text-muted-foreground">
             {total} {total === 1 ? 'cliente' : 'clientes'}
           </div>
+        </div>
+
+        {/* Filtros Rápidos */}
+        <div className="space-y-3">
+          {/* Filtro por Banco */}
+          {filtersData?.bancos && filtersData.bancos.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Banco:</span>
+                {selectedBanco && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedBanco(null);
+                      setPage(1);
+                    }}
+                    className="h-6 text-xs"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Limpar
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {filtersData.bancos.slice(0, 10).map((banco: any) => (
+                  <Badge
+                    key={banco.value}
+                    variant={selectedBanco === banco.value ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => {
+                      setSelectedBanco(selectedBanco === banco.value ? null : banco.value);
+                      setPage(1);
+                    }}
+                  >
+                    {banco.label} ({banco.count})
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filtro por Status */}
+          {filtersData?.status && filtersData.status.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Status do Caso:</span>
+                {selectedStatus && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedStatus(null);
+                      setPage(1);
+                    }}
+                    className="h-6 text-xs"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Limpar
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {filtersData.status.map((status: any) => (
+                  <Badge
+                    key={status.value}
+                    variant={selectedStatus === status.value ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => {
+                      setSelectedStatus(selectedStatus === status.value ? null : status.value);
+                      setPage(1);
+                    }}
+                  >
+                    {status.label} ({status.count})
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filtro por Órgão */}
+          {filtersData?.orgaos && filtersData.orgaos.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Briefcase className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Órgão Pagador:</span>
+                {selectedOrgao && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedOrgao(null);
+                      setPage(1);
+                    }}
+                    className="h-6 text-xs"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Limpar
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {filtersData.orgaos.slice(0, 10).map((orgao: any) => (
+                  <Badge
+                    key={orgao.value}
+                    variant={selectedOrgao === orgao.value ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => {
+                      setSelectedOrgao(selectedOrgao === orgao.value ? null : orgao.value);
+                      setPage(1);
+                    }}
+                  >
+                    {orgao.label} ({orgao.count})
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filtro Sem Contratos */}
+          {filtersData?.clientes_sem_contratos > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Outros Filtros:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge
+                  variant={semContratos ? "default" : "outline"}
+                  className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                  onClick={() => {
+                    setSemContratos(!semContratos);
+                    setPage(1);
+                  }}
+                >
+                  Sem Financiamentos ({filtersData.clientes_sem_contratos})
+                </Badge>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 

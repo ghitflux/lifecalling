@@ -80,6 +80,14 @@ export default function LoginPage() {
       ]
     },
     {
+      level: "Gerente de Fechamento",
+      color: "bg-teal-500",
+      users: [
+        { name: "Gerente de Fechamento 1", email: "supervisor1@lifecalling.com", password: "123456" },
+        { name: "Gerente de Fechamento 2", email: "supervisor2@lifecalling.com", password: "123456" }
+      ]
+    },
+    {
       level: "Financeiro",
       color: "bg-green-500",
       users: [
@@ -138,7 +146,6 @@ export default function LoginPage() {
               className="mb-2"
               priority
             />
-            <p className="text-sm text-muted-foreground">Sistema de Call Center</p>
           </div>
 
           {/* Card de Login */}
@@ -217,7 +224,7 @@ export default function LoginPage() {
 
           {/* Rodapé */}
           <p className="text-center text-xs text-muted-foreground">
-            © 2024 Life Serviços. Todos os direitos reservados.
+            © 2025 Life Serviços. Todos os direitos reservados.
           </p>
         </div>
       </div>

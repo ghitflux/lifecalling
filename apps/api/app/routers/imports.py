@@ -91,12 +91,13 @@ def upsert_client(db: Session, cpf: str, matricula: str, nome: str, orgao: str =
                   orgao_pgto_code: str = None, orgao_pgto_name: str = None,
                   status_desconto: str = None, status_legenda: str = None) -> Client:
     """
-    Cria ou atualiza um cliente usando chave primária (CPF + Matrícula).
+    Cria ou atualiza um cliente usando chave única por CPF.
+    Múltiplas matrículas do mesmo CPF compartilham o mesmo registro de cliente.
 
     Args:
         db: Sessão do banco
         cpf: CPF normalizado (11 dígitos)
-        matricula: Matrícula do funcionário
+        matricula: Matrícula do funcionário (primeira vista é armazenada)
         nome: Nome completo
         orgao: Órgão/entidade (opcional)
         orgao_pgto_code: Código do órgão pagador (opcional)
@@ -107,20 +108,26 @@ def upsert_client(db: Session, cpf: str, matricula: str, nome: str, orgao: str =
     Returns:
         Cliente criado ou atualizado
     """
-    # Gerar chave normalizada
+    # Gerar chave normalizada (mantido para compatibilidade)
     cpf_matricula = f"{cpf}|{matricula}"
 
+    # Buscar cliente por CPF único (não por CPF+matrícula)
     client = db.query(Client).filter(
-        Client.cpf == cpf,
-        Client.matricula == matricula
+        Client.cpf == cpf
     ).first()
 
     if client:
-        # Atualizar dados se necessário
+        # Atualizar dados se necessário (idempotente)
         if nome and len(nome) > len(client.name or ""):
             client.name = nome
-        if orgao:
-            client.orgao = orgao
+        # Manter primeira matrícula (não sobrescrever)
+        if not getattr(client, "matricula", None):
+            client.matricula = matricula
+        # Usar código do órgão pagador (empregador), não o código do financiamento
+        if orgao_pgto_name:
+            client.orgao = orgao_pgto_name
+        elif orgao_pgto_code:
+            client.orgao = orgao_pgto_code
         if orgao_pgto_code:
             client.orgao_pgto_code = orgao_pgto_code
         if orgao_pgto_name:
@@ -130,14 +137,14 @@ def upsert_client(db: Session, cpf: str, matricula: str, nome: str, orgao: str =
         if status_legenda:
             client.status_legenda = status_legenda
         client.cpf_matricula = cpf_matricula
-        logger.debug(f"Cliente atualizado: {cpf} - {matricula}")
+        logger.debug(f"Cliente atualizado: CPF {cpf}")
     else:
         # Criar novo cliente
         client = Client(
             cpf=cpf,
             matricula=matricula,
             name=nome,
-            orgao=orgao,
+            orgao=orgao_pgto_name or orgao_pgto_code,  # Órgão pagador (empregador)
             orgao_pgto_code=orgao_pgto_code,
             orgao_pgto_name=orgao_pgto_name,
             status_desconto=status_desconto,
@@ -155,6 +162,7 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
                           status_summary: dict) -> Case:
     """
     Cria um novo caso na esteira para o cliente.
+    IMPORTANTE: Garante apenas 1 caso ativo por CPF (não por client_id).
 
     Args:
         db: Sessão do banco
@@ -163,11 +171,17 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
         status_summary: Resumo dos status do cliente
 
     Returns:
-        Caso criado
+        Caso criado ou atualizado
     """
-    # Verificar se já existe caso aberto para esta referência
+    # Buscar TODOS os client_ids com o mesmo CPF
+    client_ids_with_same_cpf = db.query(Client.id).filter(
+        Client.cpf == client.cpf
+    ).all()
+    client_ids_list = [c_id[0] for c_id in client_ids_with_same_cpf]
+
+    # Verificar se já existe caso aberto para QUALQUER matrícula deste CPF
     existing_case = db.query(Case).filter(
-        Case.client_id == client.id,
+        Case.client_id.in_(client_ids_list),
         Case.entity_code == batch.entity_code,
         Case.ref_month == batch.ref_month,
         Case.ref_year == batch.ref_year,
@@ -179,10 +193,24 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
         existing_case.payroll_status_summary = status_summary
         existing_case.import_batch_id_new = batch.id
         existing_case.last_update_at = datetime.utcnow()
-        logger.debug(f"Caso atualizado: {existing_case.id} para cliente {client.id}")
+        logger.info(f"Caso #{existing_case.id} atualizado (CPF {client.cpf} já tinha caso ativo)")
         return existing_case
 
-    # Criar novo caso
+    # Verificação adicional: garantir que NÃO exista NENHUM caso ativo do CPF
+    any_active_case = db.query(Case).filter(
+        Case.client_id.in_(client_ids_list),
+        Case.status.in_(["novo", "disponivel", "em_atendimento", "calculista", "calculista_pendente", "financeiro", "fechamento_pendente", "aprovado"])
+    ).first()
+
+    if any_active_case:
+        # Se já existe um caso ativo (mesmo de outra referência), atualizar
+        logger.warning(f"⚠️ CPF {client.cpf} já tem caso #{any_active_case.id} ativo - não será criado novo caso")
+        any_active_case.payroll_status_summary = status_summary
+        any_active_case.import_batch_id_new = batch.id
+        any_active_case.last_update_at = datetime.utcnow()
+        return any_active_case
+
+    # Criar novo caso apenas se NÃO existir nenhum caso ativo do CPF
     new_case = Case(
         client_id=client.id,
         status="novo",
@@ -329,10 +357,9 @@ async def import_payroll_file(
                 # Usar dados da primeira linha para cliente
                 first_line = client_line_group[0]
 
-                # Verificar se cliente existe
+                # Verificar se cliente existe (busca única por CPF)
                 client_exists = db.query(Client).filter(
-                    Client.cpf == cpf,
-                    Client.matricula == matricula
+                    Client.cpf == cpf
                 ).first() is not None
 
                 # Upsert cliente com dados da última referência
@@ -354,27 +381,33 @@ async def import_payroll_file(
                 # Calcular resumo de status para este cliente
                 status_summary = calculate_status_summary(client_line_group)
 
-                # Criar/atualizar caso na esteira
+                # Criar/atualizar caso na esteira (1 caso aberto por cliente, idempotente)
                 try:
-                    # Verificar se caso já existe ANTES de criar
+                    # Status considerados "abertos" (não criar novos casos se já houver um aberto)
+                    OPEN_STATUSES = ["novo", "disponivel", "em_atendimento", "calculista",
+                                     "calculista_pendente", "financeiro", "fechamento_pendente"]
+
+                    # Verificar se caso aberto já existe para este cliente
                     existing_case = db.query(Case).filter(
                         Case.client_id == client.id,
-                        Case.entity_code == batch.entity_code,
-                        Case.ref_month == batch.ref_month,
-                        Case.ref_year == batch.ref_year,
-                        Case.status.in_(["novo", "em_atendimento", "calculista_pendente"])
-                    ).first()
+                        Case.status.in_(OPEN_STATUSES)
+                    ).order_by(Case.id.desc()).first()
 
                     is_new_case = existing_case is None
 
-                    case = create_case_for_client(db, client, batch, status_summary)
-
-                    if is_new_case:
-                        counters["cases_created"] += 1
-                        logger.info(f"Novo caso criado para cliente {client.id}")
-                    else:
+                    if existing_case:
+                        # Reaproveitar caso existente: apenas atualizar
+                        existing_case.payroll_status_summary = status_summary
+                        existing_case.import_batch_id_new = batch.id
+                        existing_case.last_update_at = datetime.utcnow()
+                        case = existing_case
                         counters["cases_updated"] += 1
-                        logger.info(f"Caso atualizado para cliente {client.id}")
+                        logger.info(f"Caso {case.id} reaproveitado para cliente {client.id}")
+                    else:
+                        # Criar novo caso
+                        case = create_case_for_client(db, client, batch, status_summary)
+                        counters["cases_created"] += 1
+                        logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
 
                 except Exception as case_error:
                     logger.error(f"Erro ao criar/atualizar caso para cliente {client.id}: {case_error}")
@@ -578,6 +611,14 @@ def list_import_batches(
         # Buscar nome do usuário
         creator = db.query(User).filter(User.id == batch.created_by).first()
 
+        # Contar total de clientes únicos desta importação
+        from sqlalchemy import func, distinct
+        total_clients = (
+            db.query(func.count(distinct(PayrollLine.cpf)))
+            .filter(PayrollLine.batch_id == batch.id)
+            .scalar() or 0
+        )
+
         result.append({
             "id": batch.id,
             "entity_code": batch.entity_code,
@@ -589,6 +630,7 @@ def list_import_batches(
             "total_lines": batch.total_lines,
             "processed_lines": batch.processed_lines,
             "error_lines": batch.error_lines,
+            "total_clients": total_clients,  # Total de clientes únicos
             "created_at": batch.created_at.isoformat(),
             "created_by": creator.name if creator else "Sistema",
             "generated_at": batch.generated_at.isoformat()

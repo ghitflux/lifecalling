@@ -113,6 +113,59 @@ def list_pending(
         print(f"[DEBUG] Found {count} simulations with status={status}, include_completed_today={include_completed_today}, date={date}")
         return {"items": items, "count": count}
 
+@r.get("/retorno-fechamento")
+def list_retorno_fechamento(user=Depends(require_roles("admin","supervisor","calculista"))):
+    """
+    Lista casos que retornaram do fechamento para revisão do calculista.
+    Estes são casos que foram aprovados pelo fechamento e precisam de revisão final antes de ir para financeiro.
+    """
+    from sqlalchemy.orm import joinedload
+
+    with SessionLocal() as db:
+        cases = db.query(Case).options(
+            joinedload(Case.client),
+            joinedload(Case.last_simulation)
+        ).filter(Case.status == "retorno_fechamento").order_by(Case.last_update_at.desc()).all()
+
+        items = []
+        for case in cases:
+            sim_data = None
+            if case.last_simulation_id:
+                sim = db.get(Simulation, case.last_simulation_id)
+                if sim and sim.status == "approved":
+                    sim_data = {
+                        "id": sim.id,
+                        "status": sim.status,
+                        "totals": {
+                            "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                            "saldoTotal": float(sim.saldo_total or 0),
+                            "liberadoTotal": float(sim.liberado_total or 0),
+                            "seguroObrigatorio": float(sim.seguro or 0),
+                            "totalFinanciado": float(sim.total_financiado or 0),
+                            "valorLiquido": float(sim.valor_liquido or 0),
+                            "custoConsultoria": float(sim.custo_consultoria or 0),
+                            "liberadoCliente": float(sim.liberado_cliente or 0)
+                        },
+                        "banks": enrich_banks_with_names(sim.banks_json or []),
+                        "prazo": sim.prazo,
+                        "percentualConsultoria": float(sim.percentual_consultoria or 0)
+                    }
+
+            items.append({
+                "id": case.id,
+                "status": case.status,
+                "client": {
+                    "id": case.client.id,
+                    "name": case.client.name,
+                    "cpf": case.client.cpf,
+                    "matricula": case.client.matricula
+                },
+                "simulation": sim_data,
+                "last_update_at": case.last_update_at.isoformat() if case.last_update_at else None
+            })
+
+        return {"items": items, "count": len(items)}
+
 class SimSave(BaseModel):
     manual_input: dict
     results: dict
@@ -438,8 +491,8 @@ async def send_to_finance(case_id: int, user=Depends(require_roles("calculista",
         if not case:
             raise HTTPException(404, "Caso não encontrado")
 
-        if case.status != "fechamento_aprovado":
-            raise HTTPException(400, "Apenas casos com fechamento aprovado podem ser enviados para financeiro")
+        if case.status != "retorno_fechamento":
+            raise HTTPException(400, "Apenas casos em retorno de fechamento podem ser enviados para financeiro")
 
         # Verificar se tem simulação aprovada
         if not case.last_simulation_id:

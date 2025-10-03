@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 r = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 @r.get("/stats")
-def dashboard_stats(user=Depends(require_roles("admin","supervisor"))):
+def dashboard_stats(user=Depends(require_roles("admin","supervisor","financeiro","calculista"))):
     with SessionLocal() as db:
         # Total de casos
         total_cases = db.query(Case).count()
@@ -45,7 +45,7 @@ def dashboard_stats(user=Depends(require_roles("admin","supervisor"))):
         }
 
 @r.get("/status-breakdown")
-def status_breakdown(user=Depends(require_roles("admin","supervisor"))):
+def status_breakdown(user=Depends(require_roles("admin","supervisor","financeiro","calculista"))):
     with SessionLocal() as db:
         # Contar casos por status
         status_counts = db.query(
@@ -67,7 +67,7 @@ def status_breakdown(user=Depends(require_roles("admin","supervisor"))):
         }
 
 @r.get("/daily-performance")
-def daily_performance(user=Depends(require_roles("admin","supervisor"))):
+def daily_performance(user=Depends(require_roles("admin","supervisor","financeiro","calculista"))):
     from ..models import CaseEvent
 
     with SessionLocal() as db:
@@ -90,7 +90,7 @@ def daily_performance(user=Depends(require_roles("admin","supervisor"))):
         }
 
 @r.get("/chart-data")
-def chart_data(period: str = "6m", user=Depends(require_roles("admin","supervisor"))):
+def chart_data(period: str = "6m", user=Depends(require_roles("admin","supervisor","financeiro","calculista"))):
     with SessionLocal() as db:
         # Dados para gráfico dos últimos 6 meses
         months = []
@@ -126,7 +126,7 @@ def chart_data(period: str = "6m", user=Depends(require_roles("admin","superviso
         return {"data": months}
 
 @r.get("/user-performance")
-def user_performance(user=Depends(require_roles("admin","supervisor"))):
+def user_performance(user=Depends(require_roles("admin","supervisor","financeiro","calculista"))):
     with SessionLocal() as db:
         from ..models import User
 
@@ -160,7 +160,7 @@ def user_performance(user=Depends(require_roles("admin","supervisor"))):
         return {"data": performance_data}
 
 @r.get("/monthly-trends")
-def monthly_trends(user=Depends(require_roles("admin","supervisor"))):
+def monthly_trends(user=Depends(require_roles("admin","supervisor","financeiro","calculista"))):
     with SessionLocal() as db:
         # Tendências dos últimos 12 meses
         months = []
@@ -213,7 +213,7 @@ def monthly_trends(user=Depends(require_roles("admin","supervisor"))):
 def my_stats(user=Depends(require_roles("atendente","calculista","supervisor","admin"))):
     """Métricas específicas do atendente logado"""
     with SessionLocal() as db:
-        from ..security import get_current_user
+        # get_current_user imported but not used; removed to avoid lint warning
 
         # Casos atribuídos ao usuário atual
         my_cases = db.query(Case).filter(Case.assigned_user_id == user.id)

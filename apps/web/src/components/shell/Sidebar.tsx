@@ -3,9 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, CollapseIcon } from "@lifecalling/ui";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
-  Home, Calculator, Banknote, FileText, BarChart3, Users, Settings, LogOut, Upload, User as UserIcon
+  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -19,16 +20,15 @@ type Item = {
 };
 
 const NAV: Item[] = [
+  { label: "Dashboard",  href: "/dashboard", icon: BarChart3, roles: ["admin","supervisor","financeiro","calculista"] },
   // Removido: Dashboard/Supervisão
   { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente","calculista","financeiro"] },
   { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista","financeiro"] },
   { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","calculista","financeiro"] },
   { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro","calculista"] },
-  { label: "Contratos",    href: "/contratos",  icon: FileText,   roles: ["admin","supervisor","financeiro","calculista"] },
   { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente"] },
   { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin","supervisor"] },
   { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin","supervisor"] },
-  { label: "Configurações",href: "/config",     icon: Settings,   roles: ["admin"] },
 ];
 
 export default function Sidebar() {
@@ -57,10 +57,17 @@ export default function Sidebar() {
     )}>
       <div className="flex items-center justify-between p-3">
         <div className={cn(
-          "text-sm font-semibold transition-opacity duration-200",
+          "transition-opacity duration-200",
           collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
         )}>
-          Call Center
+          <Image
+            src="/assets/lifeservice.png"
+            alt="Life Service"
+            width={140}
+            height={40}
+            className="object-contain"
+            priority
+          />
         </div>
         <Button
           size="sm"

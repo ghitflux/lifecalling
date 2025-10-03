@@ -8,9 +8,19 @@ const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|
   "/financeiro":   ["admin","supervisor","financeiro"],
   "/contratos":    ["admin","supervisor","financeiro"],
   "/casos":        ["admin","supervisor","atendente","calculista","financeiro"],
-  // "/dashboard":    ["admin","supervisor"], // removido
+  "/dashboard":    ["admin","supervisor","financeiro","calculista"],
   "/usuarios":     ["admin","supervisor"],
   "/config":       ["admin"],
+  "/rankings":     ["admin","supervisor","financeiro","calculista","atendente"],
+};
+
+// rota padrão por role para evitar loops de redirecionamento
+const DEFAULT_ROUTE: Record<string, string> = {
+  admin: "/esteira",
+  supervisor: "/esteira",
+  atendente: "/rankings",
+  calculista: "/calculista",
+  financeiro: "/financeiro",
 };
 
 export function middleware(req: NextRequest) {
@@ -56,8 +66,13 @@ export function middleware(req: NextRequest) {
     if (entry) {
       const allowed = entry[1];
       if (!allowed.includes(roleCookie as any)) {
-        console.log(`[Middleware] Role ${roleCookie} not allowed for ${pathname}, redirecting to /esteira`);
-        return NextResponse.redirect(new URL("/esteira", req.url));
+        const target = DEFAULT_ROUTE[roleCookie] || "/esteira";
+        // evita loop: se já estamos no target, apenas libera
+        if (pathname !== target) {
+          console.log(`[Middleware] Role ${roleCookie} not allowed for ${pathname}, redirecting to ${target}`);
+          return NextResponse.redirect(new URL(target, req.url));
+        }
+        console.log(`[Middleware] Role ${roleCookie} already at default route ${target}, allowing access`);
       }
     }
   }

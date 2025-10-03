@@ -117,9 +117,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
       await refresh();
-      // redireciona para a rota desejada após login
-      const redirectTo = next || "/esteira";
-      router.push(redirectTo); // usa router em vez de window.location.href
+      // redireciona por role, com prioridade para "next" se fornecido
+      let redirectTo = next;
+      if (!redirectTo) {
+        const role = (user?.role) as Role | undefined;
+        switch (role) {
+          case "calculista":
+            redirectTo = "/calculista";
+            break;
+          case "financeiro":
+            redirectTo = "/financeiro";
+            break;
+          case "admin":
+          case "supervisor":
+          case "atendente":
+          default:
+            redirectTo = "/esteira";
+        }
+      }
+      router.push(redirectTo!);
     } catch (error) {
       setLoading(false);
       throw error; // propaga o erro para o componente de login

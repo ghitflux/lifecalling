@@ -97,7 +97,7 @@ async def approve(data: CloseIn, user=Depends(require_roles("admin","supervisor"
         c = db.get(Case, data.case_id)
         if not c:
             raise HTTPException(404, "case not found")
-        c.status = "fechamento_aprovado"
+        c.status = "retorno_fechamento"  # Envia para calculista revisar
         c.last_update_at = datetime.utcnow()
         db.add(CaseEvent(case_id=c.id, type="closing.approved", payload={"notes": data.notes}, created_by=user.id))
         db.commit()
@@ -119,13 +119,13 @@ async def approve(data: CloseIn, user=Depends(require_roles("admin","supervisor"
     if notify_user_ids:
         await notify_case_status_change(
             case_id=c.id,
-            new_status="fechamento_aprovado",
+            new_status="retorno_fechamento",
             changed_by_user_id=user.id,
             notify_user_ids=notify_user_ids,
             additional_payload={"notes": data.notes}
         )
 
-    await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"fechamento_aprovado"})
+    await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"retorno_fechamento"})
     return {"ok": True}
 
 @r.post("/reject")

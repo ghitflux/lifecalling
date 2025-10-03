@@ -35,7 +35,7 @@ export function ChartContainer({
           </div>
         )}
       </div>
-      <div className="min-h-[300px]">
+      <div className="h-[300px]">
         {children}
       </div>
     </div>

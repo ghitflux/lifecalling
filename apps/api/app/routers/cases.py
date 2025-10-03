@@ -46,6 +46,13 @@ class BulkDeleteRequest(BaseModel):
     ids: List[int]
 
 
+class ExpiryUpdate(BaseModel):
+    # Define uma nova data de expiração absoluta em ISO UTC (ex.: 2024-01-31T12:00:00Z)
+    expires_at_iso: str | None = None
+    # Força expiração imediata: define expiração para agora - 1 segundo
+    force_expired: bool = False
+
+
 @r.get("/{case_id}")
 def get_case(case_id: int, user=Depends(get_current_user)):
     from ..models import Simulation, Attachment
@@ -67,12 +74,20 @@ def get_case(case_id: int, user=Depends(get_current_user)):
         # Anexos
         attachments = db.query(Attachment).filter(Attachment.case_id == case_id).all()
 
-        # Financiamentos do cliente
+        # Buscar todas as matrículas do CPF
+        from app.models import PayrollClient
+        matriculas = (
+            db.query(PayrollClient.matricula, PayrollClient.orgao)
+            .filter(PayrollClient.cpf == c.client.cpf)
+            .distinct()
+            .all()
+        )
+
+        # Financiamentos do cliente (todas as matrículas do CPF)
         financiamentos = (
             db.query(PayrollLine)
             .filter(
                 PayrollLine.cpf == c.client.cpf,
-                PayrollLine.matricula == c.client.matricula,
             )
             .order_by(
                 PayrollLine.ref_year.desc(),
@@ -97,7 +112,11 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "id": c.client.id,
                 "name": c.client.name,
                 "cpf": c.client.cpf,
-                "matricula": c.client.matricula,
+                "matricula": c.client.matricula,  # Primeira matrícula (legado)
+                "matriculas": [  # Todas as matrículas do CPF
+                    {"matricula": m.matricula, "orgao": m.orgao}
+                    for m in matriculas
+                ],
                 "orgao": getattr(c.client, "orgao", None),
                 "telefone_preferencial": getattr(
                     c.client, "telefone_preferencial", None
@@ -110,10 +129,11 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "conta": getattr(c.client, "conta", None),
                 "chave_pix": getattr(c.client, "chave_pix", None),
                 "tipo_chave_pix": getattr(c.client, "tipo_chave_pix", None),
-                # Financiamentos
+                # Financiamentos (todas as matrículas do CPF)
                 "financiamentos": [
                     {
                         "id": line.id,
+                        "matricula": line.matricula,  # Identificar de qual matrícula é
                         "financiamento_code": line.financiamento_code,
                         "total_parcelas": line.total_parcelas,
                         "parcelas_pagas": line.parcelas_pagas,
@@ -825,6 +845,74 @@ def check_case_expiry(case_id: int, user=Depends(require_roles("admin", "supervi
         }
 
 
+@r.patch("/{case_id}/expiry")
+def update_case_expiry(
+    case_id: int,
+    payload: ExpiryUpdate,
+    user=Depends(require_roles("admin", "supervisor")),
+):
+    """Ajusta manualmente `assignment_expires_at` para facilitar testes de SLA.
+
+    - Se `force_expired` for True, define expiração para o passado (agora - 1s).
+    - Se `expires_at_iso` for fornecido, usa essa data/hora em UTC.
+    - Mantém demais campos e não libera automaticamente; use `/check-expiry` ou scheduler.
+    """
+    with SessionLocal() as db:
+        c = db.get(Case, case_id)
+        if not c:
+            raise HTTPException(404, "Caso não encontrado")
+
+        now = datetime.utcnow()
+        new_expiry = None
+
+        if payload.force_expired:
+            new_expiry = now - timedelta(seconds=1)
+        elif payload.expires_at_iso:
+            # Aceita formato "Z" e sem "Z"
+            try:
+                iso = payload.expires_at_iso.replace("Z", "+00:00") if payload.expires_at_iso.endswith("Z") else payload.expires_at_iso
+                dt = datetime.fromisoformat(iso)
+                # Normaliza para naive UTC se vier com tzinfo
+                new_expiry = dt.astimezone(tz=None).replace(tzinfo=None) if dt.tzinfo else dt
+            except Exception:
+                raise HTTPException(400, "Formato inválido para expires_at_iso")
+        else:
+            raise HTTPException(400, "Informe force_expired ou expires_at_iso")
+
+        c.assignment_expires_at = new_expiry
+        c.last_update_at = now
+
+        if not c.assignment_history:
+            c.assignment_history = []
+        c.assignment_history.append(
+            {
+                "user_id": user.id,
+                "user_name": user.name,
+                "updated_at": now.isoformat(),
+                "action": "expiry_adjusted",
+                "new_expiry": new_expiry.isoformat() if new_expiry else None,
+            }
+        )
+
+        db.add(
+            CaseEvent(
+                case_id=c.id,
+                type="case.expiry_adjusted",
+                payload={"new_expiry": new_expiry.isoformat()},
+                created_by=user.id,
+            )
+        )
+        db.commit()
+
+    # Não muda status automaticamente; permite acionar manualmente o check
+    return {
+        "case_id": case_id,
+        "assignment_expires_at": new_expiry.isoformat() if new_expiry else None,
+        "status": "unchanged",
+        "note": "Use /cases/{id}/check-expiry ou scheduler para processar expiração",
+    }
+
+
 @r.post("/{case_id}/to-calculista")
 async def to_calculista(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
     from ..models import Simulation, User
@@ -862,7 +950,7 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
         # Buscar todos os calculistas para notificar
         calculistas = db.query(User).filter(
             User.role == "calculista",
-            User.active == True
+            User.active
         ).all()
         calculista_ids = [calc.id for calc in calculistas]
 

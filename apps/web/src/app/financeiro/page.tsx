@@ -8,16 +8,18 @@ import {
   useDeleteContract,
   useFinanceCaseDetails
 } from "@/lib/hooks";
-import { FinanceCard, ExpenseModal, IncomeModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination } from "@lifecalling/ui";
+import { FinanceCard, ExpenseModal, IncomeModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard } from "@lifecalling/ui";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { DollarSign, Download, Plus, TrendingUp, Wallet, Trash2, Edit } from "lucide-react";
+import { DollarSign, Download, Plus, TrendingUp, Wallet, Trash2, Edit, TrendingDown, Receipt, Target, Eye, FileText, Calendar, User } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Page(){
   useLiveCaseEvents();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
   const disb = useFinanceDisburseSimple();
   const cancelContract = useCancelContract();
@@ -30,6 +32,15 @@ export default function Page(){
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [editingIncome, setEditingIncome] = useState<any>(null);
 
+  // Filtros para transações
+  const [transactionType, setTransactionType] = useState<string>("");  // "", "receita", "despesa"
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
+  // Modal de detalhes do contrato
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+
   // Filtros rápidos
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,29 +52,44 @@ export default function Page(){
   // Detalhes completos do caso
   const { data: fullCaseDetails } = useFinanceCaseDetails(selectedCaseId || 0);
 
-  // Buscar despesas
-  const { data: expensesData, isLoading: loadingExpenses } = useQuery({
-    queryKey: ["expenses"],
+  // Buscar transações unificadas (receitas e despesas)
+  const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
+    queryKey: ["transactions", startDate, endDate, transactionType],
     queryFn: async () => {
-      const response = await api.get("/finance/expenses");
+      const params = new URLSearchParams();
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      if (transactionType) params.append("transaction_type", transactionType);
+
+      const response = await api.get(`/finance/transactions?${params.toString()}`);
       return response.data;
     }
   });
 
-  const expenses = expensesData?.items || [];
-  const expensesTotal = expensesData?.total || 0;
+  const transactions = transactionsData?.items || [];
+  const totals = transactionsData?.totals || { receitas: 0, despesas: 0, saldo: 0 };
 
-  // Buscar receitas manuais
-  const { data: incomesData, isLoading: loadingIncomes } = useQuery({
-    queryKey: ["incomes"],
+  // Buscar métricas do financeiro
+  const { data: metricsData } = useQuery({
+    queryKey: ["financeMetrics"],
     queryFn: async () => {
-      const response = await api.get("/finance/incomes");
+      const response = await api.get("/finance/metrics");
       return response.data;
     }
   });
 
-  const incomes = incomesData?.items || [];
-  const incomesTotal = incomesData?.total || 0;
+  const metrics = metricsData || {};
+
+  // Buscar detalhes do contrato
+  const { data: contractDetails } = useQuery({
+    queryKey: ["contract", selectedContractId],
+    queryFn: async () => {
+      if (!selectedContractId) return null;
+      const response = await api.get(`/finance/contracts/${selectedContractId}`);
+      return response.data;
+    },
+    enabled: !!selectedContractId && showContractModal
+  });
 
   // Mutation para salvar despesa
   const saveExpenseMutation = useMutation({
@@ -77,7 +103,7 @@ export default function Page(){
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
       toast.success(editingExpense ? "Despesa atualizada!" : "Despesa adicionada!");
       setShowExpenseModal(false);
@@ -95,7 +121,7 @@ export default function Page(){
       await api.delete(`/finance/expenses/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
       toast.success("Despesa excluída!");
     },
@@ -116,7 +142,7 @@ export default function Page(){
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["incomes"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
       toast.success(editingIncome ? "Receita atualizada!" : "Receita adicionada!");
       setShowIncomeModal(false);
@@ -133,7 +159,7 @@ export default function Page(){
       await api.delete(`/finance/incomes/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["incomes"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
       toast.success("Receita excluída!");
     },
@@ -222,25 +248,51 @@ export default function Page(){
     setSelectedCaseId(caseId);
   };
 
-  const handleEditExpense = (expense: any) => {
-    setEditingExpense(expense);
-    setShowExpenseModal(true);
-  };
+  const handleEditTransaction = (transaction: any) => {
+    // Extrair o ID real do formato "receita-{id}" ou "despesa-{id}"
+    const realId = parseInt(transaction.id.split('-')[1]);
 
-  const handleDeleteExpense = async (id: number) => {
-    if (confirm("Deseja realmente excluir esta despesa?")) {
-      await deleteExpenseMutation.mutateAsync(id);
+    if (transaction.type === "receita") {
+      // Buscar detalhes completos da receita
+      api.get(`/finance/incomes/${realId}`).then(res => {
+        setEditingIncome(res.data);
+        setShowIncomeModal(true);
+      });
+    } else {
+      // Buscar detalhes completos da despesa
+      api.get(`/finance/expenses/${realId}`).then(res => {
+        setEditingExpense(res.data);
+        setShowExpenseModal(true);
+      });
     }
   };
 
-  const handleEditIncome = (income: any) => {
-    setEditingIncome(income);
-    setShowIncomeModal(true);
+  const handleDeleteTransaction = async (transaction: any) => {
+    const realId = parseInt(transaction.id.split('-')[1]);
+    const confirmMessage = transaction.type === "receita"
+      ? "Deseja realmente excluir esta receita?"
+      : "Deseja realmente excluir esta despesa?";
+
+    if (confirm(confirmMessage)) {
+      if (transaction.type === "receita") {
+        await deleteIncomeMutation.mutateAsync(realId);
+      } else {
+        await deleteExpenseMutation.mutateAsync(realId);
+      }
+    }
   };
 
-  const handleDeleteIncome = async (id: number) => {
-    if (confirm("Deseja realmente excluir esta receita?")) {
-      await deleteIncomeMutation.mutateAsync(id);
+  const extractContractIdFromName = (name: string): number | null => {
+    // Formato: "Contrato #{id} - ..."
+    const match = name?.match(/Contrato #(\d+)/);
+    return match ? parseInt(match[1]) : null;
+  };
+
+  const handleViewContractDetails = (transaction: any) => {
+    const contractId = extractContractIdFromName(transaction.name);
+    if (contractId) {
+      setSelectedContractId(contractId);
+      setShowContractModal(true);
     }
   };
 
@@ -341,6 +393,38 @@ export default function Page(){
             Exportar Relatório
           </Button>
         </div>
+      </div>
+
+      {/* KPIs Financeiros */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          title="Receita Total"
+          value={`R$ ${(metrics.totalRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={TrendingUp}
+          trend={{ value: 12.5, isPositive: true }}
+          subtitle="Últimos 30 dias"
+        />
+        <KPICard
+          title="Despesas"
+          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={TrendingDown}
+          trend={{ value: 8.2, isPositive: false }}
+          subtitle="Últimos 30 dias"
+        />
+        <KPICard
+          title="Lucro Líquido"
+          value={`R$ ${(metrics.netProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={DollarSign}
+          trend={{ value: 15.3, isPositive: true }}
+          subtitle="Receitas - Despesas - Impostos"
+        />
+        <KPICard
+          title="Contratos Efetivados"
+          value={metrics.totalContracts || 0}
+          icon={Receipt}
+          trend={{ value: 5, isPositive: true }}
+          subtitle="Total geral"
+        />
       </div>
 
       {/* Filtros Rápidos */}
@@ -452,180 +536,162 @@ export default function Page(){
         )}
       </div>
 
-      {/* Gestão de Receitas e Despesas com Tabs */}
+      {/* Gestão de Receitas e Despesas */}
       <Card className="p-6">
-        <Tabs defaultValue="receitas">
-          <TabsList className="mb-4">
-            <TabsTrigger value="receitas" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Receitas Manuais
-            </TabsTrigger>
-            <TabsTrigger value="despesas" className="flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
-              Despesas
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Tab de Receitas */}
-          <TabsContent value="receitas">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Receitas Manuais</h3>
-                <Button
-                  onClick={() => {
-                    setEditingIncome(null);
-                    setShowIncomeModal(true);
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar Receita
-                </Button>
-              </div>
-
-              {loadingIncomes ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Carregando receitas...</p>
-                </div>
-              ) : incomes.length > 0 ? (
-                <>
-                  <div className="rounded-lg border">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="text-left p-3 font-semibold">Data</th>
-                            <th className="text-left p-3 font-semibold">Tipo</th>
-                            <th className="text-left p-3 font-semibold">Nome</th>
-                            <th className="text-right p-3 font-semibold">Valor</th>
-                            <th className="text-right p-3 font-semibold">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {incomes.map((income: any) => (
-                            <tr key={income.id} className="border-b last:border-0 hover:bg-muted/30">
-                              <td className="p-3">{new Date(income.date).toLocaleDateString('pt-BR')}</td>
-                              <td className="p-3">
-                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-md bg-success/10 text-success">
-                                  {income.income_type}
-                                </span>
-                              </td>
-                              <td className="p-3">{income.income_name || '-'}</td>
-                              <td className="p-3 text-right font-semibold text-success">
-                                R$ {income.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="p-3 text-right space-x-2">
-                                <Button size="sm" variant="outline" onClick={() => handleEditIncome(income)}>
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleDeleteIncome(income.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                          {/* Linha de total */}
-                          <tr className="bg-success/5 border-t-2">
-                            <td colSpan={3} className="p-3 text-right font-bold">Total</td>
-                            <td className="p-3 text-right font-bold text-success text-lg">
-                              R$ {incomesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
-                  <p>Nenhuma receita manual cadastrada</p>
-                  <p className="text-sm mt-1">Clique em &quot;Adicionar Receita&quot; para começar</p>
-                </div>
-              )}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Receitas e Despesas</h3>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={() => {
+                  setEditingIncome(null);
+                  setShowIncomeModal(true);
+                }}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Receita
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingExpense(null);
+                  setShowExpenseModal(true);
+                }}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Despesa
+              </Button>
             </div>
-          </TabsContent>
+          </div>
 
-          {/* Tab de Despesas */}
-          <TabsContent value="despesas">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Despesas</h3>
-                <Button
-                  onClick={() => {
-                    setEditingExpense(null);
-                    setShowExpenseModal(true);
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar Despesa
-                </Button>
-              </div>
-
-              {loadingExpenses ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Carregando despesas...</p>
-                </div>
-              ) : expenses.length > 0 ? (
-                <>
-                  <div className="rounded-lg border">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="text-left p-3 font-semibold">Data</th>
-                            <th className="text-left p-3 font-semibold">Tipo</th>
-                            <th className="text-left p-3 font-semibold">Nome</th>
-                            <th className="text-right p-3 font-semibold">Valor</th>
-                            <th className="text-right p-3 font-semibold">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {expenses.map((expense: any) => (
-                            <tr key={expense.id} className="border-b last:border-0 hover:bg-muted/30">
-                              <td className="p-3">{new Date(expense.date).toLocaleDateString('pt-BR')}</td>
-                              <td className="p-3">
-                                <span className="inline-block px-2 py-1 text-xs font-medium rounded-md bg-danger/10 text-danger">
-                                  {expense.expense_type}
-                                </span>
-                              </td>
-                              <td className="p-3">{expense.expense_name}</td>
-                              <td className="p-3 text-right font-semibold text-danger">
-                                R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="p-3 text-right space-x-2">
-                                <Button size="sm" variant="outline" onClick={() => handleEditExpense(expense)}>
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleDeleteExpense(expense.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                          {/* Linha de total */}
-                          <tr className="bg-danger/5 border-t-2">
-                            <td colSpan={3} className="p-3 text-right font-bold">Total</td>
-                            <td className="p-3 text-right font-bold text-danger text-lg">
-                              R$ {expensesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
-                  <p>Nenhuma despesa cadastrada</p>
-                  <p className="text-sm mt-1">Clique em &quot;Adicionar Despesa&quot; para começar</p>
-                </div>
-              )}
+          {/* Filtros */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Data Inicial</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md bg-background"
+              />
             </div>
-          </TabsContent>
-        </Tabs>
+            <div>
+              <label className="block text-sm font-medium mb-1">Data Final</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md bg-background"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo</label>
+              <select
+                value={transactionType}
+                onChange={(e) => setTransactionType(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md bg-background"
+              >
+                <option value="">Todos</option>
+                <option value="receita">Receitas</option>
+                <option value="despesa">Despesas</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tabela Unificada */}
+          {loadingTransactions ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Carregando transações...</p>
+            </div>
+          ) : transactions.length > 0 ? (
+            <>
+              <div className="rounded-lg border">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 font-semibold">Data</th>
+                        <th className="text-left p-3 font-semibold">Tipo</th>
+                        <th className="text-left p-3 font-semibold">Categoria</th>
+                        <th className="text-left p-3 font-semibold">Nome</th>
+                        <th className="text-right p-3 font-semibold">Valor</th>
+                        <th className="text-right p-3 font-semibold">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((transaction: any) => (
+                        <tr key={transaction.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="p-3">{new Date(transaction.date).toLocaleDateString('pt-BR')}</td>
+                          <td className="p-3">
+                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-md ${
+                              transaction.type === 'receita'
+                                ? 'bg-success/10 text-success'
+                                : 'bg-danger/10 text-danger'
+                            }`}>
+                              {transaction.type === 'receita' ? 'Receita' : 'Despesa'}
+                            </span>
+                          </td>
+                          <td className="p-3">{transaction.category}</td>
+                          <td className="p-3">{transaction.name || '-'}</td>
+                          <td className={`p-3 text-right font-semibold ${
+                            transaction.type === 'receita' ? 'text-success' : 'text-danger'
+                          }`}>
+                            R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3 text-right space-x-2">
+                            {transaction.type === 'receita' && extractContractIdFromName(transaction.name) && (
+                              <Button size="sm" variant="outline" onClick={() => handleViewContractDetails(transaction)}>
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" onClick={() => handleEditTransaction(transaction)}>
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleDeleteTransaction(transaction)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Linhas de totais */}
+                      <tr className="bg-muted/20 border-t-2">
+                        <td colSpan={4} className="p-3 text-right font-bold">Total Receitas</td>
+                        <td className="p-3 text-right font-bold text-success text-lg">
+                          R$ {totals.receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td></td>
+                      </tr>
+                      <tr className="bg-muted/20">
+                        <td colSpan={4} className="p-3 text-right font-bold">Total Despesas</td>
+                        <td className="p-3 text-right font-bold text-danger text-lg">
+                          R$ {totals.despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td></td>
+                      </tr>
+                      <tr className="bg-muted/30 border-t-2">
+                        <td colSpan={4} className="p-3 text-right font-bold">Saldo</td>
+                        <td className={`p-3 text-right font-bold text-lg ${
+                          totals.saldo >= 0 ? 'text-success' : 'text-danger'
+                        }`}>
+                          R$ {totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
+              <p>Nenhuma transação encontrada</p>
+              <p className="text-sm mt-1">Adicione receitas ou despesas para começar</p>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Modal de Despesas */}
@@ -651,6 +717,156 @@ export default function Page(){
         initialData={editingIncome}
         loading={saveIncomeMutation.isPending}
       />
+
+      {/* Modal de Detalhes do Contrato */}
+      {showContractModal && contractDetails && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowContractModal(false)}>
+          <div className="bg-card border rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 space-y-6">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Detalhes do Contrato #{contractDetails.id}</h2>
+                  <p className="text-muted-foreground mt-1">Atendimento #{contractDetails.case_id}</p>
+                </div>
+                <button
+                  onClick={() => setShowContractModal(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Cliente */}
+              {contractDetails.client && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Cliente
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 pl-6">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Nome</p>
+                      <p className="font-medium">{contractDetails.client.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">CPF</p>
+                      <p className="font-medium">{contractDetails.client.cpf}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Matrícula</p>
+                      <p className="font-medium">{contractDetails.client.matricula}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Órgão</p>
+                      <p className="font-medium">{contractDetails.client.orgao || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Financeiro */}
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Dados Financeiros
+                </h3>
+                <div className="grid grid-cols-2 gap-3 pl-6">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Valor Total</p>
+                    <p className="font-bold text-lg">R$ {contractDetails.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Consultoria Líquida</p>
+                    <p className="font-bold text-lg text-success">R$ {contractDetails.consultoria_valor_liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Parcelas</p>
+                    <p className="font-medium">{contractDetails.paid_installments}/{contractDetails.installments}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <span className="inline-block px-2 py-1 text-xs rounded-md bg-primary/10 text-primary">
+                      {contractDetails.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datas */}
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Datas
+                </h3>
+                <div className="grid grid-cols-2 gap-3 pl-6">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Data de Liberação</p>
+                    <p className="font-medium">
+                      {contractDetails.disbursed_at ? new Date(contractDetails.disbursed_at).toLocaleDateString('pt-BR') : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Data de Criação</p>
+                    <p className="font-medium">
+                      {contractDetails.created_at ? new Date(contractDetails.created_at).toLocaleDateString('pt-BR') : '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Anexos */}
+              {contractDetails.attachments && contractDetails.attachments.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Anexos ({contractDetails.attachments.length})
+                  </h3>
+                  <div className="space-y-2 pl-6">
+                    {contractDetails.attachments.map((att: any) => (
+                      <div key={att.id} className="flex items-center justify-between p-2 rounded border bg-muted/30">
+                        <div>
+                          <p className="font-medium text-sm">{att.filename}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(att.size / 1024).toFixed(2)} KB • {att.created_at ? new Date(att.created_at).toLocaleDateString('pt-BR') : '-'}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(`${api.defaults.baseURL}/contracts/${contractDetails.id}/attachments/${att.id}/download`, '_blank')}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ações */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowContractModal(false);
+                    router.push(`/casos/${contractDetails.case_id}`);
+                  }}
+                >
+                  Ver Caso Completo
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setShowContractModal(false)}
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

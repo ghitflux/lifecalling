@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
+import { Snippet } from "@nextui-org/snippet";
 
 interface CaseDetail {
   id: number;
@@ -38,6 +39,7 @@ interface CaseDetail {
     // Dados de financiamento do módulo cliente
     financiamentos?: Array<{
       id: number;
+      matricula: string;  // Matrícula do financiamento
       financiamento_code: string;
       total_parcelas: number;
       parcelas_pagas: number;
@@ -376,12 +378,52 @@ export default function CaseDetailPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>CPF</Label>
-                <Input value={caseDetail.client.cpf} disabled />
+                <Label className="mb-2 block">CPF</Label>
+                <Snippet
+                  symbol=""
+                  copyIcon={
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                    </svg>
+                  }
+                  classNames={{
+                    base: "w-full bg-muted",
+                    pre: "text-sm font-mono"
+                  }}
+                  style={{ borderRadius: "var(--radius)" }}
+                  onCopy={() => {
+                    // Copiar apenas números (sem pontos e hífens)
+                    const cpfNumeros = caseDetail.client.cpf.replace(/\D/g, '');
+                    navigator.clipboard.writeText(cpfNumeros);
+                  }}
+                >
+                  {caseDetail.client.cpf}
+                </Snippet>
               </div>
               <div>
-                <Label>Matrícula</Label>
-                <Input value={caseDetail.client.matricula} disabled />
+                <Label className="mb-2 block">Matrícula</Label>
+                <Snippet
+                  symbol=""
+                  copyIcon={
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                    </svg>
+                  }
+                  classNames={{
+                    base: "w-full bg-muted",
+                    pre: "text-sm font-mono"
+                  }}
+                  style={{ borderRadius: "var(--radius)" }}
+                  onCopy={() => {
+                    // Copiar apenas números e letras (sem hífens)
+                    const matriculaSemFormatacao = caseDetail.client.matricula.replace(/[^a-zA-Z0-9]/g, '');
+                    navigator.clipboard.writeText(matriculaSemFormatacao);
+                  }}
+                >
+                  {caseDetail.client.matricula}
+                </Snippet>
               </div>
             </div>
 
@@ -393,47 +435,61 @@ export default function CaseDetailPage() {
             {/* Informações Financeiras do Cliente */}
             {caseDetail.client.financiamentos && caseDetail.client.financiamentos.length > 0 && (
               <div className="border-t pt-4">
-                <h3 className="font-medium mb-3">Informações Financeiras</h3>
-                <div className="space-y-3">
-                  {caseDetail.client.financiamentos.slice(0, 3).map((fin, index) => (
+                <h3 className="font-medium mb-3">Informações Financeiras ({caseDetail.client.financiamentos.length})</h3>
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                  {caseDetail.client.financiamentos.map((fin, index) => (
                     <div
                       key={fin.id}
-                      className="grid grid-cols-2 gap-3 rounded-lg border border-border/40 bg-muted/40 p-3 text-sm"
+                      className="rounded-lg border border-border/40 bg-muted/40 p-3 text-sm space-y-3"
                     >
-                      <div>
-                        <div className="text-xs text-muted-foreground">Status do Financiamento</div>
-                        <div className="font-medium">{fin.status_description}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Total</div>
-                        <div className="font-medium">{fin.total_parcelas} parcelas</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Pago</div>
-                        <div className="font-medium">{fin.parcelas_pagas} parcelas</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Valor</div>
-                        <div className="font-medium">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL'
-                          }).format(parseFloat(fin.valor_parcela_ref))}
+                      {/* Matrícula do Financiamento */}
+                      {fin.matricula && fin.matricula !== caseDetail.client.matricula && (
+                        <div className="pb-2 border-b border-warning/30 bg-warning/5 -m-3 mb-0 p-2 rounded-t-lg">
+                          <div className="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                              <circle cx="9" cy="7" r="4"/>
+                              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            <div className="text-xs font-medium text-warning">
+                              Matrícula diferente: {fin.matricula}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="col-span-2">
-                        <div className="text-xs text-muted-foreground">Órgão Pagamento</div>
-                        <div className="font-medium">
-                          {fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}
+                      )}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-muted-foreground">Status do Financiamento</div>
+                          <div className="font-medium">{fin.status_description}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Total</div>
+                          <div className="font-medium">{fin.total_parcelas} parcelas</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Pago</div>
+                          <div className="font-medium">{fin.parcelas_pagas} parcelas</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Valor</div>
+                          <div className="font-medium">
+                            {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL'
+                            }).format(parseFloat(fin.valor_parcela_ref))}
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-xs text-muted-foreground">Órgão Pagamento</div>
+                          <div className="font-medium">
+                            {fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}
+                          </div>
                         </div>
                       </div>
                     </div>
                   ))}
-                  {caseDetail.client.financiamentos.length > 3 && (
-                    <div className="text-xs text-muted-foreground text-center">
-                      E mais {caseDetail.client.financiamentos.length - 3} financiamentos...
-                    </div>
-                  )}
                 </div>
                 
                 {/* Informações adicionais da simulação */}

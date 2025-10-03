@@ -20,7 +20,7 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
         rows = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status.in_(["fechamento_aprovado", "financeiro_pendente", "contrato_efetivado"])).order_by(Case.id.desc()).all()
+        ).filter(Case.status == "financeiro_pendente").order_by(Case.id.desc()).all()
 
         items = []
         for c in rows:
@@ -294,17 +294,13 @@ def finance_metrics(user=Depends(require_roles("admin","supervisor","financeiro"
         # Receitas totais = consultoria líquida + receitas manuais
         total_revenue = total_consultoria_liquida + total_manual_income
 
-        # Buscar despesas do mês atual
+        # Buscar despesas dos últimos 30 dias
         from ..models import FinanceExpense
-        current_month = datetime.utcnow().month
-        current_year = datetime.utcnow().year
+        expenses = db.query(FinanceExpense).filter(
+            FinanceExpense.date >= thirty_days_ago
+        ).all()
 
-        expense_record = db.query(FinanceExpense).filter(
-            FinanceExpense.month == current_month,
-            FinanceExpense.year == current_year
-        ).first()
-
-        total_expenses = float(expense_record.amount) if expense_record else 0
+        total_expenses = sum([float(exp.amount or 0) for exp in expenses])
 
         # Lucro líquido = Receitas - Despesas - Impostos
         net_profit = total_revenue - total_expenses - total_tax
@@ -340,11 +336,40 @@ async def disburse(data: DisburseIn, user=Depends(require_roles("admin","supervi
         ct = db.query(Contract).filter(Contract.case_id==c.id).first()
         if not ct:
             ct = Contract(case_id=c.id)
+
+        # Buscar simulação para pegar consultoria líquida
+        from ..models import Simulation
+        simulation = db.query(Simulation).filter(
+            Simulation.case_id == c.id
+        ).order_by(Simulation.id.desc()).first()
+
+        consultoria_liquida = simulation.custo_consultoria_liquido if simulation else 0
+
         ct.total_amount = data.total_amount
         ct.installments = data.installments
         ct.disbursed_at = data.disbursed_at or datetime.utcnow()
         ct.updated_at = datetime.utcnow()
+
+        # Campos de receita e ranking
+        ct.consultoria_valor_liquido = consultoria_liquida
+        ct.signed_at = data.disbursed_at or datetime.utcnow()
+        ct.created_by = user.id
+        ct.agent_user_id = c.assigned_user_id  # Atendente do caso
+
         db.add(ct)
+        db.flush()
+
+        # Criar receita automática (Consultoria Líquida 86%)
+        if consultoria_liquida and consultoria_liquida > 0:
+            from ..models import FinanceIncome
+            income = FinanceIncome(
+                date=data.disbursed_at or datetime.utcnow(),
+                income_type="Consultoria Líquida",
+                income_name=f"Contrato #{ct.id} - {c.client.name}",
+                amount=consultoria_liquida,
+                created_by=user.id
+            )
+            db.add(income)
 
         c.status = "contrato_efetivado"
         c.last_update_at = datetime.utcnow()
@@ -387,13 +412,35 @@ async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("ad
         if total_amount is None:
             raise HTTPException(400, "Simulation is missing disbursement totals")
 
+        # Pegar consultoria líquida (86%) da simulação
+        consultoria_liquida = simulation.custo_consultoria_liquido or 0
+
         ct.total_amount = total_amount
         ct.installments = simulation.prazo
         ct.disbursed_at = data.disbursed_at or datetime.utcnow()
         ct.updated_at = datetime.utcnow()
         ct.status = "ativo"
+
+        # Campos de receita e ranking
+        ct.consultoria_valor_liquido = consultoria_liquida
+        ct.signed_at = data.disbursed_at or datetime.utcnow()
+        ct.created_by = user.id
+        ct.agent_user_id = c.assigned_user_id  # Atendente do caso
+
         db.add(ct)
         db.flush()
+
+        # Criar receita automática (Consultoria Líquida 86%)
+        if consultoria_liquida and consultoria_liquida > 0:
+            from ..models import FinanceIncome
+            income = FinanceIncome(
+                date=data.disbursed_at or datetime.utcnow(),
+                income_type="Consultoria Líquida",
+                income_name=f"Contrato #{ct.id} - {c.client.name}",
+                amount=consultoria_liquida,
+                created_by=user.id
+            )
+            db.add(income)
 
         c.status = "contrato_efetivado"
         c.last_update_at = datetime.utcnow()
@@ -408,7 +455,7 @@ async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("ad
 
 @r.post("/cancel/{contract_id}")
 async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
-    """Cancela um contrato efetivado"""
+    """Cancela um contrato efetivado e remove receita associada"""
     with SessionLocal() as db:
         contract = db.get(Contract, contract_id)
         if not contract:
@@ -421,6 +468,14 @@ async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","
         # Verifica se pode ser cancelado
         if case.status != "contrato_efetivado":
             raise HTTPException(400, "contract cannot be cancelled in current status")
+
+        # Remover receita associada ao contrato (se existir)
+        from ..models import FinanceIncome
+        income = db.query(FinanceIncome).filter(
+            FinanceIncome.income_name.like(f"Contrato #{contract.id} -%")
+        ).first()
+        if income:
+            db.delete(income)
 
         # Atualiza status para cancelado
         case.status = "contrato_cancelado"
@@ -441,7 +496,7 @@ async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","
 
 @r.delete("/delete/{contract_id}")
 async def delete_contract(contract_id: int, user=Depends(require_roles("admin","supervisor"))):
-    """Deleta permanentemente um contrato e todos os dados relacionados"""
+    """Deleta permanentemente um contrato, receita associada e todos os dados relacionados"""
     with SessionLocal() as db:
         contract = db.get(Contract, contract_id)
         if not contract:
@@ -450,6 +505,14 @@ async def delete_contract(contract_id: int, user=Depends(require_roles("admin","
         case = db.get(Case, contract.case_id)
         if not case:
             raise HTTPException(404, "case not found")
+
+        # Remover receita associada ao contrato (se existir)
+        from ..models import FinanceIncome
+        income = db.query(FinanceIncome).filter(
+            FinanceIncome.income_name.like(f"Contrato #{contract.id} -%")
+        ).first()
+        if income:
+            db.delete(income)
 
         # Remove anexos do contrato
         from ..models import ContractAttachment
@@ -473,8 +536,8 @@ async def delete_contract(contract_id: int, user=Depends(require_roles("admin","
         # Remove o contrato
         db.delete(contract)
 
-        # Volta o caso para status anterior
-        case.status = "fechamento_aprovado"
+        # Volta o caso para status anterior (financeiro pendente)
+        case.status = "financeiro_pendente"
         case.last_update_at = datetime.utcnow()
 
         # Adiciona evento de deleção
@@ -487,7 +550,7 @@ async def delete_contract(contract_id: int, user=Depends(require_roles("admin","
 
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "fechamento_aprovado"})
+    await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "financeiro_pendente"})
     return {"success": True, "message": "Contract deleted successfully"}
 
 # Gestão de Despesas Individuais
@@ -880,6 +943,149 @@ def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro")
             "expenses": expenses_series,
             "tax": tax_series,
             "netProfit": net_profit_series
+        }
+
+# Buscar detalhes de contrato individual
+
+@r.get("/contracts/{contract_id}")
+def get_contract_details(contract_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Retorna detalhes completos de um contrato específico"""
+    from ..models import ContractAttachment
+
+    with SessionLocal() as db:
+        contract = db.get(Contract, contract_id)
+        if not contract:
+            raise HTTPException(404, "Contrato não encontrado")
+
+        # Buscar caso e cliente associados
+        case = db.get(Case, contract.case_id)
+        client = db.get(Client, case.client_id) if case else None
+
+        # Buscar anexos
+        attachments = db.query(ContractAttachment).filter(
+            ContractAttachment.contract_id == contract_id
+        ).all()
+
+        return {
+            "id": contract.id,
+            "case_id": contract.case_id,
+            "status": contract.status,
+            "total_amount": float(contract.total_amount or 0),
+            "installments": contract.installments,
+            "paid_installments": contract.paid_installments,
+            "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+            "created_at": contract.created_at.isoformat() if contract.created_at else None,
+            "consultoria_valor_liquido": float(contract.consultoria_valor_liquido or 0),
+            "client": {
+                "id": client.id,
+                "name": client.name,
+                "cpf": client.cpf,
+                "matricula": client.matricula,
+                "orgao": getattr(client, "orgao", None)
+            } if client else None,
+            "case": {
+                "id": case.id,
+                "status": case.status
+            } if case else None,
+            "attachments": [
+                {
+                    "id": att.id,
+                    "filename": att.filename,
+                    "size": att.size,
+                    "mime": att.mime,
+                    "created_at": att.created_at.isoformat() if att.created_at else None
+                } for att in attachments
+            ]
+        }
+
+# Endpoint unificado de Receitas e Despesas
+
+@r.get("/transactions")
+def get_transactions(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    transaction_type: str | None = None,  # "receita", "despesa", ou None (todos)
+    user=Depends(require_roles("admin","supervisor","financeiro"))
+):
+    """Retorna receitas e despesas unificadas com filtros opcionais"""
+    from ..models import FinanceIncome, FinanceExpense
+    from datetime import datetime
+
+    with SessionLocal() as db:
+        # Parse de datas se fornecidas
+        start = None
+        end = None
+        if start_date:
+            try:
+                start = datetime.fromisoformat(start_date)
+            except:
+                pass
+        if end_date:
+            try:
+                end = datetime.fromisoformat(end_date)
+            except:
+                pass
+
+        transactions = []
+
+        # Buscar receitas
+        if not transaction_type or transaction_type == "receita":
+            incomes_query = db.query(FinanceIncome)
+            if start:
+                incomes_query = incomes_query.filter(FinanceIncome.date >= start)
+            if end:
+                incomes_query = incomes_query.filter(FinanceIncome.date <= end)
+
+            incomes = incomes_query.all()
+            for inc in incomes:
+                transactions.append({
+                    "id": f"receita-{inc.id}",
+                    "type": "receita",
+                    "date": inc.date.isoformat() if inc.date else None,
+                    "category": inc.income_type,
+                    "name": inc.income_name,
+                    "amount": float(inc.amount),
+                    "created_by": inc.created_by,
+                    "created_at": inc.created_at.isoformat() if inc.created_at else None
+                })
+
+        # Buscar despesas
+        if not transaction_type or transaction_type == "despesa":
+            expenses_query = db.query(FinanceExpense)
+            if start:
+                expenses_query = expenses_query.filter(FinanceExpense.date >= start)
+            if end:
+                expenses_query = expenses_query.filter(FinanceExpense.date <= end)
+
+            expenses = expenses_query.all()
+            for exp in expenses:
+                transactions.append({
+                    "id": f"despesa-{exp.id}",
+                    "type": "despesa",
+                    "date": exp.date.isoformat() if exp.date else None,
+                    "category": exp.expense_type,
+                    "name": exp.expense_name,
+                    "amount": float(exp.amount),
+                    "created_by": exp.created_by,
+                    "created_at": exp.created_at.isoformat() if exp.created_at else None
+                })
+
+        # Ordenar por data (mais recente primeiro)
+        transactions.sort(key=lambda x: x["date"] if x["date"] else "", reverse=True)
+
+        # Calcular totais
+        total_receitas = sum([t["amount"] for t in transactions if t["type"] == "receita"])
+        total_despesas = sum([t["amount"] for t in transactions if t["type"] == "despesa"])
+        saldo = total_receitas - total_despesas
+
+        return {
+            "items": transactions,
+            "total": len(transactions),
+            "totals": {
+                "receitas": round(total_receitas, 2),
+                "despesas": round(total_despesas, 2),
+                "saldo": round(saldo, 2)
+            }
         }
 
 # Exportação de Relatórios

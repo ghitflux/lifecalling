@@ -1,4 +1,3 @@
-from app.services.import_helpers import ensure_client_case
 # importe modelos que você insere durante a importação
 # ex.: from app.models import Simulation, PayrollLine
 
@@ -16,10 +15,9 @@ def sync_to_main_system(db: Session, payroll_client: PayrollClient, entidade_inf
     """
     Sincroniza cliente do sistema de payroll para o sistema principal e cria caso se necessário.
     """
-    # Buscar ou criar cliente no sistema principal
+    # Buscar ou criar cliente no sistema principal - busca única por CPF
     main_client = db.query(Client).filter(
-        Client.cpf == payroll_client.cpf,
-        Client.matricula == payroll_client.matricula
+        Client.cpf == payroll_client.cpf
     ).first()
 
     if not main_client:
@@ -33,16 +31,23 @@ def sync_to_main_system(db: Session, payroll_client: PayrollClient, entidade_inf
         db.add(main_client)
         db.flush()
     else:
-        # Atualizar dados se necessário
+        # Atualizar dados se necessário (idempotente)
         if payroll_client.nome and len(payroll_client.nome) > len(main_client.name or ""):
             main_client.name = payroll_client.nome
+        # Manter primeira matrícula (não sobrescrever se já existe)
+        if not getattr(main_client, "matricula", None):
+            main_client.matricula = payroll_client.matricula
+        # Atualizar órgão pagador se fornecido
         if payroll_client.orgao:
             main_client.orgao = payroll_client.orgao
 
-    # Verificar se já existe caso ativo para este cliente
+    # Verificar se já existe caso aberto para este cliente (idempotente)
+    OPEN_STATUSES = ["novo", "disponivel", "em_atendimento", "calculista",
+                     "calculista_pendente", "financeiro", "fechamento_pendente"]
+
     existing_case = db.query(Case).filter(
         Case.client_id == main_client.id,
-        Case.status.in_(["disponivel", "novo", "em_atendimento", "calculista_pendente"])
+        Case.status.in_(OPEN_STATUSES)
     ).order_by(Case.id.desc()).first()
 
     if not existing_case:
@@ -56,10 +61,9 @@ def sync_to_main_system(db: Session, payroll_client: PayrollClient, entidade_inf
             last_update_at=datetime.utcnow()
         )
         db.add(new_case)
+        db.flush()  # IMPORTANTE: Garantir que o caso seja visível para próximas linhas do mesmo CPF
     else:
-        # Atualizar caso existente com novas informações
-        existing_case.entidade = entidade_info.get("entidade_name")
-        existing_case.referencia_competencia = f"{entidade_info.get('ref_month'):02d}/{entidade_info.get('ref_year')}"
+        # Reaproveitar caso existente: atualizar apenas o timestamp
         existing_case.last_update_at = datetime.utcnow()
 
     return main_client
@@ -173,17 +177,12 @@ def import_payroll_text(db: Session, *, text: str, file_name: str, user_id: int 
                 cpf=row.cpf,
                 matricula=row.matricula,
                 nome=row.nome,
-                orgao=hdr.entidade_name
+                orgao=row.orgao_pagto  # Código do órgão pagador (não nome do banco)
             )
 
-            client, enrollment, case = ensure_client_case(
-    db,
-    cpf=row.get("cpf") or row.get("CPF"),
-    matricula=row.get("matricula") or row.get("matrícula") or row.get("mat"),
-    orgao=row.get("orgao") or row.get("órgão") or row.get("entity_name"),
-    nome=row.get("nome") or row.get("name"),
-)
-
+            # A criação/atualização de cliente e reaproveitamento de case é feita por
+            # sync_to_main_system (linha 195). Chamada a ensure_client_case foi removida
+            # para evitar duplicidades por CPF.
 
             # Contabilizar ação no cliente
             if cli_before is None:
