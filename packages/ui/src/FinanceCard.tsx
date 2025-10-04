@@ -138,6 +138,7 @@ export interface FinanceCardProps {
     attachments: Array<{
       id: number;
       path: string;
+      filename?: string;
       mime: string;
       size: number;
       created_at: string;
@@ -745,9 +746,9 @@ export function FinanceCard({
                           <div className="flex items-center gap-2">
                             {getFileIcon(att.filename, att.mime)}
                             <div>
-                              <p className="text-sm font-medium">{att.filename}</p>
-                              <p className="text-xs text-muted-foreground">{formatFileSize(att.size)}</p>
-                            </div>
+                          <p className="text-sm font-medium">{att.filename}</p>
+                          <p className="text-xs text-muted-foreground">{formatFileSize(att.size)}</p>
+                        </div>
                           </div>
                           <Button size="sm" variant="outline">
                             <Download className="h-4 w-4" />
@@ -774,7 +775,7 @@ export function FinanceCard({
                       <div className="flex items-center gap-3">
                         {getFileIcon(att.path, att.mime)}
                         <div>
-                          <p className="text-sm font-medium">{att.path.split('/').pop()}</p>
+                          <p className="text-sm font-medium">{att.filename || att.path.split('/').pop()}</p>
                           <p className="text-xs text-muted-foreground">
                             {formatFileSize(att.size)} • {new Date(att.created_at).toLocaleDateString('pt-BR')}
                           </p>

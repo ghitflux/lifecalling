@@ -14,7 +14,7 @@ import {
   SimulationHistoryCard,
   SimulationHistoryModal
 } from "@lifecalling/ui";
-import { ArrowLeft, Calculator, CheckCircle, XCircle, History } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer } from "lucide-react";
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
 import { SimulationResultCard } from "@lifecalling/ui";
 import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
@@ -59,6 +59,16 @@ export default function CalculistaSimulationPage() {
     enabled: !!caseId
   });
 
+  // Query para buscar anexos do caso
+  const { data: attachments = [], isLoading: attachmentsLoading } = useQuery({
+    queryKey: ["attachments", caseId],
+    queryFn: async () => {
+      const response = await api.get(`/cases/${caseId}/attachments`);
+      return response.data?.items || [];
+    },
+    enabled: !!caseId
+  });
+
   // Carregar simulação já calculada (quando reabre detalhes)
   useEffect(() => {
     if (caseDetail?.simulation && caseDetail.simulation.status === 'draft' && caseDetail.simulation.totals) {
@@ -96,6 +106,10 @@ export default function CalculistaSimulationPage() {
     }
   });
 
+  // Flags de status do caso
+  const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
+  const isRetornoFechamento = caseDetail?.status === "retorno_fechamento";
+
   // Mutation para aprovar simulação
   const approveSimulationMutation = useMutation({
     mutationFn: async (simId: number) => {
@@ -104,8 +118,14 @@ export default function CalculistaSimulationPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
-      toast.success("Simulação aprovada! Caso movido para fechamento.");
-      router.push("/calculista");
+      if (isRetornoFechamento) {
+        toast.success("Simulação aprovada! Enviando para financeiro...");
+        // Após aprovar, enviar ao financeiro automaticamente
+        sendToFinanceMutation.mutate(caseId);
+      } else {
+        toast.success("Simulação aprovada! Caso movido para fechamento.");
+        router.push("/calculista");
+      }
     },
     onError: (error: any) => {
       console.error("Erro ao aprovar:", error);
@@ -162,7 +182,8 @@ export default function CalculistaSimulationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cases"] });
       toast.success("Caso enviado para financeiro!");
-      router.push("/calculista");
+      // Redirecionar para a aba Enviado Financeiro
+      router.push("/calculista?tab=enviado_financeiro");
     },
     onError: (error: any) => {
       console.error("Erro ao enviar para financeiro:", error);
@@ -174,8 +195,47 @@ export default function CalculistaSimulationPage() {
     sendToFinanceMutation.mutate(caseId);
   };
 
-  // Verificar se é retorno de fechamento aprovado
-  const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
+  // Função para fazer download de anexo
+  const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const response = await api.get(`/cases/${caseId}/attachments/${attachmentId}/download`, {
+        responseType: 'blob'
+      });
+      
+      // Criar URL do blob e fazer download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`Download de ${filename} iniciado`);
+    } catch (error) {
+      console.error('Erro ao fazer download:', error);
+      toast.error('Erro ao fazer download do anexo');
+    }
+  };
+
+  // Função para formatar tamanho do arquivo
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Função para imprimir a página
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Verificar se é retorno de fechamento aprovado (mantém apenas fechamento_aprovado para UI)
+  // Para casos em retorno_fechamento, a aprovação dispara envio automático ao financeiro
+  // A flag isFechamentoAprovado acima já foi definida.
 
   if (caseLoading) {
     return <CaseSkeleton />;
@@ -196,20 +256,20 @@ export default function CalculistaSimulationPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto print-container">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             onClick={() => router.push("/calculista")}
-            className="p-2"
+            className="p-2 print-hidden"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Calculator className="h-6 w-6 text-primary" />
+              <Calculator className="h-6 w-6 text-primary print-hidden" />
               {isFechamentoAprovado ? "Revisão Final - Retorno Fechamento" : "Simulação Multi-Bancos"}
             </h1>
             <p className="text-muted-foreground">
@@ -217,43 +277,104 @@ export default function CalculistaSimulationPage() {
             </p>
           </div>
         </div>
-        {isFechamentoAprovado && (
-          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Fechamento Aprovado
-          </Badge>
-        )}
+        <div className="flex items-center gap-2 print-hidden">
+          <Button
+            variant="outline"
+            onClick={handlePrint}
+            className="flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Imprimir
+          </Button>
+          {isFechamentoAprovado && (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Fechamento Aprovado
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* Case Details Summary */}
-      <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="font-medium">Cliente:</span>
-            <p>{caseDetail.client?.name}</p>
+      {/* Layout em 2 colunas: Informações do Cliente e Anexos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Coluna 1: Informações do Cliente */}
+        <Card className="p-4 card">
+          <h3 className="font-medium mb-4">Informações do Cliente</h3>
+          <div className="grid grid-cols-1 gap-4 text-sm">
+            <div>
+              <span className="font-medium">Cliente:</span>
+              <p>{caseDetail.client?.name}</p>
+            </div>
+            <div>
+              <span className="font-medium">CPF:</span>
+              <p>{caseDetail.client?.cpf}</p>
+            </div>
+            <div>
+              <span className="font-medium">Matrícula:</span>
+              <p>{caseDetail.client?.matricula}</p>
+            </div>
+            <div>
+              <span className="font-medium">Órgão:</span>
+              <p>{caseDetail.client?.orgao || 'Não informado'}</p>
+            </div>
           </div>
-          <div>
-            <span className="font-medium">CPF:</span>
-            <p>{caseDetail.client?.cpf}</p>
-          </div>
-          <div>
-            <span className="font-medium">Matrícula:</span>
-            <p>{caseDetail.client?.matricula}</p>
-          </div>
-          <div>
-            <span className="font-medium">Órgão:</span>
-            <p>{caseDetail.client?.orgao || 'Não informado'}</p>
-          </div>
-        </div>
-        {caseDetail.client?.observacoes && (
-          <div className="mt-3 pt-3 border-t">
-            <span className="font-medium text-sm">Observações:</span>
-            <p className="text-sm text-muted-foreground mt-1">
-              {caseDetail.client.observacoes}
-            </p>
-          </div>
+          {caseDetail.client?.observacoes && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="font-medium text-sm">Observações:</span>
+              <p className="text-sm text-muted-foreground mt-1">
+                {caseDetail.client.observacoes}
+              </p>
+            </div>
+          )}
+        </Card>
+
+        {/* Coluna 2: Anexos do Caso */}
+        {attachments.length > 0 && (
+          <Card className="p-4 card">
+            <div className="flex items-center gap-2 mb-4">
+              <Paperclip className="h-5 w-5 text-primary print-hidden" />
+              <h3 className="font-medium">Anexos do Caso ({attachments.length})</h3>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 attachments-print">
+              {attachments.map((attachment: any) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground print-hidden" />
+                    <div>
+                      <p className="font-medium text-sm">{attachment.filename}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{formatFileSize(attachment.size)}</span>
+                        <span>•</span>
+                        <span>
+                          {new Date(attachment.uploaded_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadAttachment(attachment.id, attachment.filename)}
+                    className="flex items-center gap-2 print-hidden"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
         )}
-      </Card>
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

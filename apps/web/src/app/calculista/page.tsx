@@ -1,6 +1,6 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -30,8 +30,17 @@ export default function CalculistaPage(){
 
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Ler aba inicial via query string (?tab=...)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const initialTab = searchParams.get("tab");
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [searchParams]);
 
   // Buscar simulações com suporte a concluídas (sempre carregar todas para contadores corretos)
   const { data: allSims, isLoading: simsLoading } = useAllSimulations(true);
@@ -47,6 +56,18 @@ export default function CalculistaPage(){
     enabled: activeTab === "retorno_fechamento"
   });
 
+  // Buscar casos enviados ao financeiro
+  const { data: enviadosFinanceiro = [], isLoading: enviadosLoading } = useQuery({
+    queryKey: ["/cases", "financeiro_pendente"],
+    queryFn: async () => {
+      const response = await api.get("/cases?status=financeiro_pendente&page_size=50");
+      return response.data.items || [];
+    },
+    enabled: activeTab === "enviado_financeiro"
+  });
+
+  // Query removida: detalhes do caso não são exibidos por modal nesta página
+
   // Filtrar simulações
   const allSimulations = allSims || [];
 
@@ -59,8 +80,8 @@ export default function CalculistaPage(){
   };
 
   const filteredSims = allSimulations.filter((sim: any) => {
-    // Filtro por status
-    if (statusFilter.length > 0 && !statusFilter.includes(sim.status)) {
+    // Filtro por status (string)
+    if (statusFilter !== "all" && sim.status !== statusFilter) {
       return false;
     }
 
@@ -95,6 +116,8 @@ export default function CalculistaPage(){
   const handleSimulationClick = (caseId: number) => {
     router.push(`/calculista/${caseId}`);
   };
+
+  // Função removida: visualização por modal foi desabilitada
 
   // Loading state
   if (simsLoading) {
@@ -201,19 +224,19 @@ export default function CalculistaPage(){
       <QuickFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        activeFilters={statusFilter}
+        activeFilters={statusFilter === "all" ? [] : [statusFilter]}
         onFilterToggle={(filterId) => {
-          setStatusFilter((prev) => (prev.includes(filterId) ? [] : [filterId]));
+          setStatusFilter((prev) => (prev === filterId ? "all" : filterId));
         }}
         availableFilters={[
           { id: "draft", label: "Pendente", value: "draft", color: "primary" as const, count: statusCounts.draft },
           { id: "approved", label: "Aprovado", value: "approved", color: "success" as const, count: statusCounts.approved },
           { id: "rejected", label: "Rejeitado", value: "rejected", color: "danger" as const, count: statusCounts.rejected },
-          { id: "devolvido_financeiro", label: "Devolvido Financeiro", value: "devolvido_financeiro", color: "warning" as const, count: statusCounts.devolvido_financeiro },
+          { id: "devolvdo_financeir", label: "Devolvido Financeiro", value: "devolvido_financeiro", color: "warning" as const, count: statusCounts.devolvido_financeiro },
           { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", color: "primary" as const, count: statusCounts.fechamento_aprovado }
         ]}
         onClearAll={() => {
-          setStatusFilter([]);
+          setStatusFilter("all");
           setSearchTerm("");
         }}
         placeholder="Buscar por nome ou CPF do cliente..."
@@ -227,6 +250,9 @@ export default function CalculistaPage(){
           </TabsTrigger>
           <TabsTrigger value="retorno_fechamento">
             Retorno Fechamento ({retornoFechamento.length})
+          </TabsTrigger>
+          <TabsTrigger value="enviado_financeiro">
+            Enviado Financeiro ({enviadosFinanceiro.length})
           </TabsTrigger>
           <TabsTrigger value="concluidas">
             Concluídas Hoje ({allCompletedSims.length})
@@ -273,10 +299,12 @@ export default function CalculistaPage(){
                       Criado em: {new Date(sim.created_at || Date.now()).toLocaleDateString('pt-BR')}
                     </div>
 
-                    <Button variant="outline" className="w-full" size="sm">
-                      <Calculator className="h-4 w-4 mr-2" />
-                      Analisar Simulação
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" size="sm">
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Analisar
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -329,10 +357,67 @@ export default function CalculistaPage(){
                       Atualizado em: {new Date(caso.last_update_at || Date.now()).toLocaleDateString('pt-BR')}
                     </div>
 
-                    <Button variant="outline" className="w-full" size="sm">
-                      <Calculator className="h-4 w-4 mr-2" />
-                      Revisar e Enviar para Financeiro
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" size="sm">
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Revisar
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Enviado Financeiro */}
+        <TabsContent value="enviado_financeiro" className="mt-6">
+          {enviadosLoading ? (
+            <CaseSkeleton />
+          ) : enviadosFinanceiro.length === 0 ? (
+            <div className="text-center py-12">
+              <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="font-medium text-muted-foreground mb-1">
+                Nenhum caso aguardando financeiro
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Após aprovação de retorno, casos aparecerão aqui até liberação.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {enviadosFinanceiro.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 hover:shadow-md transition-shadow border-blue-200"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">Caso #{caso.id}</Badge>
+                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                        <DollarSign className="h-3 w-3 mr-1" />
+                        Aguardando Financeiro
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">{caso.client?.name || 'Cliente não identificado'}</h3>
+                      <p className="text-sm text-muted-foreground">CPF: {caso.client?.cpf || '---'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Aprovado pelo calculista. Em processamento no financeiro.
+                      </p>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Atualizado em: {new Date(caso.last_update_at || Date.now()).toLocaleDateString('pt-BR')}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" size="sm" disabled>
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Aguardando Financeiro
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -403,6 +488,8 @@ export default function CalculistaPage(){
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal removido: detalhes do caso não são exibidos nesta página */}
     </div>
   );
 }

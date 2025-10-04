@@ -344,7 +344,7 @@ export function SimulationFormMultiBank({
           <div className="space-y-4">
             <h4 className="font-medium border-b pb-2">Dados Globais</h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Prazo (meses) *</label>
                 <Input
@@ -388,9 +388,7 @@ export function SimulationFormMultiBank({
                   Custo = Total Financiado × %
                 </p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Seguro Obrigatório *</label>
                 <Input

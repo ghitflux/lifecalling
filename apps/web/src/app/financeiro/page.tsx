@@ -6,9 +6,17 @@ import {
   useUploadContractAttachment,
   useCancelContract,
   useDeleteContract,
-  useFinanceCaseDetails
+  useFinanceCaseDetails,
+  useDownloadExpenseAttachment,
+  useDeleteExpenseAttachment,
+  useDownloadIncomeAttachment,
+  useDeleteIncomeAttachment,
+  useIncomeAttachments,
+  useExpenseAttachments,
+  useUploadIncomeAttachment,
+  useUploadExpenseAttachment
 } from "@/lib/hooks";
-import { FinanceCard, ExpenseModal, IncomeModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard } from "@lifecalling/ui";
+import { FinanceCard, ExpenseModal, IncomeModal, AttachmentsModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard, MiniAreaChart } from "@lifecalling/ui";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -26,6 +34,15 @@ export default function Page(){
   const deleteContract = useDeleteContract();
   const uploadAttachment = useUploadContractAttachment();
   const [uploadingContractId, setUploadingContractId] = useState<number | null>(null);
+
+  // Hooks para anexos de despesas e receitas (download e delete)
+  const downloadExpenseAttachment = useDownloadExpenseAttachment();
+  const deleteExpenseAttachment = useDeleteExpenseAttachment();
+  const downloadIncomeAttachment = useDownloadIncomeAttachment();
+  const deleteIncomeAttachment = useDeleteIncomeAttachment();
+  const uploadIncomeAttachment = useUploadIncomeAttachment();
+  const uploadExpenseAttachment = useUploadExpenseAttachment();
+
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
@@ -36,10 +53,21 @@ export default function Page(){
   const [transactionType, setTransactionType] = useState<string>("");  // "", "receita", "despesa"
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");  // Filtro por categoria
+  
+  // Filtros por mês
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [showCustomDateFilter, setShowCustomDateFilter] = useState(false);
+  const [fullReportMode, setFullReportMode] = useState(false);
 
   // Modal de detalhes do contrato
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
 
   // Filtros rápidos
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
@@ -52,14 +80,40 @@ export default function Page(){
   // Detalhes completos do caso
   const { data: fullCaseDetails } = useFinanceCaseDetails(selectedCaseId || 0);
 
+  // Buscar categorias disponíveis
+  const { data: categoriesData, isLoading: loadingCategories } = useQuery({
+    queryKey: ["financeCategories"],
+    queryFn: async () => {
+      const response = await api.get("/finance/categories");
+      console.log("Categories response:", response.data);
+      return response.data;
+    }
+  });
+
+  const categories = categoriesData || { income_types: [], expense_types: [] };
+  console.log("Categories data:", categories);
+
   // Buscar transações unificadas (receitas e despesas)
   const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
-    queryKey: ["transactions", startDate, endDate, transactionType],
+    queryKey: ["transactions", startDate, endDate, transactionType, selectedCategory, selectedMonth, showCustomDateFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (startDate) params.append("start_date", startDate);
-      if (endDate) params.append("end_date", endDate);
+      
+      // Se não está usando filtro customizado, usar o mês selecionado
+      if (!showCustomDateFilter && selectedMonth) {
+        const [year, month] = selectedMonth.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        params.append("start_date", startOfMonth);
+        params.append("end_date", endOfMonth);
+      } else {
+        // Usar filtro customizado
+        if (startDate) params.append("start_date", startDate);
+        if (endDate) params.append("end_date", endDate);
+      }
+      
       if (transactionType) params.append("transaction_type", transactionType);
+      if (selectedCategory) params.append("category", selectedCategory);
 
       const response = await api.get(`/finance/transactions?${params.toString()}`);
       return response.data;
@@ -71,14 +125,69 @@ export default function Page(){
 
   // Buscar métricas do financeiro
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["financeMetrics"],
+    queryKey: ["financeMetrics", startDate, endDate, selectedMonth, showCustomDateFilter],
     queryFn: async () => {
-      const response = await api.get("/finance/metrics");
+      const params = new URLSearchParams();
+      
+      // Se não está usando filtro customizado, usar o mês selecionado
+      if (!showCustomDateFilter && selectedMonth) {
+        const [year, month] = selectedMonth.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        params.append("start_date", startOfMonth);
+        params.append("end_date", endOfMonth);
+      } else {
+        // Usar filtro customizado
+        if (startDate) params.append("start_date", startDate);
+        if (endDate) params.append("end_date", endDate);
+      }
+      
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
     }
   });
 
   const metrics = metricsData || {};
+
+  // Dados mockados para mini gráficos (últimos 7 dias)
+  const MOCK_TREND_DATA = {
+    receita: [
+      { day: "Seg", value: 8500 },
+      { day: "Ter", value: 12300 },
+      { day: "Qua", value: 9800 },
+      { day: "Qui", value: 15200 },
+      { day: "Sex", value: 18700 },
+      { day: "Sab", value: 11400 },
+      { day: "Dom", value: 7200 }
+    ],
+    despesas: [
+      { day: "Seg", value: 2100 },
+      { day: "Ter", value: 3200 },
+      { day: "Qua", value: 1800 },
+      { day: "Qui", value: 4100 },
+      { day: "Sex", value: 2900 },
+      { day: "Sab", value: 1600 },
+      { day: "Dom", value: 1200 }
+    ],
+    lucro: [
+      { day: "Seg", value: 6400 },
+      { day: "Ter", value: 9100 },
+      { day: "Qua", value: 8000 },
+      { day: "Qui", value: 11100 },
+      { day: "Sex", value: 15800 },
+      { day: "Sab", value: 9800 },
+      { day: "Dom", value: 6000 }
+    ],
+    contratos: [
+      { day: "Seg", value: 3 },
+      { day: "Ter", value: 5 },
+      { day: "Qua", value: 2 },
+      { day: "Qui", value: 7 },
+      { day: "Sex", value: 8 },
+      { day: "Sab", value: 4 },
+      { day: "Dom", value: 1 }
+    ]
+  };
 
   // Buscar detalhes do contrato
   const { data: contractDetails, isLoading: loadingContractDetails } = useQuery({
@@ -92,25 +201,46 @@ export default function Page(){
 
   // Mutation para salvar despesa
   const saveExpenseMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async ({data, files}: {data: any, files?: File[]}) => {
+      let expense;
       if (editingExpense) {
         const response = await api.put(`/finance/expenses/${editingExpense.id}`, data);
-        return response.data;
+        expense = response.data;
       } else {
         const response = await api.post("/finance/expenses", data);
-        return response.data;
+        expense = response.data;
       }
+
+      // Se houver arquivos, fazer upload automaticamente
+      if (files && files.length > 0 && expense.id) {
+        if (files.length === 1) {
+          // Usar endpoint singular para compatibilidade
+          const formData = new FormData();
+          formData.append('file', files[0]);
+          await api.post(`/finance/expenses/${expense.id}/attachment`, formData);
+        } else {
+          // Usar endpoint plural para múltiplos arquivos
+          const formData = new FormData();
+          files.forEach(file => formData.append('files', file));
+          await api.post(`/finance/expenses/${expense.id}/attachments`, formData);
+        }
+      }
+
+      return expense;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-      toast.success(editingExpense ? "Despesa atualizada!" : "Despesa adicionada!");
+      toast.success(editingExpense ? "Despesa atualizada!" : "Despesa adicionada com sucesso!");
       setShowExpenseModal(false);
       setEditingExpense(null);
     },
     onError: (error: any) => {
       console.error('Erro ao salvar despesa:', error);
-      toast.error(error.response?.data?.detail || "Erro ao salvar despesa");
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail 
+        : "Erro ao salvar despesa";
+      toast.error(errorMessage);
     }
   });
 
@@ -125,30 +255,54 @@ export default function Page(){
       toast.success("Despesa excluída!");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao excluir despesa");
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail 
+        : "Erro ao excluir despesa";
+      toast.error(errorMessage);
     }
   });
 
   // Mutation para salvar receita
   const saveIncomeMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async ({data, files}: {data: any, files?: File[]}) => {
+      let income;
       if (editingIncome) {
         const response = await api.put(`/finance/incomes/${editingIncome.id}`, data);
-        return response.data;
+        income = response.data;
       } else {
         const response = await api.post("/finance/incomes", data);
-        return response.data;
+        income = response.data;
       }
+
+      // Se houver arquivos, fazer upload automaticamente
+      if (files && files.length > 0 && income.id) {
+        if (files.length === 1) {
+          // Usar endpoint singular para compatibilidade
+          const formData = new FormData();
+          formData.append('file', files[0]);
+          await api.post(`/finance/incomes/${income.id}/attachment`, formData);
+        } else {
+          // Usar endpoint plural para múltiplos arquivos
+          const formData = new FormData();
+          files.forEach(file => formData.append('files', file));
+          await api.post(`/finance/incomes/${income.id}/attachments`, formData);
+        }
+      }
+
+      return income;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-      toast.success(editingIncome ? "Receita atualizada!" : "Receita adicionada!");
+      toast.success(editingIncome ? "Receita atualizada!" : "Receita adicionada com sucesso!");
       setShowIncomeModal(false);
       setEditingIncome(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao salvar receita");
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail 
+        : "Erro ao salvar receita";
+      toast.error(errorMessage);
     }
   });
 
@@ -163,7 +317,10 @@ export default function Page(){
       toast.success("Receita excluída!");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao excluir receita");
+      const errorMessage = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail 
+        : "Erro ao excluir receita";
+      toast.error(errorMessage);
     }
   });
 
@@ -281,6 +438,98 @@ export default function Page(){
     }
   };
 
+  const handleViewAttachments = (transaction: any) => {
+    setSelectedTransaction(transaction);
+    setShowAttachmentsModal(true);
+  };
+
+  // Componente wrapper para gerenciar anexos por tipo
+  const AttachmentsModalWrapper = ({ transaction, isOpen, onClose }: any) => {
+    const incomeAttachments = useIncomeAttachments(transaction.type === 'receita' ? transaction.id : 0);
+    const expenseAttachments = useExpenseAttachments(transaction.type === 'despesa' ? transaction.id : 0);
+    
+    const attachments = transaction.type === 'receita' 
+      ? incomeAttachments.data || [] 
+      : expenseAttachments.data || [];
+
+    const handleDownload = (attachmentId: string) => {
+      if (transaction.type === 'receita') {
+        downloadIncomeAttachment.mutate(transaction.id, {
+          onSuccess: (response) => {
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = response.headers['content-disposition']?.split('filename=')[1] || 'anexo.pdf';
+            link.click();
+            window.URL.revokeObjectURL(url);
+          }
+        });
+      } else {
+        downloadExpenseAttachment.mutate(transaction.id, {
+          onSuccess: (response) => {
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = response.headers['content-disposition']?.split('filename=')[1] || 'anexo.pdf';
+            link.click();
+            window.URL.revokeObjectURL(url);
+          }
+        });
+      }
+    };
+
+    const handleDelete = (attachmentId: string) => {
+      if (transaction.type === 'receita') {
+        deleteIncomeAttachment.mutate(transaction.id, {
+          onSuccess: () => {
+            toast.success("Anexo removido!");
+            incomeAttachments.refetch();
+          }
+        });
+      } else {
+        deleteExpenseAttachment.mutate(transaction.id, {
+          onSuccess: () => {
+            toast.success("Anexo removido!");
+            expenseAttachments.refetch();
+          }
+        });
+      }
+    };
+
+    const handleUpload = (files: File[]) => {
+      files.forEach(file => {
+        if (transaction.type === 'receita') {
+          uploadIncomeAttachment.mutate({ incomeId: transaction.id, file }, {
+            onSuccess: () => {
+              toast.success("Anexo adicionado!");
+              incomeAttachments.refetch();
+            }
+          });
+        } else {
+          uploadExpenseAttachment.mutate({ expenseId: transaction.id, file }, {
+            onSuccess: () => {
+              toast.success("Anexo adicionado!");
+              expenseAttachments.refetch();
+            }
+          });
+        }
+      });
+    };
+
+    return (
+      <AttachmentsModal
+        isOpen={isOpen}
+        onClose={onClose}
+        transaction={transaction}
+        attachments={attachments}
+        onDownloadAttachment={handleDownload}
+        onDeleteAttachment={handleDelete}
+        onUploadAttachment={handleUpload}
+        loading={uploadIncomeAttachment.isPending || uploadExpenseAttachment.isPending}
+      />
+    );
+  };
+
   const extractContractIdFromName = (name: string): number | null => {
     // Formato: "Contrato #{id} - ..."
     const match = name?.match(/Contrato #(\d+)/);
@@ -296,7 +545,31 @@ export default function Page(){
   };
 
   const handleExportReport = () => {
-    window.open(`${api.defaults.baseURL}/finance/export`, '_blank');
+    const params = new URLSearchParams();
+    
+    // Adicionar parâmetros de filtro
+    if (fullReportMode) {
+      params.append("full_report", "true");
+    } else {
+      // Se não está usando filtro customizado, usar o mês selecionado
+      if (!showCustomDateFilter && selectedMonth) {
+        const [year, month] = selectedMonth.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        params.append("start_date", startOfMonth);
+        params.append("end_date", endOfMonth);
+      } else {
+        // Usar filtro customizado
+        if (startDate) params.append("start_date", startDate);
+        if (endDate) params.append("end_date", endDate);
+      }
+    }
+    
+    if (transactionType) params.append("transaction_type", transactionType);
+    if (selectedCategory) params.append("category", selectedCategory);
+    
+    const url = `${api.defaults.baseURL}/finance/export?${params.toString()}`;
+    window.open(url, '_blank');
   };
 
   // Filtros rÃ¡pidos de status
@@ -324,6 +597,46 @@ export default function Page(){
   const handleClearFilters = () => {
     setStatusFilter([]);
     setSearchTerm("");
+    setPage(1);
+  };
+
+  // Gerar filtros rápidos por mês
+  const generateMonthFilters = () => {
+    const months = [
+      { value: '01', label: 'Jan' },
+      { value: '02', label: 'Fev' },
+      { value: '03', label: 'Mar' },
+      { value: '04', label: 'Abr' },
+      { value: '05', label: 'Mai' },
+      { value: '06', label: 'Jun' },
+      { value: '07', label: 'Jul' },
+      { value: '08', label: 'Ago' },
+      { value: '09', label: 'Set' },
+      { value: '10', label: 'Out' },
+      { value: '11', label: 'Nov' },
+      { value: '12', label: 'Dez' }
+    ];
+
+    const currentYear = new Date().getFullYear();
+    return months.map(month => ({
+      id: `${currentYear}-${month.value}`,
+      label: month.label,
+      value: `${currentYear}-${month.value}`,
+      isActive: selectedMonth === `${currentYear}-${month.value}`
+    }));
+  };
+
+  const handleMonthFilter = (monthValue: string) => {
+    setSelectedMonth(monthValue);
+    setShowCustomDateFilter(false);
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
+
+  const handleCustomDateFilter = () => {
+    setShowCustomDateFilter(true);
+    setSelectedMonth("");
     setPage(1);
   };
 
@@ -384,14 +697,88 @@ export default function Page(){
         </div>
         <div className="flex items-center gap-3">
           <Button
-            onClick={handleExportReport}
-            variant="outline"
+            onClick={handleCustomDateFilter}
+            variant={showCustomDateFilter ? "default" : "outline"}
             className="flex items-center gap-2"
           >
-            <Download className="h-4 w-4" />
-            Exportar Relatório
+            <Calendar className="h-4 w-4" />
+            Filtro Personalizado
           </Button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={fullReportMode}
+                onChange={(e) => setFullReportMode(e.target.checked)}
+                className="rounded"
+              />
+              Relatório Completo
+            </label>
+            <Button
+              onClick={handleExportReport}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Exportar {fullReportMode ? "Completo" : "Filtrado"}
+            </Button>
+          </div>
         </div>
+      </div>
+
+      {/* Filtros Rápidos por Mês */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">
+            {showCustomDateFilter ? "Filtro Personalizado" : "Filtros Rápidos"}
+          </h3>
+          {showCustomDateFilter && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-3 py-2 border rounded-md text-sm"
+                placeholder="Data inicial"
+              />
+              <span className="text-muted-foreground">até</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-3 py-2 border rounded-md text-sm"
+                placeholder="Data final"
+              />
+              <Button
+                onClick={() => {
+                  setShowCustomDateFilter(false);
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                variant="outline"
+                size="sm"
+              >
+                Voltar aos Filtros Rápidos
+              </Button>
+            </div>
+          )}
+        </div>
+        
+        {!showCustomDateFilter && (
+          <div className="flex flex-wrap gap-2">
+            {generateMonthFilters().map((month) => (
+              <Button
+                key={month.id}
+                variant={month.isActive ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleMonthFilter(month.value)}
+                className="min-w-[60px]"
+              >
+                {month.label}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* KPIs Financeiros */}
@@ -399,34 +786,74 @@ export default function Page(){
         <KPICard
           title="Receita Total"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={TrendingUp}
           subtitle="Últimos 30 dias"
           isLoading={metricsLoading}
           gradientVariant="emerald"
+          trend={12.5}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.receita}
+              dataKey="value"
+              xKey="day"
+              stroke="#10b981"
+              height={60}
+              tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            />
+          }
         />
         <KPICard
           title="Despesas"
           value={`R$ ${(metrics.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={TrendingDown}
           subtitle="Últimos 30 dias"
           isLoading={metricsLoading}
           gradientVariant="rose"
+          trend={-3.2}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.despesas}
+              dataKey="value"
+              xKey="day"
+              stroke="#f43f5e"
+              height={60}
+              tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            />
+          }
         />
         <KPICard
           title="Lucro Líquido"
           value={`R$ ${(metrics.netProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={DollarSign}
           subtitle="Receitas - Despesas - Impostos"
           isLoading={metricsLoading}
           gradientVariant="violet"
+          trend={18.7}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.lucro}
+              dataKey="value"
+              xKey="day"
+              stroke="#8b5cf6"
+              height={60}
+              tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            />
+          }
         />
         <KPICard
           title="Contratos Efetivados"
           value={metrics.totalContracts || 0}
-          icon={Receipt}
           subtitle="Últimos 30 dias"
           isLoading={metricsLoading}
-          gradientVariant="blue"
+          gradientVariant="sky"
+          trend={25.8}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.contratos}
+              dataKey="value"
+              xKey="day"
+              stroke="#38bdf8"
+              height={60}
+              tooltipFormatter={(value) => `${value} contratos`}
+            />
+          }
         />
       </div>
 
@@ -601,6 +1028,52 @@ export default function Page(){
             </TabsList>
           </Tabs>
 
+          {/* Filtros Rápidos por Categoria */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Filtros por Categoria</h3>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={selectedCategory === "" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory("")}
+              >
+                Todas as Categorias
+              </Button>
+              
+              {loadingCategories ? (
+                <div className="text-sm text-gray-500">Carregando categorias...</div>
+              ) : (
+                <>
+                  {/* Categorias de Receita */}
+                  {(!transactionType || transactionType === "receita") && categories?.income_types?.length > 0 && categories.income_types.map((category: string) => (
+                    <Button
+                      key={`receita-${category}`}
+                      variant={selectedCategory === category ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedCategory(category)}
+                      className="text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                    >
+                      📈 {category}
+                    </Button>
+                  ))}
+                  
+                  {/* Categorias de Despesa */}
+                  {(!transactionType || transactionType === "despesa") && categories?.expense_types?.length > 0 && categories.expense_types.map((category: string) => (
+                    <Button
+                      key={`despesa-${category}`}
+                      variant={selectedCategory === category ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedCategory(category)}
+                      className="text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                    >
+                      📉 {category}
+                    </Button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Tabela Unificada */}
           {loadingTransactions ? (
             <div className="text-center py-8">
@@ -618,6 +1091,7 @@ export default function Page(){
                         <th className="text-left p-3 font-semibold">Categoria</th>
                         <th className="text-left p-3 font-semibold">Nome</th>
                         <th className="text-right p-3 font-semibold">Valor</th>
+                        <th className="text-center p-3 font-semibold">Anexos</th>
                         <th className="text-right p-3 font-semibold">Ações</th>
                       </tr>
                     </thead>
@@ -640,6 +1114,18 @@ export default function Page(){
                             transaction.type === 'receita' ? 'text-success' : 'text-danger'
                           }`}>
                             R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3 text-center">
+                            {transaction.has_attachment && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewAttachments(transaction)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            )}
                           </td>
                           <td className="p-3 text-right space-x-2">
                             {transaction.type === 'receita' && extractContractIdFromName(transaction.name) && (
@@ -701,7 +1187,29 @@ export default function Page(){
           setShowExpenseModal(false);
           setEditingExpense(null);
         }}
-        onSubmit={(data) => saveExpenseMutation.mutate(data)}
+        onSubmit={(data, files) => saveExpenseMutation.mutate({data, files})}
+        onDownloadAttachment={(expenseId) => {
+          downloadExpenseAttachment.mutate(expenseId, {
+            onSuccess: (response) => {
+              const url = window.URL.createObjectURL(new Blob([response.data]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = response.headers['content-disposition']?.split('filename=')[1] || 'anexo.pdf';
+              link.click();
+              window.URL.revokeObjectURL(url);
+            }
+          });
+        }}
+        onDeleteAttachment={(expenseId) => {
+          if (confirm("Deseja realmente remover este anexo?")) {
+            deleteExpenseAttachment.mutate(expenseId, {
+              onSuccess: () => {
+                toast.success("Anexo removido!");
+                queryClient.invalidateQueries({ queryKey: ["transactions"] });
+              }
+            });
+          }
+        }}
         initialData={editingExpense}
         loading={saveExpenseMutation.isPending}
       />
@@ -713,7 +1221,29 @@ export default function Page(){
           setShowIncomeModal(false);
           setEditingIncome(null);
         }}
-        onSubmit={(data) => saveIncomeMutation.mutate(data)}
+        onSubmit={(data, files) => saveIncomeMutation.mutate({data, files})}
+        onDownloadAttachment={(incomeId) => {
+          downloadIncomeAttachment.mutate(incomeId, {
+            onSuccess: (response) => {
+              const url = window.URL.createObjectURL(new Blob([response.data]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = response.headers['content-disposition']?.split('filename=')[1] || 'anexo.pdf';
+              link.click();
+              window.URL.revokeObjectURL(url);
+            }
+          });
+        }}
+        onDeleteAttachment={(incomeId) => {
+          if (confirm("Deseja realmente remover este anexo?")) {
+            deleteIncomeAttachment.mutate(incomeId, {
+              onSuccess: () => {
+                toast.success("Anexo removido!");
+                queryClient.invalidateQueries({ queryKey: ["transactions"] });
+              }
+            });
+          }
+        }}
         initialData={editingIncome}
         loading={saveIncomeMutation.isPending}
       />
@@ -881,6 +1411,18 @@ export default function Page(){
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Anexos */}
+      {selectedTransaction && (
+        <AttachmentsModalWrapper
+          transaction={selectedTransaction}
+          isOpen={showAttachmentsModal}
+          onClose={() => {
+            setShowAttachmentsModal(false);
+            setSelectedTransaction(null);
+          }}
+        />
       )}
     </div>
   );

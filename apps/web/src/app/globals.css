@@ -94,7 +94,11 @@ body {
 }
 
 .card-glow {
-  @apply rounded-2xl bg-[#0B1020] shadow-kpi ring-1 ring-white/5;
+  border-radius: 1rem;
+  background-color: #0B1020;
+  box-shadow: var(--shadow-kpi);
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  border: 1px solid rgba(255,255,255,0.05);
   background-image: radial-gradient(1200px 300px at 20% -10%, rgba(99,102,241,.25), transparent),
     radial-gradient(900px 300px at 110% 10%, rgba(236,72,153,.2), transparent),
     linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
@@ -133,4 +137,71 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Print Styles */
+@media print {
+  /* Hide navigation and non-essential elements */
+  .print-hidden,
+  nav,
+  aside,
+  header,
+  .sidebar,
+  .global-header,
+  button:not(.print-visible),
+  .toast,
+  .modal {
+    display: none !important;
+  }
+
+  /* Optimize page layout for printing */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  /* Ensure content takes full width */
+  .print-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Card styles for print */
+  .card {
+    border: 1px solid #ccc !important;
+    background: white !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  /* Attachment section for print */
+  .attachments-print {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always;
+  }
+
+  /* Headers and titles */
+  h1, h2, h3 {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  /* Tables and grids */
+  .grid {
+    display: block !important;
+  }
+
+  .grid > * {
+    margin-bottom: 1rem;
+  }
 }

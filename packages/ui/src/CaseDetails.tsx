@@ -119,6 +119,8 @@ interface CaseDetailsProps {
   onDownloadAttachment?: (attachmentId: string) => void;
   className?: string;
   showActions?: boolean;
+  hideFinancialInfo?: boolean;
+  hideNotesCard?: boolean;
 }
 
 export function CaseDetails({
@@ -130,7 +132,9 @@ export function CaseDetails({
   onAddNote,
   onDownloadAttachment,
   className,
-  showActions = true
+  showActions = true,
+  hideFinancialInfo = false,
+  hideNotesCard = false
 }: CaseDetailsProps) {
   const [newNote, setNewNote] = React.useState("");
 
@@ -266,7 +270,7 @@ export function CaseDetails({
       </Card>
 
       {/* Financial Information */}
-      {caseData.simulation && caseData.simulation.status === 'approved' && caseData.simulation.results && (
+      {!hideFinancialInfo && caseData.simulation && caseData.simulation.status === 'approved' && caseData.simulation.results && (
         <Card className="p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
@@ -476,61 +480,63 @@ export function CaseDetails({
       )}
 
       {/* Notes and Observations */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Anotações e Observações
-        </h2>
+      {!hideNotesCard && (
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Anotações e Observações
+          </h2>
 
-        {/* Existing Notes */}
-        {notes.length > 0 && (
-          <div className="space-y-3 mb-4">
-            {notes.map((note) => (
-              <div key={note.id} className="border-l-4 border-primary pl-4 py-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">{note.author}</span>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-xs">
-                      {note.module}
-                    </Badge>
-                    <span>{formatDate(note.createdAt)}</span>
+          {/* Existing Notes */}
+          {notes.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {notes.map((note) => (
+                <div key={note.id} className="border-l-4 border-primary pl-4 py-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{note.author}</span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="text-xs">
+                        {note.module}
+                      </Badge>
+                      <span>{formatDate(note.createdAt)}</span>
+                    </div>
                   </div>
+                  <p className="text-sm">{note.content}</p>
                 </div>
-                <p className="text-sm">{note.content}</p>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Case Observations */}
-        {caseData.observacoes && (
-          <div className="bg-muted/30 rounded-lg p-3 mb-4">
-            <p className="text-sm font-medium mb-1">Observações do Caso:</p>
-            <p className="text-sm">{caseData.observacoes}</p>
-          </div>
-        )}
+          {/* Case Observations */}
+          {caseData.observacoes && (
+            <div className="bg-muted/30 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium mb-1">Observações do Caso:</p>
+              <p className="text-sm">{caseData.observacoes}</p>
+            </div>
+          )}
 
-        {/* Add New Note */}
-        {onAddNote && (
-          <div className="space-y-3">
-            <textarea
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Adicionar nova anotação..."
-              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-              rows={3}
-            />
-            <Button
-              onClick={handleAddNote}
-              disabled={!newNote.trim()}
-              size="sm"
-            >
-              <MessageSquare className="h-4 w-4 mr-1" />
-              Adicionar Anotação
-            </Button>
-          </div>
-        )}
-      </Card>
+          {/* Add New Note */}
+          {onAddNote && (
+            <div className="space-y-3">
+              <textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Adicionar nova anotação..."
+                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                rows={3}
+              />
+              <Button
+                onClick={handleAddNote}
+                disabled={!newNote.trim()}
+                size="sm"
+              >
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Adicionar Anotação
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

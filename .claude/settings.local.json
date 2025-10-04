@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(PYTHONIOENCODING=utf-8 POSTGRES_USER=lifecalling POSTGRES_PASSWORD=lifecalling POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_DB=lifecalling python -c \"from app.db import SessionLocal; from app.models import Case, Client; db = SessionLocal(); test_client = db.query(Client).first(); if test_client: cases = db.query(Case).filter(Case.client_id == test_client.id).all(); print(f''Client: {test_client.id} - {test_client.name}''); print(f''Cases: {len(cases)}''); [print(f''  Case {c.id}: {c.status}'') for c in cases]; else: print(''No clients found''); db.close()\")"
+      "Bash(docker ps:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(curl:*)",
+      "Bash(powershell:*)",
+      "Bash(python -m alembic revision:*)",
+      "Bash(python:*)",
+      "Bash(docker-compose exec:*)"
     ],
     "deny": [],
     "ask": []

@@ -112,6 +112,7 @@ class Attachment(Base):
     id = Column(Integer, primary_key=True)
     case_id = Column(Integer, ForeignKey("cases.id"))
     path = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=False)  # Nome original do arquivo
     mime = Column(String(100))
     size = Column(Integer)
     uploaded_by = Column(Integer, ForeignKey("users.id"))
@@ -217,6 +218,10 @@ class FinanceExpense(Base):
     expense_name = Column(String(255), nullable=False)  # Nome/descrição da despesa
     description = Column(Text, nullable=True)  # Campo legado (deprecated)
     amount = Column(Numeric(14, 2), nullable=False)
+    attachment_path = Column(String(500), nullable=True)  # Caminho do anexo
+    attachment_filename = Column(String(255), nullable=True)  # Nome original do arquivo
+    attachment_size = Column(Integer, nullable=True)  # Tamanho em bytes
+    attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
@@ -234,6 +239,10 @@ class FinanceIncome(Base):
     income_type = Column(String(100), nullable=False)  # Tipo da receita (ex: "Receita Manual", "Bônus")
     income_name = Column(String(255), nullable=True)  # Nome/descrição da receita
     amount = Column(Numeric(14, 2), nullable=False)
+    attachment_path = Column(String(500), nullable=True)  # Caminho do anexo
+    attachment_filename = Column(String(255), nullable=True)  # Nome original do arquivo
+    attachment_size = Column(Integer, nullable=True)  # Tamanho em bytes
+    attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -497,11 +497,154 @@ export function useDeleteIncome() {
   });
 }
 
+/** Upload de anexo para receita (arquivo único) */
+export function useUploadIncomeAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({incomeId, file}: {incomeId: number; file: File}) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return (await api.post(`/finance/incomes/${incomeId}/attachment`, formData, {
+        headers: {'Content-Type': 'multipart/form-data'}
+      })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:["finance","incomes"]});
+    }
+  });
+}
+
+/** Upload de múltiplos anexos para receita */
+export function useUploadIncomeAttachments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({incomeId, files}: {incomeId: number; files: File[]}) => {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      return (await api.post(`/finance/incomes/${incomeId}/attachments`, formData, {
+        headers: {'Content-Type': 'multipart/form-data'}
+      })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:["finance","incomes"]});
+    }
+  });
+}
+
+/** Buscar anexos de receita */
+export function useIncomeAttachments(incomeId: number) {
+  return useQuery({
+    queryKey: ["finance", "incomes", incomeId, "attachments"],
+    queryFn: async () => (await api.get(`/finance/incomes/${incomeId}/attachments`)).data,
+    enabled: !!incomeId
+  });
+}
+
+/** Download de anexo de receita */
+export function useDownloadIncomeAttachment() {
+  return useMutation({
+    mutationFn: async (incomeId: number) => {
+      const response = await api.get(`/finance/incomes/${incomeId}/attachment`, {
+        responseType: 'blob'
+      });
+      return response;
+    }
+  });
+}
+
+/** Delete de anexo de receita */
+export function useDeleteIncomeAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (incomeId: number) =>
+      (await api.delete(`/finance/incomes/${incomeId}/attachment`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:["finance","incomes"]});
+    }
+  });
+}
+
+/** Upload de anexo para despesa (arquivo único) */
+export function useUploadExpenseAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({expenseId, file}: {expenseId: number; file: File}) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return (await api.post(`/finance/expenses/${expenseId}/attachment`, formData, {
+        headers: {'Content-Type': 'multipart/form-data'}
+      })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:["finance","expenses"]});
+    }
+  });
+}
+
+/** Upload de múltiplos anexos para despesa */
+export function useUploadExpenseAttachments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({expenseId, files}: {expenseId: number; files: File[]}) => {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      return (await api.post(`/finance/expenses/${expenseId}/attachments`, formData, {
+        headers: {'Content-Type': 'multipart/form-data'}
+      })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:["finance","expenses"]});
+    }
+  });
+}
+
+/** Buscar anexos de despesa */
+export function useExpenseAttachments(expenseId: number) {
+  return useQuery({
+    queryKey: ["finance", "expenses", expenseId, "attachments"],
+    queryFn: async () => (await api.get(`/finance/expenses/${expenseId}/attachments`)).data,
+    enabled: !!expenseId
+  });
+}
+
+/** Download de anexo de despesa */
+export function useDownloadExpenseAttachment() {
+  return useMutation({
+    mutationFn: async (expenseId: number) => {
+      const response = await api.get(`/finance/expenses/${expenseId}/attachment`, {
+        responseType: 'blob'
+      });
+      return response;
+    }
+  });
+}
+
+/** Delete de anexo de despesa */
+export function useDeleteExpenseAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (expenseId: number) =>
+      (await api.delete(`/finance/expenses/${expenseId}/attachment`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:["finance","expenses"]});
+    }
+  });
+}
+
 /** Detalhes do Caso Financeiro */
 export function useFinanceCaseDetails(caseId: number) {
   return useQuery({
     queryKey:["finance","case", caseId],
     queryFn: async ()=> (await api.get(`/finance/case/${caseId}`)).data,
+    enabled: !!caseId
+  });
+}
+
+/** Detalhes do Caso Fechamento */
+export function useClosingCaseDetails(caseId: number) {
+  return useQuery({
+    queryKey:["closing","case", caseId],
+    queryFn: async ()=> (await api.get(`/closing/case/${caseId}`)).data,
     enabled: !!caseId
   });
 }

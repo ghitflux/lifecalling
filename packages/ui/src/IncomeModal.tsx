@@ -4,7 +4,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Button } from "./Button";
 import { Input } from "./Input";
 import { cn } from "./lib/utils";
-import { DollarSign, Calendar, FileText } from "lucide-react";
+// local helper utilities (moved inline to avoid missing module)
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+const parseCurrency = (input: string): number => {
+  const cleaned = input.replace(/[^\d,]/g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
+};
+
+const formatCurrencyInput = (input: string): string => {
+  const digits = input.replace(/\D/g, '');
+  const num = parseFloat(digits) / 100;
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
+};
+
+const formatFileSize = (bytes?: number): string => {
+  if (!bytes) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+};
+import { DollarSign, Calendar, FileText, Paperclip, Download, X } from "lucide-react";
 
 export interface IncomeData {
   id?: number;
@@ -12,12 +34,17 @@ export interface IncomeData {
   income_type: string;
   income_name?: string;
   amount: number;
+  attachment_filename?: string;
+  attachment_size?: number;
+  has_attachment?: boolean;
 }
 
 export interface IncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: IncomeData) => void;
+  onSubmit: (data: IncomeData, files?: File[]) => void;
+  onDownloadAttachment?: (incomeId: number) => void;
+  onDeleteAttachment?: (incomeId: number) => void;
   initialData?: IncomeData | null;
   loading?: boolean;
 }
@@ -26,6 +53,8 @@ export function IncomeModal({
   isOpen,
   onClose,
   onSubmit,
+  onDownloadAttachment,
+  onDeleteAttachment,
   initialData,
   loading = false
 }: IncomeModalProps) {
@@ -36,6 +65,8 @@ export function IncomeModal({
     income_name: "",
     amount: 0
   });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [displayValue, setDisplayValue] = useState<string>("");
 
   useEffect(() => {
     if (initialData) {
@@ -43,6 +74,7 @@ export function IncomeModal({
         ...initialData,
         date: initialData.date ? initialData.date.split('T')[0] : currentDate.toISOString().split('T')[0]
       });
+      setDisplayValue(formatCurrency(initialData.amount || 0));
     } else {
       setFormData({
         date: currentDate.toISOString().split('T')[0],
@@ -50,12 +82,34 @@ export function IncomeModal({
         income_name: "",
         amount: 0
       });
+      setDisplayValue("");
     }
+    setSelectedFiles([]);
   }, [initialData, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit(formData, selectedFiles.length > 0 ? selectedFiles : undefined);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    const formattedValue = formatCurrencyInput(inputValue);
+    const numericValue = parseCurrency(inputValue);
+
+    setFormData({ ...formData, amount: numericValue });
+    setDisplayValue(formattedValue);
   };
 
   const incomeTypes = [
@@ -137,17 +191,100 @@ export function IncomeModal({
               Valor da Receita
             </label>
             <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-              placeholder="0,00"
+              type="text"
+              value={displayValue}
+              onChange={handleAmountChange}
+              placeholder="R$ 0,00"
               disabled={loading}
               required
             />
             <p className="text-xs text-muted-foreground">
-              Informe o valor individual desta receita
+              Informe o valor individual desta receita (ex: R$ 2.500,00)
+            </p>
+          </div>
+
+          {/* Anexo */}
+          <div className="space-y-2 pt-2 border-t">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Paperclip className="h-4 w-4" />
+              Anexo (Comprovante)
+            </label>
+
+            {/* Exibir anexo existente (somente ao editar) */}
+            {initialData?.has_attachment && initialData?.id && (
+              <div className="flex items-center justify-between p-2 rounded border bg-muted/50 mb-2">
+                <div className="flex items-center gap-2">
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">{initialData.attachment_filename}</p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(initialData.attachment_size)}</p>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  {onDownloadAttachment && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onDownloadAttachment(initialData.id!)}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDeleteAttachment && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onDeleteAttachment(initialData.id!)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Campo de upload (sempre disponível) */}
+            <Input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleFileChange}
+              disabled={loading}
+              multiple
+            />
+
+            {/* Lista de arquivos selecionados */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Arquivos selecionados:</p>
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 rounded border bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeFile(index)}
+                      disabled={loading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              {initialData?.has_attachment
+                ? "Selecione novos arquivos para adicionar aos anexos existentes"
+                : "Formatos aceitos: PDF, JPG, PNG (máx. 10MB cada). Você pode selecionar múltiplos arquivos."}
             </p>
           </div>
 

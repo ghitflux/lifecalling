@@ -402,7 +402,7 @@ def list_attachments(case_id: int, user=Depends(get_current_user)):
             "items": [
                 {
                     "id": a.id,
-                    "filename": os.path.basename(a.path),
+                    "filename": a.filename,
                     "size": a.size,
                     "mime": a.mime,
                     "uploaded_at": a.created_at.isoformat() if a.created_at else None,
@@ -446,6 +446,7 @@ def upload_attachment(
         a = Attachment(
             case_id=case_id,
             path=dest,
+            filename=file.filename or "arquivo_sem_nome",
             mime=file.content_type,
             size=os.path.getsize(dest),
             uploaded_by=user.id,
@@ -1072,7 +1073,7 @@ async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "super
         # Buscar todos os usuários do módulo fechamento para notificar
         fechamento_users = db.query(User).filter(
             User.role.in_(["fechamento", "admin", "supervisor"]),
-            User.active == True
+            User.active
         ).all()
         fechamento_user_ids = [u.id for u in fechamento_users]
 
@@ -1231,6 +1232,58 @@ def get_case_events(case_id: int, user=Depends(get_current_user)):
             )
 
         return {"case_id": case_id, "events": formatted_events, "total": len(formatted_events)}
+
+
+class CreateEventRequest(BaseModel):
+    type: str
+    payload: dict = {}
+
+
+@r.post("/{case_id}/events")
+async def create_case_event(
+    case_id: int,
+    data: CreateEventRequest,
+    user=Depends(get_current_user)
+):
+    """Cria um novo evento/anotação em um caso."""
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Criar o evento
+        event = CaseEvent(
+            case_id=case_id,
+            type=data.type,
+            payload=data.payload,
+            created_by=user.id
+        )
+        db.add(event)
+
+        # Atualizar timestamp do caso
+        case.last_update_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(event)
+
+        # Broadcast via WebSocket
+        await eventbus.broadcast("case.updated", {
+            "case_id": case_id,
+            "event_type": data.type,
+            "user_id": user.id
+        })
+
+        return {
+            "id": event.id,
+            "type": event.type,
+            "payload": event.payload,
+            "created_at": event.created_at.isoformat() if event.created_at else None,
+            "created_by": {
+                "id": user.id,
+                "name": user.name,
+                "role": user.role
+            }
+        }
 
 
 @r.post("/{case_id}/return-to-calculista")

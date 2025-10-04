@@ -61,6 +61,7 @@ interface SimulationHistoryModalProps {
   onEditSimulation?: (entry: SimulationHistoryEntry) => void;
   caseId?: number;
   clientName?: string;
+  showEditButton?: boolean;
 }
 
 export function SimulationHistoryModal({
@@ -70,6 +71,7 @@ export function SimulationHistoryModal({
   onEditSimulation,
   caseId,
   clientName,
+  showEditButton = true,
 }: SimulationHistoryModalProps) {
   const [selectedEntry, setSelectedEntry] = useState<SimulationHistoryEntry | null>(null);
 
@@ -171,16 +173,18 @@ export function SimulationHistoryModal({
                           {index === 0 ? "Mais recente" : `Versão ${history.length - index}`}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditClick(entry)}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Editar
-                        </Button>
-                      </div>
+                      {showEditButton && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditClick(entry)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Metadata */}

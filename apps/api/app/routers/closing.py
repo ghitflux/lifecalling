@@ -170,3 +170,127 @@ async def reject(data: CloseIn, user=Depends(require_roles("admin","supervisor",
 
     await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"fechamento_reprovado"})
     return {"ok": True}
+
+@r.get("/case/{case_id}")
+def get_case_details(case_id: int, user=Depends(require_roles("admin","supervisor","atendente"))):
+    """Retorna detalhes completos de um caso para exibição no modal de fechamento"""
+    from ..models import Simulation, Attachment, Client, Contract, ContractAttachment
+    import os
+
+    with SessionLocal() as db:
+        # Buscar o caso com relacionamentos
+        case = db.query(Case).options(
+            joinedload(Case.client),
+            joinedload(Case.last_simulation)
+        ).filter(Case.id == case_id).first()
+
+        if not case:
+            raise HTTPException(404, "Case not found")
+
+        # Dados do cliente
+        client_data = {
+            "id": case.client.id,
+            "name": case.client.name,
+            "cpf": case.client.cpf,
+            "matricula": case.client.matricula,
+            "orgao": case.client.orgao,
+            "telefone_preferencial": case.client.telefone_preferencial,
+            "numero_cliente": case.client.numero_cliente,
+            "observacoes": case.client.observacoes,
+            "banco": case.client.banco,
+            "agencia": case.client.agencia,
+            "conta": case.client.conta,
+            "chave_pix": case.client.chave_pix,
+            "tipo_chave_pix": case.client.tipo_chave_pix
+        }
+
+        # Simulação aprovada
+        simulation_data = None
+        if case.last_simulation_id:
+            sim = db.get(Simulation, case.last_simulation_id)
+            if sim and sim.status == "approved":
+                simulation_data = {
+                    "id": sim.id,
+                    "status": sim.status,
+                    "prazo": sim.prazo,
+                    "coeficiente": sim.coeficiente,
+                    "seguro": float(sim.seguro or 0),
+                    "percentual_consultoria": float(sim.percentual_consultoria or 0),
+                    "banks_json": sim.banks_json,
+                    "totals": {
+                        "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                        "saldoTotal": float(sim.saldo_total or 0),
+                        "liberadoTotal": float(sim.liberado_total or 0),
+                        "totalFinanciado": float(sim.total_financiado or 0),
+                        "valorLiquido": float(sim.valor_liquido or 0),
+                        "custoConsultoria": float(sim.custo_consultoria or 0),
+                        "custoConsultoriaLiquido": float(sim.custo_consultoria_liquido or 0),
+                        "liberadoCliente": float(sim.liberado_cliente or 0)
+                    }
+                }
+
+        # Contrato efetivado (se existir)
+        contract_data = None
+        contract = db.query(Contract).filter(Contract.case_id == case.id).first()
+        if contract:
+            attachments = db.query(ContractAttachment).filter(
+                ContractAttachment.contract_id == contract.id
+            ).all()
+            contract_data = {
+                "id": contract.id,
+                "total_amount": float(contract.total_amount or 0),
+                "installments": contract.installments,
+                "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                "status": contract.status,
+                "attachments": [
+                    {
+                        "id": a.id,
+                        "filename": a.filename,
+                        "size": a.size,
+                        "mime": a.mime,
+                        "created_at": a.created_at.isoformat() if a.created_at else None
+                    } for a in attachments
+                ]
+            }
+
+        # Eventos do caso (histórico/comentários)
+        events = db.query(CaseEvent).filter(
+            CaseEvent.case_id == case.id
+        ).order_by(CaseEvent.created_at.desc()).all()
+
+        events_data = [
+            {
+                "id": e.id,
+                "type": e.type,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "payload": e.payload,
+                "created_by": e.created_by
+            } for e in events
+        ]
+
+        # Anexos do caso
+        attachments = db.query(Attachment).filter(
+            Attachment.case_id == case.id
+        ).all()
+
+        attachments_data = [
+            {
+                "id": a.id,
+                "path": a.path,
+                "filename": os.path.basename(a.path) if a.path else None,
+                "mime": a.mime,
+                "size": a.size,
+                "created_at": a.created_at.isoformat() if a.created_at else None
+            } for a in attachments
+        ]
+
+        return {
+            "id": case.id,
+            "status": case.status,
+            "created_at": case.created_at.isoformat() if case.created_at else None,
+            "client": client_data,
+            "simulation": simulation_data,
+            "contract": contract_data,
+            "events": events_data,
+            "attachments": attachments_data
+        }

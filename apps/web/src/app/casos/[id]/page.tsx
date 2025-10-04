@@ -382,7 +382,8 @@ export default function CaseDetailPage() {
           )}
           <Button
             onClick={handleSendToCalculista}
-            disabled={sendCalc.isPending || sentToCalculista}
+            disabled={sendCalc.isPending || sentToCalculista || (caseDetail.status === "em_atendimento" && (!attachments || attachments.length === 0))}
+            title={(caseDetail.status === "em_atendimento" && (!attachments || attachments.length === 0)) ? "É necessário anexar pelo menos um contracheque para enviar para simulação" : ""}
           >
             {sentToCalculista ? "Enviado para Simulação" : sendCalc.isPending ? "Enviando..." : "Enviar para Calculista"}
           </Button>
@@ -717,8 +718,24 @@ export default function CaseDetailPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">
-                Nenhum anexo encontrado
+              <div className={`${caseDetail.status === "em_atendimento" ? "p-3 bg-amber-50 border border-amber-200 rounded-md" : "text-sm text-muted-foreground"}`}>
+                {caseDetail.status === "em_atendimento" ? (
+                  <>
+                    <div className="flex items-center gap-2 text-amber-800">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                        <path d="M12 9v4"/>
+                        <path d="m12 17 .01 0"/>
+                      </svg>
+                      <span className="text-sm font-medium">Nenhum anexo encontrado</span>
+                    </div>
+                    <p className="text-sm text-amber-700 mt-1">
+                      É necessário anexar pelo menos um contracheque para enviar o caso para simulação.
+                    </p>
+                  </>
+                ) : (
+                  "Nenhum anexo encontrado"
+                )}
               </div>
             )}
           </div>

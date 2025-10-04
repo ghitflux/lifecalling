@@ -123,7 +123,8 @@ export default function ImportacaoPage() {
 
       // Mostrar informação adicional se houver
       if (data.info) {
-        toast.info(data.info, { duration: 6000 });
+        const infoMessage = typeof data.info === 'string' ? data.info : JSON.stringify(data.info);
+        toast.info(infoMessage, { duration: 6000 });
       }
 
       // Avisar sobre erros se houver

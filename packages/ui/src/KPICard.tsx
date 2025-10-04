@@ -1,7 +1,7 @@
 /* packages/ui/src/KPICard.tsx */
 import React from "react";
 const motion = {
-  div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  div: ({ children, initial, animate, whileHover, transition, ...props }: any) => <div {...props}>{children}</div>,
 };
 import { LucideIcon, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "./lib/utils";

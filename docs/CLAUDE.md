@@ -1,5 +1,159 @@
 # CLAUDE.md - Histórico de Desenvolvimento do Lifecalling
 
+## Sessão de 2025-01-27 (Continuação)
+
+### 🎯 Tarefas Realizadas
+
+#### ✅ Correção do Sistema de Anotações no Histórico
+- **Status**: Concluído com sucesso
+- **Detalhes**:
+  - Problema identificado: Anotações não apareciam no histórico do caso
+  - Causa raiz: Lógica de filtro muito restritiva em `useCaseEvents`
+  - Solução implementada: Simplificação da lógica de filtro para incluir todos os eventos relevantes
+  - Eventos agora exibidos: notas, aprovações, rejeições, observações e comentários
+  - Arquivo modificado: `apps/web/src/lib/hooks.ts` (hook `useCaseEvents`)
+
+#### ✅ Implementação do Modal de Detalhes no Módulo Fechamento
+- **Status**: Concluído com sucesso
+- **Detalhes**:
+  - Substituído botão "Histórico de Simulações" por botão "Ver Detalhes" com ícone de olho
+  - Implementado modal similar ao módulo financeiro com seções organizadas:
+    - **Cliente**: Nome, CPF, matrícula, órgão
+    - **Simulação**: Status, valores financeiros (líquido, financiado, liberado)
+    - **Datas**: Criação e última atualização
+    - **Histórico**: Acesso ao histórico completo de simulações
+    - **Ações**: Ver caso completo e fechar modal
+  - Modal responsivo com scroll automático e backdrop clicável
+  - Integração com estados de loading e tratamento de erros
+  - Arquivo modificado: `apps/web/src/app/fechamento/[id]/page.tsx`
+
+#### ✅ Sistema de Anotações Específicas do Fechamento
+- **Status**: Concluído com sucesso
+- **Detalhes**:
+  - Removido card de anotações e observações existente do `CaseDetails`
+  - Implementado novo card "Anotações do Fechamento" dedicado
+  - Campo de texto (Textarea) para inserir anotações específicas do fechamento
+  - Botão "Salvar Anotação" com ícone de save e estados de loading
+  - Funcionalidade de salvamento via API (`POST /cases/{caseId}/events`)
+  - Tipo de evento: `"closing.notes"` para diferenciação
+  - Feedback visual com toasts de sucesso/erro
+  - Limpeza automática do campo após salvamento bem-sucedido
+  - Invalidação automática do cache para atualização em tempo real
+  - Arquivo modificado: `apps/web/src/app/fechamento/[id]/page.tsx`
+
+#### ✅ Melhorias na UX do Módulo Fechamento
+- **Status**: Concluído com sucesso
+- **Detalhes**:
+  - Imports adicionados: `useMutation`, `useQueryClient`, `Textarea`, ícones do Lucide React
+  - Novos estados implementados:
+    - `showDetailsModal`: Controle de visibilidade do modal de detalhes
+    - `closingNotes`: Estado para o campo de anotações
+    - `queryClient`: Gerenciamento de cache React Query
+  - Mutation `saveNotesMutation` para salvamento assíncrono de anotações
+  - Navegação fluida entre modal de detalhes e histórico de simulações
+  - Validação de campos (botão desabilitado quando não há texto)
+  - Estados visuais claros para operações em andamento
+
+### 🛠 Arquivos Modificados
+
+#### Frontend (Next.js)
+- `apps/web/src/lib/hooks.ts`:
+  - Simplificação da lógica de filtro no hook `useCaseEvents`
+  - Remoção de condições restritivas que impediam exibição de anotações
+  - Melhoria na performance do filtro de eventos
+
+- `apps/web/src/app/fechamento/[id]/page.tsx`:
+  - Adição de imports: `useMutation`, `useQueryClient`, `Textarea`, ícones Lucide
+  - Implementação de novos estados para modal e anotações
+  - Criação do `saveNotesMutation` para salvamento de anotações
+  - Substituição do botão "Histórico de Simulações" por "Ver Detalhes"
+  - Implementação completa do modal de detalhes com seções organizadas
+  - Remoção do card de anotações do `CaseDetails` (passando array vazio)
+  - Adição do novo card "Anotações do Fechamento" com funcionalidade completa
+
+### 🎯 Funcionalidades Implementadas
+
+1. **Sistema de Anotações Corrigido**:
+   - Anotações agora aparecem corretamente no histórico
+   - Filtro simplificado garante exibição de todos os eventos relevantes
+   - Melhor rastreabilidade de ações no caso
+
+2. **Modal de Detalhes Avançado**:
+   - Interface similar ao módulo financeiro para consistência
+   - Organização clara de informações em seções
+   - Navegação intuitiva entre detalhes e histórico
+   - Design responsivo e acessível
+
+3. **Anotações Específicas do Fechamento**:
+   - Campo dedicado para anotações do processo de fechamento
+   - Salvamento assíncrono com feedback visual
+   - Diferenciação de tipos de eventos (`closing.notes`)
+   - Integração com sistema de cache para atualizações em tempo real
+
+4. **Experiência de Usuário Aprimorada**:
+   - Estados de loading claros durante operações
+   - Validação de formulários em tempo real
+   - Toasts informativos para feedback imediato
+   - Interface limpa e organizada
+
+### 🔧 Detalhes Técnicos
+
+#### Modal de Detalhes
+```typescript
+// Estrutura do modal implementado
+{showDetailsModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-card border rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto">
+      {/* Seções: Cliente, Simulação, Datas, Histórico, Ações */}
+    </div>
+  </div>
+)}
+```
+
+#### Sistema de Anotações
+```typescript
+// Mutation para salvamento de anotações
+const saveNotesMutation = useMutation({
+  mutationFn: async (notes: string) => {
+    return api.post(`/cases/${caseId}/events`, {
+      type: "closing.notes",
+      payload: { notes }
+    });
+  },
+  onSuccess: () => {
+    toast.success("Anotação salva com sucesso!");
+    queryClient.invalidateQueries({ queryKey: ["case-events", caseId] });
+    setClosingNotes("");
+  }
+});
+```
+
+### 🚨 Status Atual
+
+#### ✅ Concluído
+- Correção do sistema de anotações no histórico
+- Modal de detalhes implementado e funcional
+- Sistema de anotações específicas do fechamento
+- Integração com React Query e sistema de cache
+- Feedback visual e validações
+
+#### 🔄 Observações
+- Todas as funcionalidades estão operacionais
+- Modal de detalhes oferece visão completa do caso
+- Anotações do fechamento são salvas como eventos específicos
+- Interface consistente com outros módulos da aplicação
+
+### 💡 Melhorias Implementadas
+
+- **Consistência de Interface**: Modal similar ao módulo financeiro
+- **Organização de Dados**: Seções claras e bem estruturadas
+- **Funcionalidade Específica**: Anotações dedicadas ao processo de fechamento
+- **Performance**: Uso eficiente do React Query para cache e invalidação
+- **Acessibilidade**: Modal com backdrop clicável e teclas de escape
+- **Responsividade**: Layout adaptável a diferentes tamanhos de tela
+
+---
+
 ## Sessão de 2025-01-13
 
 ### 🎯 Tarefas Realizadas
