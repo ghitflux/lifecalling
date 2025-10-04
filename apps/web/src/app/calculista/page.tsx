@@ -33,8 +33,8 @@ export default function CalculistaPage(){
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Buscar simulações com suporte a concluídas
-  const { data: allSims, isLoading: simsLoading } = useAllSimulations(activeTab === "concluidas");
+  // Buscar simulações com suporte a concluídas (sempre carregar todas para contadores corretos)
+  const { data: allSims, isLoading: simsLoading } = useAllSimulations(true);
   const { data: stats } = useCalculistaStats();
 
   // Buscar casos com status relevantes para Retorno de Fechamento
@@ -75,7 +75,11 @@ export default function CalculistaPage(){
     return true;
   });
 
-  // Separar simulações por status
+  // Separar simulações por status (para contadores das abas, usar dados originais)
+  const allPendingSims = allSimulations.filter((s: any) => s.status === "draft");
+  const allCompletedSims = allSimulations.filter((s: any) => s.status === "approved" || s.status === "rejected");
+  
+  // Separar simulações filtradas para exibição
   const pendingSims = filteredSims.filter((s: any) => s.status === "draft");
   const completedSims = filteredSims.filter((s: any) => s.status === "approved" || s.status === "rejected");
 
@@ -219,13 +223,13 @@ export default function CalculistaPage(){
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pendentes">
-            Pendentes ({pendingSims.length})
+            Pendentes ({allPendingSims.length})
           </TabsTrigger>
           <TabsTrigger value="retorno_fechamento">
             Retorno Fechamento ({retornoFechamento.length})
           </TabsTrigger>
           <TabsTrigger value="concluidas">
-            Concluídas Hoje ({completedSims.length})
+            Concluídas Hoje ({allCompletedSims.length})
           </TabsTrigger>
         </TabsList>
 

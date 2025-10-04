@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNotifications, useUnreadNotificationsCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 export default function NotificationBell() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const { data: notifications = [] } = useNotifications();
@@ -55,6 +57,30 @@ export default function NotificationBell() {
 
   const handleMarkAllAsRead = () => {
     markAllAsRead.mutate();
+  };
+
+  const handleNotificationClick = (notification: any) => {
+    // Marcar como lida
+    if (!notification.is_read) {
+      handleMarkAsRead(notification.id);
+    }
+
+    // Redirecionar baseado no tipo de notificação
+    const caseId = notification.payload?.case_id;
+    if (caseId) {
+      // Determinar a rota baseada no tipo de evento
+      if (notification.event.includes("calculista") || notification.event.includes("simulation")) {
+        router.push(`/calculista/${caseId}`);
+      } else if (notification.event.includes("fechamento")) {
+        router.push(`/fechamento`);
+      } else if (notification.event.includes("finance") || notification.event.includes("financeiro")) {
+        router.push(`/financeiro`);
+      } else {
+        // Rota padrão para casos
+        router.push(`/casos/${caseId}`);
+      }
+      setIsOpen(false);
+    }
   };
 
   return (
@@ -149,7 +175,7 @@ export default function NotificationBell() {
                         "hover:bg-muted/50 cursor-pointer group",
                         !notification.is_read && "bg-primary/5 border-l-4 border-l-primary"
                       )}
-                      onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-3">
                         <div className={cn(

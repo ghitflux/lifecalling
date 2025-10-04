@@ -26,7 +26,7 @@ interface Case {
 
 export default function EsteiraPage() {
   useLiveCaseEvents();
-  const [activeTab, setActiveTab] = useState("global");
+  const [activeTab, setActiveTab] = useState("mine");
   const [editingCase, setEditingCase] = useState<Case | null>(null);
 
   // Estados de paginação e filtro
@@ -53,6 +53,7 @@ export default function EsteiraPage() {
       const params = new URLSearchParams({
         page: globalPage.toString(),
         page_size: globalPageSize.toString(),
+        order: "financiamentos_desc", // Ordenar por número de financiamentos (decrescente)
       });
 
       // Admin e supervisor veem TODOS os casos quando aplicam filtros
@@ -118,12 +119,14 @@ export default function EsteiraPage() {
   const assignCaseMutation = useMutation({
     mutationFn: async (caseId: number) => {
       const response = await api.post(`/cases/${caseId}/assign`);
-      return response.data;
+      return { data: response.data, caseId };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       // Atualiza as queries após pegar um caso
       queryClient.invalidateQueries({ queryKey: ["cases"] });
       toast.success("Atendimento atribuído com sucesso!");
+      // Redireciona automaticamente para os detalhes do caso
+      router.push(`/casos/${result.caseId}`);
     },
     onError: (error) => {
       toast.error("Erro ao atribuir atendimento. Tente novamente.");

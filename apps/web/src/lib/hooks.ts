@@ -145,6 +145,37 @@ export function useSendToCalculista() {
   });
 }
 
+export function useMarkNoContact() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId: number) => (await api.post(`/cases/${caseId}/mark-no-contact`)).data,
+    onSuccess: (_, caseId) => {
+      qc.invalidateQueries({ queryKey: ["case", caseId] });
+      qc.invalidateQueries({ queryKey: ["case", caseId, "events"] });
+      qc.invalidateQueries({ queryKey: ["cases"] });
+      toast.success("Marcado como sem contato");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao marcar sem contato");
+    }
+  });
+}
+
+export function useSendToFechamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId: number) => (await api.post(`/cases/${caseId}/to-fechamento`)).data,
+    onSuccess: (_, caseId) => {
+      qc.invalidateQueries({ queryKey: ["case", caseId] });
+      qc.invalidateQueries({ queryKey: ["cases"] });
+      toast.success("Caso enviado para fechamento com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao enviar para fechamento");
+    }
+  });
+}
+
 export function useReassignCase() {
   const qc = useQueryClient();
   return useMutation({

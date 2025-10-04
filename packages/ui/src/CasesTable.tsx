@@ -6,6 +6,7 @@ import { Card, CardContent } from "./Card";
 import { Input } from "./Input";
 import { StatusBadge, type Status } from "./StatusBadge";
 import { cn } from "./lib/utils";
+import { Snippet } from "@nextui-org/snippet";
 import {
   Eye,
   User,
@@ -23,6 +24,7 @@ interface Client {
   matricula: string;
   orgao?: string;
   telefone_preferencial?: string;
+  num_financiamentos?: number;
 }
 
 interface Case {
@@ -56,7 +58,13 @@ export function CasesTable({
   const [dateFilter, setDateFilter] = useState("all");
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return new Date(dateString).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // Usar o StatusBadge padronizado do design system
@@ -190,7 +198,7 @@ export function CasesTable({
             <div className="col-span-1">ID</div>
             <div className="col-span-3">Cliente</div>
             <div className="col-span-2">Status</div>
-            <div className="col-span-2">Órgão</div>
+            <div className="col-span-2">Nº de Contratos</div>
             <div className="col-span-2">Criado em</div>
             <div className="col-span-1">Atendente</div>
             <div className="col-span-1">Ações</div>
@@ -259,21 +267,42 @@ export function CasesTable({
                   <div className="col-span-3">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{case_.client.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {case_.client.cpf} • {case_.client.matricula}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{case_.client.name}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          <Snippet
+                            symbol=""
+                            copyIcon={
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                              </svg>
+                            }
+                            classNames={{
+                              base: "bg-transparent p-0 inline-flex items-center gap-1",
+                              pre: "text-xs font-mono bg-transparent p-0"
+                            }}
+                            onCopy={() => {
+                              const cpfNumeros = case_.client.cpf.replace(/\D/g, '');
+                              navigator.clipboard.writeText(cpfNumeros);
+                            }}
+                          >
+                            {case_.client.cpf}
+                          </Snippet>
+                          <span>• {case_.client.matricula}</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="col-span-2">
                     <StatusBadge status={case_.status as Status} size="sm" />
                   </div>
-                  
+
                   <div className="col-span-2 text-sm">
-                    {case_.client.orgao || '-'}
+                    <Badge variant="secondary">
+                      {case_.client.num_financiamentos || 0} contrato{(case_.client.num_financiamentos || 0) !== 1 ? 's' : ''}
+                    </Badge>
                   </div>
                   
                   <div className="col-span-2 text-sm">

@@ -58,33 +58,49 @@ export function SimulationResultCard({
     value: number;
     highlight?: boolean;
     icon?: React.ReactNode;
-  }> = ({ label, value, highlight = false, icon }) => (
-    <div
-      className={`flex items-center justify-between py-2 ${
-        highlight
-          ? 'rounded-lg border border-success/40 bg-success-subtle px-3'
-          : ''
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        {icon}
-        <span
-          className={`text-sm ${
-            highlight ? 'font-semibold text-success-foreground' : 'text-muted-foreground'
-          }`}
-        >
-          {label}
-        </span>
-      </div>
-      <span
-        className={`font-mono ${
-          highlight ? 'text-lg font-bold text-success' : 'font-medium'
+    isNegative?: boolean;
+  }> = ({ label, value, highlight = false, icon, isNegative = false }) => {
+    const isValueNegative = value < 0;
+    const shouldBeRed = isNegative && isValueNegative;
+
+    return (
+      <div
+        className={`flex items-center justify-between py-2 ${
+          highlight
+            ? shouldBeRed
+              ? 'rounded-lg border border-danger/40 bg-danger-subtle px-3'
+              : 'rounded-lg border border-success/40 bg-success-subtle px-3'
+            : ''
         }`}
       >
-        {formatCurrency(value)}
-      </span>
-    </div>
-  );
+        <div className="flex items-center gap-2">
+          {icon}
+          <span
+            className={`text-sm ${
+              highlight
+                ? shouldBeRed
+                  ? 'font-semibold text-danger-foreground'
+                  : 'font-semibold text-success-foreground'
+                : 'text-muted-foreground'
+            }`}
+          >
+            {label}
+          </span>
+        </div>
+        <span
+          className={`font-mono ${
+            highlight
+              ? shouldBeRed
+                ? 'text-lg font-bold text-danger'
+                : 'text-lg font-bold text-success'
+              : 'font-medium'
+          }`}
+        >
+          {formatCurrency(value)}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <Card className={`w-full ${isActive ? 'ring-2 ring-primary' : ''} ${className}`} data-testid="simulation-result">
@@ -198,7 +214,8 @@ export function SimulationResultCard({
               label="Liberado para o Cliente"
               value={totals.liberadoCliente}
               highlight={true}
-              icon={<Wallet className="h-4 w-4 text-success" />}
+              isNegative={true}
+              icon={<Wallet className={`h-4 w-4 ${totals.liberadoCliente < 0 ? 'text-danger' : 'text-success'}`} />}
             />
           </div>
         </div>

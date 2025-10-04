@@ -181,6 +181,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@nextui-org/snippet':
+        specifier: ^2.2.10
+        version: 2.2.10(@nextui-org/system@2.4.6(@nextui-org/theme@2.4.5(tailwindcss@3.4.17))(framer-motion@12.23.22(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@nextui-org/theme@2.4.5(tailwindcss@3.4.17))(framer-motion@12.23.22(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@radix-ui/react-tabs':
         specifier: ^1.1.13
         version: 1.1.13(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -190,6 +193,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      framer-motion:
+        specifier: ^12.23.22
+        version: 12.23.22(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       lucide-react:
         specifier: latest
         version: 0.544.0(react@19.1.0)
@@ -7391,7 +7397,7 @@ snapshots:
       '@nextui-org/use-aria-button': 2.2.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/button': 3.11.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/focus': 3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/interactions': 3.22.5(react@19.1.0)
+      '@react-aria/interactions': 3.22.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/utils': 3.26.0(react@19.1.0)
       '@react-types/button': 3.10.1(react@19.1.0)
       '@react-types/shared': 3.26.0(react@19.1.0)
@@ -7478,7 +7484,7 @@ snapshots:
       '@internationalized/date': 3.6.0
       '@nextui-org/react-utils': 2.1.3(react@19.1.0)
       '@nextui-org/system-rsc': 2.3.5(@nextui-org/theme@2.4.5(tailwindcss@3.4.17))(react@19.1.0)
-      '@react-aria/i18n': 3.12.4(react@19.1.0)
+      '@react-aria/i18n': 3.12.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/overlays': 3.24.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/utils': 3.26.0(react@19.1.0)
       '@react-stately/utils': 3.10.5(react@19.1.0)
@@ -7511,7 +7517,7 @@ snapshots:
       '@nextui-org/system': 2.4.6(@nextui-org/theme@2.4.5(tailwindcss@3.4.17))(framer-motion@12.23.22(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@nextui-org/theme': 2.4.5(tailwindcss@3.4.17)
       '@nextui-org/use-safe-layout-effect': 2.1.1(react@19.1.0)
-      '@react-aria/interactions': 3.22.5(react@19.1.0)
+      '@react-aria/interactions': 3.22.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/overlays': 3.24.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/tooltip': 3.7.10(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/utils': 3.26.0(react@19.1.0)
@@ -7526,7 +7532,7 @@ snapshots:
     dependencies:
       '@nextui-org/shared-utils': 2.1.2
       '@react-aria/focus': 3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/interactions': 3.22.5(react@19.1.0)
+      '@react-aria/interactions': 3.22.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/utils': 3.26.0(react@19.1.0)
       '@react-types/button': 3.10.1(react@19.1.0)
       '@react-types/shared': 3.26.0(react@19.1.0)
@@ -7960,12 +7966,12 @@ snapshots:
   '@react-aria/button@3.11.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@react-aria/focus': 3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/interactions': 3.22.5(react@19.1.0)
+      '@react-aria/interactions': 3.25.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/toolbar': 3.0.0-beta.11(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-stately/toggle': 3.9.2(react@19.1.0)
-      '@react-types/button': 3.10.1(react@19.1.0)
-      '@react-types/shared': 3.26.0(react@19.1.0)
+      '@react-types/button': 3.14.1(react@19.1.0)
+      '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
     transitivePeerDependencies:
@@ -7974,7 +7980,7 @@ snapshots:
   '@react-aria/focus@3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@react-aria/interactions': 3.25.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       clsx: 2.1.1
@@ -7995,25 +8001,29 @@ snapshots:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
 
-  '@react-aria/i18n@3.12.4(react@19.1.0)':
+  '@react-aria/i18n@3.12.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
-      '@internationalized/date': 3.6.0
+      '@internationalized/date': 3.10.0
       '@internationalized/message': 3.1.8
       '@internationalized/number': 3.6.5
       '@internationalized/string': 3.2.7
       '@react-aria/ssr': 3.9.10(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
+    transitivePeerDependencies:
+      - react-dom
 
-  '@react-aria/interactions@3.22.5(react@19.1.0)':
+  '@react-aria/interactions@3.22.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@react-aria/ssr': 3.9.10(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
+    transitivePeerDependencies:
+      - react-dom
 
   '@react-aria/interactions@3.25.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
@@ -8029,13 +8039,13 @@ snapshots:
     dependencies:
       '@react-aria/focus': 3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/i18n': 3.12.13(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/interactions': 3.22.5(react@19.1.0)
+      '@react-aria/interactions': 3.25.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/ssr': 3.9.10(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/visually-hidden': 3.8.28(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-stately/overlays': 3.6.20(react@19.1.0)
       '@react-types/button': 3.14.1(react@19.1.0)
-      '@react-types/overlays': 3.8.11(react@19.1.0)
+      '@react-types/overlays': 3.9.2(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
@@ -8050,8 +8060,8 @@ snapshots:
     dependencies:
       '@react-aria/focus': 3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-aria/i18n': 3.12.13(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
-      '@react-types/shared': 3.26.0(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
     transitivePeerDependencies:
@@ -8060,8 +8070,8 @@ snapshots:
   '@react-aria/tooltip@3.7.10(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@react-aria/focus': 3.19.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@react-aria/interactions': 3.22.5(react@19.1.0)
-      '@react-aria/utils': 3.26.0(react@19.1.0)
+      '@react-aria/interactions': 3.25.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@react-aria/utils': 3.31.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-stately/tooltip': 3.5.0(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       '@react-types/tooltip': 3.4.13(react@19.1.0)
@@ -8101,7 +8111,7 @@ snapshots:
 
   '@react-stately/collections@3.12.0(react@19.1.0)':
     dependencies:
-      '@react-types/shared': 3.26.0(react@19.1.0)
+      '@react-types/shared': 3.32.1(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
 
@@ -8112,7 +8122,7 @@ snapshots:
   '@react-stately/overlays@3.6.12(react@19.1.0)':
     dependencies:
       '@react-stately/utils': 3.10.8(react@19.1.0)
-      '@react-types/overlays': 3.8.11(react@19.1.0)
+      '@react-types/overlays': 3.9.2(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
 
@@ -8150,7 +8160,7 @@ snapshots:
 
   '@react-types/button@3.10.1(react@19.1.0)':
     dependencies:
-      '@react-types/shared': 3.26.0(react@19.1.0)
+      '@react-types/shared': 3.32.1(react@19.1.0)
       react: 19.1.0
 
   '@react-types/button@3.14.1(react@19.1.0)':
@@ -8171,9 +8181,9 @@ snapshots:
 
   '@react-types/datepicker@3.9.0(react@19.1.0)':
     dependencies:
-      '@internationalized/date': 3.6.0
+      '@internationalized/date': 3.10.0
       '@react-types/calendar': 3.8.0(react@19.1.0)
-      '@react-types/overlays': 3.8.11(react@19.1.0)
+      '@react-types/overlays': 3.9.2(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       react: 19.1.0
 
@@ -8197,7 +8207,7 @@ snapshots:
 
   '@react-types/tooltip@3.4.13(react@19.1.0)':
     dependencies:
-      '@react-types/overlays': 3.8.11(react@19.1.0)
+      '@react-types/overlays': 3.9.2(react@19.1.0)
       '@react-types/shared': 3.32.1(react@19.1.0)
       react: 19.1.0
 

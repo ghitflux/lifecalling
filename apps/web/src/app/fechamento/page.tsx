@@ -40,36 +40,36 @@ function FechamentoContent() {
   // Definir filtros rápidos disponíveis
   const availableQuickFilters: QuickFilter[] = [
     {
-      id: "calculista_pendente",
-      label: "Aguardando Análise",
-      value: "calculista_pendente",
-      icon: User,
-      color: "warning",
-      count: items.filter((item: any) => item.status === "calculista_pendente").length
-    },
-    {
-      id: "aprovado",
-      label: "Aprovados",
-      value: "aprovado",
+      id: "calculo_aprovado",
+      label: "Cálculo Aprovado",
+      value: "calculo_aprovado",
       icon: DollarSign,
       color: "success",
-      count: items.filter((item: any) => item.status === "aprovado").length
+      count: items.filter((item: any) => item.status === "calculo_aprovado").length
     },
     {
-      id: "rejeitado",
-      label: "Rejeitados",
-      value: "rejeitado",
+      id: "fechamento_pendente",
+      label: "Fechamento Pendente",
+      value: "fechamento_pendente",
+      icon: User,
+      color: "warning",
+      count: items.filter((item: any) => item.status === "fechamento_pendente").length
+    },
+    {
+      id: "fechamento_aprovado",
+      label: "Fechamento Aprovado",
+      value: "fechamento_aprovado",
+      icon: RefreshCw,
+      color: "primary",
+      count: items.filter((item: any) => item.status === "fechamento_aprovado").length
+    },
+    {
+      id: "fechamento_reprovado",
+      label: "Fechamento Reprovado",
+      value: "fechamento_reprovado",
       icon: X,
       color: "danger",
-      count: items.filter((item: any) => item.status === "rejeitado").length
-    },
-    {
-      id: "devolvido",
-      label: "Devolvidos",
-      value: "devolvido",
-      icon: RefreshCw,
-      color: "warning",
-      count: items.filter((item: any) => item.status === "devolvido").length
+      count: items.filter((item: any) => item.status === "fechamento_reprovado").length
     }
   ];
 

@@ -662,6 +662,9 @@ def list_cases(
                 qry = qry.order_by(Case.id.asc())
             elif order == "updated_desc":
                 qry = qry.order_by(Case.last_update_at.desc().nullslast(), Case.id.desc())
+            elif order == "financiamentos_desc":
+                # Para ordenação por financiamentos, vamos buscar todos e ordenar após
+                pass
             else:
                 qry = qry.order_by(Case.id.desc())
 
@@ -696,24 +699,38 @@ def list_cases(
                     }
 
                     if hasattr(c, "client") and c.client:
+                        # Contar financiamentos do cliente
+                        from app.models import PayrollLine
+                        num_financiamentos = db.query(PayrollLine).filter(
+                            PayrollLine.cpf == c.client.cpf
+                        ).count()
+
                         item["client"] = {
                             "name": c.client.name or "Nome não informado",
                             "cpf": c.client.cpf or "",
                             "matricula": c.client.matricula or "",
+                            "num_financiamentos": num_financiamentos,
                         }
                     else:
                         client = db.get(Client, c.client_id) if c.client_id else None
                         if client:
+                            from app.models import PayrollLine
+                            num_financiamentos = db.query(PayrollLine).filter(
+                                PayrollLine.cpf == client.cpf
+                            ).count()
+
                             item["client"] = {
                                 "name": client.name or "Nome não informado",
                                 "cpf": client.cpf or "",
                                 "matricula": client.matricula or "",
+                                "num_financiamentos": num_financiamentos,
                             }
                         else:
                             item["client"] = {
                                 "name": "Cliente não encontrado",
                                 "cpf": "",
                                 "matricula": "",
+                                "num_financiamentos": 0,
                             }
 
                     items.append(item)
@@ -736,6 +753,10 @@ def list_cases(
                             },
                         }
                     )
+
+            # Ordenar por número de financiamentos se necessário
+            if order == "financiamentos_desc":
+                items.sort(key=lambda x: x.get("client", {}).get("num_financiamentos", 0), reverse=True)
 
             return {"items": items, "total": total, "page": page, "page_size": page_size}
 
@@ -969,6 +990,106 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
 
     await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "calculista_pendente"})
     return {"simulation_id": sim_id}
+
+
+@r.post("/{case_id}/mark-no-contact")
+async def mark_no_contact(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
+    """Marca uma tentativa de contato sem sucesso no caso."""
+    with SessionLocal() as db:
+        c = db.get(Case, case_id)
+        if not c:
+            raise HTTPException(404, "Case not found")
+
+        # Mudar status do caso para "sem_contato"
+        c.status = "sem_contato"
+
+        # Adicionar evento de histórico
+        db.add(
+            CaseEvent(
+                case_id=c.id,
+                type="case.no_contact",
+                payload={
+                    "message": "Tentativa de contato sem sucesso",
+                    "user": user.name,
+                    "status_changed_to": "sem_contato"
+                },
+                created_by=user.id,
+            )
+        )
+
+        # Atualizar observações do cliente
+        current_obs = c.client.observacoes or ""
+        timestamp = datetime.utcnow().strftime("%d/%m/%Y %H:%M")
+        new_obs = f"{current_obs}\n[{timestamp}] Sem contato - {user.name}".strip()
+        c.client.observacoes = new_obs
+
+        c.last_update_at = datetime.utcnow()
+        db.commit()
+
+    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "sem_contato"})
+    return {"success": True, "case_id": case_id, "status": "sem_contato"}
+
+
+@r.post("/{case_id}/to-fechamento")
+async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
+    """Envia um caso com cálculo aprovado para a fila de fechamento."""
+    from ..models import User
+    from .notifications import create_notification_for_user
+
+    client_name = "Cliente"
+    fechamento_user_ids = []
+
+    with SessionLocal() as db:
+        c = db.get(Case, case_id)
+        if not c:
+            raise HTTPException(404, "Case not found")
+
+        # Verificar se o status é "calculo_aprovado"
+        if c.status != "calculo_aprovado":
+            raise HTTPException(400, "Apenas casos com cálculo aprovado podem ser enviados para fechamento")
+
+        # Salvar nome do cliente antes de fechar a sessão
+        client_name = c.client.name if c.client else "Cliente"
+
+        # Atualizar status do caso
+        c.status = "fechamento_pendente"
+        c.last_update_at = datetime.utcnow()
+
+        # Adicionar evento de histórico
+        db.add(
+            CaseEvent(
+                case_id=c.id,
+                type="case.to_fechamento",
+                payload={
+                    "sent_by": user.name,
+                    "sent_at": datetime.utcnow().isoformat()
+                },
+                created_by=user.id,
+            )
+        )
+        db.commit()
+
+        # Buscar todos os usuários do módulo fechamento para notificar
+        fechamento_users = db.query(User).filter(
+            User.role.in_(["fechamento", "admin", "supervisor"]),
+            User.active == True
+        ).all()
+        fechamento_user_ids = [u.id for u in fechamento_users]
+
+    # Enviar notificações (fora da sessão)
+    for user_id in fechamento_user_ids:
+        await create_notification_for_user(
+            user_id=user_id,
+            event="case.to_fechamento",
+            payload={
+                "case_id": case_id,
+                "message": f"📋 Novo caso enviado para fechamento por {user.name}",
+                "client_name": client_name
+            }
+        )
+
+    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "fechamento_pendente"})
+    return {"success": True, "case_id": case_id, "status": "fechamento_pendente"}
 
 
 @r.post("/scheduler/run-maintenance")

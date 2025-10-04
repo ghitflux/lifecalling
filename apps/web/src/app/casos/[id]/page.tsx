@@ -11,10 +11,11 @@ import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents } from "@/lib/hooks";
+import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
+import { RefreshCw } from "lucide-react";
 
 interface CaseDetail {
   id: number;
@@ -102,6 +103,7 @@ export default function CaseDetailPage() {
   const [observacoes, setObservacoes] = useState("");
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const [sentToCalculista, setSentToCalculista] = useState(false);
 
   // Estados para dados bancários
   const [banco, setBanco] = useState("");
@@ -115,6 +117,12 @@ export default function CaseDetailPage() {
 
   // Hook para reatribuir caso (apenas admin/supervisor)
   const reassign = useReassignCase();
+
+  // Hook para marcar sem contato
+  const markNoContact = useMarkNoContact();
+
+  // Hook para enviar para fechamento
+  const sendToFechamento = useSendToFechamento();
 
   // Hook para listar usuários ativos
   const { data: users } = useUsers();
@@ -158,10 +166,32 @@ export default function CaseDetailPage() {
 
   const handleSendToCalculista = async () => {
     try {
+      setSentToCalculista(true);
       await sendCalc.mutateAsync(caseId);
       toast.success("Caso enviado para calculista com sucesso!");
+      // Redirecionar para a esteira, aba "Meus Atendimentos"
+      setTimeout(() => {
+        window.location.href = "/esteira";
+      }, 1000);
     } catch (error) {
+      setSentToCalculista(false);
       toast.error("Erro ao enviar para calculista. Tente novamente.");
+    }
+  };
+
+  const handleMarkNoContact = async () => {
+    try {
+      await markNoContact.mutateAsync(caseId);
+    } catch (error) {
+      console.error("Erro ao marcar sem contato:", error);
+    }
+  };
+
+  const handleSendToFechamento = async () => {
+    try {
+      await sendToFechamento.mutateAsync(caseId);
+    } catch (error) {
+      console.error("Erro ao enviar para fechamento:", error);
     }
   };
 
@@ -326,9 +356,35 @@ export default function CaseDetailPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary">Sem Contato</Button>
-          <Button onClick={handleSendToCalculista} disabled={sendCalc.isPending}>
-            {sendCalc.isPending ? "Enviando..." : "Enviar para Calculista"}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["case", caseId] })}
+            title="Atualizar dados"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleMarkNoContact}
+            disabled={markNoContact.isPending}
+          >
+            {markNoContact.isPending ? "Marcando..." : "Sem Contato"}
+          </Button>
+          {caseDetail.status === "calculo_aprovado" && (
+            <Button
+              onClick={handleSendToFechamento}
+              disabled={sendToFechamento.isPending}
+              variant="default"
+            >
+              {sendToFechamento.isPending ? "Enviando..." : "Enviar para Fechamento"}
+            </Button>
+          )}
+          <Button
+            onClick={handleSendToCalculista}
+            disabled={sendCalc.isPending || sentToCalculista}
+          >
+            {sentToCalculista ? "Enviado para Simulação" : sendCalc.isPending ? "Enviando..." : "Enviar para Calculista"}
           </Button>
         </div>
       </div>
@@ -425,11 +481,6 @@ export default function CaseDetailPage() {
                   {caseDetail.client.matricula}
                 </Snippet>
               </div>
-            </div>
-
-            <div>
-              <Label>Órgão</Label>
-              <Input value={caseDetail.client.orgao || ""} disabled />
             </div>
 
             {/* Informações Financeiras do Cliente */}
@@ -606,9 +657,9 @@ export default function CaseDetailPage() {
             </Button>
           </div>
 
-          {/* Upload de Anexos */}
+          {/* Upload de Contracheque e Anexos */}
           <div className="border-t pt-4">
-            <h3 className="font-medium mb-2">Upload de Anexos</h3>
+            <h3 className="font-medium mb-2">Upload de Contracheque e Anexos</h3>
             <AttachmentUploader caseId={caseId} />
           </div>
 
@@ -676,7 +727,7 @@ export default function CaseDetailPage() {
            <div className="border-t pt-4">
              <h3 className="font-medium mb-2">Histórico de Números</h3>
              {clientPhones && clientPhones.length > 0 ? (
-               <div className="space-y-2">
+               <div className={`space-y-2 ${clientPhones.length >= 3 ? 'max-h-48 overflow-y-auto pr-2' : ''}`}>
                   {clientPhones.map((phoneRecord: any) => (
                     <div
                       key={phoneRecord.id}

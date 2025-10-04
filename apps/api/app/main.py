@@ -4,6 +4,16 @@ from .routers import auth, cases, imports, ws as wsmod, clients, users
 from .routers import closing, finance, dashboard, notifications, contract_attachments, analytics, rankings, campanhas
 from .db import Base, engine
 from .routers import simulations
+import os
+
+# Configurar timezone para Teresina-PI (America/Fortaleza)
+os.environ['TZ'] = 'America/Fortaleza'
+try:
+    import time
+    time.tzset()
+except AttributeError:
+    # tzset não está disponível no Windows, mas a variável de ambiente ainda funciona
+    pass
 
 app = FastAPI(title="Lifecalling API")
 
