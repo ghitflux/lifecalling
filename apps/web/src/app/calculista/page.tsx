@@ -13,9 +13,9 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  UnifiedFilter,
   KPICard,
   MiniAreaChart,
+  ProgressBar,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
@@ -46,10 +46,8 @@ export default function CalculistaPage() {
 
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+
+
 
   // -----------------------------
   // Mock para mini gráficos (KPIs)
@@ -103,8 +101,13 @@ export default function CalculistaPage() {
   // Dados
   const { data: allSims, isLoading: simsLoading } = useAllSimulations(true);
   const { data: stats } = useCalculistaStats();
-  // KPIs do mês selecionado (dados reais)
-  const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: selectedMonth });
+  // KPIs do mês atual (dados reais)
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+  
+  const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: currentMonth });
 
   const { data: casosEfetivados, isLoading: efetivadosLoading } =
     useCasosEfetivados();
@@ -119,7 +122,8 @@ export default function CalculistaPage() {
         simulacoes_aprovadas: kpis.approvedToday || 0,
         taxa_aprovacao: kpis.approvalRate || 0,
         volume_financeiro: kpis.volumeToday || 0,
-        meta_mensal: kpis.meta_mensal || 50000,
+        meta_mensal: kpis.meta_mensal || 0,
+        consultoria_liquida: kpis.consultoria_liquida || 0,
         trends: kpis.trends || {
           pending: 0,
           approvedToday: 0,
@@ -134,7 +138,8 @@ export default function CalculistaPage() {
       simulacoes_aprovadas: stats?.approvedToday || 0,
       taxa_aprovacao: stats?.approvalRate || 0,
       volume_financeiro: stats?.volumeToday || 0,
-      meta_mensal: 50000,
+      meta_mensal: 0,
+      consultoria_liquida: 0,
       trends: {
         pending: 0,
         approvedToday: 0,
@@ -186,6 +191,8 @@ export default function CalculistaPage() {
     }
   }, [user, router]);
 
+
+
   const handleSimulationClick = (caseId: number) => {
     router.push(`/calculista/${caseId}`);
   };
@@ -208,13 +215,7 @@ export default function CalculistaPage() {
         </Badge>
       </div>
 
-      {/* Filtro por mês (apenas visual - KPIs) */}
-      <UnifiedFilter
-        selectedMonth={selectedMonth}
-        onMonthChange={setSelectedMonth}
-        label="Filtrar por mês:"
-        className="mb-6"
-      />
+
 
       {/* KPIs do módulo */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
@@ -294,20 +295,57 @@ export default function CalculistaPage() {
               xKey="day"
               stroke="#f59e0b"
               height={60}
+              valueType="currency"
             />
           }
         />
 
-        <KPICard
-          title="Meta Mensal"
-          value={`R$ ${(combinedKpis.meta_mensal / 1000).toFixed(0)}K`}
-          subtitle="10% da receita líquida"
-          trend={combinedKpis.trends?.meta_mensal ?? 0}
-          icon={Target}
-          color="success"
-          gradientVariant="emerald"
-          isLoading={isLoadingKpis && !kpis}
-        />
+        {/* Card Meta Mensal Customizado */}
+        <Card className={`p-6 ${combinedKpis.meta_mensal >= 0 ? 'border-success bg-success/5' : 'border-danger bg-danger/5'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${combinedKpis.meta_mensal >= 0 ? 'bg-success/10' : 'bg-danger/10'}`}>
+                <Target className={`h-5 w-5 ${combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'}`} />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Meta Mensal</h3>
+                <p className={`text-2xl font-bold ${combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'}`}>
+                  R$ {combinedKpis.meta_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`flex items-center gap-1 text-sm ${
+                (combinedKpis.trends?.meta_mensal ?? 0) >= 0 ? 'text-success' : 'text-danger'
+              }`}>
+                <TrendingUp className="h-4 w-4" />
+                {Math.abs(combinedKpis.trends?.meta_mensal ?? 0).toFixed(1)}%
+              </div>
+              <p className="text-xs text-muted-foreground">vs. mês anterior</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Progresso da Meta</span>
+              <span className="font-medium">
+                {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0 
+                  ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
+                  : 0}%
+              </span>
+            </div>
+            <ProgressBar
+              value={combinedKpis.meta_mensal >= 0 ? combinedKpis.meta_mensal : 0}
+              max={combinedKpis.consultoria_liquida * 0.1}
+              variant={combinedKpis.meta_mensal >= 0 ? "success" : "danger"}
+              size="sm"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Atual: R$ {Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Abas */}

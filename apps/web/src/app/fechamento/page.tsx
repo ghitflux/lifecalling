@@ -7,7 +7,11 @@ import {
   CardFechamento,
   KPICard,
   MiniAreaChart,
-  UnifiedFilter
+  ProgressBar,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent
 } from "@lifecalling/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
@@ -20,15 +24,21 @@ function FechamentoContent() {
   const { data: items = [], isLoading, error, refetch } = useClosingQueue();
   const approve = useClosingApprove();
   const reject = useClosingReject();
+  
+  // Estado para controle da tab ativa
+  const [activeTab, setActiveTab] = useState("pendentes");
 
-  // Estado para filtro por mês
-  const [selectedMonth, setSelectedMonth] = useState(() => {
+
+
+
+
+  // Hook para buscar dados de KPI do fechamento do mês atual
+  const currentMonth = useMemo(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
-
-  // Hook para buscar dados de KPI do fechamento (com mês selecionado)
-  const { data: kpis, isLoading: isLoadingKpis } = useClosingKpis({ month: selectedMonth });
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+  
+  const { data: kpis, isLoading: isLoadingKpis } = useClosingKpis({ month: currentMonth });
 
   // Dados combinados com fallback para dados padrão
   const combinedKpis = useMemo(() => {
@@ -157,15 +167,56 @@ function FechamentoContent() {
 
 
 
-  // Usar todos os itens sem filtros
-  const filteredItems = items;
+  // Separar casos por status
+  const casosPendentes = useMemo(() => {
+    return items.filter(item => 
+      item.status === 'calculo_aprovado' || item.status === 'fechamento_pendente'
+    );
+  }, [items]);
+
+  const casosAprovados = useMemo(() => {
+    return items.filter(item => 
+      item.status === 'fechamento_aprovado'
+    );
+  }, [items]);
+
+  const casosRejeitados = useMemo(() => {
+    return items.filter(item => 
+      item.status === 'fechamento_reprovado'
+    );
+  }, [items]);
+
+  // Casos a serem exibidos baseado na tab ativa
+  const filteredItems = useMemo(() => {
+    switch (activeTab) {
+      case "pendentes":
+        return casosPendentes;
+      case "aprovados":
+        return casosAprovados;
+      case "rejeitados":
+        return casosRejeitados;
+      default:
+        return casosPendentes;
+    }
+  }, [activeTab, casosPendentes, casosAprovados, casosRejeitados]);
+
+
 
   const handleApprove = (caseId: number) => {
-    approve.mutate(caseId);
+    approve.mutate(caseId, {
+      onSuccess: () => {
+        // Após aprovação, manter na tab pendentes para ver a atualização
+        refetch();
+      }
+    });
   };
 
   const handleReject = (caseId: number) => {
-    reject.mutate(caseId);
+    reject.mutate(caseId, {
+      onSuccess: () => {
+        refetch();
+      }
+    });
   };
 
   const handleViewDetails = (caseId: number) => {
@@ -197,13 +248,7 @@ function FechamentoContent() {
         </div>
       </div>
 
-      {/* Filtro por mês (KPIs) */}
-      <UnifiedFilter
-        selectedMonth={selectedMonth}
-        onMonthChange={setSelectedMonth}
-        label="Filtrar por mês:"
-        className="mb-6"
-      />
+
 
       {/* KPIs do Módulo de Fechamento */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
@@ -252,67 +297,224 @@ function FechamentoContent() {
           color="warning"
           gradientVariant="amber"
           isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria_liquida} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria_liquida} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
         />
 
-        <KPICard
-          title="Meta Mensal"
-          value={`R$ ${(combinedKpis.meta_mensal / 1000).toFixed(0)}K`}
-          subtitle="(Receita - Despesas) * 10%"
-          trend={combinedKpis.trends?.volume_financeiro || 0}
-          icon={FileCheck}
-          color="success"
-          gradientVariant="emerald"
-          isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.volume_financeiro} dataKey="value" xKey="day" stroke="#10b981" height={60} />}
-        />
+        {/* Meta Mensal Card - Custom with Progress Bar */}
+        <div className={`rounded-lg border p-6 transition-all duration-200 hover:shadow-md ${
+          combinedKpis.meta_mensal >= 0 
+            ? 'border-success/40 bg-success-subtle hover:border-success/60' 
+            : 'border-danger/40 bg-danger-subtle hover:border-danger/60'
+        }`}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Target className={`h-5 w-5 ${
+                    combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
+                  }`} />
+                  <h3 className={`text-sm font-medium ${
+                    combinedKpis.meta_mensal >= 0 ? 'text-success-foreground' : 'text-danger-foreground'
+                  }`}>
+                    Meta Mensal
+                  </h3>
+                </div>
+                <div className={`text-2xl font-bold ${
+                  combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
+                }`}>
+                  R$ {combinedKpis.meta_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  10% de (consultoria líquida - despesas)
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-1">
+                {(combinedKpis.trends?.meta_mensal || 0) >= 0 ? (
+                  <TrendingUp className="h-3 w-3 text-success" />
+                ) : (
+                  <TrendingUp className="h-3 w-3 text-danger rotate-180" />
+                )}
+                <span className={`text-xs ${
+                  (combinedKpis.trends?.meta_mensal || 0) >= 0 ? 'text-success' : 'text-danger'
+                }`}>
+                  {Math.abs(combinedKpis.trends?.meta_mensal || 0).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progresso da Meta</span>
+                <span className={`font-medium ${
+                  combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
+                }`}>
+                  {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0 
+                    ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
+                    : 0}%
+                </span>
+              </div>
+              <ProgressBar
+                value={combinedKpis.meta_mensal >= 0 ? combinedKpis.meta_mensal : 0}
+                max={combinedKpis.consultoria_liquida * 0.1}
+                variant={
+                  combinedKpis.meta_mensal >= 0
+                    ? combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.8 
+                      ? "success" 
+                      : combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.5 
+                        ? "warning" 
+                        : "danger"
+                    : "danger"
+                }
+                size="md"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span className={combinedKpis.meta_mensal >= 0 ? 'text-success/80' : 'text-danger/80'}>
+                  Atual: R$ {Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
 
 
-      {/* Content */}
-      {error ? (
-        <div className="text-center py-8">
-          <div className="text-destructive mb-2">Erro ao carregar casos</div>
-          <Button variant="outline" onClick={() => refetch()}>
-            Tentar novamente
-          </Button>
-        </div>
-      ) : isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-muted rounded-lg h-64"></div>
-            </div>
-          ))}
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-muted-foreground mb-2">
-            Nenhum caso pendente para fechamento
-          </div>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredItems.map((item: any) => (
-            <CardFechamento
-              key={item.id}
-              case={item}
-              onApprove={() => handleApprove(item.id)}
-              onReject={() => handleReject(item.id)}
-              onViewDetails={() => router.push(`/fechamento/${item.id}`)}
-              isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-            />
-          ))}
-        </div>
-      )}
+      {/* Tabs para casos por status */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="pendentes">
+            Casos Pendentes ({casosPendentes.length})
+          </TabsTrigger>
+          <TabsTrigger value="aprovados">
+            Casos Aprovados ({casosAprovados.length})
+          </TabsTrigger>
+          <TabsTrigger value="rejeitados">
+            Casos Rejeitados ({casosRejeitados.length})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Summary */}
-      {filteredItems.length > 0 && (
-        <div className="mt-6 text-sm text-muted-foreground text-center">
-          Mostrando {filteredItems.length} de {items.length} casos
-        </div>
-      )}
+        {/* Tab Casos Pendentes */}
+        <TabsContent value="pendentes" className="mt-6">
+          {error ? (
+            <div className="text-center py-8">
+              <div className="text-destructive mb-2">Erro ao carregar casos</div>
+              <Button variant="outline" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-muted rounded-lg h-64"></div>
+                </div>
+              ))}
+            </div>
+          ) : casosPendentes.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-2">
+                Nenhum caso pendente para fechamento
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {casosPendentes.map((item: any) => (
+                <CardFechamento
+                  key={item.id}
+                  case={item}
+                  onApprove={() => handleApprove(item.id)}
+                  onReject={() => handleReject(item.id)}
+                  onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+                  isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Casos Aprovados */}
+        <TabsContent value="aprovados" className="mt-6">
+          {error ? (
+            <div className="text-center py-8">
+              <div className="text-destructive mb-2">Erro ao carregar casos</div>
+              <Button variant="outline" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-muted rounded-lg h-64"></div>
+                </div>
+              ))}
+            </div>
+          ) : casosAprovados.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-2">
+                Nenhum caso aprovado ainda
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {casosAprovados.map((item: any) => (
+                <CardFechamento
+                  key={item.id}
+                  case={item}
+                  onApprove={() => handleApprove(item.id)}
+                  onReject={() => handleReject(item.id)}
+                  onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+                  isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
+                  hideActions={true} // Esconder ações para casos já aprovados
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Casos Rejeitados */}
+        <TabsContent value="rejeitados" className="mt-6">
+          {error ? (
+            <div className="text-center py-8">
+              <div className="text-destructive mb-2">Erro ao carregar casos</div>
+              <Button variant="outline" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-muted rounded-lg h-64"></div>
+                </div>
+              ))}
+            </div>
+          ) : casosRejeitados.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-2">
+                Nenhum caso rejeitado ainda
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {casosRejeitados.map((item: any) => (
+                <CardFechamento
+                  key={item.id}
+                  case={item}
+                  onApprove={() => handleApprove(item.id)}
+                  onReject={() => handleReject(item.id)}
+                  onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+                  isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
+                  hideActions={true} // Esconder ações para casos já rejeitados
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
