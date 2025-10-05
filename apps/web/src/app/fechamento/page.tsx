@@ -1,6 +1,6 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useClosingQueue, useClosingApprove, useClosingReject, useClosingKpis } from "@/lib/hooks";
+import { useClosingQueue, useClosingApprove, useClosingReject, useClosingKpis, useCasosEfetivados } from "@/lib/hooks";
 import {
   Button,
   Badge,
@@ -16,7 +16,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, Target, FileCheck } from "lucide-react";
+import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, Target, FileCheck, Eye } from "lucide-react";
 
 function FechamentoContent() {
   useLiveCaseEvents();
@@ -24,6 +24,7 @@ function FechamentoContent() {
   const { data: items = [], isLoading, error, refetch } = useClosingQueue();
   const approve = useClosingApprove();
   const reject = useClosingReject();
+  const { data: efetivadosCases = [], isLoading: isLoadingEfetivados } = useCasosEfetivados();
 
   // Estado para controle da tab ativa
   const [activeTab, setActiveTab] = useState("pendentes");
@@ -360,7 +361,7 @@ function FechamentoContent() {
 
       {/* Tabs para casos por status */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pendentes">
             Casos Pendentes ({casosPendentes.length})
           </TabsTrigger>
@@ -369,6 +370,9 @@ function FechamentoContent() {
           </TabsTrigger>
           <TabsTrigger value="rejeitados">
             Casos Rejeitados ({casosRejeitados.length})
+          </TabsTrigger>
+          <TabsTrigger value="efetivados">
+            Casos Efetivados pelo Financeiro ({efetivadosCases.length})
           </TabsTrigger>
         </TabsList>
 
@@ -486,6 +490,89 @@ function FechamentoContent() {
                   isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
                   // hideActions prop removed – CardFechamento no longer accepts it
                 />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Casos Efetivados pelo Financeiro */}
+        <TabsContent value="efetivados" className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Casos Efetivados pelo Financeiro</h2>
+            <div className="text-sm text-muted-foreground">
+              {efetivadosCases.length} caso(s) efetivado(s)
+            </div>
+          </div>
+
+          {isLoadingEfetivados ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-muted rounded-lg h-64"></div>
+                </div>
+              ))}
+            </div>
+          ) : efetivadosCases.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="space-y-2">
+                <CheckCircle className="h-12 w-12 mx-auto text-green-500" />
+                <h3 className="text-lg font-medium">Nenhum caso efetivado</h3>
+                <p className="text-muted-foreground">
+                  Não há casos efetivados pelo financeiro no momento.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {efetivadosCases.map((caso: any) => (
+                <div key={caso.id} className="p-4 space-y-3 hover:shadow-md transition-shadow border rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        Efetivado
+                      </Badge>
+                      <div className="text-xs text-muted-foreground">
+                        #{caso.id}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">{caso.client?.name || "Cliente não identificado"}</h3>
+                      {caso.client?.cpf && (
+                        <p className="text-sm text-muted-foreground">
+                          CPF: {caso.client.cpf}
+                        </p>
+                      )}
+                      {caso.client?.matricula && (
+                        <p className="text-xs text-muted-foreground">
+                          Matrícula: {caso.client.matricula}
+                        </p>
+                      )}
+                    </div>
+
+                    {caso.banco && (
+                      <div className="text-sm">
+                        <span className="font-medium">Banco:</span> {caso.banco}
+                      </div>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Efetivado em: {new Date(caso.updated_at || caso.created_at).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => router.push(`/fechamento/${caso.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ver Detalhes
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           )}

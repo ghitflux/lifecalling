@@ -222,49 +222,7 @@ export default function CalculistaPage() {
 
 
       {/* KPIs do módulo */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <KPICard
-          title="Simulações Criadas"
-          value={combinedKpis.simulacoes_criadas}
-          subtitle="Total no período"
-          trend={combinedKpis.trends?.pending ?? 0}
-          icon={Calculator}
-          color="info"
-          gradientVariant="sky"
-          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
-          miniChart={
-            <MiniAreaChart
-              data={MOCK_TREND_DATA.simulacoes}
-              dataKey="value"
-              xKey="day"
-              stroke="#0ea5e9"
-              height={60}
-            />
-          }
-        />
-
-        <KPICard
-          title="Simulações Aprovadas"
-          value={combinedKpis.simulacoes_aprovadas}
-          subtitle="Aprovadas no período"
-          trend={combinedKpis.trends?.approvedToday ?? 0}
-          icon={CheckCircle}
-          color="success"
-          gradientVariant="emerald"
-          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
-          miniChart={
-            <MiniAreaChart
-              data={MOCK_TREND_DATA.aprovadas}
-              dataKey="value"
-              xKey="day"
-              stroke="#10b981"
-              height={60}
-            />
-          }
-        />
-
-
-
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mb-8">
         <KPICard
           title="Consultoria Líquida"
           value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
@@ -336,7 +294,7 @@ export default function CalculistaPage() {
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
