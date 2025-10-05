@@ -102,6 +102,84 @@ export default function Page(){
   const transactions = transactionsData?.items || [];
   const totals = transactionsData?.totals || { receitas: 0, despesas: 0, saldo: 0 };
 
+  // Calcular paginação
+  const totalPages = Math.ceil(transactions.length / pageSize);
+  const paginatedTransactions = transactions.slice((page - 1) * pageSize, page * pageSize);
+
+  // Função para exportar CSV
+  const exportToCSV = () => {
+    if (transactions.length === 0) {
+      toast.error("Nenhuma transação para exportar");
+      return;
+    }
+
+    // Cabeçalhos do CSV
+    const headers = ["Data", "Tipo", "Cliente", "CPF", "Atendente", "Categoria", "Descrição", "Valor"];
+
+    // Converter transações para linhas CSV
+    const rows = transactions.map((t: any) => [
+      new Date(t.date).toLocaleDateString('pt-BR'),
+      t.type === 'receita' ? 'Receita' : 'Despesa',
+      t.client_name || '-',
+      t.client_cpf ? t.client_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '-',
+      t.agent_name || '-',
+      t.category,
+      t.name || '-',
+      `R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    ]);
+
+    // Adicionar linha de totais
+    rows.push([
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      'Total Receitas',
+      `R$ ${totals.receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    ]);
+    rows.push([
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      'Total Despesas',
+      `R$ ${totals.despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    ]);
+    rows.push([
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      'Saldo',
+      `R$ ${totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    ]);
+
+    // Criar conteúdo CSV
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Criar blob e fazer download
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `receitas-despesas-${selectedMonth || 'completo'}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success("CSV exportado com sucesso!");
+  };
+
   // Buscar métricas do financeiro
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
     queryKey: ["financeMetrics", selectedMonth],
@@ -940,6 +1018,15 @@ export default function Page(){
             <h3 className="text-lg font-semibold">Receitas e Despesas</h3>
             <div className="flex items-center gap-3">
               <Button
+                size="sm"
+                variant="outline"
+                onClick={exportToCSV}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <Button
                 onClick={() => {
                   setEditingIncome(null);
                   setShowIncomeModal(true);
@@ -999,7 +1086,7 @@ export default function Page(){
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.map((transaction: any) => (
+                      {paginatedTransactions.map((transaction: any) => (
                         <tr key={transaction.id} className="border-b last:border-0 hover:bg-muted/30">
                           {/* Data */}
                           <td className="p-3 text-sm whitespace-nowrap">
@@ -1067,7 +1154,7 @@ export default function Page(){
 
                           {/* Ações */}
                           <td className="p-3">
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-2">
                               {/* Botão Ver Detalhes do Atendimento (apenas para receitas de consultoria) */}
                               {transaction.type === 'receita' && transaction.case_id && (
                                 <Button
@@ -1077,10 +1164,11 @@ export default function Page(){
                                     setSelectedCaseId(transaction.case_id);
                                     setShowContractModal(true);
                                   }}
-                                  className="h-8 w-8 p-0"
+                                  className="h-9 px-3 gap-2"
                                   title="Ver detalhes do atendimento"
                                 >
                                   <Eye className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Detalhes</span>
                                 </Button>
                               )}
 
@@ -1090,10 +1178,11 @@ export default function Page(){
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleViewAttachments(transaction)}
-                                  className="h-8 w-8 p-0"
+                                  className="h-9 px-3 gap-2"
                                   title="Ver anexos"
                                 >
-                                  <FileText className="h-4 w-4 text-muted-foreground" />
+                                  <FileText className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Anexos</span>
                                 </Button>
                               )}
 
@@ -1102,21 +1191,23 @@ export default function Page(){
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleEditTransaction(transaction)}
-                                className="h-8 w-8 p-0"
+                                className="h-9 px-3 gap-2"
                                 title="Editar"
                               >
                                 <Edit className="h-4 w-4" />
+                                <span className="hidden sm:inline">Editar</span>
                               </Button>
 
                               {/* Botão Excluir */}
                               <Button
                                 size="sm"
-                                variant="destructive"
+                                variant="ghost"
                                 onClick={() => handleDeleteTransaction(transaction)}
-                                className="h-8 w-8 p-0"
+                                className="h-9 px-3 gap-2 text-danger hover:text-danger hover:bg-danger/10"
                                 title="Excluir"
                               >
                                 <Trash2 className="h-4 w-4" />
+                                <span className="hidden sm:inline">Excluir</span>
                               </Button>
                             </div>
                           </td>
@@ -1148,6 +1239,51 @@ export default function Page(){
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              {/* Controles de Paginação */}
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Linhas por página:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="border rounded-md px-2 py-1 text-sm bg-background"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-sm text-muted-foreground ml-4">
+                    Mostrando {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, transactions.length)} de {transactions.length}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-sm">
+                    Página {page} de {totalPages || 1}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page >= totalPages}
+                  >
+                    Próxima
+                  </Button>
                 </div>
               </div>
             </>
