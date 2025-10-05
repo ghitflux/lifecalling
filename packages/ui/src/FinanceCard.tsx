@@ -325,15 +325,7 @@ export function FinanceCard({
               </p>
             </div>
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-4 w-4 text-success" />
-                <span className="text-sm text-muted-foreground">Liberado Cliente</span>
-              </div>
-              <p className="font-semibold text-success">
-                {formatCurrency(simulationResult.liberadoCliente)}
-              </p>
-            </div>
+
           </>
         )}
       </div>
@@ -360,13 +352,13 @@ export function FinanceCard({
       {/* Informações Bancárias do Cliente */}
 
 
-      {/* Seção de Anexos */}
-      {(status === "approved" || status === "disbursed") && (
+      {/* Seção de Anexos - apenas para casos aprovados pendentes de liberação */}
+      {status === "approved" && (
         <div className="rounded-lg border border-border/40 bg-muted/30 p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-800">Comprovantes ({attachments.length})</span>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Comprovantes ({attachments.length})</span>
             </div>
             {onUploadAttachment && (
               <Button
@@ -396,9 +388,9 @@ export function FinanceCard({
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-              <p className="text-xs text-gray-600">Arraste arquivos aqui ou clique para selecionar</p>
-              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG até 10MB</p>
+              <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Arraste arquivos aqui ou clique para selecionar</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">PDF, JPG, PNG até 10MB</p>
             </div>
           )}
 

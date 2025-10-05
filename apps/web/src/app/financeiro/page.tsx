@@ -16,7 +16,7 @@ import {
   useUploadIncomeAttachment,
   useUploadExpenseAttachment
 } from "@/lib/hooks";
-import { FinanceCard, ExpenseModal, IncomeModal, AttachmentsModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard, MiniAreaChart, UnifiedFilter } from "@lifecalling/ui";
+import { FinanceCard, ExpenseModal, IncomeModal, AttachmentsModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard, MiniAreaChart, DateRangeFilter } from "@lifecalling/ui";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -52,13 +52,19 @@ export default function Page(){
 
   // Filtros para transações
   const [transactionType, setTransactionType] = useState<string>("");  // "", "receita", "despesa"
-  
-  // Filtros por mês
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+
+  // Filtros por período personalizado
+  const [startDate, setStartDate] = useState<string>(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split('T')[0];
   });
-  const [fullReportMode, setFullReportMode] = useState(false);
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split('T')[0];
+  });
+
 
   // Modal de detalhes do contrato
   const [showContractModal, setShowContractModal] = useState(false);
@@ -79,18 +85,13 @@ export default function Page(){
 
   // Buscar transações unificadas (receitas e despesas)
   const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
-    queryKey: ["transactions", transactionType, selectedMonth],
+    queryKey: ["transactions", transactionType, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
 
-      // Usar o mês selecionado
-      if (selectedMonth) {
-        const [year, month] = selectedMonth.split('-');
-        const startOfMonth = `${year}-${month}-01`;
-        const endOfMonth = new Date(parseInt(year), parseInt(month) + 1, 0).toISOString().split('T')[0];
-        params.append("start_date", startOfMonth);
-        params.append("end_date", endOfMonth);
-      }
+      // Usar o período personalizado
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
 
       if (transactionType) params.append("transaction_type", transactionType);
 
@@ -102,8 +103,8 @@ export default function Page(){
   const transactions = transactionsData?.items || [];
   const totals = transactionsData?.totals || { receitas: 0, despesas: 0, saldo: 0 };
 
-  // Calcular paginação
-  const totalPages = Math.ceil(transactions.length / pageSize);
+  // Calcular paginação para transações
+  const transactionsTotalPages = Math.ceil(transactions.length / pageSize);
   const paginatedTransactions = transactions.slice((page - 1) * pageSize, page * pageSize);
 
   // Função para exportar CSV
@@ -163,7 +164,7 @@ export default function Page(){
     // Criar conteúdo CSV
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map((row: string[]) => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
     // Criar blob e fazer download
@@ -171,7 +172,8 @@ export default function Page(){
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `receitas-despesas-${selectedMonth || 'completo'}.csv`);
+    const dateRange = startDate && endDate ? `${startDate}_${endDate}` : 'completo';
+    link.setAttribute('download', `receitas-despesas-${dateRange}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -182,18 +184,13 @@ export default function Page(){
 
   // Buscar métricas do financeiro
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["financeMetrics", selectedMonth],
+    queryKey: ["financeMetrics", startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
 
-      // Usar o mês selecionado
-      if (selectedMonth) {
-        const [year, month] = selectedMonth.split('-');
-        const startOfMonth = `${year}-${month}-01`;
-        const endOfMonth = new Date(parseInt(year), parseInt(month) + 1, 0).toISOString().split('T')[0];
-        params.append("start_date", startOfMonth);
-        params.append("end_date", endOfMonth);
-      }
+      // Usar o período personalizado
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
 
       const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
@@ -201,6 +198,59 @@ export default function Page(){
   });
 
   const metrics = metricsData || {};
+
+  // Calcular período anterior para comparação
+  const calculatePreviousPeriod = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const prevEnd = new Date(start.getTime() - 1); // Um dia antes do período atual
+    const prevStart = new Date(prevEnd.getTime() - (diffDays * 24 * 60 * 60 * 1000));
+    
+    return {
+      startDate: prevStart.toISOString().split('T')[0],
+      endDate: prevEnd.toISOString().split('T')[0]
+    };
+  };
+
+  const previousPeriod = calculatePreviousPeriod(startDate, endDate);
+
+  // Buscar métricas do período anterior para comparação
+  const { data: previousMetricsData } = useQuery({
+    queryKey: ["financeMetrics", "previous", previousPeriod.startDate, previousPeriod.endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append("start_date", previousPeriod.startDate);
+      params.append("end_date", previousPeriod.endDate);
+
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
+      return response.data;
+    }
+  });
+
+  const previousMetrics = previousMetricsData || {};
+
+  // Função para calcular tendência percentual
+  const calculateTrend = (current: number, previous: number): number => {
+    if (previous === 0) {
+      return current > 0 ? 100 : 0;
+    }
+    return Math.round(((current - previous) / previous) * 100 * 100) / 100;
+  };
+
+  // Calcular tendências reais
+  const trends = {
+    receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
+    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
+    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
+    imposto: calculateTrend(
+      (metrics.totalConsultoriaLiq || 0) * 0.14, 
+      (previousMetrics.totalConsultoriaLiq || 0) * 0.14
+    )
+  };
 
   // Dados mockados para mini gráficos (últimos 7 dias)
   const MOCK_TREND_DATA = {
@@ -239,6 +289,24 @@ export default function Page(){
       { day: "Sex", value: 8 },
       { day: "Sab", value: 4 },
       { day: "Dom", value: 1 }
+    ],
+    consultoria: [
+      { day: "Seg", value: 7200 },
+      { day: "Ter", value: 10500 },
+      { day: "Qua", value: 8400 },
+      { day: "Qui", value: 13000 },
+      { day: "Sex", value: 16000 },
+      { day: "Sab", value: 9800 },
+      { day: "Dom", value: 6200 }
+    ],
+    imposto: [
+      { day: "Seg", value: 1008 },
+      { day: "Ter", value: 1470 },
+      { day: "Qua", value: 1176 },
+      { day: "Qui", value: 1820 },
+      { day: "Sex", value: 2240 },
+      { day: "Sab", value: 1372 },
+      { day: "Dom", value: 868 }
     ]
   };
 
@@ -327,8 +395,8 @@ export default function Page(){
       toast.success("Despesa excluída!");
     },
     onError: (error: any) => {
-      const errorMessage = typeof error.response?.data?.detail === 'string' 
-        ? error.response.data.detail 
+      const errorMessage = typeof error.response?.data?.detail === 'string'
+        ? error.response.data.detail
         : "Erro ao excluir despesa";
       toast.error(errorMessage);
     }
@@ -399,8 +467,8 @@ export default function Page(){
       toast.success("Receita excluída!");
     },
     onError: (error: any) => {
-      const errorMessage = typeof error.response?.data?.detail === 'string' 
-        ? error.response.data.detail 
+      const errorMessage = typeof error.response?.data?.detail === 'string'
+        ? error.response.data.detail
         : "Erro ao excluir receita";
       toast.error(errorMessage);
     }
@@ -529,9 +597,9 @@ export default function Page(){
   const AttachmentsModalWrapper = ({ transaction, isOpen, onClose }: any) => {
     const incomeAttachments = useIncomeAttachments(transaction.type === 'receita' ? transaction.id : 0);
     const expenseAttachments = useExpenseAttachments(transaction.type === 'despesa' ? transaction.id : 0);
-    
-    const attachments = transaction.type === 'receita' 
-      ? incomeAttachments.data || [] 
+
+    const attachments = transaction.type === 'receita'
+      ? incomeAttachments.data || []
       : expenseAttachments.data || [];
 
     const handleDownload = (attachmentId: string) => {
@@ -626,63 +694,24 @@ export default function Page(){
     }
   };
 
-  const handleExportReport = async () => {
-    try {
-      const params = new URLSearchParams();
 
-      // Adicionar parâmetros de filtro
-      if (fullReportMode) {
-        params.append("full_report", "true");
-      } else {
-        // Usar o mês selecionado
-        if (selectedMonth) {
-          const [year, month] = selectedMonth.split('-');
-          const targetDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-          const startOfMonth = formatDateBrasilia(startOfMonthBrasilia(targetDate));
-          const endOfMonth = formatDateBrasilia(endOfMonthBrasilia(targetDate));
-          params.append("start_date", startOfMonth);
-          params.append("end_date", endOfMonth);
-        }
-      }
-
-      if (transactionType) params.append("transaction_type", transactionType);
-
-      // Fazer requisição com blob para download
-      const response = await api.get('/finance/export', {
-        params: Object.fromEntries(params),
-        responseType: 'blob'
-      });
-
-      // Criar link de download
-      const blob = new Blob([response.data]);
-      const link = document.createElement('a');
-      link.href = window.URL.createObjectURL(blob);
-      link.download = `financeiro_${new Date().toISOString().split('T')[0]}.xlsx`;
-      link.click();
-      window.URL.revokeObjectURL(link.href);
-
-      toast.success("Relatório exportado com sucesso!");
-    } catch (error: any) {
-      console.error('Erro ao exportar relatório:', error);
-      toast.error(error.response?.data?.detail || "Erro ao exportar relatório");
-    }
-  };
 
   // Filtros rápidos de status
   const statusCounts = {
-    aprovado: items.filter((i: any) => !i.contract && ["fechamento_aprovado", "financeiro_pendente"].includes(i.status)).length,
-    liberado: items.filter((i: any) => !!i.contract).length,
-    devolvido: items.filter((i: any) => i.status === "devolvido_financeiro").length,
+    aprovado: items.filter((i: any) =>
+      ["fechamento_aprovado", "financeiro_pendente"].includes(i.status) && !i.contract
+    ).length,
+    liberado: items.filter((i: any) =>
+      i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado")
+    ).length,
     cancelado: items.filter((i: any) => i.status === "contrato_cancelado").length,
     todos: items.length
   };
 
   const availableFilters = [
-    { id: "aprovado", label: "Aprovado", value: "aprovado", color: "success" as const, count: statusCounts.aprovado },
-    { id: "liberado", label: "Liberado", value: "liberado", color: "primary" as const, count: statusCounts.liberado },
-    { id: "devolvido", label: "Devolvido", value: "devolvido", color: "warning" as const, count: statusCounts.devolvido },
-    { id: "cancelado", label: "Cancelado", value: "cancelado", color: "danger" as const, count: statusCounts.cancelado },
-    { id: "todos", label: "Todos", value: "todos", color: "secondary" as const, count: statusCounts.todos }
+    { id: "aprovado", label: "Fechamento Aprovado", value: "aprovado", color: "success" as const, count: statusCounts.aprovado },
+    { id: "liberado", label: "Contrato Efetivado", value: "liberado", color: "primary" as const, count: statusCounts.liberado },
+    { id: "cancelado", label: "Cancelados", value: "cancelado", color: "danger" as const, count: statusCounts.cancelado }
   ];
 
   const handleFilterToggle = (filterId: string) => {
@@ -718,7 +747,7 @@ export default function Page(){
       id: `${currentYear}-${month.value}`,
       label: month.label,
       value: `${currentYear}-${month.value}`,
-      isActive: selectedMonth === `${currentYear}-${month.value}`
+      isActive: false
     }));
   };
 
@@ -730,7 +759,7 @@ export default function Page(){
     const monthStart = startOfMonthBrasilia(targetDate);
     const monthEnd = endOfMonthBrasilia(targetDate);
 
-    setSelectedMonth(monthValue);
+    // setSelectedMonth(monthValue); // removido: variável não existe
     setPage(1);
   };
 
@@ -751,17 +780,19 @@ export default function Page(){
       const active = statusFilter[0];
       switch (active) {
         case "aprovado":
-          if (!( !item.contract && ["fechamento_aprovado", "financeiro_pendente"].includes(item.status) )) {
+          // Pendente de liberação: status aprovado/pendente E sem contrato
+          if (!(["fechamento_aprovado", "financeiro_pendente"].includes(item.status) && !item.contract)) {
             return false;
           }
           break;
         case "liberado":
-          if (!item.contract) return false;
-          break;
-        case "devolvido":
-          if (item.status !== "devolvido_financeiro") return false;
+          // Contrato efetivado: status contrato_efetivado OU tem contrato e não está cancelado
+          if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado"))) {
+            return false;
+          }
           break;
         case "cancelado":
+          // Contratos cancelados
           if (item.status !== "contrato_cancelado") return false;
           break;
         case "todos":
@@ -774,9 +805,9 @@ export default function Page(){
     return true;
   });
 
-  // Calcular paginação
+  // Calcular paginação para items
   const totalItems = filteredItems.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
+  const itemsTotalPages = Math.ceil(totalItems / pageSize);
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const paginatedItems = filteredItems.slice(startIndex, endIndex);
@@ -789,27 +820,7 @@ export default function Page(){
           <h1 className="text-3xl font-bold">Gestão Financeira</h1>
           <p className="text-muted-foreground mt-1">Visão geral das operações financeiras</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={fullReportMode}
-                onChange={(e) => setFullReportMode(e.target.checked)}
-                className="rounded"
-              />
-              Relatório Completo
-            </label>
-            <Button
-              onClick={handleExportReport}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Exportar {fullReportMode ? "Completo" : "Filtrado"}
-            </Button>
-          </div>
-        </div>
+
       </div>
 
       {/* Filtros por Mês */}
@@ -817,24 +828,35 @@ export default function Page(){
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Filtros por Período</h3>
         </div>
-        
-        <UnifiedFilter
-          selectedMonth={selectedMonth}
-          onMonthChange={setSelectedMonth}
+
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={(start, end) => {
+            setStartDate(start);
+            setEndDate(end);
+          }}
+          onClear={() => {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setStartDate(firstDay.toISOString().split('T')[0]);
+            setEndDate(lastDay.toISOString().split('T')[0]);
+          }}
           label="Filtrar período:"
           className="mb-4"
         />
       </div>
 
       {/* KPIs Financeiros */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
           title="Receita Total"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          subtitle="Últimos 30 dias"
+          subtitle="Período selecionado"
           isLoading={metricsLoading}
           gradientVariant="emerald"
-          trend={12.5}
+          trend={trends.receita}
           miniChart={
             <MiniAreaChart
               data={MOCK_TREND_DATA.receita}
@@ -849,10 +871,10 @@ export default function Page(){
         <KPICard
           title="Despesas"
           value={`R$ ${(metrics.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          subtitle="Últimos 30 dias"
+          subtitle="Período selecionado"
           isLoading={metricsLoading}
           gradientVariant="rose"
-          trend={-3.2}
+          trend={trends.despesas}
           miniChart={
             <MiniAreaChart
               data={MOCK_TREND_DATA.despesas}
@@ -870,7 +892,7 @@ export default function Page(){
           subtitle="Receitas - Despesas - Impostos"
           isLoading={metricsLoading}
           gradientVariant="violet"
-          trend={18.7}
+          trend={trends.lucro}
           miniChart={
             <MiniAreaChart
               data={MOCK_TREND_DATA.lucro}
@@ -883,20 +905,38 @@ export default function Page(){
           }
         />
         <KPICard
-          title="Contratos Efetivados"
-          value={metrics.totalContracts || 0}
-          subtitle="Últimos 30 dias"
+          title="Receita Consultoria"
+          value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          subtitle="Consultorias líquidas"
           isLoading={metricsLoading}
           gradientVariant="sky"
-          trend={25.8}
+          trend={trends.consultoria}
           miniChart={
             <MiniAreaChart
-              data={MOCK_TREND_DATA.contratos}
+              data={MOCK_TREND_DATA.consultoria}
               dataKey="value"
               xKey="day"
-              stroke="#38bdf8"
+              stroke="#0ea5e9"
               height={60}
-              tooltipFormatter={(value) => `${value} contratos`}
+              tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            />
+          }
+        />
+        <KPICard
+          title="Imposto"
+          value={`R$ ${(((metrics.totalConsultoriaLiq || 0) * 0.14) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          subtitle="14% sobre Consultoria Líquida"
+          isLoading={metricsLoading}
+          gradientVariant="amber"
+          trend={trends.imposto}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.imposto}
+              dataKey="value"
+              xKey="day"
+              stroke="#f59e0b"
+              height={60}
+              tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             />
           }
         />
@@ -955,6 +995,13 @@ export default function Page(){
                 prazo: item.simulation.prazo
               } : undefined;
 
+              // Mapear status do backend para o FinanceCard
+              const cardStatus = (() => {
+                if (item.status === "contrato_cancelado") return "disbursed"; // Cancelado também usa disbursed mas com botões diferentes
+                if (item.status === "contrato_efetivado" || item.contract) return "disbursed";
+                return "approved";
+              })();
+
               return (
                 <FinanceCard
                   key={item.id}
@@ -962,7 +1009,7 @@ export default function Page(){
                   clientName={item.client?.name || `Cliente ${item.id}`}
                   totalAmount={item.contract?.total_amount || item.simulation?.totals.liberadoTotal || 0}
                   installments={item.contract?.installments || item.simulation?.prazo || 0}
-                  status={item.contract ? "disbursed" : "approved"}
+                  status={cardStatus}
                   dueDate={new Date(Date.now() + 30*24*60*60*1000).toISOString()}
                   simulationResult={simulationResult}
                   onDisburse={handleDisburse}
@@ -989,7 +1036,7 @@ export default function Page(){
           {totalItems > pageSize && (
             <Pagination
               currentPage={page}
-              totalPages={totalPages}
+              totalPages={itemsTotalPages}
               totalItems={totalItems}
               itemsPerPage={pageSize}
               onPageChange={setPage}
@@ -1274,13 +1321,13 @@ export default function Page(){
                     Anterior
                   </Button>
                   <span className="text-sm">
-                    Página {page} de {totalPages || 1}
+                    Página {page} de {transactionsTotalPages || 1}
                   </span>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setPage(page + 1)}
-                    disabled={page >= totalPages}
+                    disabled={page >= transactionsTotalPages}
                   >
                     Próxima
                   </Button>

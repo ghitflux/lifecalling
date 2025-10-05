@@ -81,8 +81,8 @@ export function KPICard({
       whileHover={{ y: -4, scale: 1.01 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn(
-        "relative overflow-hidden rounded-3xl border border-white/10 p-[1px]",
-        "shadow-lg shadow-black/20 backdrop-blur",
+        "relative overflow-hidden rounded-3xl border border-white/5 p-[0.5px]",
+        "shadow-lg shadow-black/10 backdrop-blur",
         className
       )}
     >
@@ -106,7 +106,7 @@ export function KPICard({
                 {isLoading ? (
                   <span className="h-8 w-32 animate-pulse rounded-lg bg-white/10" />
                 ) : (
-                  <p className="text-3xl font-semibold tracking-tight">{value}</p>
+                  <p className="text-2xl font-semibold tracking-tight">{value}</p>
                 )}
               </div>
               {subtitle && (

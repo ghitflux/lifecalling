@@ -20,10 +20,18 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
     from sqlalchemy.orm import joinedload
     from ..models import Simulation, Attachment, ContractAttachment
     with SessionLocal() as db:
+        # Buscar todos os casos relevantes para o módulo financeiro
+        # Inclui: pendentes, aprovados, efetivados e cancelados
+        financial_statuses = [
+            "financeiro_pendente",
+            "fechamento_aprovado",
+            "contrato_efetivado",
+            "contrato_cancelado"
+        ]
         rows = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status == "financeiro_pendente").order_by(Case.id.desc()).all()
+        ).filter(Case.status.in_(financial_statuses)).order_by(Case.id.desc()).all()
 
         items = []
         for c in rows:
