@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { ChartContainer } from "./ChartContainer";
 import { cn } from "./lib/utils";
+import { formatValueForChart } from "./lib/chart-formatters";
 
 interface PieChartProps {
   title: string;
@@ -20,6 +21,7 @@ interface PieChartProps {
   innerRadius?: number | string;
   outerRadius?: number | string;
   centerLabel?: string;
+  valueType?: 'currency' | 'percentage' | 'number';
 }
 
 const DEFAULT_COLORS = [
@@ -58,6 +60,7 @@ export function PieChart({
   innerRadius = "70%",
   outerRadius = "90%",
   centerLabel,
+  valueType = 'number'
 }: PieChartProps) {
   const total = Array.isArray(data)
     ? data.reduce((sum, item) => sum + (Number(item?.[dataKey]) || 0), 0)
@@ -70,7 +73,7 @@ export function PieChart({
     const value = Number(p?.payload?.[dataKey] ?? p?.value) || 0;
     return (
       <div className="bg-card px-3 py-2 text-xs text-foreground shadow-xl border" style={{ borderRadius: '12px' }}>
-        {name}: {value.toLocaleString()}
+        {name}: {formatValueForChart(value, valueType)}
       </div>
     );
   };
@@ -105,7 +108,7 @@ export function PieChart({
             {/* Center Label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="text-2xl font-semibold text-foreground">
-                {total.toLocaleString()}
+                {formatValueForChart(total, valueType)}
               </div>
               <div className="text-xs text-muted-foreground">
                 {centerLabel ?? "Total"}
@@ -128,7 +131,7 @@ export function PieChart({
                 {String(entry?.[nameKey] ?? "")}
               </span>
               <span className="text-sm text-foreground">
-                {Number(entry?.[dataKey] ?? 0).toLocaleString()}
+                {formatValueForChart(Number(entry?.[dataKey] ?? 0), valueType)}
               </span>
             </div>
           ))}

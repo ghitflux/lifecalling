@@ -572,12 +572,14 @@ def download_attachment(
         if not os.path.exists(attachment.path):
             raise HTTPException(404, "Arquivo não encontrado no servidor")
 
-        # Retornar arquivo para download
-        filename = os.path.basename(attachment.path)
+        # Retornar arquivo para download - usar nome ORIGINAL do arquivo
+        filename = attachment.filename or os.path.basename(attachment.path)
         return FileResponse(
             path=attachment.path,
-            filename=filename,
-            media_type=attachment.mime or "application/octet-stream"
+            media_type=attachment.mime or "application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
 
 

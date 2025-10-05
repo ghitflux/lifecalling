@@ -421,6 +421,27 @@ def closing_kpis(
             )
         ).scalar() or 0
 
+        # Calcular despesas do período
+        from ..models import FinanceExpense
+        despesas = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
+            and_(
+                FinanceExpense.date >= start_date,
+                FinanceExpense.date < end_date
+            )
+        ).scalar() or 0
+
+        # Calcular despesas do período anterior
+        despesas_prev = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
+            and_(
+                FinanceExpense.date >= prev_start_date,
+                FinanceExpense.date < prev_end_date
+            )
+        ).scalar() or 0
+
+        # Calcular Meta Mensal: (Consultoria Líquida - Despesas) * 10%
+        meta_mensal = (float(consultoria_liquida) - float(despesas)) * 0.1
+        meta_mensal_prev = (float(consultoria_liquida_prev) - float(despesas_prev)) * 0.1
+
         return {
             "casos_pendentes": casos_pendentes,
             "casos_aprovados": casos_aprovados,
@@ -429,6 +450,8 @@ def closing_kpis(
             "taxa_aprovacao": round(taxa_aprovacao, 2),
             "volume_financeiro": float(volume_financeiro),
             "consultoria_liquida": float(consultoria_liquida),
+            "despesas": float(despesas),
+            "meta_mensal": round(meta_mensal, 2),
             "contratos_efetivados_hoje": contratos_hoje,
             # Trends calculados automaticamente
             "trends": {
@@ -436,7 +459,9 @@ def closing_kpis(
                 "casos_aprovados": _calculate_trend(casos_aprovados, casos_aprovados_prev),
                 "taxa_aprovacao": _calculate_trend(taxa_aprovacao, taxa_aprovacao_prev),
                 "volume_financeiro": _calculate_trend(volume_financeiro, volume_financeiro_prev),
-                "consultoria_liquida": _calculate_trend(consultoria_liquida, consultoria_liquida_prev)
+                "consultoria_liquida": _calculate_trend(consultoria_liquida, consultoria_liquida_prev),
+                "despesas": _calculate_trend(despesas, despesas_prev),
+                "meta_mensal": _calculate_trend(meta_mensal, meta_mensal_prev)
             },
             "periodo": {
                 "inicio": start_date.isoformat(),

@@ -2,30 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
-from ..db import get_db     # ou SessionLocal, conforme seu projeto
+from ..db import get_db
 from ..rbac import require_roles
-from ..models import User, Case, Contract   # ajuste imports
+from ..models import User, Case, Contract
 from datetime import datetime, timedelta, date
 import io
 import csv
-
-# ========== IMPORTS DE MOCKS (REMOVER JUNTO COM OS ARQUIVOS) ==========
-try:
-    from .rankings_mock_config import USE_MOCK_DATA, MOCK_WARNING
-    from .rankings_mock_data import (
-        get_mock_agents_ranking,
-        get_mock_targets,
-        get_mock_teams_ranking,
-        get_mock_export_csv_agents,
-        get_mock_export_csv_teams
-    )
-    MOCKS_AVAILABLE = True
-    if USE_MOCK_DATA:
-        print(MOCK_WARNING)
-except ImportError:
-    MOCKS_AVAILABLE = False
-    USE_MOCK_DATA = False
-# ========== FIM DOS IMPORTS DE MOCKS ==========
 
 r = APIRouter(prefix="/rankings", tags=["rankings"])
 
@@ -55,69 +37,49 @@ def ranking_agents(
     user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
 ):
     """
-    Ranking por atendente:
+    Ranking por atendente - TODOS os usuários do sistema:
     - contratos fechados (count)
     - soma consultoria líquida
     - ticket médio
     - trend (comparado ao período anterior de mesma duração)
     """
-    # ========== USAR MOCK SE CONFIGURADO ==========
-    if USE_MOCK_DATA and MOCKS_AVAILABLE:
-        return get_mock_agents_ranking(from_, to, page, per_page, agent_id)
-    # ========== FIM DO MOCK ==========
 
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
+    # Primeiro, buscar TODOS os usuários do sistema
+    all_users_q = db.query(User)
+    if agent_id:
+        all_users_q = all_users_q.filter(User.id == agent_id)
+
+    all_users = all_users_q.offset((page-1)*per_page).limit(per_page).all()
+    total_users = all_users_q.count()
+
     # Estratégia para encontrar o atendente dono do contrato:
-    # 1) se Contract tiver created_by/effectivated_by, use;
+    # 1) se Contract tiver agent_user_id, use;
     # 2) senão, pegue Case.assigned_user_id (fallback).
     owner_user_id = case(
-        [(Contract.created_by.isnot(None), Contract.created_by)],
+        [(Contract.agent_user_id.isnot(None), Contract.agent_user_id)],
         else_=Case.assigned_user_id
     )
 
-    base_q = (db.query(
+    # Buscar dados de contratos para o período atual
+    contracts_q = (db.query(
                 owner_user_id.label("user_id"),
                 func.count(Contract.id).label("qtd"),
                 func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
             )
             .join(Case, Case.id == Contract.case_id, isouter=True)
-            # Remover filtro de status para incluir todos os contratos
-            # .filter(Contract.status == "ativo")
+            .filter(Contract.status == "ativo")
     )
 
-    # Aplicar filtro de data apenas se especificado, usando created_at como fallback
+    # Aplicar filtro de data usando signed_at como principal
     if from_ and to:
-        base_q = base_q.filter(
+        contracts_q = contracts_q.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
         )
 
-    if agent_id:
-        base_q = base_q.filter(owner_user_id == agent_id)
-
-    base = (
-            base_q
-            .group_by(owner_user_id)
-            .order_by(func.sum(Contract.consultoria_valor_liquido).desc())
-            .offset((page-1)*per_page)
-            .limit(per_page)
-          )
-
-    rows = base.all()
-
-    # total de atendentes distintos no período para paginação
-    total_distinct_q = (
-        db.query(func.count(func.distinct(owner_user_id)))
-          .join(Case, Case.id == Contract.case_id, isouter=True)
-          # Remover filtro de status
-    )
-    if from_ and to:
-        total_distinct_q = total_distinct_q.filter(
-            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
-        )
-    if agent_id:
-        total_distinct_q = total_distinct_q.filter(owner_user_id == agent_id)
-    total_items = int(total_distinct_q.scalar() or 0)
+    contracts_data = contracts_q.group_by(owner_user_id).all()
+    contracts_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in contracts_data}
 
     # período anterior para trend
     prev_q = (db.query(
@@ -126,7 +88,7 @@ def ranking_agents(
                 func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
             )
             .join(Case, Case.id == Contract.case_id, isouter=True)
-            # Remover filtro de status
+            .filter(Contract.status == "ativo")
             .group_by(owner_user_id)
     )
     if from_ and to:
@@ -136,27 +98,60 @@ def ranking_agents(
     prev = prev_q.all()
     prev_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in prev}
 
-    # montar resposta enriquecida
-    result = []
-    for r0 in rows:
-        uid = r0.user_id
-        consult = float(r0.consult_sum or 0)
-        qtd = int(r0.qtd or 0)
-        ticket = (consult / qtd) if qtd else 0.0
-        prevd = prev_map.get(uid, {"qtd":0, "consult_sum":0.0})
-        result.append({
-            "user_id": uid,
-            "name": db.get(User, uid).name if uid else "—",
-            "contracts": qtd,
-            "consultoria_liq": consult,
-            "ticket_medio": ticket,
-            "trend_contracts": qtd - prevd["qtd"],
-            "trend_consult": consult - prevd["consult_sum"],
+    # buscar metas (se existir campo User.settings)
+    targets_map = {}
+    # TODO: implementar busca de metas se necessário
+
+    items = []
+    for user in all_users:
+        # Dados do período atual (pode ser 0 se não tiver contratos)
+        current_data = contracts_map.get(user.id, {"qtd": 0, "consult_sum": 0})
+        prev_data = prev_map.get(user.id, {"qtd": 0, "consult_sum": 0})
+
+        # trend
+        trend_contracts = 0
+        trend_consult = 0
+        if prev_data["qtd"] > 0:
+            trend_contracts = ((current_data["qtd"] - prev_data["qtd"]) / prev_data["qtd"]) * 100
+        if prev_data["consult_sum"] > 0:
+            trend_consult = ((current_data["consult_sum"] - prev_data["consult_sum"]) / prev_data["consult_sum"]) * 100
+
+        # ticket médio
+        ticket_medio = current_data["consult_sum"] / current_data["qtd"] if current_data["qtd"] > 0 else 0
+
+        # metas (placeholder)
+        meta_contratos = targets_map.get(user.id, {}).get("contratos", 0)
+        meta_consultoria = targets_map.get(user.id, {}).get("consultoria", 0)
+
+        # atingimento
+        atingimento_contratos = (current_data["qtd"] / meta_contratos * 100) if meta_contratos > 0 else 0
+        atingimento_consultoria = (current_data["consult_sum"] / meta_consultoria * 100) if meta_consultoria > 0 else 0
+
+        items.append({
+            "user_id": user.id,
+            "name": user.name,
+            "contracts": current_data["qtd"],
+            "consultoria_liq": current_data["consult_sum"],
+            "ticket_medio": ticket_medio,
+            "trend_contracts": round(trend_contracts, 2),
+            "trend_consult": round(trend_consult, 2),
+            "meta_contratos": meta_contratos,
+            "meta_consultoria": meta_consultoria,
+            "atingimento_contratos": round(atingimento_contratos, 2),
+            "atingimento_consultoria": round(atingimento_consultoria, 2)
         })
+
+    # Ordenar por consultoria líquida (maior primeiro)
+    items.sort(key=lambda x: x["consultoria_liq"], reverse=True)
+
     return {
-        "items": result,
-        "period": {"from": str(start), "to": str(end)},
-        "pagination": {"page": page, "per_page": per_page, "total_items": total_items}
+        "items": items,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total_users,
+            "pages": (total_users + per_page - 1) // per_page
+        }
     }
 
 @r.get("/agents/targets")
@@ -171,10 +166,6 @@ def get_targets(
     Preferência: usar campo JSON existente em User (ex.: User.settings['targets']).
     Se não existir, retornar vazio (frontend trata como 0).
     """
-    # ========== USAR MOCK SE CONFIGURADO ==========
-    if USE_MOCK_DATA and MOCKS_AVAILABLE:
-        return get_mock_targets()
-    # ========== FIM DO MOCK ==========
 
     # Exemplo lendo de User.settings (JSONB). Adapte o nome do campo:
     rows = db.query(User).all()
@@ -230,11 +221,6 @@ def ranking_teams(
     db: Session = Depends(get_db),
     user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
 ):
-    # ========== USAR MOCK SE CONFIGURADO ==========
-    if USE_MOCK_DATA and MOCKS_AVAILABLE:
-        return get_mock_teams_ranking(from_, to)
-    # ========== FIM DO MOCK ==========
-
     # Como não há User.department explícito, agregamos por User.role
     start, end, *_ = _parse_range(from_, to)
     owner_user_id = case(
@@ -267,29 +253,6 @@ def export_csv(
     db: Session = Depends(get_db),
     user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
 ):
-    # ========== USAR MOCK SE CONFIGURADO ==========
-    if USE_MOCK_DATA and MOCKS_AVAILABLE:
-        output = io.StringIO()
-        writer = csv.writer(output)
-
-        if kind == "agents":
-            # Cabeçalho
-            writer.writerow([
-                "user_id","name","contracts","consultoria_liq","ticket_medio","trend_contracts","trend_consult",
-                "meta_contratos","meta_consultoria","atingimento_contratos","atingimento_consultoria"
-            ])
-            # Dados mockados
-            writer.writerows(get_mock_export_csv_agents())
-        elif kind == "teams":
-            writer.writerow(["team","contracts","consultoria_liq"])
-            writer.writerows(get_mock_export_csv_teams())
-        else:
-            raise HTTPException(status_code=400, detail="kind deve ser 'agents' ou 'teams'")
-
-        csv_data = output.getvalue()
-        return Response(content=csv_data, media_type="text/csv")
-    # ========== FIM DO MOCK ==========
-
     # gere CSV em memória conforme 'agents' ou 'teams'
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
@@ -412,44 +375,44 @@ def get_rankings_kpis(
     - Top performer do período
     """
     start, end, prev_start, prev_end = _parse_range(from_, to)
-    
+
     # Estratégia para encontrar o atendente dono do contrato
     owner_user_id = case(
         [(Contract.created_by.isnot(None), Contract.created_by)],
         else_=Case.assigned_user_id
     )
-    
+
     # Query base para contratos no período
     base_q = (db.query(Contract)
               .join(Case, Case.id == Contract.case_id, isouter=True))
-    
+
     if from_ and to:
         base_q = base_q.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
         )
-    
+
     # Total de contratos no período
     total_contracts = base_q.count()
-    
+
     # Consultoria líquida total
     total_consultoria = float(base_q.with_entities(
         func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
     ).scalar() or 0)
-    
+
     # Ticket médio geral
     ticket_medio_geral = (total_consultoria / total_contracts) if total_contracts > 0 else 0
-    
+
     # Atendentes únicos no período
     atendentes_query = (db.query(func.distinct(owner_user_id))
                        .join(Case, Case.id == Contract.case_id, isouter=True))
-    
+
     if from_ and to:
         atendentes_query = atendentes_query.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
         )
-    
+
     total_atendentes = atendentes_query.count()
-    
+
     # Performance por atendente para calcular metas atingidas e top performer
     performance_query = (db.query(
         owner_user_id.label("user_id"),
@@ -458,20 +421,20 @@ def get_rankings_kpis(
     )
     .join(Case, Case.id == Contract.case_id, isouter=True)
     .group_by(owner_user_id))
-    
+
     if from_ and to:
         performance_query = performance_query.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
         )
-    
+
     performance_results = performance_query.all()
-    
+
     # Calcular atendentes que atingiram meta (R$ 10.000 padrão)
     meta_default = 10000.0
     atendentes_meta_atingida = 0
     top_performer = None
     max_consultoria = 0
-    
+
     # Buscar metas personalizadas dos usuários
     user_targets = {}
     for u in db.query(User).all():
@@ -482,18 +445,18 @@ def get_rankings_kpis(
         if meta_consultoria == 0:
             meta_consultoria = meta_default
         user_targets[u.id] = meta_consultoria
-    
+
     for perf in performance_results:
         if not perf.user_id:
             continue
-            
+
         consultoria = float(perf.consult_sum or 0)
         meta_usuario = user_targets.get(perf.user_id, meta_default)
-        
+
         # Verificar se atingiu meta
         if consultoria >= meta_usuario:
             atendentes_meta_atingida += 1
-        
+
         # Verificar se é o top performer
         if consultoria > max_consultoria:
             max_consultoria = consultoria
@@ -504,27 +467,27 @@ def get_rankings_kpis(
                 "consultoria_liq": consultoria,
                 "contracts": int(perf.qtd or 0)
             }
-    
+
     # Período anterior para comparação
     prev_query = (db.query(Contract)
                   .join(Case, Case.id == Contract.case_id, isouter=True))
-    
+
     if from_ and to:
         prev_query = prev_query.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(prev_start, prev_end)
         )
-    
+
     prev_total_contracts = prev_query.count()
     prev_total_consultoria = float(prev_query.with_entities(
         func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
     ).scalar() or 0)
-    
+
     # Calcular trends
     trend_contracts = total_contracts - prev_total_contracts
     trend_consultoria = total_consultoria - prev_total_consultoria
     trend_contracts_percent = (trend_contracts / prev_total_contracts * 100) if prev_total_contracts > 0 else 0
     trend_consultoria_percent = (trend_consultoria / prev_total_consultoria * 100) if prev_total_consultoria > 0 else 0
-    
+
     return {
         "period": {"from": str(start), "to": str(end)},
         "kpis": {

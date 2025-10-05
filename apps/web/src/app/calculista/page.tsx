@@ -23,6 +23,7 @@ import {
 } from "@/lib/simulation-hooks";
 import {
   useCalculationKpis,
+  useClosingKpis,
   useCasosEfetivados,
   useCasosCancelados,
 } from "@/lib/hooks";
@@ -106,15 +107,16 @@ export default function CalculistaPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }, []);
-  
+
   const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: currentMonth });
+  const { data: closingKpis, isLoading: isLoadingClosingKpis } = useClosingKpis({ month: currentMonth });
 
   const { data: casosEfetivados, isLoading: efetivadosLoading } =
     useCasosEfetivados();
   const { data: casosCancelados, isLoading: canceladosLoading } =
     useCasosCancelados();
 
-  // KPIs combinados (fallback para stats locais)
+  // KPIs combinados (usando dados do fechamento para meta_mensal e consultoria_liquida)
   const combinedKpis = useMemo(() => {
     if (kpis) {
       return {
@@ -122,14 +124,15 @@ export default function CalculistaPage() {
         simulacoes_aprovadas: kpis.approvedToday || 0,
         taxa_aprovacao: kpis.approvalRate || 0,
         volume_financeiro: kpis.volumeToday || 0,
-        meta_mensal: kpis.meta_mensal || 0,
-        consultoria_liquida: kpis.consultoria_liquida || 0,
-        trends: kpis.trends || {
-          pending: 0,
-          approvedToday: 0,
-          approvalRate: 0,
-          volumeToday: 0,
-          meta_mensal: 0,
+        meta_mensal: closingKpis?.meta_mensal || 0,
+        consultoria_liquida: closingKpis?.consultoria_liquida || 0,
+        trends: {
+          pending: kpis.trends?.pending || 0,
+          approvedToday: kpis.trends?.approvedToday || 0,
+          approvalRate: kpis.trends?.approvalRate || 0,
+          volumeToday: kpis.trends?.volumeToday || 0,
+          meta_mensal: closingKpis?.trends?.meta_mensal || 0,
+          consultoria_liquida: closingKpis?.trends?.consultoria_liquida || 0,
         },
       };
     }
@@ -138,17 +141,18 @@ export default function CalculistaPage() {
       simulacoes_aprovadas: stats?.approvedToday || 0,
       taxa_aprovacao: stats?.approvalRate || 0,
       volume_financeiro: stats?.volumeToday || 0,
-      meta_mensal: 0,
-      consultoria_liquida: 0,
+      meta_mensal: closingKpis?.meta_mensal || 0,
+      consultoria_liquida: closingKpis?.consultoria_liquida || 0,
       trends: {
         pending: 0,
         approvedToday: 0,
         approvalRate: 0,
         volumeToday: 0,
-        meta_mensal: 0,
+        meta_mensal: closingKpis?.trends?.meta_mensal || 0,
+        consultoria_liquida: closingKpis?.trends?.consultoria_liquida || 0,
       },
     };
-  }, [kpis, stats]);
+  }, [kpis, stats, closingKpis]);
 
   // Casos para outras abas
   const { data: retornoFechamento = [], isLoading: retornoLoading } = useQuery({
@@ -218,7 +222,7 @@ export default function CalculistaPage() {
 
 
       {/* KPIs do módulo */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <KPICard
           title="Simulações Criadas"
           value={combinedKpis.simulacoes_criadas}
@@ -227,7 +231,7 @@ export default function CalculistaPage() {
           icon={Calculator}
           color="info"
           gradientVariant="sky"
-          isLoading={isLoadingKpis && !stats}
+          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
           miniChart={
             <MiniAreaChart
               data={MOCK_TREND_DATA.simulacoes}
@@ -247,7 +251,7 @@ export default function CalculistaPage() {
           icon={CheckCircle}
           color="success"
           gradientVariant="emerald"
-          isLoading={isLoadingKpis && !stats}
+          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
           miniChart={
             <MiniAreaChart
               data={MOCK_TREND_DATA.aprovadas}
@@ -259,35 +263,17 @@ export default function CalculistaPage() {
           }
         />
 
-        <KPICard
-          title="Taxa de Aprovação"
-          value={`${combinedKpis.taxa_aprovacao}%`}
-          subtitle="Eficiência do período"
-          trend={combinedKpis.trends?.approvalRate ?? 0}
-          icon={TrendingUp}
-          color="primary"
-          gradientVariant="violet"
-          isLoading={isLoadingKpis && !stats}
-          miniChart={
-            <MiniAreaChart
-              data={MOCK_TREND_DATA.taxa_aprovacao}
-              dataKey="value"
-              xKey="day"
-              stroke="#8b5cf6"
-              height={60}
-            />
-          }
-        />
+
 
         <KPICard
-          title="Volume Financeiro"
-          value={`R$ ${(combinedKpis.volume_financeiro / 1000).toFixed(0)}K`}
-          subtitle="Volume aprovado"
-          trend={combinedKpis.trends?.volumeToday ?? 0}
+          title="Consultoria Líquida"
+          value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
+          subtitle="Casos efetivados pelo financeiro"
+          trend={combinedKpis.trends?.consultoria_liquida || 0}
           icon={DollarSign}
           color="warning"
           gradientVariant="amber"
-          isLoading={isLoadingKpis && !stats}
+          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
           miniChart={
             <MiniAreaChart
               data={MOCK_TREND_DATA.volume}
@@ -324,12 +310,12 @@ export default function CalculistaPage() {
               <p className="text-xs text-muted-foreground">vs. mês anterior</p>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Progresso da Meta</span>
               <span className="font-medium">
-                {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0 
+                {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0
                   ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
                   : 0}%
               </span>
@@ -341,7 +327,7 @@ export default function CalculistaPage() {
               size="sm"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Atual: R$ {Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span>Atual: {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>

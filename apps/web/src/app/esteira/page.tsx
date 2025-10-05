@@ -29,7 +29,7 @@ export default function EsteiraPage() {
   const [activeTab, setActiveTab] = useState("mine");
   const [editingCase, setEditingCase] = useState<Case | null>(null);
 
-  // Estados de paginação e filtro
+  // Estados de paginaÃ§Ã£o e filtro
   const [globalPage, setGlobalPage] = useState(1);
   const [globalPageSize, setGlobalPageSize] = useState(20);
   const [globalStatusFilter, setGlobalStatusFilter] = useState<string[]>([]);
@@ -43,7 +43,7 @@ export default function EsteiraPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Query para métricas do usuário
+  // Query para mÃ©tricas do usuÃ¡rio
   const { data: myStats, isLoading: loadingStats } = useMyStats();
 
   // Query para listar atendimentos globais
@@ -53,17 +53,17 @@ export default function EsteiraPage() {
       const params = new URLSearchParams({
         page: globalPage.toString(),
         page_size: globalPageSize.toString(),
-        order: "financiamentos_desc", // Ordenar por número de financiamentos (decrescente)
+        order: "financiamentos_desc", // Ordenar por nÃºmero de financiamentos (decrescente)
       });
 
       // Admin e supervisor veem TODOS os casos quando aplicam filtros
-      // Atendentes veem apenas casos disponíveis (assigned=0)
+      // Atendentes veem apenas casos disponÃ­veis (assigned=0)
       if (globalStatusFilter.length > 0) {
         params.append("status", globalStatusFilter[0]);
-        // Não adicionar filtro de assigned quando houver filtro de status
+        // NÃ£o adicionar filtro de assigned quando houver filtro de status
         // Isso permite que admin/supervisor vejam todos os casos naquele status
       } else {
-        // Sem filtro de status, mostrar apenas casos não atribuídos
+        // Sem filtro de status, mostrar apenas casos nÃ£o atribuÃ­dos
         params.append("assigned", "0");
       }
 
@@ -74,7 +74,7 @@ export default function EsteiraPage() {
       const response = await api.get(`/cases?${params.toString()}`);
       return response.data;
     },
-    staleTime: 5000, // 5 segundos - reduzido para resposta mais rápida
+    staleTime: 5000, // 5 segundos - reduzido para resposta mais rÃ¡pida
     refetchInterval: 10000, // Revalidar a cada 10s como fallback
     refetchOnWindowFocus: true,
     retry: 2,
@@ -105,7 +105,7 @@ export default function EsteiraPage() {
       const response = await api.get(`/cases?${params.toString()}`);
       return response.data;
     },
-    staleTime: 5000, // 5 segundos - reduzido para resposta mais rápida
+    staleTime: 5000, // 5 segundos - reduzido para resposta mais rÃ¡pida
     refetchInterval: 10000, // Revalidar a cada 10s como fallback
     refetchOnWindowFocus: true,
     retry: 2,
@@ -122,9 +122,9 @@ export default function EsteiraPage() {
       return { data: response.data, caseId };
     },
     onSuccess: (result) => {
-      // Atualiza as queries após pegar um caso
+      // Atualiza as queries apÃ³s pegar um caso
       queryClient.invalidateQueries({ queryKey: ["cases"] });
-      toast.success("Atendimento atribuído com sucesso!");
+      toast.success("Atendimento atribuí­do com sucesso!");
       // Redireciona automaticamente para os detalhes do caso
       router.push(`/casos/${result.caseId}`);
     },
@@ -181,7 +181,7 @@ export default function EsteiraPage() {
     return allCases.filter((c: Case) => c.status === status).length;
   };
 
-  // Definir filtros disponíveis por status com contadores
+  // Definir filtros disponÃ­veis por status com contadores
   const statusFilters = [
     { id: "novo", label: "Novo", value: "novo", icon: FileText, color: "primary" as const, count: getStatusCount("novo") },
     { id: "em_atendimento", label: "Em Atendimento", value: "em_atendimento", icon: AlertCircle, color: "warning" as const, count: getStatusCount("em_atendimento") },
@@ -199,7 +199,7 @@ export default function EsteiraPage() {
     setGlobalStatusFilter((prev) =>
       prev.includes(filterId) ? prev.filter((id) => id !== filterId) : [filterId]
     );
-    setGlobalPage(1); // Reset para primeira página ao filtrar
+    setGlobalPage(1); // Reset para primeira pÃ¡gina ao filtrar
   };
 
   const handleGlobalClearFilters = () => {
@@ -228,8 +228,8 @@ export default function EsteiraPage() {
 
     if (isLoading) {
       return (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          {Array.from({ length: 4 }, (_, i) => (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {Array.from({ length: 8 }, (_, i) => (
             <CaseSkeleton key={i} />
           ))}
         </div>
@@ -253,7 +253,7 @@ export default function EsteiraPage() {
     }
 
     return (
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {Array.isArray(cases) && cases.map((caso) => (
           <EsteiraCard
             key={caso.id}
@@ -286,7 +286,7 @@ export default function EsteiraPage() {
 
         <TabsContent value="global" className="mt-6">
           <div className="space-y-6">
-            {/* Filtros Rápidos */}
+            {/* Filtros RÃ¡pidos */}
             <QuickFilters
               searchTerm={globalSearchTerm}
               onSearchChange={(value) => {
@@ -301,9 +301,9 @@ export default function EsteiraPage() {
             />
 
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Atendimentos Disponíveis</h2>
+              <h2 className="text-lg font-medium">Atendimentos Disponí­veis</h2>
               <Badge variant="secondary">
-                {globalTotal} {globalTotal === 1 ? 'disponível' : 'disponíveis'}
+                {globalTotal} {globalTotal === 1 ? 'disponí­vel' : 'disponí­veis'}
               </Badge>
             </div>
 
@@ -330,7 +330,7 @@ export default function EsteiraPage() {
         <TabsContent value="mine" className="mt-6">
           <div className="space-y-6">
             {/* KPI Cards para Meus Atendimentos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               <KPICard
                 title="Total de Casos"
                 value={myStats?.totalCases || 0}
@@ -361,15 +361,9 @@ export default function EsteiraPage() {
                 icon={DollarSign}
                 trend={myStats?.totalVolume > 0 ? 18.7 : 0}
               />
-              <KPICard
-                title="Tempo Médio (dias)"
-                value={myStats?.averageTime || 0}
-                icon={Clock}
-                trend={myStats?.averageTime < 30 ? 10.2 : myStats?.averageTime < 60 ? 0 : -5.8}
-              />
             </div>
 
-            {/* Filtros Rápidos */}
+            {/* Filtros RÃ¡pidos */}
             <QuickFilters
               searchTerm={mySearchTerm}
               onSearchChange={(value) => {
@@ -383,12 +377,12 @@ export default function EsteiraPage() {
               placeholder="Buscar nos meus atendimentos..."
             />
 
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium">Meus Atendimentos</h2>
               <Badge variant="secondary">
                 {myTotal} {myTotal === 1 ? 'atendimento' : 'atendimentos'}
               </Badge>
-            </div>
+            </div> */}
 
             {/* Tabela de Casos */}
             <CasesTable
@@ -396,9 +390,10 @@ export default function EsteiraPage() {
               onViewCase={handleViewCase}
               loading={loadingMine}
               className="mt-4"
+              showFilters={false}
             />
 
-            {/* Paginação */}
+            {/* PaginaÃ§Ã£o */}
             {myTotal > 0 && (
               <Pagination
                 currentPage={myPage}
@@ -430,4 +425,5 @@ export default function EsteiraPage() {
     </div>
   );
 }
+
 

@@ -709,8 +709,11 @@ async def download_import_file(
         raise HTTPException(404, "Arquivo não encontrado no sistema")
 
     # Retornar o arquivo para download
+    filename = batch.filename or f"import_{batch_id}.txt"
     return FileResponse(
         path=batch.file_path,
-        filename=batch.filename or f"import_{batch_id}.txt",
-        media_type="text/plain"
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
     )

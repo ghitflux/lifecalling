@@ -74,6 +74,7 @@ export * from "./src/icons";
 
 // Utils
 export * from "./src/lib/utils";
+export * from "./src/lib/chart-formatters";
 
 export * from "./src/GradientPanel";
 export * from "./src/MiniAreaChart";

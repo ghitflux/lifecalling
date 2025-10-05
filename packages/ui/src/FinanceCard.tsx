@@ -8,7 +8,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 import { CaseHistory } from "./CaseHistory";
 import { cn } from "./lib/utils";
-import { DollarSign, Calendar, TrendingUp, AlertCircle, CreditCard, Upload, FileText, Eye, X, Trash2, XCircle, Download, FileImage, File, ArrowLeft } from "lucide-react";
+import {
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  AlertCircle,
+  CreditCard,
+  Upload,
+  FileText,
+  Eye,
+  X,
+  Trash2,
+  XCircle,
+  Download,
+  FileImage,
+  File,
+  ArrowLeft,
+} from "lucide-react";
 
 interface SimulationResult {
   banco?: string;
@@ -30,22 +46,29 @@ interface SimulationResult {
 export interface FinanceCardProps {
   id: number;
   clientName: string;
+  clientCpf?: string; // <--- ADICIONADO para aceitar CPF vindo da página
   simulationResult?: SimulationResult;
-  // Mantendo compatibilidade com props antigas
+
+  /** compatibilidade com props antigas */
   totalAmount?: number;
   installedAmount?: number;
   installments?: number;
   paidInstallments?: number;
+
   status: "pending" | "approved" | "disbursed" | "overdue";
   dueDate?: string;
+
+  /** callbacks como opcionais para evitar TS2774 */
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
   onDisburse?: (id: number) => void;
   onCancel?: (id: number) => void;
   onDelete?: (id: number) => void;
   onReturnToCalc?: (id: number) => void;
+
   className?: string;
-  // Dados bancários do cliente
+
+  /** dados bancários do cliente */
   clientBankInfo?: {
     banco?: string;
     agencia?: string;
@@ -53,7 +76,8 @@ export interface FinanceCardProps {
     chave_pix?: string;
     tipo_chave_pix?: string;
   };
-  // Anexos do contrato
+
+  /** anexos do contrato */
   attachments?: Array<{
     id: number;
     filename: string;
@@ -62,10 +86,12 @@ export interface FinanceCardProps {
     mime_type?: string;
     url?: string;
   }>;
-  // Função para upload de comprovantes
+
+  /** upload de comprovantes */
   onUploadAttachment?: (file: File) => void;
   isUploadingAttachment?: boolean;
-  // Dados completos do caso para o modal
+
+  /** dados básicos do caso para header rápido */
   caseDetails?: {
     cpf?: string;
     matricula?: string;
@@ -76,7 +102,8 @@ export interface FinanceCardProps {
       payload?: any;
     }>;
   };
-  // Dados completos do caso (do endpoint /finance/case/{id})
+
+  /** payload completo do caso (/finance/case/{id}) */
   fullCaseDetails?: {
     id: number;
     status: string;
@@ -144,13 +171,15 @@ export interface FinanceCardProps {
       created_at: string;
     }>;
   };
-  // Callback para carregar detalhes completos
+
+  /** callback para carregar detalhes completos on-demand */
   onLoadFullDetails?: (caseId: number) => void;
 }
 
 export function FinanceCard({
   id,
   clientName,
+  clientCpf,
   simulationResult,
   totalAmount,
   installedAmount = 0,
@@ -171,9 +200,9 @@ export function FinanceCard({
   isUploadingAttachment = false,
   caseDetails,
   fullCaseDetails,
-  onLoadFullDetails
+  onLoadFullDetails,
 }: FinanceCardProps) {
-  // Usar dados da simulação quando disponível, caso contrário usar props antigas
+  // usar simulação quando disponível
   const finalTotalAmount = simulationResult?.valorLiberado || totalAmount || 0;
   const finalInstallments = simulationResult?.prazo || installments || 0;
   const finalMonthlyPayment = simulationResult?.valorParcela || 0;
@@ -184,21 +213,20 @@ export function FinanceCard({
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
-  // Carregar detalhes completos quando modal abrir
   React.useEffect(() => {
     if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
       onLoadFullDetails(id);
     }
   }, [showDetailsModal, id, onLoadFullDetails, fullCaseDetails]);
 
-  const progress = finalInstallments > 0 ? (paidInstallments / finalInstallments) * 100 : 0;
+  const progress =
+    finalInstallments > 0 ? (paidInstallments / finalInstallments) * 100 : 0;
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && onUploadAttachment) {
       onUploadAttachment(file);
-      // Reset input
-      event.target.value = '';
+      event.target.value = "";
     }
   };
 
@@ -216,54 +244,58 @@ export function FinanceCard({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files[0] && onUploadAttachment) {
       onUploadAttachment(e.dataTransfer.files[0]);
     }
   };
 
   const getFileIcon = (filename: string, mimeType?: string) => {
-    if (mimeType?.includes('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
+    if (
+      mimeType?.includes("image") ||
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)
+    ) {
       return <FileImage className="h-4 w-4" />;
     }
-    if (mimeType?.includes('pdf') || filename.endsWith('.pdf')) {
+    if (mimeType?.includes("pdf") || filename.endsWith(".pdf")) {
       return <File className="h-4 w-4 text-danger" />;
     }
     return <FileText className="h-4 w-4" />;
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const statusColors = {
-    pending: "border-warning/40 bg-warning-subtle text-warning-foreground",
-    approved: "border-success/40 bg-success-subtle text-success-foreground",
+    pending:
+      "border-warning/40 bg-warning-subtle text-warning-foreground",
+    approved:
+      "border-success/40 bg-success-subtle text-success-foreground",
     disbursed: "border-info/40 bg-info-subtle text-info-foreground",
-    overdue: "border-danger/40 bg-danger-subtle text-danger-foreground"
+    overdue: "border-danger/40 bg-danger-subtle text-danger-foreground",
   } as const;
 
   const statusLabels = {
     pending: "Pendente",
     approved: "Fechamento Aprovado",
     disbursed: "Liberado",
-    overdue: "Em atraso"
+    overdue: "Em atraso",
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     }).format(value);
   };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return new Date(dateString).toLocaleDateString("pt-BR");
   };
 
   return (
@@ -273,93 +305,85 @@ export function FinanceCard({
         <div className="space-y-1">
           <h3 className="font-semibold text-lg">{clientName}</h3>
           <p className="text-sm text-muted-foreground">Caso #{id}</p>
-          {/* CPF e Matrícula */}
-          {caseDetails && (
-            <div className="flex gap-3 text-xs text-muted-foreground mt-1">
-              {caseDetails.cpf && (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium">CPF:</span>
-                  <span>{caseDetails.cpf}</span>
-                </div>
-              )}
-              {caseDetails.matricula && (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium">Mat:</span>
-                  <span>{caseDetails.matricula}</span>
-                </div>
-              )}
-            </div>
-          )}
+
+          {/* CPF / Matrícula */}
+          <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+            {caseDetails?.cpf ? (
+              <div className="flex items-center gap-1">
+                <span className="font-medium">CPF:</span>
+                <span>{caseDetails.cpf}</span>
+              </div>
+            ) : clientCpf ? (
+              <div className="flex items-center gap-1">
+                <span className="font-medium">CPF:</span>
+                <span>{clientCpf}</span>
+              </div>
+            ) : null}
+
+            {caseDetails?.matricula && (
+              <div className="flex items-center gap-1">
+                <span className="font-medium">Mat:</span>
+                <span>{caseDetails.matricula}</span>
+              </div>
+            )}
+          </div>
+
           {simulationResult?.banco && (
             <div className="bg-primary/10 px-2 py-1 rounded-md mt-2">
-              <span className="text-xs font-medium text-primary">{simulationResult.banco}</span>
+              <span className="text-xs font-medium text-primary">
+                {simulationResult.banco}
+              </span>
             </div>
           )}
         </div>
-        <Badge className={statusColors[status]}>
-          {statusLabels[status]}
-        </Badge>
+        <Badge className={statusColors[status]}>{statusLabels[status]}</Badge>
       </div>
 
-      {/* Financial Details */}
+      {/* Financial Details (placeholder para evolução futura) */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-1">
-            <TrendingUp className="h-4 w-4 text-info" />
-            <span className="text-sm text-muted-foreground">Parcelas</span>
-          </div>
-          <p className="font-semibold">
-            {paidInstallments}/{finalInstallments}
-          </p>
-        </div>
-
-        {simulationResult && (
-          <>
-            <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-4 w-4 text-info" />
-                <span className="text-sm text-muted-foreground">Valor Parcela</span>
-              </div>
-              <p className="font-semibold">
-                {formatCurrency(finalMonthlyPayment)}
-              </p>
-            </div>
-
-
-          </>
-        )}
+        {simulationResult && <></>}
       </div>
 
-      {/* Valores Destacados - Liberado Cliente e Consultoria Líquida */}
-      {simulationResult && (simulationResult.liberadoCliente || simulationResult.custoConsultoriaLiquido) && (
-        <div className="grid grid-cols-2 gap-3">
-          {simulationResult.liberadoCliente && (
-            <div className="rounded-lg border border-success/40 bg-success/10 p-3">
-              <div className="text-xs text-success font-medium mb-1">Liberado para Cliente</div>
-              <div className="text-xl font-bold text-success">{formatCurrency(simulationResult.liberadoCliente)}</div>
-            </div>
-          )}
-          {simulationResult.custoConsultoriaLiquido && (
-            <div className="rounded-lg border border-info/40 bg-info/10 p-3">
-              <div className="text-xs text-info font-medium mb-1">Consultoria Líquida (86%)</div>
-              <div className="text-xl font-bold text-info">{formatCurrency(simulationResult.custoConsultoriaLiquido)}</div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Destaques - Liberado Cliente / Consultoria Líquida */}
+      {simulationResult &&
+        (simulationResult.liberadoCliente ||
+          simulationResult.custoConsultoriaLiquido) && (
+          <div className="grid grid-cols-2 gap-3">
+            {simulationResult.liberadoCliente ? (
+              <div className="rounded-lg border border-success/40 bg-success/10 p-3">
+                <div className="text-xs text-success font-medium mb-1">
+                  Liberado para Cliente
+                </div>
+                <div className="text-xl font-bold text-success">
+                  {formatCurrency(simulationResult.liberadoCliente)}
+                </div>
+              </div>
+            ) : null}
 
+            {simulationResult.custoConsultoriaLiquido ? (
+              <div className="rounded-lg border border-info/40 bg-info/10 p-3">
+                <div className="text-xs text-info font-medium mb-1">
+                  Consultoria Líquida (86%)
+                </div>
+                <div className="text-xl font-bold text-info">
+                  {formatCurrency(simulationResult.custoConsultoriaLiquido)}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
 
-      {/* Informações Bancárias do Cliente */}
-
-
-      {/* Seção de Anexos - apenas para casos aprovados pendentes de liberação */}
+      {/* Seção Anexos (para approved) */}
       {status === "approved" && (
         <div className="rounded-lg border border-border/40 bg-muted/30 p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Comprovantes ({attachments.length})</span>
+              <span className="text-sm font-medium text-foreground">
+                Comprovantes ({attachments.length})
+              </span>
             </div>
+
             {onUploadAttachment && (
               <Button
                 size="sm"
@@ -374,7 +398,6 @@ export function FinanceCard({
             )}
           </div>
 
-          {/* Área de drop */}
           {onUploadAttachment && (
             <div
               className={cn(
@@ -389,12 +412,15 @@ export function FinanceCard({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Arraste arquivos aqui ou clique para selecionar</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">PDF, JPG, PNG até 10MB</p>
+              <p className="text-xs text-muted-foreground">
+                Arraste arquivos aqui ou clique para selecionar
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                PDF, JPG, PNG até 10MB
+              </p>
             </div>
           )}
 
-          {/* Input file oculto */}
           <input
             ref={fileInputRef}
             type="file"
@@ -404,17 +430,24 @@ export function FinanceCard({
             multiple
           />
 
-          {/* Lista de anexos */}
           {attachments.length > 0 ? (
             <div className="space-y-2">
               {attachments.slice(0, 2).map((attachment) => (
-                <div key={attachment.id} className="flex items-center justify-between bg-white p-2 rounded border">
+                <div
+                  key={attachment.id}
+                  className="flex items-center justify-between bg-white p-2 rounded border"
+                >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {getFileIcon(attachment.filename, attachment.mime_type)}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{attachment.filename}</p>
+                      <p className="text-xs font-medium truncate">
+                        {attachment.filename}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(attachment.size)} • {new Date(attachment.uploaded_at).toLocaleDateString('pt-BR')}
+                        {formatFileSize(attachment.size)} •{" "}
+                        {new Date(
+                          attachment.uploaded_at
+                        ).toLocaleDateString("pt-BR")}
                       </p>
                     </div>
                   </div>
@@ -423,7 +456,7 @@ export function FinanceCard({
                       size="sm"
                       variant="ghost"
                       className="h-6 w-6 p-0"
-                      onClick={() => window.open(attachment.url, '_blank')}
+                      onClick={() => window.open(attachment.url!, "_blank")}
                     >
                       <Download className="h-3 w-3" />
                     </Button>
@@ -449,34 +482,18 @@ export function FinanceCard({
         </div>
       )}
 
-      {/* Progress Bar for disbursed contracts */}
-      {status === "disbursed" && (
-        <div className="space-y-2">
-          <ProgressBar
-            value={paidInstallments}
-            max={finalInstallments}
-            variant={progress < 30 ? "danger" : progress < 70 ? "warning" : "success"}
-            showLabel
-            label="Progresso de Pagamento"
-          />
-        </div>
-      )}
-
-      {/* Action Buttons */}
+      {/* Ações */}
       <div className="flex gap-2 pt-2">
         {status === "pending" && (onApprove || onReject) && (
           <>
-            {onApprove && (
-              <Button
-                size="sm"
-                onClick={() => onApprove(id)}
-                className="flex-1"
-              >
+            {onApprove ? (
+              <Button size="sm" onClick={() => onApprove(id)} className="flex-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 Aprovar
               </Button>
-            )}
-            {onReject && (
+            ) : null}
+
+            {onReject ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -486,7 +503,7 @@ export function FinanceCard({
                 <X className="h-4 w-4 mr-1" />
                 Rejeitar
               </Button>
-            )}
+            ) : null}
           </>
         )}
 
@@ -502,7 +519,8 @@ export function FinanceCard({
                 <Eye className="h-4 w-4 mr-1" />
                 Ver Detalhes
               </Button>
-              {onReturnToCalc && (
+
+              {onReturnToCalc ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -512,8 +530,9 @@ export function FinanceCard({
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Retornar ao Calculista
                 </Button>
-              )}
-              {onDelete && (
+              ) : null}
+
+              {onDelete ? (
                 <Button
                   size="sm"
                   variant="destructive"
@@ -522,22 +541,19 @@ export function FinanceCard({
                   <Trash2 className="h-4 w-4 mr-1" />
                   Deletar
                 </Button>
-              )}
+              ) : null}
             </div>
-            {onDisburse && (
-              <Button
-                size="sm"
-                onClick={() => onDisburse(id)}
-                className="w-full"
-              >
+
+            {onDisburse ? (
+              <Button size="sm" onClick={() => onDisburse(id)} className="w-full">
                 Efetivar Liberação
               </Button>
-            )}
+            ) : null}
           </div>
         )}
 
-        {/* Botões de ação para contratos efetivados */}
-        {status === "disbursed" && (onCancel || onDelete) && (
+        {/* ações após liberação */}
+        {status === "disbursed" && (
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -548,18 +564,8 @@ export function FinanceCard({
               <Eye className="h-4 w-4 mr-1" />
               Ver Detalhes
             </Button>
-            {onCancel && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowCancelConfirm(true)}
-                className="text-warning hover:text-warning"
-              >
-                <XCircle className="h-4 w-4 mr-1" />
-                Cancelar
-              </Button>
-            )}
-            {onDelete && (
+
+            {onDelete ? (
               <Button
                 size="sm"
                 variant="destructive"
@@ -568,7 +574,7 @@ export function FinanceCard({
                 <Trash2 className="h-4 w-4 mr-1" />
                 Deletar
               </Button>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -580,7 +586,7 @@ export function FinanceCard({
         )}
       </div>
 
-      {/* Modal de Detalhes Completos */}
+      {/* Modal Detalhes */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -597,33 +603,44 @@ export function FinanceCard({
                 <TabsTrigger value="attachments">Anexos</TabsTrigger>
               </TabsList>
 
-              {/* Aba Cliente */}
+              {/* Cliente */}
               <TabsContent value="client" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <span className="text-sm text-muted-foreground">Nome</span>
-                    <p className="font-medium">{fullCaseDetails.client.name}</p>
+                    <p className="font-medium">
+                      {fullCaseDetails.client.name}
+                    </p>
                   </div>
                   <div>
                     <span className="text-sm text-muted-foreground">CPF</span>
                     <p className="font-medium">{fullCaseDetails.client.cpf}</p>
                   </div>
                   <div>
-                    <span className="text-sm text-muted-foreground">Matrícula</span>
-                    <p className="font-medium">{fullCaseDetails.client.matricula}</p>
+                    <span className="text-sm text-muted-foreground">
+                      Matrícula
+                    </span>
+                    <p className="font-medium">
+                      {fullCaseDetails.client.matricula}
+                    </p>
                   </div>
+
                   {fullCaseDetails.client.orgao && (
                     <div>
                       <span className="text-sm text-muted-foreground">Órgão</span>
                       <p className="font-medium">{fullCaseDetails.client.orgao}</p>
                     </div>
                   )}
+
                   {fullCaseDetails.client.telefone_preferencial && (
                     <div>
                       <span className="text-sm text-muted-foreground">Telefone</span>
-                      <p className="font-medium">{fullCaseDetails.client.telefone_preferencial}</p>
+                      <p className="font-medium">
+                        {fullCaseDetails.client.telefone_preferencial}
+                      </p>
                     </div>
                   )}
+
                   {fullCaseDetails.client.banco && (
                     <>
                       <div>
@@ -632,7 +649,9 @@ export function FinanceCard({
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Agência</span>
-                        <p className="font-medium">{fullCaseDetails.client.agencia}</p>
+                        <p className="font-medium">
+                          {fullCaseDetails.client.agencia}
+                        </p>
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Conta</span>
@@ -640,107 +659,202 @@ export function FinanceCard({
                       </div>
                     </>
                   )}
+
                   {fullCaseDetails.client.chave_pix && (
                     <div className="col-span-2">
-                      <span className="text-sm text-muted-foreground">Chave PIX ({fullCaseDetails.client.tipo_chave_pix})</span>
-                      <p className="font-medium">{fullCaseDetails.client.chave_pix}</p>
+                      <span className="text-sm text-muted-foreground">
+                        Chave PIX ({fullCaseDetails.client.tipo_chave_pix})
+                      </span>
+                      <p className="font-medium">
+                        {fullCaseDetails.client.chave_pix}
+                      </p>
                     </div>
                   )}
+
                   {fullCaseDetails.client.observacoes && (
                     <div className="col-span-2">
-                      <span className="text-sm text-muted-foreground">Observações</span>
-                      <p className="font-medium">{fullCaseDetails.client.observacoes}</p>
+                      <span className="text-sm text-muted-foreground">
+                        Observações
+                      </span>
+                      <p className="font-medium">
+                        {fullCaseDetails.client.observacoes}
+                      </p>
                     </div>
                   )}
                 </div>
               </TabsContent>
 
-              {/* Aba Simulação */}
+              {/* Simulação */}
               <TabsContent value="simulation" className="space-y-4">
                 {fullCaseDetails.simulation ? (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="rounded-lg border border-success/40 bg-success-subtle p-3">
-                        <span className="text-xs font-medium text-success">Valor Liberado</span>
-                        <p className="font-bold">{formatCurrency(fullCaseDetails.simulation.totals.liberadoTotal)}</p>
+                        <span className="text-xs font-medium text-success">
+                          Valor Liberado
+                        </span>
+                        <p className="font-bold">
+                          {formatCurrency(
+                            fullCaseDetails.simulation.totals.liberadoTotal
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-lg border border-info/40 bg-info-subtle p-3">
-                        <span className="text-xs font-medium text-info">Liberado Cliente</span>
-                        <p className="font-bold">{formatCurrency(fullCaseDetails.simulation.totals.liberadoCliente)}</p>
+                        <span className="text-xs font-medium text-info">
+                          Liberado Cliente
+                        </span>
+                        <p className="font-bold">
+                          {formatCurrency(
+                            fullCaseDetails.simulation.totals.liberadoCliente
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-lg border border-accent/40 bg-accent-subtle p-3">
-                        <span className="text-xs font-medium text-accent">Valor Parcela</span>
-                        <p className="font-bold">{formatCurrency(fullCaseDetails.simulation.totals.valorParcelaTotal)}</p>
+                        <span className="text-xs font-medium text-accent">
+                          Valor Parcela
+                        </span>
+                        <p className="font-bold">
+                          {formatCurrency(
+                            fullCaseDetails.simulation.totals.valorParcelaTotal
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
-                        <span className="text-xs font-medium text-warning">Prazo</span>
-                        <p className="font-bold">{fullCaseDetails.simulation.prazo} meses</p>
+                        <span className="text-xs font-medium text-warning">
+                          Prazo
+                        </span>
+                        <p className="font-bold">
+                          {fullCaseDetails.simulation.prazo} meses
+                        </p>
                       </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-4 mt-4">
                       <div>
-                        <span className="text-sm text-muted-foreground">Total Financiado</span>
-                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.totals.totalFinanciado)}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Total Financiado
+                        </span>
+                        <p className="font-medium">
+                          {formatCurrency(
+                            fullCaseDetails.simulation.totals.totalFinanciado
+                          )}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Custo Consultoria</span>
-                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.totals.custoConsultoria)}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Custo Consultoria
+                        </span>
+                        <p className="font-medium">
+                          {formatCurrency(
+                            fullCaseDetails.simulation.totals.custoConsultoria
+                          )}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Consultoria Líquida (86%)</span>
-                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.totals.custoConsultoriaLiquido)}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Consultoria Líquida (86%)
+                        </span>
+                        <p className="font-medium">
+                          {formatCurrency(
+                            fullCaseDetails.simulation.totals
+                              .custoConsultoriaLiquido
+                          )}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Seguro Obrigatório</span>
-                        <p className="font-medium">{formatCurrency(fullCaseDetails.simulation.seguro)}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Seguro Obrigatório
+                        </span>
+                        <p className="font-medium">
+                          {formatCurrency(fullCaseDetails.simulation.seguro)}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Coeficiente</span>
-                        <p className="font-medium font-mono">{fullCaseDetails.simulation.coeficiente}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Coeficiente
+                        </span>
+                        <p className="font-medium font-mono">
+                          {fullCaseDetails.simulation.coeficiente}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">% Consultoria</span>
-                        <p className="font-medium">{fullCaseDetails.simulation.percentual_consultoria}%</p>
+                        <span className="text-sm text-muted-foreground">
+                          % Consultoria
+                        </span>
+                        <p className="font-medium">
+                          {fullCaseDetails.simulation.percentual_consultoria}%
+                        </p>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <p className="text-muted-foreground text-center py-8">Nenhuma simulação encontrada</p>
+                  <p className="text-muted-foreground text-center py-8">
+                    Nenhuma simulação encontrada
+                  </p>
                 )}
               </TabsContent>
 
-              {/* Aba Contrato */}
+              {/* Contrato */}
               <TabsContent value="contract" className="space-y-4">
                 {fullCaseDetails.contract ? (
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-sm text-muted-foreground">Valor Total</span>
-                        <p className="font-medium">{formatCurrency(fullCaseDetails.contract.total_amount)}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Valor Total
+                        </span>
+                        <p className="font-medium">
+                          {formatCurrency(
+                            fullCaseDetails.contract.total_amount
+                          )}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Parcelas</span>
-                        <p className="font-medium">{fullCaseDetails.contract.installments}x</p>
+                        <span className="text-sm text-muted-foreground">
+                          Parcelas
+                        </span>
+                        <p className="font-medium">
+                          {fullCaseDetails.contract.installments}x
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Data Liberação</span>
-                        <p className="font-medium">{new Date(fullCaseDetails.contract.disbursed_at).toLocaleDateString('pt-BR')}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Data Liberação
+                        </span>
+                        <p className="font-medium">
+                          {new Date(
+                            fullCaseDetails.contract.disbursed_at
+                          ).toLocaleDateString("pt-BR")}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-sm text-muted-foreground">Status</span>
-                        <p className="font-medium capitalize">{fullCaseDetails.contract.status}</p>
+                        <span className="text-sm text-muted-foreground">
+                          Status
+                        </span>
+                        <p className="font-medium capitalize">
+                          {fullCaseDetails.contract.status}
+                        </p>
                       </div>
                     </div>
+
                     <div className="space-y-2 mt-4">
-                      <h4 className="font-semibold">Anexos do Contrato ({fullCaseDetails.contract.attachments.length})</h4>
+                      <h4 className="font-semibold">
+                        Anexos do Contrato (
+                        {fullCaseDetails.contract.attachments.length})
+                      </h4>
                       {fullCaseDetails.contract.attachments.map((att) => (
-                        <div key={att.id} className="flex items-center justify-between p-2 rounded border">
+                        <div
+                          key={att.id}
+                          className="flex items-center justify-between p-2 rounded border"
+                        >
                           <div className="flex items-center gap-2">
                             {getFileIcon(att.filename, att.mime)}
                             <div>
-                          <p className="text-sm font-medium">{att.filename}</p>
-                          <p className="text-xs text-muted-foreground">{formatFileSize(att.size)}</p>
-                        </div>
+                              <p className="text-sm font-medium">{att.filename}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(att.size)}
+                              </p>
+                            </div>
                           </div>
                           <Button size="sm" variant="outline">
                             <Download className="h-4 w-4" />
@@ -750,26 +864,34 @@ export function FinanceCard({
                     </div>
                   </>
                 ) : (
-                  <p className="text-muted-foreground text-center py-8">Contrato ainda não efetivado</p>
+                  <p className="text-muted-foreground text-center py-8">
+                    Contrato ainda não efetivado
+                  </p>
                 )}
               </TabsContent>
 
-              {/* Aba Histórico */}
+              {/* Histórico */}
               <TabsContent value="history">
                 <CaseHistory events={fullCaseDetails.events} />
               </TabsContent>
 
-              {/* Aba Anexos */}
+              {/* Anexos */}
               <TabsContent value="attachments" className="space-y-2">
                 {fullCaseDetails.attachments.length > 0 ? (
                   fullCaseDetails.attachments.map((att) => (
-                    <div key={att.id} className="flex items-center justify-between p-3 rounded border">
+                    <div
+                      key={att.id}
+                      className="flex items-center justify-between p-3 rounded border"
+                    >
                       <div className="flex items-center gap-3">
                         {getFileIcon(att.path, att.mime)}
                         <div>
-                          <p className="text-sm font-medium">{att.filename || att.path.split('/').pop()}</p>
+                          <p className="text-sm font-medium">
+                            {att.filename || att.path.split("/").pop()}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatFileSize(att.size)} • {new Date(att.created_at).toLocaleDateString('pt-BR')}
+                            {formatFileSize(att.size)} •{" "}
+                            {new Date(att.created_at).toLocaleDateString("pt-BR")}
                           </p>
                         </div>
                       </div>
@@ -779,7 +901,9 @@ export function FinanceCard({
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted-foreground text-center py-8">Nenhum anexo do caso</p>
+                  <p className="text-muted-foreground text-center py-8">
+                    Nenhum anexo do caso
+                  </p>
                 )}
               </TabsContent>
             </Tabs>
@@ -793,7 +917,7 @@ export function FinanceCard({
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação de Cancelamento */}
+      {/* Confirmação Cancelamento */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -801,8 +925,9 @@ export function FinanceCard({
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Tem certeza que deseja cancelar a operação para <strong>{clientName}</strong>?
-              Esta ação pode ser reversível dependendo do status atual.
+              Tem certeza que deseja cancelar a operação para{" "}
+              <strong>{clientName}</strong>? Esta ação pode ser reversível
+              dependendo do status atual.
             </p>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>
@@ -823,21 +948,21 @@ export function FinanceCard({
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação de Exclusão */}
+      {/* Confirmação Exclusão */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Deletar Operação</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+        <div className="space-y-4">
             <div className="rounded-lg border border-danger/40 bg-danger-subtle p-3">
               <div className="flex items-start gap-2">
                 <AlertCircle className="mt-0.5 h-5 w-5 text-danger" />
                 <div>
-                  <p className="text-sm font-medium text-danger">Ação Irreversível</p>
+                  <p className="text-sm font-medium text-danger">Ação irreversível</p>
                   <p className="mt-1 text-sm text-danger-foreground">
-                    Deletar a operação de <strong>{clientName}</strong> removerá permanentemente todos os dados,
-                    incluindo anexos e histórico. Esta ação não pode ser desfeita.
+                    Deletar a operação de <strong>{clientName}</strong> removerá
+                    permanentemente todos os dados, incluindo anexos e histórico.
                   </p>
                 </div>
               </div>

@@ -108,11 +108,16 @@ def download_contract_attachment(
         if not os.path.exists(attachment.path):
             raise HTTPException(404, "File not found on disk")
 
+        # Usar o nome original do arquivo ou fallback para o nome salvo
+        filename = attachment.filename or os.path.basename(attachment.path)
+
         from fastapi.responses import FileResponse
         return FileResponse(
-            attachment.path,
-            filename=attachment.filename,
-            media_type=attachment.mime
+            path=attachment.path,
+            media_type=attachment.mime or "application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
 
 @r.delete("/{contract_id}/attachments/{attachment_id}")

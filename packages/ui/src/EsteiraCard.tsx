@@ -32,10 +32,11 @@ export function EsteiraCard({ caso, onAssign, onView, onEdit }: EsteiraCardProps
       subtitle={`CPF: ${caso.client.cpf}`}
       badge={<StatusBadge status={caso.status} size="sm" />}
       footer={
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
             variant="outline"
-            className="flex-1"
+            size="sm"
+            className="flex-1 text-xs"
             onClick={() => onView(caso.id)}
           >
             Ver Detalhes
@@ -47,12 +48,13 @@ export function EsteiraCard({ caso, onAssign, onView, onEdit }: EsteiraCardProps
               onClick={() => onEdit(caso.id)}
               className="px-2"
             >
-              <Edit className="h-4 w-4" />
+              <Edit className="h-3 w-3" />
             </Button>
           )}
           {onAssign && !caso.assigned_to && (
             <Button
-              className="flex-1"
+              size="sm"
+              className="flex-1 text-xs"
               onClick={() => onAssign(caso.id)}
             >
               Pegar Caso
@@ -61,38 +63,38 @@ export function EsteiraCard({ caso, onAssign, onView, onEdit }: EsteiraCardProps
         </div>
       }
     >
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Hash className="h-4 w-4" />
-          <span>Matrícula: {caso.client.matricula}</span>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Hash className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate">Mat: {caso.client.matricula}</span>
         </div>
         {caso.banco && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-4 w-4" />
-            <span>{caso.banco}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Building2 className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{caso.banco}</span>
           </div>
         )}
         {caso.assigned_to && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <User className="h-4 w-4" />
-            <span>{caso.assigned_to}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <User className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{caso.assigned_to}</span>
           </div>
         )}
         {caso.telefone_preferencial && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Phone className="h-4 w-4" />
-            <span>{caso.telefone_preferencial}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Phone className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{caso.telefone_preferencial}</span>
           </div>
         )}
         {caso.observacoes && (
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <MessageSquare className="h-4 w-4 mt-0.5" />
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <MessageSquare className="h-3 w-3 mt-0.5 flex-shrink-0" />
             <span className="line-clamp-2">{caso.observacoes}</span>
           </div>
         )}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
-          <span>{new Date(caso.created_at).toLocaleDateString()}</span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Calendar className="h-3 w-3 flex-shrink-0" />
+          <span>{new Date(caso.created_at).toLocaleDateString('pt-BR')}</span>
         </div>
       </div>
     </AdvancedCard>

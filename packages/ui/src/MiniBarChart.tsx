@@ -9,6 +9,7 @@ import {
   YAxis
 } from "recharts";
 import { cn } from "./lib/utils";
+import { formatDateForChart, formatValueForChart } from "./lib/chart-formatters";
 
 interface MiniBarChartProps {
   data: Array<Record<string, any>>;
@@ -18,6 +19,8 @@ interface MiniBarChartProps {
   height?: number;
   className?: string;
   tooltipFormatter?: (value: number) => string;
+  valueType?: 'currency' | 'percentage' | 'number';
+  formatXAxis?: boolean;
 }
 
 const defaultFormatter = (value: number) =>
@@ -40,8 +43,13 @@ export function MiniBarChart({
   fill = "#f97316",
   height = 96,
   className,
-  tooltipFormatter = defaultFormatter,
+  tooltipFormatter,
+  valueType = 'number',
+  formatXAxis = false
 }: MiniBarChartProps) {
+  // Usar formatter customizado ou formatação automática baseada no tipo
+  const finalFormatter = tooltipFormatter || ((value: number) => formatValueForChart(value, valueType));
+
   return (
     <div className={cn("w-full", className)} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -50,7 +58,7 @@ export function MiniBarChart({
           <YAxis hide />
           <Tooltip
             cursor={{ fill: "rgba(148, 163, 184, 0.12)" }}
-            content={(props) => <MinimalTooltip {...props} formatter={tooltipFormatter} />}
+            content={(props) => <MinimalTooltip {...props} formatter={finalFormatter} />}
           />
           <Bar
             dataKey={dataKey}

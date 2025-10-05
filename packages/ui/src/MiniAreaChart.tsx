@@ -9,6 +9,7 @@ import {
   YAxis
 } from "recharts";
 import { cn } from "./lib/utils";
+import { formatDateForChart, formatValueForChart } from "./lib/chart-formatters";
 
 interface MiniAreaChartProps {
   data: Array<Record<string, any>>;
@@ -18,6 +19,8 @@ interface MiniAreaChartProps {
   height?: number;
   className?: string;
   tooltipFormatter?: (value: number) => string;
+  valueType?: 'currency' | 'percentage' | 'number';
+  formatXAxis?: boolean;
 }
 
 const defaultFormatter = (value: number) =>
@@ -40,9 +43,14 @@ export function MiniAreaChart({
   stroke = "#38bdf8",
   height = 96,
   className,
-  tooltipFormatter = defaultFormatter,
+  tooltipFormatter,
+  valueType = 'number',
+  formatXAxis = false
 }: MiniAreaChartProps) {
   const gradientId = useId().replace(/[^a-zA-Z0-9]/g, "");
+
+  // Usar formatter customizado ou formatação automática baseada no tipo
+  const finalFormatter = tooltipFormatter || ((value: number) => formatValueForChart(value, valueType));
 
   return (
     <div className={cn("w-full", className)} style={{ height }}>
@@ -58,7 +66,7 @@ export function MiniAreaChart({
           <YAxis hide />
           <Tooltip
             cursor={{ stroke: "rgba(148, 163, 184, 0.35)" }}
-            content={(props) => <MinimalTooltip {...props} formatter={tooltipFormatter} />}
+            content={(props) => <MinimalTooltip {...props} formatter={finalFormatter} />}
           />
           <Area
             type="monotone"

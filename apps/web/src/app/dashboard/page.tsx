@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   KPICard,
   LineChart,
@@ -15,10 +15,11 @@ import {
   MiniBarChart,
   Button,
   FilterDropdown,
-  UnifiedFilter,
+  DateRangeFilter,
 } from "@lifecalling/ui";
 import { useAnalyticsKpis, useAnalyticsSeries } from "@/lib/hooks";
 import { startOfDayBrasilia, endOfDayBrasilia, startOfMonthBrasilia, endOfMonthBrasilia, dateToISO } from "@/lib/timezone";
+import { api } from "@/lib/api";
 import {
   Calendar,
   Activity,
@@ -34,6 +35,8 @@ import {
   Clock,
   BarChart3,
   PieChart as PieChartIcon,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 
 type AnalyticsBucket = "day" | "week" | "month";
@@ -224,11 +227,29 @@ const MOCK_TREND_DATA = {
     { day: "D6", value: 15 },
     { day: "D7", value: 18 },
   ],
+  lucro: [
+    { day: "D1", value: 6400 },
+    { day: "D2", value: 9100 },
+    { day: "D3", value: 8000 },
+    { day: "D4", value: 11100 },
+    { day: "D5", value: 15800 },
+    { day: "D6", value: 9800 },
+    { day: "D7", value: 6000 },
+  ],
+  imposto: [
+    { day: "D1", value: 1680 },
+    { day: "D2", value: 2170 },
+    { day: "D3", value: 1988 },
+    { day: "D4", value: 2632 },
+    { day: "D5", value: 2366 },
+    { day: "D6", value: 3094 },
+    { day: "D7", value: 3556 },
+  ],
 };
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
-  
+
   const [from, setFrom] = useState<string>(() => {
     const now = new Date();
     const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -236,23 +257,31 @@ export default function DashboardPage() {
   });
   const [to, setTo] = useState<string>(() => iso(new Date()));
   const [bucket, setBucket] = useState<AnalyticsBucket>("day");
-  
+
   // Estado para o filtro unificado por mês
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  // Estados para DateRangeFilter - iniciam vazios (filtro personalizado limpo)
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
   // Função para lidar com mudança de mês
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
     const [year, monthNum] = month.split('-');
-    const startDate = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-    const endDate = new Date(parseInt(year), parseInt(monthNum), 0);
-    
-    setFrom(iso(startOfDayBrasilia(startDate)));
-    setTo(iso(endOfDayBrasilia(endDate)));
-    
+    const startDateObj = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+    const endDateObj = new Date(parseInt(year), parseInt(monthNum), 0);
+
+    setFrom(iso(startOfDayBrasilia(startDateObj)));
+    setTo(iso(endOfDayBrasilia(endDateObj)));
+
+    // Sincronizar com DateRangeFilter
+    setStartDate(startDateObj.toISOString().split('T')[0]);
+    setEndDate(endDateObj.toISOString().split('T')[0]);
+
     // Invalidar cache dos KPIs para forçar nova busca
     queryClient.invalidateQueries({ queryKey: ["analytics", "kpis"] });
     queryClient.invalidateQueries({ queryKey: ["analytics", "series"] });
@@ -294,10 +323,141 @@ export default function DashboardPage() {
     return filters;
   };
 
+  // Função para lidar com mudanças no DateRangeFilter
+  const handleDateRangeChange = (startDate: string, endDate: string) => {
+    setStartDate(startDate);
+    setEndDate(endDate);
+
+    // Converter para Date objects e aplicar timezone de Brasília
+    const startDateObj = new Date(startDate + 'T00:00:00');
+    const endDateObj = new Date(endDate + 'T23:59:59');
+
+    setFrom(iso(startOfDayBrasilia(startDateObj)));
+    setTo(iso(endOfDayBrasilia(endDateObj)));
+
+    // Limpar seleção de mês quando usar range customizado
+    setSelectedMonth('');
+
+    // Invalidar cache dos KPIs para forçar nova busca
+    queryClient.invalidateQueries({ queryKey: ["analytics", "kpis"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics", "series"] });
+    queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
+  };
+
+  // Função para limpar filtros de data
+  const handleClearDateRange = () => {
+    setStartDate('');
+    setEndDate('');
+
+    // Voltar para o mês atual
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    handleMonthChange(currentMonth);
+  };
+
   // Exportações
   const { data: kpis, isLoading: kpisLoading } = useAnalyticsKpis({ from, to }, selectedMonth);
   const { data: series } = useAnalyticsSeries({ from, to }, bucket, selectedMonth);
   const seriesData = useMemo(() => series?.series ?? [], [series]);
+
+  // Métricas financeiras - usar filtro personalizado se definido, senão usar mês atual
+  const { data: metricsData, isLoading: metricsLoading } = useQuery({
+    queryKey: ["financeMetrics", startDate, endDate, selectedMonth],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+
+      // Se há filtro personalizado (startDate e endDate), usar ele
+      if (startDate && endDate) {
+        params.append("start_date", startDate);
+        params.append("end_date", endDate);
+      } else {
+        // Senão, usar o mês selecionado (padrão: mês atual)
+        params.append("month", selectedMonth);
+      }
+
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
+      return response.data;
+    }
+  });
+
+  const metrics = metricsData || {};
+
+  // Calcular período anterior para comparação
+  const calculatePreviousPeriod = () => {
+    if (startDate && endDate) {
+      // Se há filtro personalizado, calcular período anterior baseado nas datas
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = end.getTime() - start.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      const prevEnd = new Date(start.getTime() - 1); // Um dia antes do período atual
+      const prevStart = new Date(prevEnd.getTime() - (diffDays * 24 * 60 * 60 * 1000));
+
+      return {
+        type: 'date_range',
+        startDate: prevStart.toISOString().split('T')[0],
+        endDate: prevEnd.toISOString().split('T')[0]
+      };
+    } else {
+      // Se não há filtro personalizado, usar mês anterior
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+
+      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+      return {
+        type: 'month',
+        month: `${previousYear}-${String(previousMonth + 1).padStart(2, '0')}`
+      };
+    }
+  };
+
+  const previousPeriod = calculatePreviousPeriod();
+
+  // Buscar métricas do período anterior para comparação
+  const { data: previousMetricsData } = useQuery({
+    queryKey: ["financeMetrics", "previous", previousPeriod],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+
+      if (previousPeriod.type === 'date_range') {
+        params.append("start_date", previousPeriod.startDate!);
+        params.append("end_date", previousPeriod.endDate ?? "");
+      } else {
+        if (previousPeriod.month) {
+          params.append("month", previousPeriod.month);
+        }
+      }
+
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
+      return response.data;
+    }
+  });
+
+  const previousMetrics = previousMetricsData || {};
+
+  // Função para calcular tendência percentual
+  const calculateTrend = (current: number, previous: number): number => {
+    if (previous === 0) {
+      return current > 0 ? 100 : 0;
+    }
+    return Math.round(((current - previous) / previous) * 100 * 100) / 100;
+  };
+
+  // Calcular tendências reais para métricas financeiras
+  const financeTrends = {
+    receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
+    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
+    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
+    imposto: calculateTrend(
+      (metrics.totalConsultoriaLiq || 0) * 0.14,
+      (previousMetrics.totalConsultoriaLiq || 0) * 0.14
+    )
+  };
 
   const exportToCSV = () => {
     if (!kpis) return;
@@ -353,7 +513,18 @@ export default function DashboardPage() {
   };
 
   const kCases = useMemo(() => {
-    if (!seriesData.length) return [] as Array<{ date: string; value: number }>;
+    if (!seriesData.length) {
+      // Dados de fallback quando não há dados reais
+      return [
+        { date: "2024-01-01", value: 45 },
+        { date: "2024-01-02", value: 52 },
+        { date: "2024-01-03", value: 38 },
+        { date: "2024-01-04", value: 61 },
+        { date: "2024-01-05", value: 48 },
+        { date: "2024-01-06", value: 55 },
+        { date: "2024-01-07", value: 42 },
+      ];
+    }
     return seriesData.map((item: any) => ({
       date: item.date,
       value: (item.cases_created ?? 0) as number,
@@ -361,7 +532,18 @@ export default function DashboardPage() {
   }, [seriesData]);
 
   const kContracts = useMemo(() => {
-    if (!seriesData.length) return [] as Array<{ date: string; value: number }>;
+    if (!seriesData.length) {
+      // Dados de fallback quando não há dados reais
+      return [
+        { date: "2024-01-01", value: 8 },
+        { date: "2024-01-02", value: 12 },
+        { date: "2024-01-03", value: 10 },
+        { date: "2024-01-04", value: 15 },
+        { date: "2024-01-05", value: 13 },
+        { date: "2024-01-06", value: 18 },
+        { date: "2024-01-07", value: 21 },
+      ];
+    }
     return seriesData.map((item: any) => ({
       date: item.date,
       value: (item.contracts_active ?? 0) as number,
@@ -369,12 +551,18 @@ export default function DashboardPage() {
   }, [seriesData]);
 
   const kSimulations = useMemo(() => {
-    if (!seriesData.length)
-      return [] as Array<{
-        date: string;
-        simulations_created: number;
-        simulations_approved: number;
-      }>;
+    if (!seriesData.length) {
+      // Dados de fallback quando não há dados reais
+      return [
+        { date: "2024-01-01", simulations_created: 25, simulations_approved: 18 },
+        { date: "2024-01-02", simulations_created: 32, simulations_approved: 24 },
+        { date: "2024-01-03", simulations_created: 28, simulations_approved: 21 },
+        { date: "2024-01-04", simulations_created: 41, simulations_approved: 32 },
+        { date: "2024-01-05", simulations_created: 35, simulations_approved: 28 },
+        { date: "2024-01-06", simulations_created: 48, simulations_approved: 38 },
+        { date: "2024-01-07", simulations_created: 52, simulations_approved: 42 },
+      ];
+    }
     return seriesData.map((item: any) => ({
       date: item.date,
       simulations_created: (item.simulations_created ?? 0) as number,
@@ -442,32 +630,42 @@ export default function DashboardPage() {
       </div>
 
       {/* Filtros */}
-      <div className="border rounded-lg p-4 space-y-4 bg-card">
-        {/* Filtro Unificado por Mês */}
-        <UnifiedFilter
-          selectedMonth={selectedMonth}
-          onMonthChange={handleMonthChange}
-          label="Filtrar período:"
-          className="mb-4"
-        />
-
-        {/* Divisor */}
-        <div className="border-t"></div>
-
-        {/* Filtros Avançados */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Filtros Avançados</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FilterDropdown
-              label="Agrupamento"
-              options={[
-                { value: "day", label: "Diário" },
-                { value: "week", label: "Semanal" },
-                { value: "month", label: "Mensal" }
-              ]}
-              value={bucket}
-              onChange={(value) => setBucket(value as AnalyticsBucket)}
+      <div className="border rounded-lg p-3 bg-card">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          {/* Filtros por Período */}
+          <div className="flex-1 space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">Filtros por Período</h3>
+            <DateRangeFilter
+              startDate={startDate}
+              endDate={endDate}
+              onDateRangeChange={handleDateRangeChange}
+              onClear={handleClearDateRange}
+              label="Período personalizado:"
+              className="w-full"
             />
+          </div>
+
+          {/* Divisor vertical em telas grandes */}
+          <div className="hidden lg:block w-px bg-border h-16 mx-4"></div>
+
+          {/* Divisor horizontal em telas pequenas */}
+          <div className="lg:hidden border-t"></div>
+
+          {/* Filtros Avançados */}
+          <div className="flex-1 space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">Filtros Avançados</h3>
+            <div className="w-full max-w-xs">
+              <FilterDropdown
+                label="Agrupamento"
+                options={[
+                  { value: "day", label: "Diário" },
+                  { value: "week", label: "Semanal" },
+                  { value: "month", label: "Mensal" }
+                ]}
+                value={bucket}
+                onChange={(value) => setBucket(value as AnalyticsBucket)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -475,18 +673,21 @@ export default function DashboardPage() {
       {/* 1. KPIs FINANCEIROS */}
       <div className="space-y-3">
         <div>
-          <h2 className="text-xl font-semibold">💰 KPIs Financeiros</h2>
-          <p className="text-sm text-muted-foreground">Receitas, despesas, resultado e margem</p>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            KPIs Financeiros
+          </h2>
+          <p className="text-sm text-muted-foreground">Receita, despesas e resultado líquido</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
-            title="Receita Automática (MTD)"
-            value={`R$ ${(kpis?.receita_auto_mtd ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"estimada (86% consultoria)"}
+            title="Receita Total"
+            value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"receita do período"}
             gradientVariant="emerald"
-            trend={kpis?.trends?.receita_auto_mtd ?? 0}
+            trend={financeTrends.receita}
             icon={DollarSign}
-            isLoading={kpisLoading}
+            isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
                 data={MOCK_TREND_DATA.receita}
@@ -494,20 +695,18 @@ export default function DashboardPage() {
                 xKey="day"
                 stroke="#10b981"
                 height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
+                valueType="currency"
               />
             }
           />
           <KPICard
-            title="Despesas (MTD)"
-            value={`R$ ${(kpis?.despesas_mtd ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"gastos do mês"}
+            title="Despesas"
+            value={`R$ ${(metrics.totalExpenses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"gastos do período"}
             gradientVariant="rose"
-            trend={kpis?.trends?.despesas_mtd ?? 0}
+            trend={financeTrends.despesas}
             icon={TrendingDown}
-            isLoading={kpisLoading}
+            isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
                 data={MOCK_TREND_DATA.despesas}
@@ -515,23 +714,21 @@ export default function DashboardPage() {
                 xKey="day"
                 stroke="#f43f5e"
                 height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
+                valueType="currency"
               />
             }
           />
           <KPICard
-            title="Resultado (MTD)"
-            value={`R$ ${(kpis?.resultado_mtd ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"receitas - despesas"}
+            title="Lucro Líquido"
+            value={`R$ ${(metrics.netProfit ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"lucro do período"}
             gradientVariant="violet"
-            trend={kpis?.trends?.resultado_mtd ?? 0}
+            trend={financeTrends.lucro}
             icon={TrendingUp}
-            isLoading={kpisLoading}
+            isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.resultado}
+                data={MOCK_TREND_DATA.lucro}
                 dataKey="value"
                 xKey="day"
                 stroke="#8b5cf6"
@@ -543,28 +740,44 @@ export default function DashboardPage() {
             }
           />
           <KPICard
-            title="Margem Líquida"
-            value={`${Math.round(
-              ((kpis?.resultado_mtd ?? 0) / Math.max(kpis?.receita_auto_mtd ?? 1, 1)) * 100
-            )}%`}
-            subtitle={"resultado / receita"}
+            title="Receita Consultoria"
+            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"consultoria líquida"}
             gradientVariant="sky"
-            trend={(() => {
-              const currentMargin = ((kpis?.resultado_mtd ?? 0) / Math.max(kpis?.receita_auto_mtd ?? 1, 1)) * 100;
-              const prevMargin = ((kpis?.previous_period?.resultado_mtd ?? 0) / Math.max(kpis?.previous_period?.receita_auto_mtd ?? 1, 1)) * 100;
-              if (prevMargin === 0) return currentMargin > 0 ? 100 : 0;
-              return Math.round(((currentMargin - prevMargin) / prevMargin) * 100 * 100) / 100;
-            })()}
-            icon={BarChart3}
-            isLoading={kpisLoading}
+            trend={financeTrends.consultoria}
+            icon={Briefcase}
+            isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.margem}
+                data={MOCK_TREND_DATA.consultoria}
                 dataKey="value"
                 xKey="day"
                 stroke="#38bdf8"
                 height={80}
-                tooltipFormatter={(value) => `${value}%`}
+                tooltipFormatter={(value) =>
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                }
+              />
+            }
+          />
+          <KPICard
+            title="Imposto"
+            value={`R$ ${((metrics.totalConsultoriaLiq ?? 0) * 0.14).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"14% sobre consultoria"}
+            gradientVariant="amber"
+            trend={financeTrends.imposto}
+            icon={Receipt}
+            isLoading={metricsLoading}
+            miniChart={
+              <MiniAreaChart
+                data={MOCK_TREND_DATA.imposto}
+                dataKey="value"
+                xKey="day"
+                stroke="#f59e0b"
+                height={80}
+                tooltipFormatter={(value) =>
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                }
               />
             }
           />
@@ -574,7 +787,10 @@ export default function DashboardPage() {
       {/* 2. GRÁFICOS FINANCEIROS */}
       <div className="space-y-3">
         <div>
-          <h2 className="text-xl font-semibold">📊 Gráficos Financeiros</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <PieChartIcon className="h-5 w-5" />
+            Gráficos Financeiros
+          </h2>
           <p className="text-sm text-muted-foreground">Análises visuais das métricas financeiras</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -588,6 +804,8 @@ export default function DashboardPage() {
               { dataKey: "finance_resultado", name: "Resultado", color: "#f59e0b" },
             ]}
             xAxisKey="date"
+            valueType="currency"
+            formatXAxis={true}
           />
           <Card className="flex flex-col">
             <CardHeader>
@@ -603,6 +821,7 @@ export default function DashboardPage() {
                 centerLabel="Movimentações"
                 innerRadius="60%"
                 outerRadius="80%"
+                valueType="currency"
               />
             </CardContent>
           </Card>
@@ -612,342 +831,325 @@ export default function DashboardPage() {
       {/* 3. KPIs OPERACIONAIS */}
       <div className="space-y-3">
         <div>
-          <h2 className="text-xl font-semibold">⚙️ KPIs Operacionais</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            KPIs Operacionais
+          </h2>
           <p className="text-sm text-muted-foreground">Desempenho do atendimento, SLA e produtividade</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            title="Atendimento Aberto"
-            value={kpis?.att_open ?? 0}
-            subtitle={"últimos 30 dias"}
-            gradientVariant="sky"
-            trend={kpis?.trends?.att_open ?? 0}
-            icon={Activity}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniBarChart
-                data={MOCK_TREND_DATA.atendimento}
-                dataKey="value"
-                xKey="day"
-                fill="#38bdf8"
-                height={80}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Grid 2x2 de KPIs */}
+          <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <KPICard
+                title="Atendimento Aberto"
+                value={kpis?.att_open ?? 0}
+                subtitle={"últimos 30 dias"}
+                gradientVariant="sky"
+                trend={kpis?.trends?.att_open ?? 0}
+                icon={Activity}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniBarChart
+                    data={MOCK_TREND_DATA.atendimento}
+                    dataKey="value"
+                    xKey="day"
+                    fill="#38bdf8"
+                    height={80}
+                  />
+                }
               />
-            }
-          />
-          <KPICard
-            title="Atendimento em Progresso"
-            value={kpis?.att_in_progress ?? 0}
-            subtitle={"últimos 30 dias"}
-            gradientVariant="violet"
-            trend={kpis?.trends?.att_in_progress ?? 0}
-            icon={Target}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniBarChart
-                data={MOCK_TREND_DATA.progresso}
-                dataKey="value"
-                xKey="day"
-                fill="#8b5cf6"
-                height={80}
+              <KPICard
+                title="Atendimento em Progresso"
+                value={kpis?.att_in_progress ?? 0}
+                subtitle={"últimos 30 dias"}
+                gradientVariant="violet"
+                trend={kpis?.trends?.att_in_progress ?? 0}
+                icon={Target}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniBarChart
+                    data={MOCK_TREND_DATA.progresso}
+                    dataKey="value"
+                    xKey="day"
+                    fill="#8b5cf6"
+                    height={80}
+                  />
+                }
               />
-            }
-          />
-          <KPICard
-            title="SLA 72h"
-            value={`${Math.round((kpis?.att_sla_72h ?? 0) * 100)}%`}
-            subtitle={"dentro do prazo"}
-            gradientVariant="emerald"
-            trend={kpis?.trends?.att_sla_72h ?? 0}
-            icon={CheckCircle}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniAreaChart
-                data={MOCK_TREND_DATA.sla}
-                dataKey="value"
-                xKey="day"
-                stroke="#10b981"
-                height={80}
-                tooltipFormatter={(value) => `${value}%`}
+              <KPICard
+                title="SLA 72h"
+                value={`${Math.round((kpis?.att_sla_72h ?? 0) * 100)}%`}
+                subtitle={"dentro do prazo"}
+                gradientVariant="emerald"
+                trend={kpis?.trends?.att_sla_72h ?? 0}
+                icon={CheckCircle}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniAreaChart
+                    data={MOCK_TREND_DATA.sla}
+                    dataKey="value"
+                    xKey="day"
+                    stroke="#10b981"
+                    height={80}
+                    tooltipFormatter={(value) => `${value}%`}
+                  />
+                }
               />
-            }
-          />
-          <KPICard
-            title="TMA (min)"
-            value={Math.round(kpis?.att_tma_min ?? 0)}
-            subtitle={"tempo médio de atendimento"}
-            gradientVariant="amber"
-            trend={kpis?.trends?.att_tma_min ?? 0}
-            icon={Clock}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniAreaChart
-                data={MOCK_TREND_DATA.tma}
-                dataKey="value"
-                xKey="day"
-                stroke="#f59e0b"
-                height={80}
-                tooltipFormatter={(value) => `${value} min`}
+              <KPICard
+                title="TMA (min)"
+                value={Math.round(kpis?.att_tma_min ?? 0)}
+                subtitle={"tempo médio de atendimento"}
+                gradientVariant="amber"
+                trend={kpis?.trends?.att_tma_min ?? 0}
+                icon={Clock}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniAreaChart
+                    data={MOCK_TREND_DATA.tma}
+                    dataKey="value"
+                    xKey="day"
+                    stroke="#f59e0b"
+                    height={80}
+                    tooltipFormatter={(value) => `${value} min`}
+                  />
+                }
               />
-            }
-          />
-        </div>
-      </div>
-
-      {/* 4. GRÁFICOS OPERACIONAIS */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-xl font-semibold">📈 Gráficos Operacionais</h2>
-          <p className="text-sm text-muted-foreground">Análises visuais das métricas operacionais</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <AreaChart
-            title="Casos Criados"
-            subtitle={`Bucket: ${bucket}`}
-            data={kCases}
-            dataKey="value"
-            xAxisKey="date"
-            color="#3b82f6"
-          />
-          <BarChart
-            title="Volume de Casos"
-            subtitle={`Bucket: ${bucket}`}
-            data={kCases}
-            dataKey="value"
-            xAxisKey="date"
-            color="#8b5cf6"
-          />
+            </div>
+          </div>
+          {/* Gráfico ao lado */}
+          <div className="lg:col-span-1">
+            <AreaChart
+              title="Casos Criados"
+              subtitle={`Bucket: ${bucket}`}
+              data={kCases}
+              dataKey="value"
+              xAxisKey="date"
+              color="#3b82f6"
+              formatXAxis={true}
+            />
+          </div>
         </div>
       </div>
 
       {/* 5. KPIs SIMULAÇÕES */}
       <div className="space-y-3">
         <div>
-          <h2 className="text-xl font-semibold">🧮 KPIs Simulações</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            KPIs Simulações
+          </h2>
+          <p className="text-sm text-muted-foreground">Análises visuais das simulações</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            title="Simulações Criadas"
-            value={kpis?.sim_created ?? 0}
-            subtitle={"no período"}
-            gradientVariant="sky"
-            trend={18.4}
-            icon={Activity}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniBarChart
-                data={MOCK_TREND_DATA.simulacoes}
-                dataKey="value"
-                xKey="day"
-                fill="#38bdf8"
-                height={80}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Grid 2x2 de KPIs */}
+          <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <KPICard
+                title="Simulações Criadas"
+                value={kpis?.sim_created ?? 0}
+                subtitle={"no período"}
+                gradientVariant="sky"
+                trend={18.4}
+                icon={Activity}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniBarChart
+                    data={MOCK_TREND_DATA.simulacoes}
+                    dataKey="value"
+                    xKey="day"
+                    fill="#38bdf8"
+                    height={80}
+                  />
+                }
               />
-            }
-          />
-          <KPICard
-            title="Simulações Aprovadas"
-            value={kpis?.sim_approved ?? 0}
-            subtitle={"no período"}
-            gradientVariant="emerald"
-            trend={24.6}
-            icon={CheckCircle}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniBarChart
-                data={MOCK_TREND_DATA.aprovadas}
-                dataKey="value"
-                xKey="day"
-                fill="#10b981"
-                height={80}
+              <KPICard
+                title="Simulações Aprovadas"
+                value={kpis?.sim_approved ?? 0}
+                subtitle={"no período"}
+                gradientVariant="emerald"
+                trend={24.6}
+                icon={CheckCircle}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniBarChart
+                    data={MOCK_TREND_DATA.aprovadas}
+                    dataKey="value"
+                    xKey="day"
+                    fill="#10b981"
+                    height={80}
+                  />
+                }
               />
-            }
-          />
-          <KPICard
-            title="Taxa de Conversão"
-            value={`${Math.round((kpis?.conv_rate ?? 0) * 100)}%`}
-            subtitle={"sims aprovadas / criadas"}
-            gradientVariant="violet"
-            trend={kpis?.trends?.conv_rate ?? 0}
-            icon={Target}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniAreaChart
-                data={MOCK_TREND_DATA.conversao}
-                dataKey="value"
-                xKey="day"
-                stroke="#8b5cf6"
-                height={80}
-                tooltipFormatter={(value) => `${value}%`}
+              <KPICard
+                title="Taxa de Conversão"
+                value={`${Math.round((kpis?.conv_rate ?? 0) * 100)}%`}
+                subtitle={"sims aprovadas / criadas"}
+                gradientVariant="violet"
+                trend={kpis?.trends?.conv_rate ?? 0}
+                icon={Target}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniAreaChart
+                    data={MOCK_TREND_DATA.conversao}
+                    dataKey="value"
+                    xKey="day"
+                    stroke="#8b5cf6"
+                    height={80}
+                    tooltipFormatter={(value) => `${value}%`}
+                  />
+                }
               />
-            }
-          />
-          <KPICard
-            title="Tempo Médio (min)"
-            value={`${Math.round((kpis?.sim_created ?? 0) > 0 ? 25 : 0)}`}
-            subtitle={"tempo médio por simulação"}
-            gradientVariant="amber"
-            trend={-12.5}
-            icon={Clock}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniAreaChart
-                data={MOCK_TREND_DATA.tempo_medio}
-                dataKey="value"
-                xKey="day"
-                stroke="#f59e0b"
-                height={80}
-                tooltipFormatter={(value) => `${value} min`}
+              <KPICard
+                title="Tempo Médio (min)"
+                value={`${Math.round((kpis?.sim_created ?? 0) > 0 ? 25 : 0)}`}
+                subtitle={"tempo médio por simulação"}
+                gradientVariant="amber"
+                trend={-12.5}
+                icon={Clock}
+                isLoading={kpisLoading}
+                miniChart={
+                  <MiniAreaChart
+                    data={MOCK_TREND_DATA.tempo_medio}
+                    dataKey="value"
+                    xKey="day"
+                    stroke="#f59e0b"
+                    height={80}
+                    tooltipFormatter={(value) => `${value} min`}
+                  />
+                }
               />
-            }
-          />
-        </div>
-      </div>
-
-      {/* 6. GRÁFICOS SIMULAÇÕES */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-xl font-semibold">📊 Gráficos Simulações</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <LineChart
-            title="Simulações Criadas vs Aprovadas"
-            subtitle={`Bucket: ${bucket}`}
-            data={kSimulations}
-            lines={[
-              { dataKey: "simulations_created", name: "Criadas", color: "#3b82f6" },
-              { dataKey: "simulations_approved", name: "Aprovadas", color: "#10b981" },
-            ]}
-            xAxisKey="date"
-          />
-          <BarChart
-            title="Simulações Aprovadas"
-            subtitle={`Bucket: ${bucket}`}
-            data={kSimulations}
-            dataKey="simulations_approved"
-            xAxisKey="date"
-            color="#10b981"
-          />
+            </div>
+          </div>
+          {/* Gráfico ao lado */}
+          <div className="lg:col-span-1">
+            <LineChart
+              title="Simulações Criadas vs Aprovadas"
+              subtitle={`Bucket: ${bucket}`}
+              data={kSimulations}
+              lines={[
+                { dataKey: "simulations_created", name: "Criadas", color: "#3b82f6" },
+                { dataKey: "simulations_approved", name: "Aprovadas", color: "#10b981" },
+              ]}
+              xAxisKey="date"
+              formatXAxis={true}
+            />
+          </div>
         </div>
       </div>
 
       {/* 7. KPIs CONTRATOS */}
       <div className="space-y-3">
         <div>
-          <h2 className="text-xl font-semibold">📝 KPIs Contratos</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Briefcase className="h-5 w-5" />
+            KPIs Contratos
+          </h2>
           <p className="text-sm text-muted-foreground">
             Efetivação, consultoria líquida, valor médio e contratos efetivados
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            title="Contratos (MTD)"
-            value={kpis?.contracts_mtd ?? 0}
-            subtitle={"mês atual"}
-            gradientVariant="sky"
-            trend={kpis?.trends?.contracts_mtd ?? 0}
-            icon={Briefcase}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniBarChart
-                data={MOCK_TREND_DATA.contratos}
-                dataKey="value"
-                xKey="day"
-                fill="#38bdf8"
-                height={80}
-              />
-            }
-          />
-          <KPICard
-            title="Consultoria Líq. (MTD)"
-            value={`R$ ${(kpis?.consultoria_liq_mtd ?? 0).toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`}
-            subtitle={`YTD R$ ${(kpis?.consultoria_liq_ytd ?? 0).toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`}
-            gradientVariant="emerald"
-            trend={kpis?.trends?.consultoria_liq_mtd ?? 0}
-            icon={DollarSign}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniAreaChart
-                data={MOCK_TREND_DATA.consultoria}
-                dataKey="value"
-                xKey="day"
-                stroke="#10b981"
-                height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
-              />
-            }
-          />
-          <KPICard
-            title="Valor Médio Contrato"
-            value={`R$ ${Math.round(
-              (kpis?.consultoria_liq_mtd ?? 0) / Math.max(kpis?.contracts_mtd ?? 1, 1)
-            ).toLocaleString("pt-BR")}`}
-            subtitle={"consultoria / contratos"}
-            gradientVariant="violet"
-            trend={11.7}
-            icon={BarChart3}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniAreaChart
-                data={MOCK_TREND_DATA.valor_medio}
-                dataKey="value"
-                xKey="day"
-                stroke="#8b5cf6"
-                height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
-              />
-            }
-          />
-          <KPICard
-            title="Contratos Efetivados"
-            value={Math.round((kpis?.contracts_mtd ?? 0) * 0.75)}
-            subtitle={"contratos finalizados"}
-            gradientVariant="amber"
-            trend={19.2}
-            icon={CheckCircle}
-            isLoading={kpisLoading}
-            miniChart={
-              <MiniBarChart
-                data={MOCK_TREND_DATA.efetivados}
-                dataKey="value"
-                xKey="day"
-                fill="#f59e0b"
-                height={80}
-              />
-            }
-          />
-        </div>
-      </div>
-
-      {/* 8. GRÁFICOS CONTRATOS */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-xl font-semibold">📈 Gráficos Contratos</h2>
-          <p className="text-sm text-muted-foreground">Análises visuais das métricas de contratos</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <BarChart
-            title="Contratos Ativos"
-            subtitle={`Bucket: ${bucket}`}
-            data={kContracts}
-            dataKey="value"
-            xAxisKey="date"
-            color="#10b981"
-          />
-          <AreaChart
-            title="Evolução de Contratos"
-            subtitle={`Bucket: ${bucket}`}
-            data={kContracts}
-            dataKey="value"
-            xAxisKey="date"
-            color="#059669"
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Grid 2x2 dos KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <KPICard
+              title="Contratos (MTD)"
+              value={kpis?.contracts_mtd ?? 0}
+              subtitle={"mês atual"}
+              gradientVariant="sky"
+              trend={kpis?.trends?.contracts_mtd ?? 0}
+              icon={Briefcase}
+              isLoading={kpisLoading}
+              miniChart={
+                <MiniBarChart
+                  data={MOCK_TREND_DATA.contratos}
+                  dataKey="value"
+                  xKey="day"
+                  fill="#38bdf8"
+                  height={80}
+                />
+              }
+            />
+            <KPICard
+              title="Consultoria Líq. (MTD)"
+              value={`R$ ${(kpis?.consultoria_liq_mtd ?? 0).toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+              })}`}
+              subtitle={`YTD R$ ${(kpis?.consultoria_liq_ytd ?? 0).toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+              })}`}
+              gradientVariant="emerald"
+              trend={kpis?.trends?.consultoria_liq_mtd ?? 0}
+              icon={DollarSign}
+              isLoading={kpisLoading}
+              miniChart={
+                <MiniAreaChart
+                  data={MOCK_TREND_DATA.consultoria}
+                  dataKey="value"
+                  xKey="day"
+                  stroke="#10b981"
+                  height={80}
+                  tooltipFormatter={(value) =>
+                    `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                  }
+                />
+              }
+            />
+            <KPICard
+              title="Valor Médio Contrato"
+              value={`R$ ${Math.round(
+                (kpis?.consultoria_liq_mtd ?? 0) / Math.max(kpis?.contracts_mtd ?? 1, 1)
+              ).toLocaleString("pt-BR")}`}
+              subtitle={"consultoria / contratos"}
+              gradientVariant="violet"
+              trend={11.7}
+              icon={BarChart3}
+              isLoading={kpisLoading}
+              miniChart={
+                <MiniAreaChart
+                  data={MOCK_TREND_DATA.valor_medio}
+                  dataKey="value"
+                  xKey="day"
+                  stroke="#8b5cf6"
+                  height={80}
+                  tooltipFormatter={(value) =>
+                    `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                  }
+                />
+              }
+            />
+            <KPICard
+              title="Contratos Efetivados"
+              value={Math.round((kpis?.contracts_mtd ?? 0) * 0.75)}
+              subtitle={"contratos finalizados"}
+              gradientVariant="amber"
+              trend={19.2}
+              icon={CheckCircle}
+              isLoading={kpisLoading}
+              miniChart={
+                <MiniBarChart
+                  data={MOCK_TREND_DATA.efetivados}
+                  dataKey="value"
+                  xKey="day"
+                  fill="#f59e0b"
+                  height={80}
+                />
+              }
+            />
+          </div>
+          
+          {/* Gráfico ao lado */}
+          <div className="h-full min-h-[400px]">
+            <AreaChart
+              title="Evolução de Contratos"
+              subtitle={`Bucket: ${bucket}`}
+              data={kContracts}
+              dataKey="value"
+              xAxisKey="date"
+              color="#059669"
+              formatXAxis={true}
+            />
+          </div>
         </div>
       </div>
     </div>

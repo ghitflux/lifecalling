@@ -24,7 +24,7 @@ function FechamentoContent() {
   const { data: items = [], isLoading, error, refetch } = useClosingQueue();
   const approve = useClosingApprove();
   const reject = useClosingReject();
-  
+
   // Estado para controle da tab ativa
   const [activeTab, setActiveTab] = useState("pendentes");
 
@@ -37,7 +37,7 @@ function FechamentoContent() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }, []);
-  
+
   const { data: kpis, isLoading: isLoadingKpis } = useClosingKpis({ month: currentMonth });
 
   // Dados combinados com fallback para dados padrão
@@ -169,19 +169,19 @@ function FechamentoContent() {
 
   // Separar casos por status
   const casosPendentes = useMemo(() => {
-    return items.filter(item => 
+    return items.filter((item: any) =>
       item.status === 'calculo_aprovado' || item.status === 'fechamento_pendente'
     );
   }, [items]);
 
   const casosAprovados = useMemo(() => {
-    return items.filter(item => 
+    return items.filter((item: any) =>
       item.status === 'fechamento_aprovado'
     );
   }, [items]);
 
   const casosRejeitados = useMemo(() => {
-    return items.filter(item => 
+    return items.filter((item: any) =>
       item.status === 'fechamento_reprovado'
     );
   }, [items]);
@@ -251,7 +251,7 @@ function FechamentoContent() {
 
 
       {/* KPIs do Módulo de Fechamento */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <KPICard
           title="Casos Pendentes"
           value={combinedKpis.casos_pendentes}
@@ -265,30 +265,6 @@ function FechamentoContent() {
         />
 
         <KPICard
-          title="Casos Aprovados"
-          value={combinedKpis.casos_aprovados}
-          subtitle="Aprovados no período"
-          trend={combinedKpis.trends?.casos_aprovados || 0}
-          icon={CheckCircle}
-          color="success"
-          gradientVariant="emerald"
-          isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.casos_aprovados} dataKey="value" xKey="day" stroke="#10b981" height={60} />}
-        />
-
-        <KPICard
-          title="Taxa de Aprovação"
-          value={`${combinedKpis.taxa_aprovacao}%`}
-          subtitle="Eficiência do período"
-          trend={combinedKpis.trends?.taxa_aprovacao || 0}
-          icon={TrendingUp}
-          color="primary"
-          gradientVariant="violet"
-          isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.taxa_aprovacao} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} />}
-        />
-
-        <KPICard
           title="Consultoria Líquida"
           value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
           subtitle="Casos efetivados pelo financeiro"
@@ -297,13 +273,13 @@ function FechamentoContent() {
           color="warning"
           gradientVariant="amber"
           isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria_liquida} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria_liquida} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
         />
 
         {/* Meta Mensal Card - Custom with Progress Bar */}
         <div className={`rounded-lg border p-6 transition-all duration-200 hover:shadow-md ${
-          combinedKpis.meta_mensal >= 0 
-            ? 'border-success/40 bg-success-subtle hover:border-success/60' 
+          combinedKpis.meta_mensal >= 0
+            ? 'border-success/40 bg-success-subtle hover:border-success/60'
             : 'border-danger/40 bg-danger-subtle hover:border-danger/60'
         }`}>
           <div className="space-y-4">
@@ -322,13 +298,13 @@ function FechamentoContent() {
                 <div className={`text-2xl font-bold ${
                   combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
                 }`}>
-                  R$ {combinedKpis.meta_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   10% de (consultoria líquida - despesas)
                 </p>
               </div>
-              
+
               <div className="flex items-center gap-1">
                 {(combinedKpis.trends?.meta_mensal || 0) >= 0 ? (
                   <TrendingUp className="h-3 w-3 text-success" />
@@ -342,7 +318,7 @@ function FechamentoContent() {
                 </span>
               </div>
             </div>
-            
+
             {/* Progress Bar */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -350,7 +326,7 @@ function FechamentoContent() {
                 <span className={`font-medium ${
                   combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
                 }`}>
-                  {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0 
+                  {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0
                     ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
                     : 0}%
                 </span>
@@ -360,10 +336,10 @@ function FechamentoContent() {
                 max={combinedKpis.consultoria_liquida * 0.1}
                 variant={
                   combinedKpis.meta_mensal >= 0
-                    ? combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.8 
-                      ? "success" 
-                      : combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.5 
-                        ? "warning" 
+                    ? combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.8
+                      ? "success"
+                      : combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.5
+                        ? "warning"
                         : "danger"
                     : "danger"
                 }
@@ -371,7 +347,7 @@ function FechamentoContent() {
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span className={combinedKpis.meta_mensal >= 0 ? 'text-success/80' : 'text-danger/80'}>
-                  Atual: R$ {Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  Atual: {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
@@ -468,7 +444,7 @@ function FechamentoContent() {
                   onReject={() => handleReject(item.id)}
                   onViewDetails={() => router.push(`/fechamento/${item.id}`)}
                   isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-                  hideActions={true} // Esconder ações para casos já aprovados
+                  // hideActions removed – CardFechamento no longer accepts it
                 />
               ))}
             </div>
@@ -508,7 +484,7 @@ function FechamentoContent() {
                   onReject={() => handleReject(item.id)}
                   onViewDetails={() => router.push(`/fechamento/${item.id}`)}
                   isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-                  hideActions={true} // Esconder ações para casos já rejeitados
+                  // hideActions prop removed – CardFechamento no longer accepts it
                 />
               ))}
             </div>

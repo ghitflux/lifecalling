@@ -638,7 +638,12 @@ def get_expense(
             "expense_type": expense.expense_type,
             "expense_name": expense.expense_name,
             "amount": float(expense.amount),
-            "created_at": expense.created_at.isoformat() if expense.created_at else None
+            "created_by": expense.created_by,
+            "created_at": expense.created_at.isoformat() if expense.created_at else None,
+            "has_attachment": bool(expense.attachment_path),
+            "attachment_filename": expense.attachment_filename,
+            "attachment_size": expense.attachment_size,
+            "attachment_mime": expense.attachment_mime
         }
 
 @r.post("/expenses")
@@ -891,10 +896,15 @@ def download_expense_attachment(
         if not expense.attachment_path or not os.path.exists(expense.attachment_path):
             raise HTTPException(404, "Anexo não encontrado")
 
+        # Usar o nome original do arquivo ou fallback para o nome salvo
+        filename = expense.attachment_filename or os.path.basename(expense.attachment_path)
+
         return FileResponse(
             path=expense.attachment_path,
-            filename=expense.attachment_filename,
-            media_type=expense.attachment_mime
+            media_type=expense.attachment_mime or "application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
 
 @r.delete("/expenses/{expense_id}/attachment")
@@ -996,6 +1006,30 @@ def create_income(data: IncomeInput, user=Depends(require_roles("admin","supervi
             "amount": float(income.amount),
             "created_by": income.created_by,
             "created_at": income.created_at.isoformat() if income.created_at else None
+        }
+
+@r.get("/incomes/{income_id}")
+def get_income(income_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+    """Busca uma receita específica por ID"""
+    with SessionLocal() as db:
+        from ..models import FinanceIncome
+
+        income = db.get(FinanceIncome, income_id)
+        if not income:
+            raise HTTPException(404, "Receita não encontrada")
+
+        return {
+            "id": income.id,
+            "date": income.date.isoformat() if income.date else None,
+            "income_type": income.income_type,
+            "income_name": income.income_name,
+            "amount": float(income.amount),
+            "created_by": income.created_by,
+            "created_at": income.created_at.isoformat() if income.created_at else None,
+            "has_attachment": bool(income.attachment_path),
+            "attachment_filename": income.attachment_filename,
+            "attachment_size": income.attachment_size,
+            "attachment_mime": income.attachment_mime
         }
 
 @r.put("/incomes/{income_id}")
@@ -1187,10 +1221,15 @@ def download_income_attachment(
         if not income.attachment_path or not os.path.exists(income.attachment_path):
             raise HTTPException(404, "Anexo não encontrado")
 
+        # Usar o nome original do arquivo ou fallback para o nome salvo
+        filename = income.attachment_filename or os.path.basename(income.attachment_path)
+
         return FileResponse(
             path=income.attachment_path,
-            filename=income.attachment_filename,
-            media_type=income.attachment_mime
+            media_type=income.attachment_mime or "application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
 
 @r.delete("/incomes/{income_id}/attachment")
@@ -1487,6 +1526,9 @@ def get_transactions(
                         "agent_name": inc.agent.name if inc.agent else None,
                         "agent_user_id": inc.agent_user_id,
                         "has_attachment": bool(inc.attachment_path),
+                        "attachment_filename": inc.attachment_filename,
+                        "attachment_size": inc.attachment_size,
+                        "attachment_mime": inc.attachment_mime,
                         "case_id": case_id,
                         "contract_id": contract_id,
                         "client_name": client_name,
@@ -1517,7 +1559,10 @@ def get_transactions(
                         "created_by": exp.created_by,
                         "created_at": exp.created_at.isoformat() if exp.created_at else None,
                         "agent_name": exp.creator.name if exp.creator else None,
-                        "has_attachment": bool(exp.attachment_path)
+                        "has_attachment": bool(exp.attachment_path),
+                        "attachment_filename": exp.attachment_filename,
+                        "attachment_size": exp.attachment_size,
+                        "attachment_mime": exp.attachment_mime
                     })
 
             # Ordenar por data (mais recente primeiro)
