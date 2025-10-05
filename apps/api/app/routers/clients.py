@@ -33,7 +33,7 @@ def list_clients(
     orgao: str | None = None,
     sem_contratos: bool | None = None,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))
 ):
     """
     Lista clientes do sistema principal com casos e contratos associados.
@@ -133,7 +133,7 @@ def list_clients(
 @r.get("/filters")
 def get_available_filters(
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))
 ):
     """
     Retorna filtros disponíveis para clientes (bancos credores, órgãos pagadores e status).
@@ -217,7 +217,7 @@ def get_available_filters(
 @r.get("/stats")
 def get_clients_stats(
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))
 ):
     """
     Retorna estatísticas gerais dos clientes (KPIs).
@@ -289,7 +289,7 @@ def get_clients_stats(
 
 
 @r.get("/{client_id}")
-def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna detalhes de um cliente específico com todos os seus contratos e casos.
     """
@@ -354,7 +354,7 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
 
 
 @r.get("/{client_id}/contracts")
-def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna todos os contratos de todas as matrículas do CPF do cliente.
     """
@@ -401,7 +401,7 @@ def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Dep
 
 
 @r.get("/{client_id}/cases")
-def get_client_cases(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client_cases(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna TODOS os casos de TODAS as matrículas do mesmo CPF.
     Isso garante que se um CPF tem múltiplas matrículas (registros diferentes em clients),
@@ -442,7 +442,7 @@ def get_client_cases(client_id: int, db: Session = Depends(get_db), user=Depends
     }
 
 @r.get("/{client_id}/financiamentos")
-def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna financiamentos (linhas de folha) de um cliente específico.
     Busca por TODAS as matrículas do CPF (não apenas a matrícula específica do cliente).
@@ -488,7 +488,7 @@ def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), use
     ]
 
 @r.get("/{client_id}/contratos-efetivados")
-def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna contratos efetivados do cliente.
     Busca contratos de casos associados ao CPF do cliente.
@@ -545,7 +545,7 @@ def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db
     }
 
 @r.get("/{client_id}/matriculas")
-def get_client_matriculas(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client_matriculas(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna todas as matrículas associadas ao CPF do cliente.
     Busca todas as matrículas diferentes do mesmo CPF em payroll_lines.
@@ -628,7 +628,7 @@ class PhoneUpdate(BaseModel):
     phone: str
 
 @r.get("/{client_id}/phones")
-def get_client_phones(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente"))):
+def get_client_phones(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
     """
     Retorna o histórico de telefones de um cliente.
     Lista todos os telefones já utilizados, ordenados por is_primary e data de criação.

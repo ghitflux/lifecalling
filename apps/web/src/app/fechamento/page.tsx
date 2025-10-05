@@ -1,6 +1,8 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useClosingQueue, useClosingApprove, useClosingReject, useClosingKpis, useCasosEfetivados } from "@/lib/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import {
   Button,
   Badge,
@@ -80,91 +82,51 @@ function FechamentoContent() {
     return months;
   }, []);
 
-  // Dados mockados de tendência para os mini gráficos
-  const MOCK_TREND_DATA = {
-    casos_pendentes: [
-      { day: "D1", value: 8 },
-      { day: "D2", value: 12 },
-      { day: "D3", value: 10 },
-      { day: "D4", value: 15 },
-      { day: "D5", value: 13 },
-      { day: "D6", value: 18 },
-      { day: "D7", value: 16 },
-    ],
-    casos_aprovados: [
-      { day: "D1", value: 6 },
-      { day: "D2", value: 9 },
-      { day: "D3", value: 8 },
-      { day: "D4", value: 12 },
-      { day: "D5", value: 11 },
-      { day: "D6", value: 14 },
-      { day: "D7", value: 13 },
-    ],
+  // Buscar dados de séries temporais reais
+  const { data: seriesData } = useQuery({
+    queryKey: ["fechamentoSeries"],
+    queryFn: async () => {
+      const response = await api.get("/analytics/series", {
+        params: {
+          metrics: [
+            "casos_pendentes_mtd", "casos_aprovados_mtd", "taxa_aprovacao_mtd",
+            "volume_financeiro_mtd", "consultoria_liq_mtd", "receita_liquida_mtd",
+            "despesas_mtd", "lucro_liquido_mtd", "meta_mensal_mtd"
+          ],
+          period: "7d"
+        }
+      });
+      return response.data;
+    },
+    retry: 2,
+  });
 
-    taxa_aprovacao: [
-      { day: "D1", value: 75 },
-      { day: "D2", value: 78 },
-      { day: "D3", value: 80 },
-      { day: "D4", value: 82 },
-      { day: "D5", value: 85 },
-      { day: "D6", value: 83 },
-      { day: "D7", value: 87 },
-    ],
-    volume_financeiro: [
-      { day: "D1", value: 35000 },
-      { day: "D2", value: 42000 },
-      { day: "D3", value: 38000 },
-      { day: "D4", value: 48000 },
-      { day: "D5", value: 45000 },
-      { day: "D6", value: 52000 },
-      { day: "D7", value: 55000 },
-    ],
-    consultoria_liquida: [
-      { day: "D1", value: 12500 },
-      { day: "D2", value: 15200 },
-      { day: "D3", value: 13800 },
-      { day: "D4", value: 18400 },
-      { day: "D5", value: 16900 },
-      { day: "D6", value: 21300 },
-      { day: "D7", value: 23100 },
-    ],
-    receita_liquida: [
-      { day: "D1", value: 45000 },
-      { day: "D2", value: 52000 },
-      { day: "D3", value: 48000 },
-      { day: "D4", value: 58000 },
-      { day: "D5", value: 55000 },
-      { day: "D6", value: 62000 },
-      { day: "D7", value: 65000 },
-    ],
-    despesas: [
-      { day: "D1", value: 25000 },
-      { day: "D2", value: 28000 },
-      { day: "D3", value: 26000 },
-      { day: "D4", value: 30000 },
-      { day: "D5", value: 29000 },
-      { day: "D6", value: 32000 },
-      { day: "D7", value: 31000 },
-    ],
-    lucro_liquido: [
-      { day: "D1", value: 20000 },
-      { day: "D2", value: 24000 },
-      { day: "D3", value: 22000 },
-      { day: "D4", value: 28000 },
-      { day: "D5", value: 26000 },
-      { day: "D6", value: 30000 },
-      { day: "D7", value: 34000 },
-    ],
-    meta_mensal: [
-      { day: "D1", value: 2000 },
-      { day: "D2", value: 2400 },
-      { day: "D3", value: 2200 },
-      { day: "D4", value: 2800 },
-      { day: "D5", value: 2600 },
-      { day: "D6", value: 3000 },
-      { day: "D7", value: 3400 },
-    ],
+  // Função para converter dados de série em formato de mini-chart
+  const convertSeriesToMiniChart = (seriesData: any, metricKey: string) => {
+    if (!seriesData?.series?.[metricKey]) {
+      return [];
+    }
+
+    return seriesData.series[metricKey].map((point: any, index: number) => ({
+      day: `D${index + 1}`,
+      value: point.value || 0
+    }));
   };
+
+  // Gerar dados de tendência reais para mini-charts
+  const getTrendChartData = useMemo(() => {
+    return {
+      casos_pendentes: convertSeriesToMiniChart(seriesData, "casos_pendentes_mtd"),
+      casos_aprovados: convertSeriesToMiniChart(seriesData, "casos_aprovados_mtd"),
+      taxa_aprovacao: convertSeriesToMiniChart(seriesData, "taxa_aprovacao_mtd"),
+      volume_financeiro: convertSeriesToMiniChart(seriesData, "volume_financeiro_mtd"),
+      consultoria_liquida: convertSeriesToMiniChart(seriesData, "consultoria_liq_mtd"),
+      receita_liquida: convertSeriesToMiniChart(seriesData, "receita_liquida_mtd"),
+      despesas: convertSeriesToMiniChart(seriesData, "despesas_mtd"),
+      lucro_liquido: convertSeriesToMiniChart(seriesData, "lucro_liquido_mtd"),
+      meta_mensal: convertSeriesToMiniChart(seriesData, "meta_mensal_mtd"),
+    };
+  }, [seriesData]);
 
 
 
@@ -262,7 +224,7 @@ function FechamentoContent() {
           color="warning"
           gradientVariant="amber"
           isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.casos_pendentes} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
+          miniChart={<MiniAreaChart data={getTrendChartData.casos_pendentes} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
         />
 
         <KPICard
@@ -274,7 +236,7 @@ function FechamentoContent() {
           color="warning"
           gradientVariant="amber"
           isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria_liquida} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={getTrendChartData.consultoria_liquida} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
         />
 
         {/* Meta Mensal Card - Custom with Progress Bar */}
@@ -448,7 +410,7 @@ function FechamentoContent() {
                   onReject={() => handleReject(item.id)}
                   onViewDetails={() => router.push(`/fechamento/${item.id}`)}
                   isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-                  // hideActions removed – CardFechamento no longer accepts it
+                  hideActions={true}
                 />
               ))}
             </div>
@@ -561,9 +523,9 @@ function FechamentoContent() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex-1"
                         onClick={() => router.push(`/fechamento/${caso.id}`)}
                       >

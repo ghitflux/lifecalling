@@ -7,7 +7,7 @@ import { api } from "./api";
 /* ======================
  * Tipos
  * ===================== */
-export type Role = "admin" | "supervisor" | "financeiro" | "calculista" | "atendente";
+export type Role = "admin" | "supervisor" | "financeiro" | "calculista" | "atendente" | "fechamento";
 
 export type User = {
   id: number;
@@ -122,17 +122,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!redirectTo) {
         const role = (user?.role) as Role | undefined;
         switch (role) {
+          case "atendente":
+            redirectTo = "/esteira";
+            break;
           case "calculista":
             redirectTo = "/calculista";
+            break;
+          case "fechamento":
+            redirectTo = "/fechamento";
             break;
           case "financeiro":
             redirectTo = "/financeiro";
             break;
-          case "admin":
           case "supervisor":
-          case "atendente":
+            redirectTo = "/dashboard";
+            break;
+          case "admin":
           default:
-            redirectTo = "/esteira";
+            redirectTo = "/dashboard";
         }
       }
       router.push(redirectTo!);

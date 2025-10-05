@@ -232,7 +232,7 @@ def get_case(case_id: int, user=Depends(get_current_user)):
 def assign_case(
     case_id: int,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente")
+        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
     with SessionLocal() as db:
@@ -418,7 +418,7 @@ def upload_attachment(
     case_id: int,
     file: UploadFile = File(...),
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente")
+        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
     from ..models import Attachment
@@ -476,7 +476,7 @@ def delete_attachment(
     case_id: int,
     attachment_id: int,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente")
+        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
     """
@@ -595,7 +595,7 @@ def list_cases(
     created_after: str | None = None,  # ISO
     created_before: str | None = None,  # ISO
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente")
+        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
     with SessionLocal() as db:
@@ -778,7 +778,7 @@ def list_cases(
 def release_case(
     case_id: int,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente")
+        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
     """Libera um caso antes do prazo (lock) de 72 horas."""

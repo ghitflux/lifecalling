@@ -359,7 +359,16 @@ export default function CaseDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ["case", caseId] })}
+            onClick={() => {
+              // Forçar refresh de todas as queries relacionadas ao caso
+              queryClient.invalidateQueries({ queryKey: ["case", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["caseAttachments", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["caseEvents", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["clientPhones", caseDetail?.client?.id] });
+              // Forçar refetch imediato
+              queryClient.refetchQueries({ queryKey: ["case", caseId] });
+              toast.success("Dados atualizados!");
+            }}
             title="Atualizar dados"
           >
             <RefreshCw className="h-4 w-4" />
@@ -382,8 +391,19 @@ export default function CaseDetailPage() {
           )}
           <Button
             onClick={handleSendToCalculista}
-            disabled={sendCalc.isPending || sentToCalculista || (caseDetail.status === "em_atendimento" && (!attachments || attachments.length === 0))}
-            title={(caseDetail.status === "em_atendimento" && (!attachments || attachments.length === 0)) ? "É necessário anexar pelo menos um contracheque para enviar para simulação" : ""}
+            disabled={
+              sendCalc.isPending || 
+              sentToCalculista || 
+              caseDetail.status !== "em_atendimento" ||
+              (caseDetail.status === "em_atendimento" && (!attachments || attachments.length === 0))
+            }
+            title={
+              caseDetail.status !== "em_atendimento" 
+                ? "O caso deve estar em atendimento para ser enviado para simulação"
+                : (caseDetail.status === "em_atendimento" && (!attachments || attachments.length === 0)) 
+                  ? "É necessário anexar pelo menos um contracheque para enviar para simulação" 
+                  : ""
+            }
           >
             {sentToCalculista ? "Enviado para Simulação" : sendCalc.isPending ? "Enviando..." : "Enviar para Calculista"}
           </Button>
@@ -673,7 +693,7 @@ export default function CaseDetailPage() {
             ) : attachments && attachments.length > 0 ? (
               <div className="space-y-2">
                 {attachments.map((attachment: any) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 transition-colors">
+                  <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg bg-card border-border hover:bg-card-hover transition-colors">
                     <div className="flex items-center gap-2 flex-1">
                       <span className="text-sm font-medium">{attachment.filename}</span>
                       <span className="text-xs text-muted-foreground">

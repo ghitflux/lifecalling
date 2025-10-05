@@ -74,36 +74,50 @@ export function AreaChart({
     return value;
   };
 
+  // Verificar se há dados para exibir
+  const hasData = data && data.length > 0;
+
   return (
     <ChartContainer title={title} subtitle={subtitle}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsArea data={data}>
-          <defs>
-            <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
-              <stop offset="95%" stopColor={color} stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis
-            dataKey={xAxisKey}
-            stroke="hsl(var(--muted-foreground))"
-            tickFormatter={formatXAxis ? xAxisFormatter : undefined}
-          />
-          <YAxis
-            stroke="hsl(var(--muted-foreground))"
-            tickFormatter={valueType === 'currency' ? (value: any) => String(yAxisFormatter(value)) : undefined}
-          />
-          <Tooltip content={customTooltip} />
-          <Area
-            type="monotone"
-            dataKey={dataKey}
-            stroke={color}
-            fillOpacity={1}
-            fill="url(#colorGradient)"
-          />
-        </RechartsArea>
-      </ResponsiveContainer>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsArea data={data}>
+            <defs>
+              <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={color} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey={xAxisKey}
+              stroke="hsl(var(--muted-foreground))"
+              tickFormatter={formatXAxis ? xAxisFormatter : undefined}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              tickFormatter={valueType === 'currency' ? (value: any) => String(yAxisFormatter(value)) : undefined}
+            />
+            <Tooltip content={customTooltip} />
+            <Area
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
+              fillOpacity={1}
+              fill="url(#colorGradient)"
+            />
+          </RechartsArea>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-muted-foreground text-sm">Nenhum dado disponível</div>
+            <div className="text-muted-foreground text-xs mt-1">
+              Os dados aparecerão aqui quando estiverem disponíveis
+            </div>
+          </div>
+        </div>
+      )}
     </ChartContainer>
   );
 }

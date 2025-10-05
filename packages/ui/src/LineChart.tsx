@@ -77,36 +77,50 @@ export function LineChart({
     return value;
   };
 
+  // Verificar se há dados para exibir
+  const hasData = data && data.length > 0;
+
   return (
     <ChartContainer title={title} subtitle={subtitle}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsLine data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis
-            dataKey={xAxisKey}
-            stroke="hsl(var(--muted-foreground))"
-            tickFormatter={formatXAxis ? xAxisFormatter : undefined}
-          />
-          <YAxis
-            stroke="hsl(var(--muted-foreground))"
-            tickFormatter={valueType === 'currency' ? (value: any) => String(yAxisFormatter(value as number)) : undefined}
-          />
-          <Tooltip content={customTooltip} />
-          <Legend />
-          {lines.map((line, index) => (
-            <Line
-              key={index}
-              type="monotone"
-              dataKey={line.dataKey}
-              stroke={line.color}
-              strokeWidth={2}
-              name={line.name}
-              dot={{ fill: line.color, strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6 }}
+      {hasData ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsLine data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey={xAxisKey}
+              stroke="hsl(var(--muted-foreground))"
+              tickFormatter={formatXAxis ? xAxisFormatter : undefined}
             />
-          ))}
-        </RechartsLine>
-      </ResponsiveContainer>
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              tickFormatter={valueType === 'currency' ? (value: any) => String(yAxisFormatter(value as number)) : undefined}
+            />
+            <Tooltip content={customTooltip} />
+            <Legend />
+            {lines.map((line, index) => (
+              <Line
+                key={index}
+                type="monotone"
+                dataKey={line.dataKey}
+                stroke={line.color}
+                strokeWidth={2}
+                name={line.name}
+                dot={{ fill: line.color, strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            ))}
+          </RechartsLine>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-muted-foreground text-sm">Nenhum dado disponível</div>
+            <div className="text-muted-foreground text-xs mt-1">
+              Os dados aparecerão aqui quando estiverem disponíveis
+            </div>
+          </div>
+        </div>
+      )}
     </ChartContainer>
   );
 }

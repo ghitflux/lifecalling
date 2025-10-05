@@ -806,13 +806,20 @@ export function useCalculationKpis(params?: { from?: string; to?: string; month?
       // Converter month em start_date/end_date (igual ao Financeiro)
       if (params?.month) {
         const [year, month] = params.month.split('-');
-        const startOfMonth = `${year}-${month}-01`;
-        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
-        searchParams.append("from", startOfMonth);
-        searchParams.append("to", endOfMonth);
+        if (year && month && !isNaN(parseInt(year)) && !isNaN(parseInt(month))) {
+          const startOfMonth = `${year}-${month.padStart(2, '0')}-01`;
+          const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+          searchParams.append("from", startOfMonth);
+          searchParams.append("to", endOfMonth);
+        }
       } else if (params?.from && params?.to) {
-        searchParams.append("from", params.from);
-        searchParams.append("to", params.to);
+        // Validar formato das datas
+        const fromDate = new Date(params.from);
+        const toDate = new Date(params.to);
+        if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
+          searchParams.append("from", params.from);
+          searchParams.append("to", params.to);
+        }
       }
 
       searchParams.append("include_trends", "true");

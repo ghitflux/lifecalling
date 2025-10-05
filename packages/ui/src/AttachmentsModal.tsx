@@ -101,7 +101,7 @@ export function AttachmentsModal({
             {attachments.length > 0 ? (
               <div className="space-y-2">
                 {attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <div key={attachment.id} className="flex items-center justify-between p-3 border rounded-lg bg-card border-border">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {getFileIcon(attachment.filename, attachment.mime_type)}
                       <div className="flex-1 min-w-0">

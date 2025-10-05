@@ -21,6 +21,7 @@ interface PieChartProps {
   innerRadius?: number | string;
   outerRadius?: number | string;
   centerLabel?: string;
+  centerValue?: number;
   valueType?: 'currency' | 'percentage' | 'number';
 }
 
@@ -60,11 +61,16 @@ export function PieChart({
   innerRadius = "70%",
   outerRadius = "90%",
   centerLabel,
+  centerValue,
   valueType = 'number'
 }: PieChartProps) {
-  const total = Array.isArray(data)
+  const hasData = Array.isArray(data) && data.length > 0;
+  const total = hasData
     ? data.reduce((sum, item) => sum + (Number(item?.[dataKey]) || 0), 0)
     : 0;
+  
+  // Usar centerValue se fornecido, senão usar o total calculado
+  const displayValue = centerValue !== undefined ? centerValue : total;
 
   const MinimalTooltip = ({ active, payload }: any) => {
     if (!active || !payload || !payload.length) return null;
@@ -80,63 +86,74 @@ export function PieChart({
 
   return (
     <ChartContainer title={title} subtitle={subtitle}>
-      <div className="grid grid-cols-12 gap-4 h-full">
-        {/* Donut Chart Area */}
-        <div className="col-span-8 relative">
-          <div className="relative w-full h-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RechartsPie>
-                <Tooltip content={(props) => <MinimalTooltip {...props} />} />
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={innerRadius}
-                  outerRadius={outerRadius}
-                  paddingAngle={6}
-                  dataKey={dataKey}
-                  nameKey={nameKey}
-                  isAnimationActive
-                  animationDuration={500}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} strokeWidth={0} />
-                  ))}
-                </Pie>
-              </RechartsPie>
-            </ResponsiveContainer>
-            {/* Center Label */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-2xl font-semibold text-foreground">
-                {formatValueForChart(total, valueType)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {centerLabel ?? "Total"}
+      {hasData ? (
+        <div className="grid grid-cols-12 gap-4 h-full">
+          {/* Donut Chart Area */}
+          <div className="col-span-8 relative">
+            <div className="relative w-full h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPie>
+                  <Tooltip content={(props) => <MinimalTooltip {...props} />} />
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={innerRadius}
+                    outerRadius={outerRadius}
+                    paddingAngle={6}
+                    dataKey={dataKey}
+                    nameKey={nameKey}
+                    isAnimationActive
+                    animationDuration={500}
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={colors[index % colors.length]} strokeWidth={0} />
+                    ))}
+                  </Pie>
+                </RechartsPie>
+              </ResponsiveContainer>
+              {/* Center Label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-2xl font-semibold text-foreground">
+                  {formatValueForChart(displayValue, valueType)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {centerLabel ?? "Total"}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Legend Area */}
-        <div className="col-span-4 flex flex-col justify-center gap-3">
-          {data.map((entry, index) => (
-            <div key={`legend-${index}`} className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "inline-block h-2 w-2 rounded-full",
-                  COLOR_CLASSES[index % COLOR_CLASSES.length]
-                )}
-              />
-              <span className="text-sm text-muted-foreground flex-1 truncate">
-                {String(entry?.[nameKey] ?? "")}
-              </span>
-              <span className="text-sm text-foreground">
-                {formatValueForChart(Number(entry?.[dataKey] ?? 0), valueType)}
-              </span>
-            </div>
-          ))}
+          {/* Legend Area */}
+          <div className="col-span-4 flex flex-col justify-center gap-3">
+            {data.map((entry, index) => (
+              <div key={`legend-${index}`} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-block h-2 w-2 rounded-full",
+                    COLOR_CLASSES[index % COLOR_CLASSES.length]
+                  )}
+                />
+                <span className="text-sm text-muted-foreground flex-1 truncate">
+                  {String(entry?.[nameKey] ?? "")}
+                </span>
+                <span className="text-sm text-foreground">
+                  {formatValueForChart(Number(entry?.[dataKey] ?? 0), valueType)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-muted-foreground text-sm">Nenhum dado disponível</div>
+            <div className="text-muted-foreground text-xs mt-1">
+              Os dados aparecerão aqui quando estiverem disponíveis
+            </div>
+          </div>
+        </div>
+      )}
     </ChartContainer>
   );
 }

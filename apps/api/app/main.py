@@ -7,8 +7,8 @@ from .routers import simulations
 from .routers.simulations import calculation_router
 import os
 
-# Configurar timezone para Teresina-PI (America/Fortaleza)
-os.environ['TZ'] = 'America/Fortaleza'
+# Configurar timezone para Brasil (America/Sao_Paulo)
+os.environ['TZ'] = 'America/Sao_Paulo'
 try:
     import time
     time.tzset()
@@ -18,10 +18,15 @@ except AttributeError:
 
 app = FastAPI(title="Lifecalling API")
 
-# Configuração CORS otimizada para desenvolvimento
+# Configuração CORS para desenvolvimento e produção
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Frontend dev e prod
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://lifeservicos.com",
+        "https://www.lifeservicos.com",
+    ],
     allow_credentials=True,  # CRÍTICO: necessário para cookies HttpOnly
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
@@ -186,6 +191,85 @@ def clear_all_data():
 
             db.commit()
             return {"message": "Todos os dados foram limpos com sucesso"}
+
+        except Exception as e:
+            db.rollback()
+            return {"error": f"Erro ao limpar dados: {str(e)}"}
+
+
+@app.post("/debug/clear-data-keep-users")
+def clear_data_keep_users():
+    """Limpa todos os dados do banco mantendo apenas os usuários."""
+    from .db import SessionLocal
+    from .models import (
+        Case, Client, CaseEvent, Simulation, Attachment,
+        ImportBatch, PayrollImportBatch, PayrollImportItem,
+        PayrollClient, PayrollContract, Contract, ContractAttachment,
+        Payment, FinanceExpense, FinanceIncome, PayrollLine,
+        Import, ClientPhone, Campaign
+    )
+
+    with SessionLocal() as db:
+        try:
+            # Primeiro, limpar referências que podem ter FK
+            from sqlalchemy import text
+            db.execute(text("UPDATE cases SET last_simulation_id = NULL WHERE last_simulation_id IS NOT NULL"))
+            db.execute(text("UPDATE cases SET assigned_user_id = NULL WHERE assigned_user_id IS NOT NULL"))
+
+            # Limpar na ordem correta para evitar violações de FK
+            # 1. Eventos e anexos de casos
+            db.query(CaseEvent).delete()
+            db.query(Attachment).delete()
+            
+            # 2. Simulações
+            db.query(Simulation).delete()
+            
+            # 3. Pagamentos (dependem de contratos)
+            db.query(Payment).delete()
+            
+            # 4. Anexos de contratos
+            db.query(ContractAttachment).delete()
+            
+            # 5. Contratos (dependem de casos)
+            db.query(Contract).delete()
+            
+            # 6. Casos (dependem de clientes)
+            db.query(Case).delete()
+            
+            # 7. Telefones de clientes
+            db.query(ClientPhone).delete()
+            
+            # 8. Clientes
+            db.query(Client).delete()
+            
+            # 9. Dados de importação de folha
+            db.query(PayrollImportItem).delete()
+            db.query(PayrollImportBatch).delete()
+            db.query(PayrollLine).delete()
+            db.query(ImportBatch).delete()
+            db.query(Import).delete()
+            
+            # 10. Clientes e contratos de folha
+            db.query(PayrollContract).delete()
+            db.query(PayrollClient).delete()
+            
+            # 11. Dados financeiros
+            db.query(FinanceExpense).delete()
+            db.query(FinanceIncome).delete()
+            
+            # 12. Campanhas
+            db.query(Campaign).delete()
+
+            db.commit()
+            
+            # Contar usuários restantes
+            from .models import User
+            user_count = db.query(User).count()
+            
+            return {
+                "message": f"Dados limpos com sucesso! {user_count} usuários mantidos.",
+                "users_kept": user_count
+            }
 
         except Exception as e:
             db.rollback()

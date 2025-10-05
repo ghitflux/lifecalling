@@ -108,6 +108,16 @@ body {
   background: linear-gradient(135deg, rgba(99,102,241,.18), rgba(236,72,153,.14));
 }
 
+.dashboard-gradient {
+  border-radius: 1rem;
+  background-color: #0B1020;
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  border: 1px solid rgba(255,255,255,0.05);
+  background-image: radial-gradient(1200px 300px at 20% -10%, rgba(99,102,241,.25), transparent),
+    radial-gradient(900px 300px at 110% 10%, rgba(236,72,153,.2), transparent),
+    linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+}
+
 /* Smooth Scrolling */
 html {
   scroll-behavior: smooth;

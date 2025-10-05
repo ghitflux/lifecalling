@@ -18,7 +18,6 @@ import {
   FileText,
   Eye,
   X,
-  Trash2,
   XCircle,
   Download,
   FileImage,
@@ -51,7 +50,6 @@ export interface FinanceCardProps {
 
   /** compatibilidade com props antigas */
   totalAmount?: number;
-  installedAmount?: number;
   installments?: number;
   paidInstallments?: number;
 
@@ -63,8 +61,6 @@ export interface FinanceCardProps {
   onReject?: (id: number) => void;
   onDisburse?: (id: number) => void;
   onCancel?: (id: number) => void;
-  onDelete?: (id: number) => void;
-  onReturnToCalc?: (id: number) => void;
 
   className?: string;
 
@@ -182,7 +178,6 @@ export function FinanceCard({
   clientCpf,
   simulationResult,
   totalAmount,
-  installedAmount = 0,
   installments,
   paidInstallments = 0,
   status,
@@ -191,8 +186,6 @@ export function FinanceCard({
   onReject,
   onDisburse,
   onCancel,
-  onDelete,
-  onReturnToCalc,
   className,
   clientBankInfo,
   attachments = [],
@@ -209,8 +202,8 @@ export function FinanceCard({
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
+  const [showDisburseConfirm, setShowDisburseConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
   React.useEffect(() => {
@@ -278,7 +271,7 @@ export function FinanceCard({
     approved: "border-success/40 bg-success-subtle text-success-foreground",
     disbursed: "border-info/40 bg-info-subtle text-info-foreground",
     overdue: "border-danger/40 bg-danger-subtle text-danger-foreground",
-    
+
     // Status reais do sistema
     financeiro_pendente: "border-info/40 bg-info-subtle text-info-foreground",
     contrato_efetivado: "border-success/40 bg-success-subtle text-success-foreground",
@@ -289,10 +282,10 @@ export function FinanceCard({
   const statusLabels = {
     // Status legados (compatibilidade)
     pending: "Pendente",
-    approved: "Fechamento Aprovado", 
+    approved: "Fechamento Aprovado",
     disbursed: "Liberado",
     overdue: "Em atraso",
-    
+
     // Status reais do sistema
     financeiro_pendente: "Aguardando Financeiro",
     contrato_efetivado: "Contrato Efetivado",
@@ -355,39 +348,28 @@ export function FinanceCard({
         </Badge>
       </div>
 
-      {/* Financial Details (placeholder para evolução futura) */}
-      <div className="grid grid-cols-2 gap-4">
-        {simulationResult && <></>}
-      </div>
-
       {/* Destaques - Liberado Cliente / Consultoria Líquida */}
-      {simulationResult &&
-        (simulationResult.liberadoCliente ||
-          simulationResult.custoConsultoriaLiquido) && (
-          <div className="grid grid-cols-2 gap-3">
-            {simulationResult.liberadoCliente ? (
-              <div className="rounded-lg border border-success/40 bg-success/10 p-3">
-                <div className="text-xs text-success font-medium mb-1">
-                  Liberado para Cliente
-                </div>
-                <div className="text-xl font-bold text-success">
-                  {formatCurrency(simulationResult.liberadoCliente)}
-                </div>
-              </div>
-            ) : null}
-
-            {simulationResult.custoConsultoriaLiquido ? (
-              <div className="rounded-lg border border-info/40 bg-info/10 p-3">
-                <div className="text-xs text-info font-medium mb-1">
-                  Consultoria Líquida (86%)
-                </div>
-                <div className="text-xl font-bold text-info">
-                  {formatCurrency(simulationResult.custoConsultoriaLiquido)}
-                </div>
-              </div>
-            ) : null}
+      {simulationResult && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-success/40 bg-success/10 p-3">
+            <div className="text-xs text-success font-medium mb-1">
+              Liberado para Cliente
+            </div>
+            <div className="text-xl font-bold text-success">
+              {formatCurrency(simulationResult.liberadoCliente || 0)}
+            </div>
           </div>
-        )}
+
+          <div className="rounded-lg border border-info/40 bg-info/10 p-3">
+            <div className="text-xs text-info font-medium mb-1">
+              Consultoria Líquida (86%)
+            </div>
+            <div className="text-xl font-bold text-info">
+              {formatCurrency(simulationResult.custoConsultoriaLiquido || 0)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Seção Anexos (para approved) */}
       {status === "approved" && (
@@ -451,7 +433,7 @@ export function FinanceCard({
               {attachments.slice(0, 2).map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="flex items-center justify-between bg-white p-2 rounded border"
+                  className="flex items-center justify-between bg-gray-900 p-2 rounded border"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {getFileIcon(attachment.filename, attachment.mime_type)}
@@ -536,32 +518,11 @@ export function FinanceCard({
                 Ver Detalhes
               </Button>
 
-              {onReturnToCalc ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onReturnToCalc(id)}
-                  className="flex-1"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Retornar ao Calculista
-                </Button>
-              ) : null}
 
-              {onDelete ? (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Deletar
-                </Button>
-              ) : null}
             </div>
 
             {onDisburse ? (
-              <Button size="sm" onClick={() => onDisburse(id)} className="w-full">
+              <Button size="sm" onClick={() => setShowDisburseConfirm(true)} className="w-full">
                 Efetivar Liberação
               </Button>
             ) : null}
@@ -581,16 +542,7 @@ export function FinanceCard({
               Ver Detalhes
             </Button>
 
-            {onDelete ? (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Deletar
-              </Button>
-            ) : null}
+
           </div>
         )}
 
@@ -964,43 +916,45 @@ export function FinanceCard({
         </DialogContent>
       </Dialog>
 
-      {/* Confirmação Exclusão */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      {/* Confirmação Liberação */}
+      <Dialog open={showDisburseConfirm} onOpenChange={setShowDisburseConfirm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Deletar Operação</DialogTitle>
+            <DialogTitle>Confirmar Liberação</DialogTitle>
           </DialogHeader>
-        <div className="space-y-4">
-            <div className="rounded-lg border border-danger/40 bg-danger-subtle p-3">
+          <div className="space-y-4">
+            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
               <div className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 h-5 w-5 text-danger" />
+                <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
                 <div>
-                  <p className="text-sm font-medium text-danger">Ação irreversível</p>
-                  <p className="mt-1 text-sm text-danger-foreground">
-                    Deletar a operação de <strong>{clientName}</strong> removerá
-                    permanentemente todos os dados, incluindo anexos e histórico.
+                  <p className="text-sm font-medium text-warning">Confirme a liberação</p>
+                  <p className="mt-1 text-sm text-warning-foreground">
+                    Tem certeza que deseja efetivar a liberação para{" "}
+                    <strong>{clientName}</strong>? Esta ação irá processar o
+                    pagamento e não poderá ser desfeita.
                   </p>
                 </div>
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              <Button variant="outline" onClick={() => setShowDisburseConfirm(false)}>
                 Cancelar
               </Button>
               <Button
-                variant="destructive"
                 onClick={() => {
-                  onDelete?.(id);
-                  setShowDeleteConfirm(false);
+                  onDisburse?.(id);
+                  setShowDisburseConfirm(false);
                 }}
               >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Deletar Permanentemente
+                <CreditCard className="h-4 w-4 mr-1" />
+                Confirmar Liberação
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+
     </Card>
   );
 }

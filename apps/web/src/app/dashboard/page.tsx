@@ -7,6 +7,7 @@ import {
   AreaChart,
   BarChart,
   PieChart,
+  PositiveNegativeBarChart,
   Card,
   CardContent,
   CardHeader,
@@ -19,6 +20,14 @@ import {
 } from "@lifecalling/ui";
 import { useAnalyticsKpis, useAnalyticsSeries } from "@/lib/hooks";
 import { startOfDayBrasilia, endOfDayBrasilia, startOfMonthBrasilia, endOfMonthBrasilia, dateToISO } from "@/lib/timezone";
+import {
+  convertFinanceToMiniChart,
+  convertAttendanceToMiniChart,
+  convertSimulationsToMiniChart,
+  convertContractsToMiniChart,
+  generateFallbackTrendData,
+  generateEmptyData
+} from "@/lib/chart-utils";
 import { api } from "@/lib/api";
 import {
   Calendar,
@@ -44,207 +53,42 @@ type AnalyticsBucket = "day" | "week" | "month";
 // Usar helper de timezone de Brasília
 const iso = dateToISO;
 
-// Dados mockados para mini gráficos (últimos 7 dias)
-const MOCK_TREND_DATA = {
-  receita: [
-    { day: "D1", value: 15000 },
-    { day: "D2", value: 18000 },
-    { day: "D3", value: 22000 },
-    { day: "D4", value: 19000 },
-    { day: "D5", value: 25000 },
-    { day: "D6", value: 28000 },
-    { day: "D7", value: 32000 },
-  ],
-  despesas: [
-    { day: "D1", value: 8000 },
-    { day: "D2", value: 9500 },
-    { day: "D3", value: 7800 },
-    { day: "D4", value: 11000 },
-    { day: "D5", value: 9200 },
-    { day: "D6", value: 10500 },
-    { day: "D7", value: 12000 },
-  ],
-  resultado: [
-    { day: "D1", value: 7000 },
-    { day: "D2", value: 8500 },
-    { day: "D3", value: 14200 },
-    { day: "D4", value: 8000 },
-    { day: "D5", value: 15800 },
-    { day: "D6", value: 17500 },
-    { day: "D7", value: 20000 },
-  ],
-  atendimento: [
-    { day: "D1", value: 45 },
-    { day: "D2", value: 52 },
-    { day: "D3", value: 38 },
-    { day: "D4", value: 61 },
-    { day: "D5", value: 48 },
-    { day: "D6", value: 55 },
-    { day: "D7", value: 42 },
-  ],
-  progresso: [
-    { day: "D1", value: 12 },
-    { day: "D2", value: 18 },
-    { day: "D3", value: 15 },
-    { day: "D4", value: 22 },
-    { day: "D5", value: 19 },
-    { day: "D6", value: 25 },
-    { day: "D7", value: 16 },
-  ],
-  sla: [
-    { day: "D1", value: 85 },
-    { day: "D2", value: 92 },
-    { day: "D3", value: 88 },
-    { day: "D4", value: 95 },
-    { day: "D5", value: 91 },
-    { day: "D6", value: 97 },
-    { day: "D7", value: 94 },
-  ],
-  tma: [
-    { day: "D1", value: 45 },
-    { day: "D2", value: 38 },
-    { day: "D3", value: 52 },
-    { day: "D4", value: 35 },
-    { day: "D5", value: 41 },
-    { day: "D6", value: 33 },
-    { day: "D7", value: 39 },
-  ],
-  simulacoes: [
-    { day: "D1", value: 25 },
-    { day: "D2", value: 32 },
-    { day: "D3", value: 28 },
-    { day: "D4", value: 41 },
-    { day: "D5", value: 35 },
-    { day: "D6", value: 48 },
-    { day: "D7", value: 52 },
-  ],
-  aprovadas: [
-    { day: "D1", value: 18 },
-    { day: "D2", value: 24 },
-    { day: "D3", value: 21 },
-    { day: "D4", value: 32 },
-    { day: "D5", value: 28 },
-    { day: "D6", value: 38 },
-    { day: "D7", value: 42 },
-  ],
-  conversao: [
-    { day: "D1", value: 72 },
-    { day: "D2", value: 75 },
-    { day: "D3", value: 75 },
-    { day: "D4", value: 78 },
-    { day: "D5", value: 80 },
-    { day: "D6", value: 79 },
-    { day: "D7", value: 81 },
-  ],
-  contratos: [
-    { day: "D1", value: 8 },
-    { day: "D2", value: 12 },
-    { day: "D3", value: 10 },
-    { day: "D4", value: 15 },
-    { day: "D5", value: 13 },
-    { day: "D6", value: 18 },
-    { day: "D7", value: 21 },
-  ],
-  consultoria: [
-    { day: "D1", value: 12000 },
-    { day: "D2", value: 15500 },
-    { day: "D3", value: 14200 },
-    { day: "D4", value: 18800 },
-    { day: "D5", value: 16900 },
-    { day: "D6", value: 22100 },
-    { day: "D7", value: 25400 },
-  ],
-  // Novos dados para KPIs adicionais
-  margem: [
-    { day: "D1", value: 35 },
-    { day: "D2", value: 42 },
-    { day: "D3", value: 38 },
-    { day: "D4", value: 45 },
-    { day: "D5", value: 41 },
-    { day: "D6", value: 48 },
-    { day: "D7", value: 52 },
-  ],
-  clientes: [
-    { day: "D1", value: 125 },
-    { day: "D2", value: 132 },
-    { day: "D3", value: 128 },
-    { day: "D4", value: 145 },
-    { day: "D5", value: 138 },
-    { day: "D6", value: 152 },
-    { day: "D7", value: 165 },
-  ],
-  satisfacao: [
-    { day: "D1", value: 4.2 },
-    { day: "D2", value: 4.5 },
-    { day: "D3", value: 4.3 },
-    { day: "D4", value: 4.7 },
-    { day: "D5", value: 4.4 },
-    { day: "D6", value: 4.8 },
-    { day: "D7", value: 4.6 },
-  ],
-  produtividade: [
-    { day: "D1", value: 85 },
-    { day: "D2", value: 92 },
-    { day: "D3", value: 88 },
-    { day: "D4", value: 95 },
-    { day: "D5", value: 91 },
-    { day: "D6", value: 97 },
-    { day: "D7", value: 94 },
-  ],
-  tempo_medio: [
-    { day: "D1", value: 25 },
-    { day: "D2", value: 22 },
-    { day: "D3", value: 28 },
-    { day: "D4", value: 20 },
-    { day: "D5", value: 24 },
-    { day: "D6", value: 18 },
-    { day: "D7", value: 21 },
-  ],
-  rejeitadas: [
-    { day: "D1", value: 5 },
-    { day: "D2", value: 3 },
-    { day: "D3", value: 7 },
-    { day: "D4", value: 4 },
-    { day: "D5", value: 6 },
-    { day: "D6", value: 2 },
-    { day: "D7", value: 4 },
-  ],
-  valor_medio: [
-    { day: "D1", value: 2500 },
-    { day: "D2", value: 2800 },
-    { day: "D3", value: 2650 },
-    { day: "D4", value: 3200 },
-    { day: "D5", value: 2950 },
-    { day: "D6", value: 3400 },
-    { day: "D7", value: 3650 },
-  ],
-  efetivados: [
-    { day: "D1", value: 6 },
-    { day: "D2", value: 9 },
-    { day: "D3", value: 7 },
-    { day: "D4", value: 12 },
-    { day: "D5", value: 10 },
-    { day: "D6", value: 15 },
-    { day: "D7", value: 18 },
-  ],
-  lucro: [
-    { day: "D1", value: 6400 },
-    { day: "D2", value: 9100 },
-    { day: "D3", value: 8000 },
-    { day: "D4", value: 11100 },
-    { day: "D5", value: 15800 },
-    { day: "D6", value: 9800 },
-    { day: "D7", value: 6000 },
-  ],
-  imposto: [
-    { day: "D1", value: 1680 },
-    { day: "D2", value: 2170 },
-    { day: "D3", value: 1988 },
-    { day: "D4", value: 2632 },
-    { day: "D5", value: 2366 },
-    { day: "D6", value: 3094 },
-    { day: "D7", value: 3556 },
-  ],
+// Funções para converter dados reais em formato de mini-chart
+const generateRealTrendData = (seriesData: any[], kpis: any) => {
+  // Dados financeiros baseados em séries reais
+  const receita = convertFinanceToMiniChart(seriesData, 'finance_receita', kpis?.receita_auto_mtd || 0);
+  const despesas = convertFinanceToMiniChart(seriesData, 'finance_despesas', 0);
+  const lucro = convertFinanceToMiniChart(seriesData, 'finance_resultado', kpis?.resultado_mtd || 0);
+  const consultoria = generateFallbackTrendData(kpis?.consultoria_liq_mtd || 0, kpis?.trends?.consultoria_liq_mtd || 0);
+
+  // Dados de atendimento baseados em KPIs reais
+  const atendimento = generateFallbackTrendData(kpis?.att_open || 0, kpis?.trends?.att_open || 0);
+  const progresso = generateFallbackTrendData(kpis?.att_in_progress || 0, kpis?.trends?.att_in_progress || 0);
+  const sla = generateFallbackTrendData((kpis?.att_sla_72h || 0) * 100, kpis?.trends?.att_sla_72h || 0);
+  const tma = generateFallbackTrendData(kpis?.att_tma_min || 0, kpis?.trends?.att_tma_min || 0);
+
+  // Dados de simulações baseados em séries reais
+  const simulacoes = convertSimulationsToMiniChart(seriesData, 'simulations_created');
+  const aprovadas = convertSimulationsToMiniChart(seriesData, 'simulations_approved');
+  const conversao = generateFallbackTrendData((kpis?.conv_rate || 0) * 100, kpis?.trends?.conv_rate || 0);
+
+  // Dados de contratos baseados em KPIs reais
+  const contratos = generateFallbackTrendData(kpis?.contracts_mtd || 0, kpis?.trends?.contracts_mtd || 0);
+
+  return {
+    receita,
+    despesas,
+    lucro,
+    consultoria,
+    atendimento,
+    progresso,
+    sla,
+    tma,
+    simulacoes,
+    aprovadas,
+    conversao,
+    contratos,
+  };
 };
 
 export default function DashboardPage() {
@@ -359,6 +203,11 @@ export default function DashboardPage() {
   const { data: kpis, isLoading: kpisLoading } = useAnalyticsKpis({ from, to }, selectedMonth);
   const { data: series } = useAnalyticsSeries({ from, to }, bucket, selectedMonth);
   const seriesData = useMemo(() => series?.series ?? [], [series]);
+
+  // Gerar dados reais para mini-charts
+  const realTrendData = useMemo(() => {
+    return generateRealTrendData(seriesData, kpis);
+  }, [seriesData, kpis]);
 
   // Métricas financeiras - usar filtro personalizado se definido, senão usar mês atual
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
@@ -514,16 +363,8 @@ export default function DashboardPage() {
 
   const kCases = useMemo(() => {
     if (!seriesData.length) {
-      // Dados de fallback quando não há dados reais
-      return [
-        { date: "2024-01-01", value: 45 },
-        { date: "2024-01-02", value: 52 },
-        { date: "2024-01-03", value: 38 },
-        { date: "2024-01-04", value: 61 },
-        { date: "2024-01-05", value: 48 },
-        { date: "2024-01-06", value: 55 },
-        { date: "2024-01-07", value: 42 },
-      ];
+      // Retornar array vazio quando não há dados reais
+      return [];
     }
     return seriesData.map((item: any) => ({
       date: item.date,
@@ -533,16 +374,8 @@ export default function DashboardPage() {
 
   const kContracts = useMemo(() => {
     if (!seriesData.length) {
-      // Dados de fallback quando não há dados reais
-      return [
-        { date: "2024-01-01", value: 8 },
-        { date: "2024-01-02", value: 12 },
-        { date: "2024-01-03", value: 10 },
-        { date: "2024-01-04", value: 15 },
-        { date: "2024-01-05", value: 13 },
-        { date: "2024-01-06", value: 18 },
-        { date: "2024-01-07", value: 21 },
-      ];
+      // Retornar array vazio quando não há dados reais
+      return [];
     }
     return seriesData.map((item: any) => ({
       date: item.date,
@@ -552,16 +385,8 @@ export default function DashboardPage() {
 
   const kSimulations = useMemo(() => {
     if (!seriesData.length) {
-      // Dados de fallback quando não há dados reais
-      return [
-        { date: "2024-01-01", simulations_created: 25, simulations_approved: 18 },
-        { date: "2024-01-02", simulations_created: 32, simulations_approved: 24 },
-        { date: "2024-01-03", simulations_created: 28, simulations_approved: 21 },
-        { date: "2024-01-04", simulations_created: 41, simulations_approved: 32 },
-        { date: "2024-01-05", simulations_created: 35, simulations_approved: 28 },
-        { date: "2024-01-06", simulations_created: 48, simulations_approved: 38 },
-        { date: "2024-01-07", simulations_created: 52, simulations_approved: 42 },
-      ];
+      // Retornar array vazio quando não há dados reais
+      return [];
     }
     return seriesData.map((item: any) => ({
       date: item.date,
@@ -607,6 +432,21 @@ export default function DashboardPage() {
       { name: "Despesas", value: despesas },
       { name: "Resultado", value: resultado !== 0 ? resultado : receita - despesas },
     ];
+  }, [seriesData]);
+
+  // Calcular saldo disponível (Receita - Despesas)
+  const saldoDisponivel = useMemo(() => {
+    if (!seriesData.length) return 0;
+    const receita = seriesData.reduce(
+      (acc: number, item: any) => acc + ((item.finance_receita ?? 0) as number),
+      0
+    );
+    const despesas = seriesData.reduce(
+      (acc: number, item: any) =>
+        acc + ((item.finance_despesas ?? 0) as number),
+      0
+    );
+    return receita - despesas;
   }, [seriesData]);
 
   return (
@@ -690,7 +530,7 @@ export default function DashboardPage() {
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.receita}
+                data={realTrendData.receita}
                 dataKey="value"
                 xKey="day"
                 stroke="#10b981"
@@ -709,7 +549,7 @@ export default function DashboardPage() {
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.despesas}
+                data={realTrendData.despesas}
                 dataKey="value"
                 xKey="day"
                 stroke="#f43f5e"
@@ -728,7 +568,7 @@ export default function DashboardPage() {
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.lucro}
+                data={realTrendData.lucro}
                 dataKey="value"
                 xKey="day"
                 stroke="#8b5cf6"
@@ -749,7 +589,7 @@ export default function DashboardPage() {
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.consultoria}
+                data={realTrendData.consultoria}
                 dataKey="value"
                 xKey="day"
                 stroke="#38bdf8"
@@ -770,7 +610,7 @@ export default function DashboardPage() {
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={MOCK_TREND_DATA.imposto}
+                data={realTrendData.consultoria}
                 dataKey="value"
                 xKey="day"
                 stroke="#f59e0b"
@@ -793,7 +633,7 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Análises visuais das métricas financeiras</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <LineChart
             title="Financeiro Consolidado"
             subtitle={`Bucket: ${bucket}`}
@@ -818,13 +658,27 @@ export default function DashboardPage() {
                 data={financePie}
                 dataKey="value"
                 nameKey="name"
-                centerLabel="Movimentações"
+                centerLabel="Saldo Disponível"
+                centerValue={saldoDisponivel}
+                colors={["#22c55e", "#ef4444", "#8b5cf6"]} // Verde para receita, vermelho para despesas, violeta para resultado
                 innerRadius="60%"
                 outerRadius="80%"
                 valueType="currency"
               />
             </CardContent>
           </Card>
+          <PositiveNegativeBarChart
+            title="Receitas vs Despesas"
+            subtitle="Volume diário em BRL"
+            data={kFinance}
+            positiveDataKey="finance_receita"
+            negativeDataKey="finance_despesas"
+            xAxisKey="date"
+            positiveColor="#22c55e"
+            negativeColor="#ef4444"
+            valueType="currency"
+            formatXAxis={true}
+          />
         </div>
       </div>
 
@@ -851,7 +705,7 @@ export default function DashboardPage() {
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniBarChart
-                    data={MOCK_TREND_DATA.atendimento}
+                    data={realTrendData.atendimento}
                     dataKey="value"
                     xKey="day"
                     fill="#38bdf8"
@@ -869,7 +723,7 @@ export default function DashboardPage() {
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniBarChart
-                    data={MOCK_TREND_DATA.progresso}
+                    data={realTrendData.progresso}
                     dataKey="value"
                     xKey="day"
                     fill="#8b5cf6"
@@ -887,7 +741,7 @@ export default function DashboardPage() {
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniAreaChart
-                    data={MOCK_TREND_DATA.sla}
+                    data={realTrendData.sla}
                     dataKey="value"
                     xKey="day"
                     stroke="#10b981"
@@ -906,7 +760,7 @@ export default function DashboardPage() {
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniAreaChart
-                    data={MOCK_TREND_DATA.tma}
+                    data={realTrendData.tma}
                     dataKey="value"
                     xKey="day"
                     stroke="#f59e0b"
@@ -950,12 +804,12 @@ export default function DashboardPage() {
                 value={kpis?.sim_created ?? 0}
                 subtitle={"no período"}
                 gradientVariant="sky"
-                trend={18.4}
+                trend={kpis?.trends?.sim_created ?? 0}
                 icon={Activity}
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniBarChart
-                    data={MOCK_TREND_DATA.simulacoes}
+                    data={realTrendData.simulacoes}
                     dataKey="value"
                     xKey="day"
                     fill="#38bdf8"
@@ -968,12 +822,12 @@ export default function DashboardPage() {
                 value={kpis?.sim_approved ?? 0}
                 subtitle={"no período"}
                 gradientVariant="emerald"
-                trend={24.6}
+                trend={kpis?.trends?.sim_approved ?? 0}
                 icon={CheckCircle}
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniBarChart
-                    data={MOCK_TREND_DATA.aprovadas}
+                    data={realTrendData.aprovadas}
                     dataKey="value"
                     xKey="day"
                     fill="#10b981"
@@ -991,7 +845,7 @@ export default function DashboardPage() {
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniAreaChart
-                    data={MOCK_TREND_DATA.conversao}
+                    data={realTrendData.conversao}
                     dataKey="value"
                     xKey="day"
                     stroke="#8b5cf6"
@@ -1002,15 +856,15 @@ export default function DashboardPage() {
               />
               <KPICard
                 title="Tempo Médio (min)"
-                value={`${Math.round((kpis?.sim_created ?? 0) > 0 ? 25 : 0)}`}
+                value={`${Math.round(kpis?.sim_avg_time_min ?? 0)}`}
                 subtitle={"tempo médio por simulação"}
                 gradientVariant="amber"
-                trend={-12.5}
+                trend={kpis?.trends?.sim_avg_time_min ?? 0}
                 icon={Clock}
                 isLoading={kpisLoading}
                 miniChart={
                   <MiniAreaChart
-                    data={MOCK_TREND_DATA.tempo_medio}
+                    data={realTrendData.tma}
                     dataKey="value"
                     xKey="day"
                     stroke="#f59e0b"
@@ -1062,7 +916,7 @@ export default function DashboardPage() {
               isLoading={kpisLoading}
               miniChart={
                 <MiniBarChart
-                  data={MOCK_TREND_DATA.contratos}
+                  data={realTrendData.contratos}
                   dataKey="value"
                   xKey="day"
                   fill="#38bdf8"
@@ -1084,7 +938,7 @@ export default function DashboardPage() {
               isLoading={kpisLoading}
               miniChart={
                 <MiniAreaChart
-                  data={MOCK_TREND_DATA.consultoria}
+                  data={realTrendData.consultoria}
                   dataKey="value"
                   xKey="day"
                   stroke="#10b981"
@@ -1102,12 +956,12 @@ export default function DashboardPage() {
               ).toLocaleString("pt-BR")}`}
               subtitle={"consultoria / contratos"}
               gradientVariant="violet"
-              trend={11.7}
+              trend={kpis?.trends?.avg_contract_value ?? 0}
               icon={BarChart3}
               isLoading={kpisLoading}
               miniChart={
                 <MiniAreaChart
-                  data={MOCK_TREND_DATA.valor_medio}
+                  data={realTrendData.contratos}
                   dataKey="value"
                   xKey="day"
                   stroke="#8b5cf6"
@@ -1120,15 +974,15 @@ export default function DashboardPage() {
             />
             <KPICard
               title="Contratos Efetivados"
-              value={Math.round((kpis?.contracts_mtd ?? 0) * 0.75)}
+              value={kpis?.contracts_finalized ?? 0}
               subtitle={"contratos finalizados"}
               gradientVariant="amber"
-              trend={19.2}
+              trend={kpis?.trends?.contracts_finalized ?? 0}
               icon={CheckCircle}
               isLoading={kpisLoading}
               miniChart={
                 <MiniBarChart
-                  data={MOCK_TREND_DATA.efetivados}
+                  data={realTrendData.contratos}
                   dataKey="value"
                   xKey="day"
                   fill="#f59e0b"
@@ -1137,7 +991,7 @@ export default function DashboardPage() {
               }
             />
           </div>
-          
+
           {/* Gráfico ao lado */}
           <div className="h-full min-h-[400px]">
             <AreaChart

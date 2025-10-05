@@ -14,11 +14,12 @@ def queue(user=Depends(require_roles("admin","supervisor","atendente"))):
     from ..models import Simulation
     with SessionLocal() as db:
         # Query com JOIN para carregar dados completos
-        # Incluir todos os status relevantes para o módulo de fechamento
+        # Incluir apenas status que já foram enviados para fechamento pelo atendente
+        # "calculo_aprovado" fica com o atendente até ele enviar manualmente
         rows = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status.in_(["calculo_aprovado", "fechamento_pendente", "fechamento_aprovado", "fechamento_reprovado"])).order_by(Case.id.desc()).all()
+        ).filter(Case.status.in_(["fechamento_pendente", "fechamento_aprovado", "fechamento_reprovado"])).order_by(Case.id.desc()).all()
 
         items = []
         for c in rows:

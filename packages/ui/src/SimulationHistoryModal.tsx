@@ -45,7 +45,8 @@ interface SimulationHistoryEntry {
     liberadoCliente: number;
   };
   banks: Array<{
-    banco: string;
+    banco?: string;
+    bank?: string;
     parcela: number;
     saldoDevedor: number;
     valorLiberado: number;
@@ -74,6 +75,11 @@ export function SimulationHistoryModal({
   showEditButton = true,
 }: SimulationHistoryModalProps) {
   const [selectedEntry, setSelectedEntry] = useState<SimulationHistoryEntry | null>(null);
+
+  const getBankName = (bank: any): string => {
+    const name = bank?.banco || bank?.bank || "Banco não identificado";
+    return name.replace(/_/g, " ");
+  };
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString("pt-BR", {
@@ -255,12 +261,23 @@ export function SimulationHistoryModal({
                       </div>
                     </div>
 
-                    {/* Bancos */}
+                    {/* Bancos - Tags */}
                     {entry.banks && entry.banks.length > 0 && (
                       <div className="border-t pt-3">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">
-                          Bancos ({entry.banks.length})
+                        <p className="text-xs font-medium text-muted-foreground mb-3">
+                          Bancos incluídos:
                         </p>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {entry.banks.map((bank, idx) => (
+                            <Badge
+                              key={idx}
+                              variant="secondary"
+                              className="text-xs font-medium px-3 py-1"
+                            >
+                              {getBankName(bank)}
+                            </Badge>
+                          ))}
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {entry.banks.map((bank, idx) => (
                             <div
@@ -268,7 +285,7 @@ export function SimulationHistoryModal({
                               className="bg-muted/30 rounded-md p-2 text-sm"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-medium">{bank.banco}</span>
+                                <span className="font-medium">{getBankName(bank)}</span>
                                 <Badge variant="outline" className="text-xs">
                                   {formatCurrency(bank.valorLiberado)}
                                 </Badge>

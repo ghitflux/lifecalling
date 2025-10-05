@@ -6,8 +6,8 @@ export interface SimulationBankInput {
 }
 
 export interface SimulationInput {
-  banks: SimulationBankInput[]; // 1 a 4 bancos
-  prazo: number;                // meses
+  banks: SimulationBankInput[]; // 1 a 6 bancos
+  prazo: number;                // meses (fixo em 96)
   coeficiente: string;          // texto livre
   seguro: number;               // R$
   percentualConsultoria: number; // 0-100%
@@ -63,7 +63,25 @@ export const AVAILABLE_BANKS = [
   "SICOOB",
   "SICREDI",
   "PAN",
-  "ORIGINAL"
+  "ORIGINAL",
+  "SAFRA",
+  "BMG",
+  "DAYCOVAL",
+  "C6",
+  "INTER",
+  "NUBANK",
+  "NEON",
+  "BANRISUL",
+  "BRB",
+  "MERCANTIL",
+  "VOTORANTIM",
+  "PINE",
+  "MASTER",
+  "OLÉ_CONSIGNADO",
+  "FACTA",
+  "DIGIO",
+  "BIB",
+  "Margem*"
 ] as const;
 
 export type BankName = typeof AVAILABLE_BANKS[number];

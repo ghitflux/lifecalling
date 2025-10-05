@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Button, Card, Input, Badge } from "@lifecalling/ui";
+import { Button, Card, Input, Badge, SimpleSelect } from "@lifecalling/ui";
 import { Calculator, Plus, Trash2, AlertCircle } from "lucide-react";
 import type { SimulationBankInput, SimulationInput, AVAILABLE_BANKS } from "@/lib/types/simulation";
 import { formatCurrency, parseCurrency, formatCurrencyInput, calculateValorLiberado, validateCoeficiente } from "@/lib/utils/currency";
@@ -25,6 +25,14 @@ const BANKS = [
   "NEON",
   "BANRISUL",
   "BRB",
+  "MERCANTIL",
+  "VOTORANTIM",
+  "PINE",
+  "MASTER",
+  "OLÉ_CONSIGNADO",
+  "FACTA",
+  "DIGIO",
+  "BIB",
   "Margem*"
 ];
 
@@ -65,7 +73,7 @@ export function SimulationFormMultiBank({
   const [errors, setErrors] = useState<string[]>([]);
 
   const addBank = () => {
-    if (banks.length < 4) {
+    if (banks.length < 6) {
       setBanks([
         ...banks,
         { bank: "SANTANDER", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
@@ -167,37 +175,6 @@ export function SimulationFormMultiBank({
           }
         }));
       }
-    } else if (field === 'valorLiberado') {
-      // Manter a possibilidade de edição manual do valor liberado
-      const currentBank = newBanks[index];
-      const allowNegative = currentBank.bank === "Margem*";
-      
-      const formattedValue = formatCurrencyInput(value, allowNegative);
-      let numericValue = parseCurrency(formattedValue, allowNegative);
-      
-      // Validar se o valor é negativo e não é permitido
-      if (numericValue < 0 && !allowNegative) {
-        numericValue = Math.abs(numericValue);
-        const positiveFormatted = formatCurrency(numericValue);
-        
-        setInputValues(prev => ({
-          ...prev,
-          [index]: {
-            ...prev[index],
-            [field]: positiveFormatted
-          }
-        }));
-      } else {
-        setInputValues(prev => ({
-          ...prev,
-          [index]: {
-            ...prev[index],
-            [field]: formattedValue
-          }
-        }));
-      }
-
-      newBanks[index] = { ...newBanks[index], [field]: numericValue };
     } else {
       newBanks[index] = { ...newBanks[index], [field]: value };
     }
@@ -318,7 +295,7 @@ export function SimulationFormMultiBank({
             Simulação Multi-Bancos
           </h3>
           <Badge variant="outline" data-testid="banks-count">
-            {banks.length}/4 bancos
+            {banks.length}/6 bancos
           </Badge>
         </div>
 
@@ -344,21 +321,7 @@ export function SimulationFormMultiBank({
           <div className="space-y-4">
             <h4 className="font-medium border-b pb-2">Dados Globais</h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Prazo (meses) *</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="240"
-                  value={formData.prazo}
-                  onChange={(e) => setFormData({ ...formData, prazo: parseInt(e.target.value) || 0 })}
-                  placeholder="96"
-                  data-testid="prazo"
-                  required
-                />
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Coeficiente *</label>
                 <Input
@@ -410,7 +373,7 @@ export function SimulationFormMultiBank({
               <Button
                 type="button"
                 onClick={addBank}
-                disabled={banks.length >= 4}
+                disabled={banks.length >= 6}
                 variant="outline"
                 size="sm"
                 data-testid="add-bank-button"
@@ -441,10 +404,9 @@ export function SimulationFormMultiBank({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1">Banco *</label>
-                      <select
+                      <SimpleSelect
                         value={bank.bank}
-                        onChange={(e) => updateBank(index, "bank", e.target.value)}
-                        className="w-full p-2 border rounded-md bg-background"
+                        onValueChange={(value) => updateBank(index, "bank", value)}
                         data-testid={`bank-${index}-select`}
                         required
                       >
@@ -453,7 +415,7 @@ export function SimulationFormMultiBank({
                             {bankName.replace(/_/g, " ")}
                           </option>
                         ))}
-                      </select>
+                      </SimpleSelect>
                     </div>
 
                     <div>
@@ -489,16 +451,13 @@ export function SimulationFormMultiBank({
                       <Input
                         type="text"
                         value={formatCurrency(bank.valorLiberado || 0)}
-                        onChange={(e) => {
-                          const numericValue = parseCurrency(e.target.value);
-                          updateBank(index, "valorLiberado", numericValue);
-                        }}
-                        placeholder="R$ 22.022,91"
+                        placeholder="R$ 0,00"
                         data-testid={`bank-${index}-valor-liberado`}
-                        required
+                        disabled
+                        className="bg-muted cursor-not-allowed"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Valor deve ser informado manualmente conforme cálculo do banco
+                        Calculado automaticamente com base no coeficiente
                       </p>
                     </div>
                   </div>

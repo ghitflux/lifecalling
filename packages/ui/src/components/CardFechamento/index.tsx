@@ -36,6 +36,7 @@ interface CardFechamentoProps {
   onViewDetails: (id: number) => void;
   isLoading?: boolean;
   className?: string;
+  hideActions?: boolean;
 }
 
 export function CardFechamento({
@@ -44,7 +45,8 @@ export function CardFechamento({
   onReject,
   onViewDetails,
   isLoading = false,
-  className
+  className,
+  hideActions = false
 }: CardFechamentoProps) {
   const [showConfirm, setShowConfirm] = useState<'approve' | 'reject' | null>(null);
 
@@ -202,34 +204,38 @@ export function CardFechamento({
           Ver Detalhes
         </Button>
         
-        <Button
-          variant={showConfirm === 'approve' ? "default" : "outline"}
-          size="sm"
-          onClick={handleApprove}
-          disabled={isLoading}
-          className={showConfirm === 'approve' ? "bg-green-600 hover:bg-green-700" : ""}
-          aria-label={
-            showConfirm === 'approve' 
-              ? `Confirmar aprovação do caso ${caseData.id}` 
-              : `Aprovar caso ${caseData.id}`
-          }
-        >
-          {showConfirm === 'approve' ? 'Confirmar Aprovação' : 'Aprovar'}
-        </Button>
-        
-        <Button
-          variant={showConfirm === 'reject' ? "destructive" : "outline"}
-          size="sm"
-          onClick={handleReject}
-          disabled={isLoading}
-          aria-label={
-            showConfirm === 'reject' 
-              ? `Confirmar rejeição do caso ${caseData.id}` 
-              : `Rejeitar caso ${caseData.id}`
-          }
-        >
-          {showConfirm === 'reject' ? 'Confirmar Rejeição' : 'Rejeitar'}
-        </Button>
+        {!hideActions && (
+          <>
+            <Button
+              variant={showConfirm === 'approve' ? "default" : "outline"}
+              size="sm"
+              onClick={handleApprove}
+              disabled={isLoading}
+              className={showConfirm === 'approve' ? "bg-green-600 hover:bg-green-700" : ""}
+              aria-label={
+                showConfirm === 'approve' 
+                  ? `Confirmar aprovação do caso ${caseData.id}` 
+                  : `Aprovar caso ${caseData.id}`
+              }
+            >
+              {showConfirm === 'approve' ? 'Confirmar Aprovação' : 'Aprovar'}
+            </Button>
+            
+            <Button
+              variant={showConfirm === 'reject' ? "destructive" : "outline"}
+              size="sm"
+              onClick={handleReject}
+              disabled={isLoading}
+              aria-label={
+                showConfirm === 'reject' 
+                  ? `Confirmar rejeição do caso ${caseData.id}` 
+                  : `Rejeitar caso ${caseData.id}`
+              }
+            >
+              {showConfirm === 'reject' ? 'Confirmar Rejeição' : 'Rejeitar'}
+            </Button>
+          </>
+        )}
       </div>
     </Card>
   );

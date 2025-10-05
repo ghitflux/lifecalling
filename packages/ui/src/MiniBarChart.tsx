@@ -49,27 +49,36 @@ export function MiniBarChart({
 }: MiniBarChartProps) {
   // Usar formatter customizado ou formatação automática baseada no tipo
   const finalFormatter = tooltipFormatter || ((value: number) => formatValueForChart(value, valueType));
+  
+  // Verificar se há dados para exibir
+  const hasData = data && data.length > 0;
 
   return (
     <div className={cn("w-full", className)} style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsBarChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
-          <XAxis dataKey={xKey} hide axisLine={false} tickLine={false} />
-          <YAxis hide />
-          <Tooltip
-            cursor={{ fill: "rgba(148, 163, 184, 0.12)" }}
-            content={(props) => <MinimalTooltip {...props} formatter={finalFormatter} />}
-          />
-          <Bar
-            dataKey={dataKey}
-            fill={fill}
-            radius={[6, 6, 6, 6]}
-            maxBarSize={24}
-            isAnimationActive
-            animationDuration={480}
-          />
-        </RechartsBarChart>
-      </ResponsiveContainer>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsBarChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+            <XAxis dataKey={xKey} hide axisLine={false} tickLine={false} />
+            <YAxis hide />
+            <Tooltip
+              cursor={{ fill: "rgba(148, 163, 184, 0.12)" }}
+              content={(props) => <MinimalTooltip {...props} formatter={finalFormatter} />}
+            />
+            <Bar
+              dataKey={dataKey}
+              fill={fill}
+              radius={[6, 6, 6, 6]}
+              maxBarSize={24}
+              isAnimationActive
+              animationDuration={480}
+            />
+          </RechartsBarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-xs text-muted-foreground">Sem dados</div>
+        </div>
+      )}
     </div>
   );
 }

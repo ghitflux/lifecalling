@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { useClosingApprove, useClosingReject, useCaseEvents, useClosingCaseDetails } from "@/lib/hooks";
 import { Button, Card, CaseDetails, SimulationResultCard, SimulationHistoryModal, Tabs, TabsList, TabsTrigger, TabsContent, CaseHistory, Dialog, DialogContent, DialogHeader, DialogTitle } from "@lifecalling/ui";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, History, CheckCircle, XCircle, Eye, User, DollarSign, Calendar, FileText, Download, Save, FileImage, File, Printer } from "lucide-react";
+import { ArrowLeft, History, CheckCircle, XCircle, Eye, User, DollarSign, Calendar, FileText, Download, Save, FileImage, File, Printer, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -248,6 +248,23 @@ export default function FechamentoDetalhesPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            size="sm"
+            onClick={() => {
+              // Forçar refresh de todas as queries relacionadas ao caso
+              queryClient.invalidateQueries({ queryKey: ["case", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["caseAttachments", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["caseEvents", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["closingCaseDetails", caseId] });
+              // Forçar refetch imediato
+              queryClient.refetchQueries({ queryKey: ["case", caseId] });
+              toast.success("Dados atualizados!");
+            }}
+            title="Atualizar dados"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => {
               handleLoadFullDetails();
               setShowDetailsModal(true);
@@ -259,75 +276,79 @@ export default function FechamentoDetalhesPage() {
         </div>
       </div>
 
-      {/* Botões de Aprovação/Rejeição */}
-      <div className="flex items-center gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg">Ações do Fechamento</h3>
-          <p className="text-sm text-muted-foreground">
-            {showConfirm === 'approve' && "Confirme a aprovação do fechamento"}
-            {showConfirm === 'reject' && "Confirme a rejeição do fechamento"}
-            {!showConfirm && "Escolha uma ação para este fechamento"}
-          </p>
+      {/* Botões de Aprovação/Rejeição - Só aparece se status for fechamento_pendente */}
+      {caseData.status === "fechamento_pendente" && (
+        <div className="flex items-center gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg">Ações do Fechamento</h3>
+            <p className="text-sm text-muted-foreground">
+              {showConfirm === 'approve' && "Confirme a aprovação do fechamento"}
+              {showConfirm === 'reject' && "Confirme a rejeição do fechamento"}
+              {!showConfirm && "Escolha uma ação para este fechamento"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {showConfirm === 'approve' ? (
+              <>
+                <Button
+                   variant="outline"
+                   onClick={() => setShowConfirm(null)}
+                   disabled={isActionLoading}
+                 >
+                   Cancelar
+                 </Button>
+                 <Button
+                   onClick={handleApprove}
+                   disabled={isActionLoading}
+                   className="bg-green-600 hover:bg-green-700"
+                 >
+                   <CheckCircle className="h-4 w-4 mr-2" />
+                   Confirmar Aprovação
+                 </Button>
+               </>
+             ) : showConfirm === 'reject' ? (
+               <>
+                 <Button
+                   variant="outline"
+                   onClick={() => setShowConfirm(null)}
+                   disabled={isActionLoading}
+                 >
+                   Cancelar
+                 </Button>
+                 <Button
+                   variant="destructive"
+                   onClick={handleReject}
+                   disabled={isActionLoading}
+                 >
+                   <XCircle className="h-4 w-4 mr-2" />
+                   Confirmar Rejeição
+                 </Button>
+               </>
+             ) : (
+               <>
+                 <Button
+                   onClick={handleApprove}
+                   disabled={isActionLoading}
+                   className="bg-green-600 hover:bg-green-700"
+                 >
+                   <CheckCircle className="h-4 w-4 mr-2" />
+                   Aprovar
+                 </Button>
+                 <Button
+                   variant="destructive"
+                   onClick={handleReject}
+                   disabled={isActionLoading}
+                 >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Rejeitar
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          {showConfirm === 'approve' ? (
-            <>
-              <Button
-                 variant="outline"
-                 onClick={() => setShowConfirm(null)}
-                 disabled={isActionLoading}
-               >
-                 Cancelar
-               </Button>
-               <Button
-                 onClick={handleApprove}
-                 disabled={isActionLoading}
-                 className="bg-green-600 hover:bg-green-700"
-               >
-                 <CheckCircle className="h-4 w-4 mr-2" />
-                 Confirmar Aprovação
-               </Button>
-             </>
-           ) : showConfirm === 'reject' ? (
-             <>
-               <Button
-                 variant="outline"
-                 onClick={() => setShowConfirm(null)}
-                 disabled={isActionLoading}
-               >
-                 Cancelar
-               </Button>
-               <Button
-                 variant="destructive"
-                 onClick={handleReject}
-                 disabled={isActionLoading}
-               >
-                 <XCircle className="h-4 w-4 mr-2" />
-                 Confirmar Rejeição
-               </Button>
-             </>
-           ) : (
-             <>
-               <Button
-                 onClick={handleApprove}
-                 disabled={isActionLoading}
-                 className="bg-green-600 hover:bg-green-700"
-               >
-                 <CheckCircle className="h-4 w-4 mr-2" />
-                 Aprovar
-               </Button>
-               <Button
-                 variant="destructive"
-                 onClick={handleReject}
-                 disabled={isActionLoading}
-               >
-                <XCircle className="h-4 w-4 mr-2" />
-                Rejeitar
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
+      )}
+
+
 
       {/* Grid de 3 colunas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

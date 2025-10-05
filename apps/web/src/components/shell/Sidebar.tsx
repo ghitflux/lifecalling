@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-type Role = "admin"|"supervisor"|"financeiro"|"calculista"|"atendente";
+type Role = "admin"|"supervisor"|"financeiro"|"calculista"|"atendente"|"fechamento";
 
 type Item = {
   label: string;
@@ -20,15 +20,15 @@ type Item = {
 };
 
 const NAV: Item[] = [
-  { label: "Dashboard",  href: "/dashboard", icon: BarChart3, roles: ["admin","supervisor","financeiro","calculista"] },
-  { label: "Rankings",     href: "/rankings",   icon: Trophy,     roles: ["admin","supervisor","financeiro","calculista","atendente"] },
-  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente","calculista","financeiro"] },
-  { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista","financeiro"] },
-  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","calculista","financeiro"] },
-  { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro","calculista"] },
-  { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente"] },
-  { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin","supervisor"] },
-  { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin","supervisor"] },
+  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente"] },
+  { label: "Dashboard",    href: "/dashboard",  icon: BarChart3,  roles: ["admin","supervisor"] },
+  { label: "Rankings",     href: "/rankings",   icon: Trophy,     roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
+  { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista"] },
+  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","fechamento"] },
+  { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro"] },
+  { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
+  { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin"] },
+  { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin"] },
 ];
 
 export default function Sidebar() {

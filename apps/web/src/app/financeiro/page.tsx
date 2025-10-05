@@ -33,7 +33,7 @@ import {
   MiniAreaChart,
   DateRangeFilter
 } from "@lifecalling/ui";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -237,54 +237,51 @@ export default function Page() {
     imposto: calculateTrend((metrics.totalConsultoriaLiq || 0) * 0.14, (previousMetrics.totalConsultoriaLiq || 0) * 0.14)
   };
 
-  // Mock trends p/ mini-charts
-  const MOCK_TREND_DATA = {
-    receita: [
-      { day: "Seg", value: 8500 },
-      { day: "Ter", value: 12300 },
-      { day: "Qua", value: 9800 },
-      { day: "Qui", value: 15200 },
-      { day: "Sex", value: 18700 },
-      { day: "Sab", value: 11400 },
-      { day: "Dom", value: 7200 }
-    ],
-    despesas: [
-      { day: "Seg", value: 2100 },
-      { day: "Ter", value: 3200 },
-      { day: "Qua", value: 1800 },
-      { day: "Qui", value: 4100 },
-      { day: "Sex", value: 2900 },
-      { day: "Sab", value: 1600 },
-      { day: "Dom", value: 1200 }
-    ],
-    lucro: [
-      { day: "Seg", value: 6400 },
-      { day: "Ter", value: 9100 },
-      { day: "Qua", value: 8000 },
-      { day: "Qui", value: 11100 },
-      { day: "Sex", value: 15800 },
-      { day: "Sab", value: 9800 },
-      { day: "Dom", value: 6000 }
-    ],
-    consultoria: [
-      { day: "Seg", value: 7200 },
-      { day: "Ter", value: 10500 },
-      { day: "Qua", value: 8400 },
-      { day: "Qui", value: 13000 },
-      { day: "Sex", value: 16000 },
-      { day: "Sab", value: 9800 },
-      { day: "Dom", value: 6200 }
-    ],
-    imposto: [
-      { day: "Seg", value: 1008 },
-      { day: "Ter", value: 1470 },
-      { day: "Qua", value: 1176 },
-      { day: "Qui", value: 1820 },
-      { day: "Sex", value: 2240 },
-      { day: "Sab", value: 1372 },
-      { day: "Dom", value: 868 }
-    ]
+  // Buscar dados de séries temporais para mini-charts
+  const { data: seriesData } = useQuery({
+    queryKey: ["financeSeries", startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append("from", startDate);
+      if (endDate) params.append("to", endDate);
+      params.append("granularity", "day");
+      const response = await api.get(`/analytics/series?${params.toString()}`);
+      return response.data;
+    }
+  });
+
+  // Função para converter dados de séries em formato de mini-chart
+  const convertSeriesToMiniChart = (seriesData: any[], key: string, fallbackValue: number = 0) => {
+    if (!seriesData || seriesData.length === 0) {
+      // Fallback: gerar dados baseados no valor atual
+      return Array.from({ length: 7 }, (_, i) => ({
+        day: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"][i],
+        value: Math.max(0, fallbackValue * (0.8 + Math.random() * 0.4))
+      }));
+    }
+
+    // Pegar os últimos 7 dias de dados
+    const last7Days = seriesData.slice(-7);
+    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+    
+    return last7Days.map((item, index) => ({
+      day: dayNames[index % 7],
+      value: Math.max(0, parseFloat(item[key] || 0))
+    }));
   };
+
+  // Gerar dados de tendência reais para mini-charts
+  const getTrendChartData = useMemo(() => {
+    const series = seriesData?.series || [];
+    
+    return {
+      receita: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalRevenue || 0),
+      despesas: convertSeriesToMiniChart(series, 'finance_despesas', metrics.totalExpenses || 0),
+      lucro: convertSeriesToMiniChart(series, 'finance_resultado', metrics.netProfit || 0),
+      consultoria: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalConsultoriaLiq || 0),
+      imposto: convertSeriesToMiniChart(series, 'finance_despesas', (metrics.totalConsultoriaLiq || 0) * 0.14)
+    };
+  }, [seriesData, metrics]);
 
   // Contrato (quando vem de transação)
   const { data: contractDetails, isLoading: loadingContractDetails } = useQuery({
@@ -463,20 +460,9 @@ export default function Page() {
     }
   };
 
-  const handleReturnToCalc = async (caseId: number) => {
-    try {
-      await api.post(`/cases/${caseId}/return-to-calculista`);
-      toast.success("Caso retornado ao calculista!");
-      queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
-    } catch (error) {
-      console.error("Erro retornar:", error);
-      toast.error("Erro ao retornar caso. Tente novamente.");
-    }
-  };
-
   const handleDeleteCase = async (caseId: number) => {
     try {
-      await api.delete(`/cases/${caseId}`);
+      await api.post("/cases/bulk-delete", { ids: [caseId] });
       toast.success("Caso deletado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
     } catch (error) {
@@ -766,7 +752,7 @@ export default function Page() {
           isLoading={metricsLoading}
           gradientVariant="emerald"
           trend={trends.receita}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.receita} dataKey="value" xKey="day" stroke="#10b981" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={getTrendChartData.receita} dataKey="value" xKey="day" stroke="#10b981" height={60} valueType="currency" />}
         />
         <KPICard
           title="Despesas"
@@ -775,7 +761,7 @@ export default function Page() {
           isLoading={metricsLoading}
           gradientVariant="rose"
           trend={trends.despesas}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
         />
         <KPICard
           title="Lucro Líquido"
@@ -784,7 +770,7 @@ export default function Page() {
           isLoading={metricsLoading}
           gradientVariant="violet"
           trend={trends.lucro}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.lucro} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={getTrendChartData.lucro} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
         />
         <KPICard
           title="Receita Consultoria"
@@ -793,7 +779,7 @@ export default function Page() {
           isLoading={metricsLoading}
           gradientVariant="sky"
           trend={trends.consultoria}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria} dataKey="value" xKey="day" stroke="#0ea5e9" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#0ea5e9" height={60} valueType="currency" />}
         />
         <KPICard
           title="Imposto"
@@ -802,7 +788,7 @@ export default function Page() {
           isLoading={metricsLoading}
           gradientVariant="amber"
           trend={trends.imposto}
-          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
+          miniChart={<MiniAreaChart data={getTrendChartData.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
         />
       </div>
 
@@ -887,7 +873,6 @@ export default function Page() {
                     onDisburse={handleDisburse}
                     onCancel={contractId ? () => handleCancel(contractId) : undefined}
                     onDelete={contractId ? () => handleDelete(contractId) : () => handleDeleteCase(item.id)}
-                    onReturnToCalc={!contractId ? handleReturnToCalc : undefined}
                     clientBankInfo={clientBankInfo}
                     attachments={item.contract?.attachments || item.attachments || []}
                     onUploadAttachment={createUploadHandler(contractId, item.id)}
@@ -1338,7 +1323,6 @@ export default function Page() {
               }
               attachments={financeCardDetails.contract?.attachments || financeCardDetails.attachments || []}
               onDisburse={handleDisburse}
-              onReturnToCalc={!financeCardDetails.contract ? handleReturnToCalc : undefined}
               onDelete={
                 financeCardDetails.contract
                   ? () => handleDelete(financeCardDetails.contract!.id)

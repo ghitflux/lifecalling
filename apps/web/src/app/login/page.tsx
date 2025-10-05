@@ -67,53 +67,48 @@ export default function LoginPage() {
       level: "Administrador",
       color: "bg-red-500",
       users: [
-        { name: "Admin Um", email: "admin1@lifecalling.com", password: "123456" },
-        { name: "Admin Dois", email: "admin2@lifecalling.com", password: "123456" }
+        { name: "Um", email: "admin@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Supervisor",
       color: "bg-blue-500",
       users: [
-        { name: "Supervisor Um", email: "supervisor1@lifecalling.com", password: "123456" },
-        { name: "Supervisor Dois", email: "supervisor2@lifecalling.com", password: "123456" }
-      ]
-    },
-    {
-      level: "Gerente de Fechamento",
-      color: "bg-teal-500",
-      users: [
-        { name: "Gerente de Fechamento 1", email: "supervisor1@lifecalling.com", password: "123456" },
-        { name: "Gerente de Fechamento 2", email: "supervisor2@lifecalling.com", password: "123456" }
+        { name: "Dois", email: "supervisor@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Financeiro",
       color: "bg-green-500",
       users: [
-        { name: "Financeiro Um", email: "financeiro1@lifecalling.com", password: "123456" },
-        { name: "Financeiro Dois", email: "financeiro2@lifecalling.com", password: "123456" }
+        { name: "Três", email: "financeiro@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Calculista",
       color: "bg-yellow-500",
       users: [
-        { name: "Calculista Um", email: "calculista1@lifecalling.com", password: "123456" },
-        { name: "Calculista Dois", email: "calculista2@lifecalling.com", password: "123456" }
+        { name: "Quatro", email: "calculista@lifecalling.com", password: "123456" }
+      ]
+    },
+    {
+      level: "Gerente de Fechamento",
+      color: "bg-teal-500",
+      users: [
+        { name: "Cinco", email: "fechamento@lifecalling.com", password: "123456" }
       ]
     },
     {
       level: "Atendente",
       color: "bg-purple-500",
       users: [
-        { name: "Atendente Um", email: "atendente1@lifecalling.com", password: "123456" },
-        { name: "Atendente Dois", email: "atendente2@lifecalling.com", password: "123456" },
-        { name: "Atendente Três", email: "atendente3@lifecalling.com", password: "123456" },
-        { name: "Atendente Quatro", email: "atendente4@lifecalling.com", password: "123456" },
-        { name: "Atendente Cinco", email: "atendente5@lifecalling.com", password: "123456" },
-        { name: "Atendente Seis", email: "atendente6@lifecalling.com", password: "123456" },
-        { name: "Atendente Sete", email: "atendente7@lifecalling.com", password: "123456" }
+        { name: "Seis", email: "atendente1@lifecalling.com", password: "123456" },
+        { name: "Sete", email: "atendente2@lifecalling.com", password: "123456" },
+        { name: "Oito", email: "atendente3@lifecalling.com", password: "123456" },
+        { name: "Nove", email: "atendente4@lifecalling.com", password: "123456" },
+        { name: "Dez", email: "atendente5@lifecalling.com", password: "123456" },
+        { name: "Onze", email: "atendente6@lifecalling.com", password: "123456" },
+        { name: "Doze", email: "atendente7@lifecalling.com", password: "123456" }
       ]
     }
   ];

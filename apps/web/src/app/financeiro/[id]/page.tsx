@@ -1,9 +1,10 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CaseDetails, Button } from "@lifecalling/ui";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 interface PageProps {
   params: Promise<{
@@ -13,6 +14,7 @@ interface PageProps {
 
 function FinanceiroDetailsContent({ caseId }: { caseId: number }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Query para obter detalhes do caso
   const { data: caseData, isLoading, error } = useQuery({
@@ -24,54 +26,45 @@ function FinanceiroDetailsContent({ caseId }: { caseId: number }) {
     retry: 2,
   });
 
-  // Mock data específico para o módulo financeiro
-  const mockFinancialAttachments = [
-    {
-      id: "1",
-      filename: "contrato_assinado.pdf",
-      size: 3072000,
-      uploadedAt: "2024-01-16T10:30:00Z",
-      type: "application/pdf"
+  // Buscar anexos reais do caso
+  const { data: attachmentsData } = useQuery({
+    queryKey: ["caseAttachments", caseId],
+    queryFn: async () => {
+      const response = await api.get(`/cases/${caseId}/attachments`);
+      return response.data;
     },
-    {
-      id: "2",
-      filename: "comprovante_conta.pdf",
-      size: 1024000,
-      uploadedAt: "2024-01-16T11:00:00Z",
-      type: "application/pdf"
-    },
-    {
-      id: "3",
-      filename: "autorizacao_desconto.pdf",
-      size: 512000,
-      uploadedAt: "2024-01-16T11:30:00Z",
-      type: "application/pdf"
-    }
-  ];
+    retry: 2,
+  });
 
-  const mockFinancialNotes = [
-    {
-      id: "1",
-      content: "Simulação aprovada pelo fechamento. Pronto para liberação.",
-      author: "Sistema",
-      createdAt: "2024-01-16T08:00:00Z",
-      module: "Fechamento"
+  // Buscar eventos/notas reais do caso
+  const { data: eventsData } = useQuery({
+    queryKey: ["caseEvents", caseId],
+    queryFn: async () => {
+      const response = await api.get(`/cases/${caseId}/events`);
+      return response.data;
     },
-    {
-      id: "2",
-      content: "Dados bancários validados. Conta corrente ativa.",
-      author: "Carlos Financeiro",
-      createdAt: "2024-01-16T09:15:00Z",
-      module: "Financeiro"
-    },
-    {
-      id: "3",
-      content: "Aguardando documentação adicional para liberação.",
-      author: "Ana Costa",
-      createdAt: "2024-01-16T14:30:00Z",
-      module: "Financeiro"
-    }
-  ];
+    retry: 2,
+  });
+
+  // Converter anexos para o formato esperado pelo CaseDetails
+  const attachments = (attachmentsData?.items || []).map((attachment: any) => ({
+    id: attachment.id.toString(),
+    filename: attachment.filename,
+    size: attachment.size,
+    uploadedAt: attachment.uploaded_at || attachment.created_at,
+    type: attachment.mime || "application/octet-stream"
+  }));
+
+  // Converter eventos para o formato de notas esperado pelo CaseDetails
+  const notes = (eventsData?.items || []).map((event: any) => ({
+    id: event.id.toString(),
+    content: event.payload?.message || event.payload?.comment || `Evento: ${event.type}`,
+    author: event.created_by || "Sistema",
+    createdAt: event.created_at,
+    module: event.type?.includes("finance") ? "Financeiro" : 
+            event.type?.includes("calculista") ? "Calculista" :
+            event.type?.includes("fechamento") ? "Fechamento" : "Sistema"
+  }));
 
   const handleDisburse = (id: number) => {
     // Implementar liberação financeira
@@ -119,25 +112,45 @@ function FinanceiroDetailsContent({ caseId }: { caseId: number }) {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="p-2"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Detalhes Financeiros</h1>
-          <p className="text-muted-foreground">Módulo Financeiro</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="p-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Detalhes Financeiros</h1>
+            <p className="text-muted-foreground">Módulo Financeiro</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Forçar refresh de todas as queries relacionadas ao caso
+              queryClient.invalidateQueries({ queryKey: ["case", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["caseAttachments", caseId] });
+              queryClient.invalidateQueries({ queryKey: ["caseEvents", caseId] });
+              // Forçar refetch imediato
+              queryClient.refetchQueries({ queryKey: ["case", caseId] });
+              toast.success("Dados atualizados!");
+            }}
+            title="Atualizar dados"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Case Details */}
       <CaseDetails
         case={caseData}
-        attachments={mockFinancialAttachments}
-        notes={mockFinancialNotes}
+        attachments={attachments}
+        notes={notes}
         onApprove={handleDisburse}
         onAddNote={handleAddNote}
         onDownloadAttachment={handleDownloadAttachment}

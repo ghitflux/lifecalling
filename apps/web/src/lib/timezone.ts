@@ -108,5 +108,10 @@ export const endOfMonthBrasilia = (date: Date | string): Date => {
  * Útil para formulários onde queremos manter o horário digitado pelo usuário
  */
 export const dateToISO = (date: Date): string => {
+  // Verifica se a data é válida
+  if (!date || isNaN(date.getTime())) {
+    console.warn('Invalid date provided to dateToISO:', date);
+    return new Date().toISOString(); // Retorna data atual como fallback
+  }
   return date.toISOString();
 };

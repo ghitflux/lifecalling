@@ -31,7 +31,7 @@ docker compose up -d
 
 | Serviço | URL | Descrição |
 |---------|-----|-----------|
-| **Frontend** | http://localhost:3001 | Interface principal Next.js |
+| **Frontend** | http://localhost:3000 | Interface principal Next.js |
 | **API** | http://localhost:8000 | Backend FastAPI |
 | **API Docs** | http://localhost:8000/docs | Documentação Swagger |
 | **PostgreSQL** | localhost:5432 | Banco de dados |
@@ -150,11 +150,11 @@ ENVIRONMENT=development
 
 ```bash
 # Windows
-netstat -ano | findstr :3001
+netstat -ano | findstr :3000
 taskkill /F /PID <PID>
 
 # Linux/Mac
-lsof -i :3001
+lsof -i :3000
 kill -9 <PID>
 ```
 
@@ -203,5 +203,5 @@ Este projeto usa:
 docker compose up -d
 ```
 
-🎉 **Frontend:** http://localhost:3001
+🎉 **Frontend:** http://localhost:3000
 🚀 **API:** http://localhost:8000/docs

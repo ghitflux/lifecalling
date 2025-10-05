@@ -26,6 +26,7 @@ export * from "./src/ChartContainer";
 export * from "./src/AreaChart";
 export * from "./src/PieChart";
 export * from "./src/BarChart";
+export * from "./src/PositiveNegativeBarChart";
 export * from "./src/LineChart";
 export * from "./src/GridSystem";
 export * from "./src/CaseCard";

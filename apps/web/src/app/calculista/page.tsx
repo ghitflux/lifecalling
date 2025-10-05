@@ -1,8 +1,10 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import {
   Card,
   Button,
@@ -40,7 +42,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-export default function CalculistaPage() {
+function CalculistaPageContent() {
   useLiveCaseEvents();
   const router = useRouter();
   const { user } = useAuth();
@@ -50,53 +52,50 @@ export default function CalculistaPage() {
 
 
 
-  // -----------------------------
-  // Mock para mini gráficos (KPIs)
-  // -----------------------------
-  const MOCK_TREND_DATA = {
-    simulacoes: [
-      { day: "D1", value: 15 },
-      { day: "D2", value: 22 },
-      { day: "D3", value: 18 },
-      { day: "D4", value: 28 },
-      { day: "D5", value: 25 },
-      { day: "D6", value: 32 },
-      { day: "D7", value: 35 },
-    ],
-    aprovadas: [
-      { day: "D1", value: 12 },
-      { day: "D2", value: 18 },
-      { day: "D3", value: 15 },
-      { day: "D4", value: 24 },
-      { day: "D5", value: 21 },
-      { day: "D6", value: 28 },
-      { day: "D7", value: 30 },
-    ],
-    volume: [
-      { day: "D1", value: 45000 },
-      { day: "D2", value: 52000 },
-      { day: "D3", value: 48000 },
-      { day: "D4", value: 65000 },
-      { day: "D5", value: 58000 },
-      { day: "D6", value: 72000 },
-      { day: "D7", value: 78000 },
-    ],
-    taxa_aprovacao: [
-      { day: "D1", value: 80 },
-      { day: "D2", value: 82 },
-      { day: "D3", value: 83 },
-      { day: "D4", value: 86 },
-      { day: "D5", value: 84 },
-      { day: "D6", value: 88 },
-      { day: "D7", value: 86 },
-    ],
+  // Buscar dados de séries temporais reais
+  const { data: seriesData } = useQuery({
+    queryKey: ["calculistaSeries"],
+    queryFn: async () => {
+      const response = await api.get("/analytics/series", {
+        params: {
+          metrics: ["simulacoes_mtd", "aprovadas_mtd", "volume_mtd", "taxa_aprovacao_mtd"],
+          period: "7d"
+        }
+      });
+      return response.data;
+    },
+    retry: 2,
+  });
+
+  // Função para converter dados de série em formato de mini-chart
+  const convertSeriesToMiniChart = (seriesData: any, metricKey: string) => {
+    if (!seriesData?.series?.[metricKey]) {
+      return [];
+    }
+    
+    return seriesData.series[metricKey].map((point: any, index: number) => ({
+      day: `D${index + 1}`,
+      value: point.value || 0
+    }));
   };
+
+  // Gerar dados de tendência reais para mini-charts
+  const getTrendChartData = useMemo(() => {
+    return {
+      simulacoes: convertSeriesToMiniChart(seriesData, "simulacoes_mtd"),
+      aprovadas: convertSeriesToMiniChart(seriesData, "aprovadas_mtd"),
+      volume: convertSeriesToMiniChart(seriesData, "volume_mtd"),
+      taxa_aprovacao: convertSeriesToMiniChart(seriesData, "taxa_aprovacao_mtd"),
+    };
+  }, [seriesData]);
 
   // Aba inicial via query string
   const searchParams = useSearchParams();
   useEffect(() => {
-    const initialTab = searchParams.get("tab");
-    if (initialTab) setActiveTab(initialTab);
+    if (typeof window !== 'undefined') {
+      const initialTab = searchParams.get("tab");
+      if (initialTab) setActiveTab(initialTab);
+    }
   }, [searchParams]);
 
   // Dados
@@ -153,6 +152,18 @@ export default function CalculistaPage() {
       },
     };
   }, [kpis, stats, closingKpis]);
+
+  // Query para contador da tab Retorno Fechamento (sempre ativa)
+  const { data: retornoFechamentoCount = 0 } = useQuery({
+    queryKey: ["/cases", "retorno_fechamento_count"],
+    queryFn: async () => {
+      const res = await api.get(
+        "/cases?status=retorno_fechamento,fechamento_aprovado&page_size=1"
+      );
+      return res.data.total || 0;
+    },
+    refetchInterval: 30000, // Refetch a cada 30 segundos como backup
+  });
 
   // Casos para outras abas
   const { data: retornoFechamento = [], isLoading: retornoLoading } = useQuery({
@@ -234,7 +245,7 @@ export default function CalculistaPage() {
           isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
           miniChart={
             <MiniAreaChart
-              data={MOCK_TREND_DATA.volume}
+              data={getTrendChartData.volume}
               dataKey="value"
               xKey="day"
               stroke="#f59e0b"
@@ -299,7 +310,7 @@ export default function CalculistaPage() {
             Pendentes ({pendingSims.length})
           </TabsTrigger>
           <TabsTrigger value="retorno_fechamento">
-            Retorno Fechamento ({retornoFechamento.length})
+            Retorno Fechamento ({retornoFechamentoCount})
           </TabsTrigger>
           <TabsTrigger value="enviado_financeiro">
             Enviado Financeiro ({enviadosFinanceiro.length})
@@ -673,5 +684,13 @@ export default function CalculistaPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function CalculistaPage() {
+  return (
+    <Suspense fallback={<CaseSkeleton />}>
+      <CalculistaPageContent />
+    </Suspense>
   );
 }

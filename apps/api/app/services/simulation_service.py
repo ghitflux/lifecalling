@@ -11,8 +11,8 @@ class SimulationBankInput(BaseModel):
 
 
 class SimulationInput(BaseModel):
-    banks: List[SimulationBankInput]  # 1 a 4 bancos
-    prazo: int                        # meses
+    banks: List[SimulationBankInput]  # 1 a 6 bancos
+    prazo: int                        # meses (fixo em 96)
     coeficiente: str                  # texto livre
     seguro: float                     # R$
     percentualConsultoria: float      # 0-100%
@@ -85,8 +85,8 @@ def validate_simulation_input(input_data: SimulationInput) -> List[str]:
     # Validar número de bancos
     if not input_data.banks:
         errors.append("Pelo menos um banco deve ser informado")
-    elif len(input_data.banks) > 4:
-        errors.append("Máximo de 4 bancos permitidos")
+    elif len(input_data.banks) > 6:
+        errors.append("Máximo de 6 bancos permitidos")
 
     # Validar dados de cada banco
     for i, bank in enumerate(input_data.banks):

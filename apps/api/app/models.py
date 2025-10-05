@@ -129,8 +129,8 @@ class Simulation(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     # Dados de entrada multi-bancos
-    banks_json = Column(JSON, default=[])  # Lista de até 4 bancos
-    prazo = Column(Integer)  # Prazo em meses
+    banks_json = Column(JSON, default=[])  # Lista de até 6 bancos
+    prazo = Column(Integer)  # Prazo em meses (fixo em 96)
     coeficiente = Column(Text)  # Coeficiente como string livre
     seguro = Column(Numeric(14,2))  # Seguro obrigatório
     percentual_consultoria = Column(Numeric(5,2))  # % consultoria

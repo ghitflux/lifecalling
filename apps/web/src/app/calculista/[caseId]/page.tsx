@@ -14,7 +14,7 @@ import {
   SimulationHistoryCard,
   SimulationHistoryModal
 } from "@lifecalling/ui";
-import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw } from "lucide-react";
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
 import { SimulationResultCard } from "@lifecalling/ui";
 import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
@@ -30,6 +30,28 @@ export default function CalculistaSimulationPage() {
   const [currentTotals, setCurrentTotals] = useState<SimulationTotals | null>(null);
   const [simulationId, setSimulationId] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Helper para extrair mensagem de erro
+  const getErrorMessage = (error: any): string => {
+    if (typeof error?.response?.data === 'string') {
+      return error.response.data;
+    }
+    if (typeof error?.response?.data?.detail === 'string') {
+      return error.response.data.detail;
+    }
+    if (error?.response?.data?.detail && typeof error.response.data.detail === 'object') {
+      return JSON.stringify(error.response.data.detail);
+    }
+    if (error?.response?.data?.errors) {
+      return Array.isArray(error.response.data.errors)
+        ? error.response.data.errors.join(', ')
+        : JSON.stringify(error.response.data.errors);
+    }
+    if (error?.message) {
+      return error.message;
+    }
+    return "Erro desconhecido";
+  };
 
   // Verificar permissões
   useEffect(() => {
@@ -102,7 +124,8 @@ export default function CalculistaSimulationPage() {
     },
     onError: (error: any) => {
       console.error("Erro ao salvar simulação:", error);
-      toast.error(error.response?.data?.detail || "Erro ao salvar simulação");
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage || "Erro ao salvar simulação");
     }
   });
 
@@ -123,7 +146,7 @@ export default function CalculistaSimulationPage() {
         // Após aprovar, enviar ao financeiro automaticamente
         sendToFinanceMutation.mutate(caseId);
       } else {
-        toast.success("Simulação aprovada! Caso movido para fechamento.");
+        toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
         router.push("/calculista");
       }
     },
@@ -192,7 +215,8 @@ export default function CalculistaSimulationPage() {
     },
     onError: (error: any) => {
       console.error("Erro ao enviar para financeiro:", error);
-      toast.error(error.response?.data?.detail || "Erro ao enviar para financeiro");
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage || "Erro ao enviar para financeiro");
     }
   });
 
@@ -283,6 +307,14 @@ export default function CalculistaSimulationPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 print-hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["case", caseId] })}
+            title="Atualizar dados"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             onClick={handlePrint}

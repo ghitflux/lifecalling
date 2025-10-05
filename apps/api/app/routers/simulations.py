@@ -42,7 +42,7 @@ def list_pending(
     limit: int = 50,
     date: str = None,
     include_completed_today: bool = False,  # NOVO parâmetro
-    user=Depends(require_roles("admin","supervisor","calculista"))
+    user=Depends(require_roles("admin","supervisor","calculista","fechamento"))
 ):
     """
     Lista simulações pendentes ou concluídas.
@@ -114,7 +114,7 @@ def list_pending(
         return {"items": items, "count": count}
 
 @r.get("/retorno-fechamento")
-def list_retorno_fechamento(user=Depends(require_roles("admin","supervisor","calculista"))):
+def list_retorno_fechamento(user=Depends(require_roles("admin","supervisor","calculista","fechamento"))):
     """
     Lista casos que retornaram do fechamento para revisão do calculista.
     Estes são casos que foram aprovados pelo fechamento e precisam de revisão final antes de ir para financeiro.
@@ -375,7 +375,7 @@ async def reject(sim_id: int, data: RejectInput, user=Depends(require_roles("cal
     return {"ok": True}
 
 @r.get("/{case_id}/history")
-def get_simulation_history(case_id: int, user=Depends(require_roles("calculista","admin","supervisor","atendente"))):
+def get_simulation_history(case_id: int, user=Depends(require_roles("calculista","admin","supervisor","atendente","fechamento"))):
     """
     Retorna o histórico de simulações de um caso (aprovadas e rejeitadas).
     Enriquece a lista de bancos com bank_name se não existir.

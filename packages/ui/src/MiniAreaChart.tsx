@@ -51,34 +51,43 @@ export function MiniAreaChart({
 
   // Usar formatter customizado ou formatação automática baseada no tipo
   const finalFormatter = tooltipFormatter || ((value: number) => formatValueForChart(value, valueType));
+  
+  // Verificar se há dados para exibir
+  const hasData = data && data.length > 0;
 
   return (
     <div className={cn("w-full", className)} style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsAreaChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`areaGradient${gradientId}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={stroke} stopOpacity={0.35} />
-              <stop offset="95%" stopColor={stroke} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis dataKey={xKey} hide tickLine={false} axisLine={false} />
-          <YAxis hide />
-          <Tooltip
-            cursor={{ stroke: "rgba(148, 163, 184, 0.35)" }}
-            content={(props) => <MinimalTooltip {...props} formatter={finalFormatter} />}
-          />
-          <Area
-            type="monotone"
-            dataKey={dataKey}
-            stroke={stroke}
-            fill={`url(#areaGradient${gradientId})`}
-            strokeWidth={2.5}
-            isAnimationActive
-            animationDuration={600}
-          />
-        </RechartsAreaChart>
-      </ResponsiveContainer>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsAreaChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`areaGradient${gradientId}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={stroke} stopOpacity={0.35} />
+                <stop offset="95%" stopColor={stroke} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey={xKey} hide tickLine={false} axisLine={false} />
+            <YAxis hide />
+            <Tooltip
+              cursor={{ stroke: "rgba(148, 163, 184, 0.35)" }}
+              content={(props) => <MinimalTooltip {...props} formatter={finalFormatter} />}
+            />
+            <Area
+              type="monotone"
+              dataKey={dataKey}
+              stroke={stroke}
+              fill={`url(#areaGradient${gradientId})`}
+              strokeWidth={2.5}
+              isAnimationActive
+              animationDuration={600}
+            />
+          </RechartsAreaChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-xs text-muted-foreground">Sem dados</div>
+        </div>
+      )}
     </div>
   );
 }

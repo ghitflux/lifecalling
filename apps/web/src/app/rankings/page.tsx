@@ -582,7 +582,7 @@ export default function RankingsPage() {
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir a campanha "{campanhaToDelete?.nome}"? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a campanha &quot;{campanhaToDelete?.nome}&quot;? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2">
