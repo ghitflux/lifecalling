@@ -144,6 +144,199 @@ ENVIRONMENT=development
 - ✅ Sistema de Autenticação JWT
 - ✅ Upload de Arquivos
 
+## 🔐 Configuração do NextAuth com JWT
+
+### Instalação
+
+No diretório do frontend (`apps/web`):
+
+```bash
+# Instalar NextAuth
+pnpm add next-auth
+
+# Instalar adaptadores JWT (opcional)
+pnpm add @auth/prisma-adapter  # Se usar Prisma
+```
+
+### Configuração Básica
+
+1. **Criar arquivo de configuração** `apps/web/src/lib/auth.ts`:
+
+```typescript
+import NextAuth from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [
+    CredentialsProvider({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        // Validar credenciais com sua API
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: credentials.email,
+            password: credentials.password,
+          }),
+        })
+
+        if (!response.ok) {
+          return null
+        }
+
+        const user = await response.json()
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        }
+      },
+    }),
+  ],
+  session: {
+    strategy: "jwt", // Usar JWT em vez de database sessions
+    maxAge: 24 * 60 * 60, // 24 horas
+  },
+  jwt: {
+    maxAge: 24 * 60 * 60, // 24 horas
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.sub
+        session.user.role = token.role
+      }
+      return session
+    },
+  },
+  pages: {
+    signIn: "/login",
+    error: "/auth/error",
+  },
+})
+```
+
+2. **Criar route handler** `apps/web/src/app/api/auth/[...nextauth]/route.ts`:
+
+```typescript
+import { handlers } from "@/lib/auth"
+
+export const { GET, POST } = handlers
+```
+
+3. **Adicionar Provider** `apps/web/src/app/layout.tsx`:
+
+```typescript
+import { SessionProvider } from "next-auth/react"
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="pt-BR">
+      <body>
+        <SessionProvider>
+          {children}
+        </SessionProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+### Variáveis de Ambiente
+
+Adicionar ao `.env.local`:
+
+```env
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-secret-key-here
+
+# API
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+### Uso nos Componentes
+
+```typescript
+"use client"
+import { useSession, signIn, signOut } from "next-auth/react"
+
+export default function LoginButton() {
+  const { data: session, status } = useSession()
+
+  if (status === "loading") return <p>Carregando...</p>
+
+  if (session) {
+    return (
+      <>
+        <p>Logado como {session.user?.email}</p>
+        <button onClick={() => signOut()}>Sair</button>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <p>Não logado</p>
+      <button onClick={() => signIn()}>Entrar</button>
+    </>
+  )
+}
+```
+
+### Middleware de Proteção
+
+Criar `apps/web/src/middleware.ts`:
+
+```typescript
+import { auth } from "@/lib/auth"
+
+export default auth((req) => {
+  const { pathname } = req.nextUrl
+
+  // Rotas públicas
+  const publicRoutes = ["/login", "/", "/api/auth"]
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+
+  // Redirecionar para login se não autenticado
+  if (!req.auth && !isPublicRoute) {
+    const newUrl = new URL("/login", req.nextUrl.origin)
+    return Response.redirect(newUrl)
+  }
+})
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+}
+```
+
+### Vantagens da Estratégia JWT
+
+- ✅ **Stateless**: Não precisa armazenar sessões no servidor
+- ✅ **Escalável**: Funciona bem em ambientes distribuídos
+- ✅ **Performance**: Menos consultas ao banco de dados
+- ✅ **Simplicidade**: Não precisa de tabelas de sessão
+
 ## 🐛 Troubleshooting
 
 ### Porta já em uso
