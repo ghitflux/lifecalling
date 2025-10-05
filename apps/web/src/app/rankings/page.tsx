@@ -1,7 +1,7 @@
 "use client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { KPICard, RankingTable, GradientPanel, ProgressBar, MiniAreaChart } from "@lifecalling/ui"; // reuse
+import { KPICard, RankingTable, GradientPanel, ProgressBar, MiniAreaChart, FilterDropdown } from "@lifecalling/ui"; // reuse
 import { useAuth } from "@/lib/auth";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -316,13 +316,23 @@ export default function RankingsPage() {
       {/* header (range + export) */}
       <div className="flex flex-col md:flex-row md:items-end gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">De</label>
-            <Input type="date" value={range.from ?? ""} onChange={(e) => setRange(r => ({ ...r, from: e.target.value }))} />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">De</label>
+            <input
+              type="date"
+              value={range.from ?? ""}
+              onChange={(e) => setRange(r => ({ ...r, from: e.target.value }))}
+              className="w-full px-3 py-2 border rounded text-sm"
+            />
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Até</label>
-            <Input type="date" value={range.to ?? ""} onChange={(e) => setRange(r => ({ ...r, to: e.target.value }))} />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Até</label>
+            <input
+              type="date"
+              value={range.to ?? ""}
+              onChange={(e) => setRange(r => ({ ...r, to: e.target.value }))}
+              className="w-full px-3 py-2 border rounded text-sm"
+            />
           </div>
         </div>
         <div className="flex gap-2">
@@ -458,39 +468,36 @@ export default function RankingsPage() {
                 {/* Datas */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="data_inicio">Data de Início *</Label>
-                    <Input
-                      id="data_inicio"
+                    <label className="text-sm font-medium">Data de Início *</label>
+                    <input
                       type="date"
                       value={novaCampanha.data_inicio}
                       onChange={(e) => setNovaCampanha({ ...novaCampanha, data_inicio: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="data_fim">Data de Fim *</Label>
-                    <Input
-                      id="data_fim"
+                    <label className="text-sm font-medium">Data de Fim *</label>
+                    <input
                       type="date"
                       value={novaCampanha.data_fim}
                       onChange={(e) => setNovaCampanha({ ...novaCampanha, data_fim: e.target.value })}
+                      className="w-full px-3 py-2 border rounded"
                     />
                   </div>
                 </div>
 
                 {/* Status */}
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <select
-                    id="status"
-                    value={novaCampanha.status}
-                    onChange={(e) => setNovaCampanha({ ...novaCampanha, status: e.target.value })}
-                    className="w-full border rounded-md px-3 py-2 bg-background"
-                  >
-                    <option value="proxima">Próxima</option>
-                    <option value="ativa">Ativa</option>
-                    <option value="encerrada">Encerrada</option>
-                  </select>
-                </div>
+                <FilterDropdown
+                  label="Status"
+                  options={[
+                    { value: "proxima", label: "Próxima" },
+                    { value: "ativa", label: "Ativa" },
+                    { value: "encerrada", label: "Encerrada" }
+                  ]}
+                  value={novaCampanha.status}
+                  onChange={(value) => setNovaCampanha({ ...novaCampanha, status: value as string })}
+                />
 
                 {/* Premiações */}
                 <div className="space-y-2">
@@ -559,11 +566,12 @@ export default function RankingsPage() {
             </div>
           ) : (
             campanhasAtivas.map((campanha: any) => {
-            const statusConfig = {
+            const statusConfigs = {
               ativa: { bg: "bg-green-500/10", text: "text-green-600", label: "🟢 Ativa" },
               proxima: { bg: "bg-blue-500/10", text: "text-blue-600", label: "🔵 Próxima" },
               encerrada: { bg: "bg-gray-500/10", text: "text-gray-600", label: "⚫ Encerrada" }
-            }[campanha.status];
+            };
+            const statusConfig = statusConfigs[campanha.status as keyof typeof statusConfigs] || statusConfigs.ativa;
 
             return (
               <GradientPanel key={campanha.id}>
@@ -604,7 +612,7 @@ export default function RankingsPage() {
                     <div className="bg-muted/30 rounded-lg p-4 space-y-2">
                       <h4 className="font-semibold text-sm">🏆 Vencedores</h4>
                       <div className="flex gap-2">
-                        {campanha.vencedores.map((vencedor, idx) => {
+                        {campanha.vencedores.map((vencedor: string, idx: number) => {
                           const medals = ["🥇", "🥈", "🥉"];
                           return (
                             <div key={idx} className="flex items-center gap-2 bg-background px-3 py-2 rounded-md">
@@ -621,7 +629,7 @@ export default function RankingsPage() {
                   <div className="space-y-2">
                     <h4 className="font-semibold text-sm">🎯 Premiações</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {campanha.premiacoes.map((premiacao, idx) => (
+                      {campanha.premiacoes.map((premiacao: { posicao: string; premio: string }, idx: number) => (
                         <div key={idx} className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
                           <div className="flex-shrink-0 w-20 font-bold text-sm text-muted-foreground">
                             {premiacao.posicao}
@@ -660,11 +668,13 @@ export default function RankingsPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {campanhasInativas.map((campanha: any) => {
-              const statusConfig = {
+              const STATUS_CONFIG = {
                 ativa: { bg: "bg-green-500/10", text: "text-green-600", label: "🟢 Ativa" },
                 proxima: { bg: "bg-blue-500/10", text: "text-blue-600", label: "🔵 Próxima" },
                 encerrada: { bg: "bg-gray-500/10", text: "text-gray-600", label: "⚫ Encerrada" }
-              }[campanha.status];
+              } as const;
+
+              const statusConfig = STATUS_CONFIG[campanha.status as keyof typeof STATUS_CONFIG];
 
               return (
                 <GradientPanel key={campanha.id}>

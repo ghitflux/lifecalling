@@ -35,17 +35,16 @@ r = APIRouter(prefix="/analytics", tags=["analytics"])
 ATT_OPEN_STATUSES = {"novo", "disponivel"}
 ATT_IN_PROGRESS_STATUSES = {
     "em_atendimento",
-    "calculista",
     "calculista_pendente",
     "calculo_aprovado",
-    "financeiro",
-    "financeiro_pendente",
-    "fechamento_pendente",
     "fechamento_aprovado",
-    "devolvido_financeiro",
-    "aprovado",
+    "financeiro_pendente",
 }
 ACTIVE_CONTRACT_STATUSES = {"ativo"}
+# Status que indicam casos finalizados com sucesso
+COMPLETED_STATUSES = {"fechamento_aprovado", "contrato_efetivado"}
+# Status que indicam casos em processamento ativo
+PROCESSING_STATUSES = {"em_atendimento", "calculista_pendente", "calculo_aprovado"}
 DEFAULT_LOOKBACK_DAYS = 30
 
 def ttl_cache(ttl_seconds: int):
@@ -99,6 +98,47 @@ def _resolve_period(
     return start, end
 
 
+def _resolve_period_with_previous(
+    from_str: Optional[str],
+    to_str: Optional[str],
+) -> Tuple[datetime, datetime, datetime, datetime]:
+    """
+    Resolve período atual e anterior para cálculo de trends.
+    Retorna: (start, end, prev_start, prev_end)
+    """
+    now = datetime.utcnow().replace(microsecond=0)
+    
+    if from_str and to_str:
+        start = _parse_datetime(from_str)
+        end = _parse_datetime(to_str)
+    else:
+        # Padrão: mês atual
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if now.month == 12:
+            end = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            end = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    if start > end:
+        raise HTTPException(422, detail="'from' must be before 'to'")
+    
+    # Calcular período anterior com a mesma duração
+    period_duration = end - start
+    prev_end = start
+    prev_start = prev_end - period_duration
+    
+    return start, end, prev_start, prev_end
+
+
+def _calculate_trend(current: float, previous: float) -> float:
+    """
+    Calcula a tendência percentual entre dois valores.
+    """
+    if previous == 0:
+        return 100.0 if current > 0 else 0.0
+    return round(((current - previous) / previous) * 100, 2)
+
+
 def _cache_key(dt: datetime) -> str:
     return dt.replace(microsecond=0).isoformat()
 
@@ -139,6 +179,58 @@ def _safe_ratio(numerator: Any, denominator: Any) -> float:
 
 def _format_money(value: Any) -> str:
     return f"{_to_float(value):.2f}"
+
+@ttl_cache(60)
+def _get_kpis_with_trends_cached(start_key: str, end_key: str, prev_start_key: str, prev_end_key: str) -> Dict[str, Any]:
+    """
+    Calcula KPIs para período atual e anterior, incluindo trends.
+    """
+    current_kpis = _get_kpis_cached(start_key, end_key)
+    previous_kpis = _get_kpis_cached(prev_start_key, prev_end_key)
+    
+    # Calcular trends para os principais KPIs
+    trends = {
+        "receita_auto_mtd": _calculate_trend(
+            current_kpis.get("receita_auto_mtd", 0),
+            previous_kpis.get("receita_auto_mtd", 0)
+        ),
+        "resultado_mtd": _calculate_trend(
+            current_kpis.get("resultado_mtd", 0),
+            previous_kpis.get("resultado_mtd", 0)
+        ),
+        "consultoria_liq_mtd": _calculate_trend(
+            current_kpis.get("consultoria_liq_mtd", 0),
+            previous_kpis.get("consultoria_liq_mtd", 0)
+        ),
+        "contracts_mtd": _calculate_trend(
+            current_kpis.get("contracts_mtd", 0),
+            previous_kpis.get("contracts_mtd", 0)
+        ),
+        "att_completed": _calculate_trend(
+            current_kpis.get("att_completed", 0),
+            previous_kpis.get("att_completed", 0)
+        ),
+        "conv_rate": _calculate_trend(
+            current_kpis.get("conv_rate", 0),
+            previous_kpis.get("conv_rate", 0)
+        ),
+        "att_sla_72h": _calculate_trend(
+            current_kpis.get("att_sla_72h", 0),
+            previous_kpis.get("att_sla_72h", 0)
+        ),
+        "att_tma_min": _calculate_trend(
+            current_kpis.get("att_tma_min", 0),
+            previous_kpis.get("att_tma_min", 0)
+        ),
+    }
+    
+    # Adicionar trends aos KPIs atuais
+    result = current_kpis.copy()
+    result["trends"] = trends
+    result["previous_period"] = previous_kpis
+    
+    return result
+
 
 @ttl_cache(60)
 def _get_kpis_cached(start_key: str, end_key: str) -> Dict[str, Any]:
@@ -189,6 +281,7 @@ def _get_kpis_cached(start_key: str, end_key: str) -> Dict[str, Any]:
         )
         sla_ratio_value = float(sla_ratio) if sla_ratio is not None else 0.0
 
+        # TMA: Tempo médio de atendimento apenas para casos finalizados
         tma_minutes = (
             db.query(
                 func.avg(
@@ -198,8 +291,9 @@ def _get_kpis_cached(start_key: str, end_key: str) -> Dict[str, Any]:
             .filter(
                 Case.last_update_at.isnot(None),
                 Case.created_at.isnot(None),
-                Case.created_at >= start,
-                Case.created_at < end,
+                Case.status.in_(COMPLETED_STATUSES),
+                Case.last_update_at >= start,
+                Case.last_update_at < end,
             )
             .scalar()
         )
@@ -292,11 +386,52 @@ def _get_kpis_cached(start_key: str, end_key: str) -> Dict[str, Any]:
             finance_expense_mtd
         )
 
+        # Novos KPIs mais precisos
+        # Casos finalizados no período
+        att_completed = (
+            db.query(func.count(Case.id))
+            .filter(
+                Case.status.in_(COMPLETED_STATUSES),
+                Case.last_update_at >= start,
+                Case.last_update_at < end,
+            )
+            .scalar()
+        )
+        
+        # Taxa de finalização (casos finalizados / casos criados)
+        att_created_period = (
+            db.query(func.count(Case.id))
+            .filter(
+                Case.created_at >= start,
+                Case.created_at < end,
+            )
+            .scalar()
+        )
+        completion_rate = (
+            float(att_completed) / float(att_created_period) 
+            if att_created_period and att_created_period > 0 
+            else 0.0
+        )
+        
+        # Casos em atraso (SLA vencido)
+        att_overdue = (
+            db.query(func.count(Case.id))
+            .filter(
+                Case.assignment_expires_at.isnot(None),
+                Case.assignment_expires_at < func.now(),
+                Case.status.in_(ATT_IN_PROGRESS_STATUSES),
+            )
+            .scalar()
+        )
+
     return {
         "att_open": int(att_open),
         "att_in_progress": int(att_in_progress),
+        "att_completed": int(att_completed or 0),
+        "att_overdue": int(att_overdue or 0),
         "att_sla_72h": round(sla_ratio_value, 4),
         "att_tma_min": round(tma_value, 2),
+        "completion_rate": round(completion_rate, 4),
         "sim_created": int(sim_created),
         "sim_approved": int(sim_approved),
         "conv_rate": round(conv_rate_value, 4),
@@ -1071,11 +1206,28 @@ def _build_funnel_export(
 def get_kpis(
     from_: Optional[str] = Query(None, alias="from"),
     to_: Optional[str] = Query(None, alias="to"),
+    include_trends: bool = Query(True, description="Include trend calculations"),
     user=Depends(require_roles(*ALLOWED_ROLES)),
 ):
-    start, end = _resolve_period(from_, to_)
-    data = _get_kpis_cached(_cache_key(start), _cache_key(end))
-    data["range"] = {"from": _serialize_dt(start), "to": _serialize_dt(end)}
+    if include_trends:
+        start, end, prev_start, prev_end = _resolve_period_with_previous(from_, to_)
+        data = _get_kpis_with_trends_cached(
+            _cache_key(start), 
+            _cache_key(end),
+            _cache_key(prev_start),
+            _cache_key(prev_end)
+        )
+        data["range"] = {
+            "from": _serialize_dt(start), 
+            "to": _serialize_dt(end),
+            "prev_from": _serialize_dt(prev_start),
+            "prev_to": _serialize_dt(prev_end)
+        }
+    else:
+        start, end = _resolve_period(from_, to_)
+        data = _get_kpis_cached(_cache_key(start), _cache_key(end))
+        data["range"] = {"from": _serialize_dt(start), "to": _serialize_dt(end)}
+    
     return data
 
 
@@ -1120,6 +1272,112 @@ def get_by_module(
 @r.get("/health")
 def get_health(user=Depends(require_roles(*ALLOWED_ROLES))):
     return _get_health_cached()
+
+
+@r.get("/kpis/individual")
+def get_individual_kpis(
+    user_id: Optional[int] = Query(None),
+    from_: Optional[str] = Query(None, alias="from"),
+    to_: Optional[str] = Query(None, alias="to"),
+    user=Depends(require_roles(*ALLOWED_ROLES)),
+):
+    """
+    Retorna KPIs da esteira individual para um usuário específico ou todos os usuários.
+    """
+    start, end = _resolve_period(from_, to_)
+    
+    with SessionLocal() as db:
+        # Base query para casos do usuário
+        base_query = db.query(Case)
+        if user_id:
+            base_query = base_query.filter(Case.assigned_to == user_id)
+        
+        # Casos abertos
+        att_open = base_query.filter(
+            Case.status.in_(ATT_OPEN_STATUSES)
+        ).count()
+        
+        # Casos em andamento
+        att_in_progress = base_query.filter(
+            Case.status.in_(ATT_IN_PROGRESS_STATUSES)
+        ).count()
+        
+        # Casos finalizados no período
+        att_completed = base_query.filter(
+            Case.status.in_(COMPLETED_STATUSES),
+            Case.last_update_at >= start,
+            Case.last_update_at < end,
+        ).count()
+        
+        # Casos em atraso
+        att_overdue = base_query.filter(
+            Case.assignment_expires_at.isnot(None),
+            Case.assignment_expires_at < func.now(),
+            Case.status.in_(ATT_IN_PROGRESS_STATUSES),
+        ).count()
+        
+        # TMA individual
+        tma_minutes = base_query.filter(
+            Case.last_update_at.isnot(None),
+            Case.created_at.isnot(None),
+            Case.status.in_(COMPLETED_STATUSES),
+            Case.last_update_at >= start,
+            Case.last_update_at < end,
+        ).with_entities(
+            func.avg(func.extract("epoch", Case.last_update_at - Case.created_at) / 60.0)
+        ).scalar()
+        
+        tma_value = float(tma_minutes) if tma_minutes is not None else 0.0
+        
+        # Taxa de finalização individual
+        att_created_period = base_query.filter(
+            Case.created_at >= start,
+            Case.created_at < end,
+        ).count()
+        
+        completion_rate = (
+            float(att_completed) / float(att_created_period) 
+            if att_created_period and att_created_period > 0 
+            else 0.0
+        )
+        
+        # Simulações criadas pelo usuário
+        sim_query = db.query(Simulation)
+        if user_id:
+            sim_query = sim_query.filter(Simulation.created_by == user_id)
+            
+        sim_created = sim_query.filter(
+            Simulation.created_at >= start,
+            Simulation.created_at < end,
+        ).count()
+        
+        # Simulações aprovadas
+        sim_approved = sim_query.filter(
+            Simulation.created_at >= start,
+            Simulation.created_at < end,
+            Simulation.status == "aprovado",
+        ).count()
+        
+        # Taxa de conversão individual
+        conv_rate_value = (
+            float(sim_approved) / float(sim_created) 
+            if sim_created and sim_created > 0 
+            else 0.0
+        )
+        
+        return {
+            "user_id": user_id,
+            "period": {"from": _serialize_dt(start), "to": _serialize_dt(end)},
+            "att_open": att_open,
+            "att_in_progress": att_in_progress,
+            "att_completed": att_completed,
+            "att_overdue": att_overdue,
+            "att_tma_min": round(tma_value, 2),
+            "completion_rate": round(completion_rate, 4),
+            "sim_created": sim_created,
+            "sim_approved": sim_approved,
+            "conv_rate": round(conv_rate_value, 4),
+        }
 
 
 DatasetLiteral = Literal[

@@ -12,6 +12,7 @@ export interface RankingTableProps {
   data: any[];
   columns: Column[];
   className?: string;
+  highlightTop3?: boolean;
 }
 
 function formatValue(value: any, format?: Column["format"]) {
@@ -29,7 +30,7 @@ function formatValue(value: any, format?: Column["format"]) {
   return value as React.ReactNode;
 }
 
-export function RankingTable({ data, columns, className }: RankingTableProps) {
+export function RankingTable({ data, columns, className, highlightTop3 = false }: RankingTableProps) {
   return (
     <div className={cn("rounded-xl border border-white/10 overflow-hidden", className)}>
       <table className="w-full text-sm">
@@ -41,15 +42,24 @@ export function RankingTable({ data, columns, className }: RankingTableProps) {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, idx) => (
-            <tr key={idx} className="border-t border-white/5 hover:bg-slate-900/40">
-              {columns.map((c) => (
-                <td key={c.key} className="p-3">
-                  {c.render ? c.render(row) : formatValue(row[c.key], c.format)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((row, idx) => {
+            const isTop3 = highlightTop3 && (row.pos <= 3 || idx < 3);
+            return (
+              <tr 
+                key={idx} 
+                className={cn(
+                  "border-t border-white/5 hover:bg-slate-900/40",
+                  isTop3 && "bg-gradient-to-r from-yellow-500/10 to-transparent"
+                )}
+              >
+                {columns.map((c) => (
+                  <td key={c.key} className="p-3">
+                    {c.render ? c.render(row) : formatValue(row[c.key], c.format)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
           {data.length === 0 && (
             <tr>
               <td colSpan={columns.length} className="p-4 text-center text-slate-400">Nenhum dado encontrado</td>

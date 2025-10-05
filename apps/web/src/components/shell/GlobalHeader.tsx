@@ -1,13 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
-import { Badge } from "@lifecalling/ui";
-import { useUnreadNotificationsCount } from "@/lib/hooks";
-import NotificationBell from "./NotificationBell";
+
+
+
 import { cn } from "@/lib/utils";
 
 export default function GlobalHeader() {
-  const { data: unreadCount = 0 } = useUnreadNotificationsCount();
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
   useEffect(() => {
@@ -31,8 +30,7 @@ export default function GlobalHeader() {
       sidebarCollapsed ? "left-16" : "left-64"
     )}>
       <div className="flex items-center gap-3">
-        {/* Global Notifications */}
-        <NotificationBell />
+        {/* Global Notifications - Removed */}
       </div>
     </header>
   );

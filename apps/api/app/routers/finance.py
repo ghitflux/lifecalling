@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel
 from datetime import datetime
+from sqlalchemy.orm import joinedload
 from ..db import SessionLocal
 from ..models import Case, CaseEvent, Contract
 from ..rbac import require_roles
@@ -358,7 +359,8 @@ async def disburse(data: DisburseIn, user=Depends(require_roles("admin","supervi
                 income_type="Consultoria Líquida",
                 income_name=f"Contrato #{ct.id} - {c.client.name}",
                 amount=consultoria_liquida,
-                created_by=user.id
+                created_by=user.id,
+                agent_user_id=c.assigned_user_id  # Atendente responsável pelo caso
             )
             db.add(income)
 
@@ -380,69 +382,94 @@ class DisburseSimpleIn(BaseModel):
 @r.post("/disburse-simple")
 async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("admin","supervisor","financeiro"))):
     """Efetiva liberação usando os valores já calculados da simulação"""
-    with SessionLocal() as db:
-        c = db.get(Case, data.case_id)
-        if not c:
-            raise HTTPException(404, "case not found")
+    try:
+        with SessionLocal() as db:
+            # Buscar caso com eager loading do cliente
+            c = db.query(Case).options(joinedload(Case.client)).filter(Case.id == data.case_id).first()
 
-        # Busca a simulação mais recente
-        from ..models import Simulation
-        simulation = db.query(Simulation).filter(
-            Simulation.case_id == c.id
-        ).order_by(Simulation.id.desc()).first()
+            if not c:
+                raise HTTPException(404, "case not found")
 
-        if not simulation:
-            raise HTTPException(400, "No simulation found for this case")
+            # Verificar se o caso tem cliente
+            if not c.client:
+                raise HTTPException(400, "Caso não possui cliente associado")
 
-        ct = db.query(Contract).filter(Contract.case_id==c.id).first()
-        if not ct:
-            ct = Contract(case_id=c.id)
+            # Busca a simulação mais recente aprovada
+            from ..models import Simulation
+            simulation = db.query(Simulation).filter(
+                Simulation.case_id == c.id,
+                Simulation.status == "approved"
+            ).order_by(Simulation.id.desc()).first()
 
-        # Usa os valores da simulação
-        total_amount = simulation.liberado_cliente or simulation.liberado_total
-        if total_amount is None:
-            raise HTTPException(400, "Simulation is missing disbursement totals")
+            if not simulation:
+                raise HTTPException(400, "Nenhuma simulação aprovada encontrada para este caso")
 
-        # Pegar consultoria líquida (86%) da simulação
-        consultoria_liquida = simulation.custo_consultoria_liquido or 0
+            # Validar valores da simulação
+            total_amount = simulation.liberado_cliente or simulation.liberado_total
+            if total_amount is None or total_amount <= 0:
+                raise HTTPException(400, "Simulação não possui valores válidos de liberação")
 
-        ct.total_amount = total_amount
-        ct.installments = simulation.prazo
-        ct.disbursed_at = data.disbursed_at or datetime.utcnow()
-        ct.updated_at = datetime.utcnow()
-        ct.status = "ativo"
+            if not simulation.prazo or simulation.prazo <= 0:
+                raise HTTPException(400, "Simulação não possui prazo válido")
 
-        # Campos de receita e ranking
-        ct.consultoria_valor_liquido = consultoria_liquida
-        ct.signed_at = data.disbursed_at or datetime.utcnow()
-        ct.created_by = user.id
-        ct.agent_user_id = c.assigned_user_id  # Atendente do caso
+            # Validar consultoria líquida
+            consultoria_liquida = simulation.custo_consultoria_liquido or 0
+            if consultoria_liquida <= 0:
+                print(f"[AVISO] Consultoria líquida é zero para caso {c.id}, não será criada receita automática")
 
-        db.add(ct)
-        db.flush()
+            ct = db.query(Contract).filter(Contract.case_id==c.id).first()
+            if not ct:
+                ct = Contract(case_id=c.id)
 
-        # Criar receita automática (Consultoria Líquida 86%)
-        if consultoria_liquida and consultoria_liquida > 0:
-            from ..models import FinanceIncome
-            income = FinanceIncome(
-                date=data.disbursed_at or datetime.utcnow(),
-                income_type="Consultoria Líquida",
-                income_name=f"Contrato #{ct.id} - {c.client.name}",
-                amount=consultoria_liquida,
-                created_by=user.id
-            )
-            db.add(income)
+            ct.total_amount = total_amount
+            ct.installments = simulation.prazo or 0
+            ct.disbursed_at = data.disbursed_at or datetime.utcnow()
+            ct.updated_at = datetime.utcnow()
+            ct.status = "ativo"
 
-        c.status = "contrato_efetivado"
-        c.last_update_at = datetime.utcnow()
-        db.add(CaseEvent(case_id=c.id, type="finance.disbursed",
-                         payload={"contract_id": ct.id, "amount": float(total_amount), "installments": simulation.prazo},
-                         created_by=user.id))
-        db.commit()
-        db.refresh(ct)
+            # Campos de receita e ranking
+            ct.consultoria_valor_liquido = consultoria_liquida
+            ct.signed_at = data.disbursed_at or datetime.utcnow()
+            ct.created_by = user.id
+            ct.agent_user_id = c.assigned_user_id  # Atendente do caso
 
-    await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"contrato_efetivado"})
-    return {"contract_id": ct.id}
+            db.add(ct)
+            db.flush()
+
+            # Criar receita automática (Consultoria Líquida 86%)
+            if consultoria_liquida and consultoria_liquida > 0:
+                from ..models import FinanceIncome
+                client_name = c.client.name if c.client else f"Cliente {c.id}"
+                income = FinanceIncome(
+                    date=data.disbursed_at or datetime.utcnow(),
+                    income_type="Consultoria Líquida",
+                    income_name=f"Contrato #{ct.id} - {client_name}",
+                    amount=consultoria_liquida,
+                    created_by=user.id,
+                    agent_user_id=c.assigned_user_id  # Atendente responsável pelo caso
+                )
+                db.add(income)
+
+            c.status = "contrato_efetivado"
+            c.last_update_at = datetime.utcnow()
+            db.add(CaseEvent(case_id=c.id, type="finance.disbursed",
+                             payload={"contract_id": ct.id, "amount": float(total_amount), "installments": simulation.prazo},
+                             created_by=user.id))
+            db.commit()
+            db.refresh(ct)
+
+        await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"contrato_efetivado"})
+        return {"contract_id": ct.id}
+
+    except HTTPException:
+        # Re-raise HTTPExceptions para manter status codes corretos
+        raise
+    except Exception as e:
+        # Log detalhado do erro
+        import traceback
+        print(f"[ERRO] Falha ao efetivar liberação do caso {data.case_id}: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Erro ao efetivar liberação: {str(e)}")
 
 @r.post("/cancel/{contract_id}")
 async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
@@ -1386,86 +1413,130 @@ def get_transactions(
     from ..models import FinanceIncome, FinanceExpense
     from datetime import datetime
 
-    with SessionLocal() as db:
-        # Parse de datas se fornecidas
-        start = None
-        end = None
-        if start_date:
-            try:
-                start = datetime.fromisoformat(start_date)
-            except Exception:
-                pass
-        if end_date:
-            try:
-                end = datetime.fromisoformat(end_date)
-            except Exception:
-                pass
+    try:
+        with SessionLocal() as db:
+            # Parse de datas se fornecidas
+            start = None
+            end = None
+            if start_date:
+                try:
+                    start = datetime.fromisoformat(start_date)
+                except Exception:
+                    pass
+            if end_date:
+                try:
+                    end = datetime.fromisoformat(end_date)
+                except Exception:
+                    pass
 
-        transactions = []
+            transactions = []
 
-        # Buscar receitas
-        if not transaction_type or transaction_type == "receita":
-            incomes_query = db.query(FinanceIncome)
-            if start:
-                incomes_query = incomes_query.filter(FinanceIncome.date >= start)
-            if end:
-                incomes_query = incomes_query.filter(FinanceIncome.date <= end)
-            if category:
-                incomes_query = incomes_query.filter(FinanceIncome.income_type == category)
+            # Buscar receitas
+            if not transaction_type or transaction_type == "receita":
+                incomes_query = db.query(FinanceIncome).options(
+                    joinedload(FinanceIncome.agent),
+                    joinedload(FinanceIncome.creator)
+                )
+                if start:
+                    incomes_query = incomes_query.filter(FinanceIncome.date >= start)
+                if end:
+                    incomes_query = incomes_query.filter(FinanceIncome.date <= end)
+                if category:
+                    incomes_query = incomes_query.filter(FinanceIncome.income_type == category)
 
-            incomes = incomes_query.all()
-            for inc in incomes:
-                transactions.append({
-                    "id": f"receita-{inc.id}",
-                    "type": "receita",
-                    "date": inc.date.isoformat() if inc.date else None,
-                    "category": inc.income_type,
-                    "name": inc.income_name,
-                    "amount": float(inc.amount),
-                    "created_by": inc.created_by,
-                    "created_at": inc.created_at.isoformat() if inc.created_at else None
-                })
+                incomes = incomes_query.all()
+                for inc in incomes:
+                    # Extrair case_id do nome da receita (formato: "Contrato #<id> - <nome>")
+                    case_id = None
+                    contract_id = None
+                    client_name = None
+                    client_cpf = None
 
-        # Buscar despesas
-        if not transaction_type or transaction_type == "despesa":
-            expenses_query = db.query(FinanceExpense)
-            if start:
-                expenses_query = expenses_query.filter(FinanceExpense.date >= start)
-            if end:
-                expenses_query = expenses_query.filter(FinanceExpense.date <= end)
-            if category:
-                expenses_query = expenses_query.filter(FinanceExpense.expense_type == category)
+                    if inc.income_name and inc.income_name.startswith("Contrato #"):
+                        try:
+                            contract_id = int(inc.income_name.split("#")[1].split(" ")[0])
+                            # Buscar contrato para pegar informações do cliente
+                            contract = db.query(Contract).options(
+                                joinedload(Contract.case).joinedload(Case.client)
+                            ).filter(Contract.id == contract_id).first()
 
-            expenses = expenses_query.all()
-            for exp in expenses:
-                transactions.append({
-                    "id": f"despesa-{exp.id}",
-                    "type": "despesa",
-                    "date": exp.date.isoformat() if exp.date else None,
-                    "category": exp.expense_type,
-                    "name": exp.expense_name,
-                    "amount": float(exp.amount),
-                    "created_by": exp.created_by,
-                    "created_at": exp.created_at.isoformat() if exp.created_at else None
-                })
+                            if contract and contract.case and contract.case.client:
+                                case_id = contract.case_id
+                                client_name = contract.case.client.name
+                                client_cpf = contract.case.client.cpf
+                        except Exception:
+                            pass
 
-        # Ordenar por data (mais recente primeiro)
-        transactions.sort(key=lambda x: x["date"] if x["date"] else "", reverse=True)
+                    transactions.append({
+                        "id": f"receita-{inc.id}",
+                        "type": "receita",
+                        "date": inc.date.isoformat() if inc.date else None,
+                        "category": inc.income_type,
+                        "name": inc.income_name,
+                        "amount": float(inc.amount),
+                        "created_by": inc.created_by,
+                        "created_at": inc.created_at.isoformat() if inc.created_at else None,
+                        "agent_name": inc.agent.name if inc.agent else None,
+                        "agent_user_id": inc.agent_user_id,
+                        "has_attachment": bool(inc.attachment_path),
+                        "case_id": case_id,
+                        "contract_id": contract_id,
+                        "client_name": client_name,
+                        "client_cpf": client_cpf
+                    })
 
-        # Calcular totais
-        total_receitas = sum([t["amount"] for t in transactions if t["type"] == "receita"])
-        total_despesas = sum([t["amount"] for t in transactions if t["type"] == "despesa"])
-        saldo = total_receitas - total_despesas
+            # Buscar despesas
+            if not transaction_type or transaction_type == "despesa":
+                expenses_query = db.query(FinanceExpense).options(
+                    joinedload(FinanceExpense.creator)
+                )
+                if start:
+                    expenses_query = expenses_query.filter(FinanceExpense.date >= start)
+                if end:
+                    expenses_query = expenses_query.filter(FinanceExpense.date <= end)
+                if category:
+                    expenses_query = expenses_query.filter(FinanceExpense.expense_type == category)
 
-        return {
-            "items": transactions,
-            "total": len(transactions),
-            "totals": {
-                "receitas": round(total_receitas, 2),
-                "despesas": round(total_despesas, 2),
-                "saldo": round(saldo, 2)
+                expenses = expenses_query.all()
+                for exp in expenses:
+                    transactions.append({
+                        "id": f"despesa-{exp.id}",
+                        "type": "despesa",
+                        "date": exp.date.isoformat() if exp.date else None,
+                        "category": exp.expense_type,
+                        "name": exp.expense_name,
+                        "amount": float(exp.amount),
+                        "created_by": exp.created_by,
+                        "created_at": exp.created_at.isoformat() if exp.created_at else None,
+                        "agent_name": exp.creator.name if exp.creator else None,
+                        "has_attachment": bool(exp.attachment_path)
+                    })
+
+            # Ordenar por data (mais recente primeiro)
+            transactions.sort(key=lambda x: x["date"] if x["date"] else "", reverse=True)
+
+            # Calcular totais
+            total_receitas = sum([t["amount"] for t in transactions if t["type"] == "receita"])
+            total_despesas = sum([t["amount"] for t in transactions if t["type"] == "despesa"])
+            saldo = total_receitas - total_despesas
+
+            return {
+                "items": transactions,
+                "total": len(transactions),
+                "totals": {
+                    "receitas": round(total_receitas, 2),
+                    "despesas": round(total_despesas, 2),
+                    "saldo": round(saldo, 2)
+                }
             }
-        }
+
+    except Exception as e:
+        # Log detalhado do erro
+        import traceback
+        print(f"[ERRO] Falha ao buscar transações: {str(e)}")
+        print(f"  Parâmetros: start_date={start_date}, end_date={end_date}, type={transaction_type}, category={category}")
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Erro ao buscar transações: {str(e)}")
 
 # Exportação de Relatórios
 
@@ -1599,3 +1670,77 @@ def export_finance_report(
                 "Content-Disposition": "attachment; filename=finance_report.csv"
             }
         )
+
+@r.get("/data")
+def get_financial_data(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    month: str | None = None,
+    user=Depends(require_roles("admin","supervisor","financeiro","calculista","fechamento"))
+):
+    """Retorna dados financeiros agregados para cálculo de KPIs"""
+    from ..models import FinanceIncome, FinanceExpense
+    from datetime import datetime
+    from sqlalchemy import func
+
+    with SessionLocal() as db:
+        # Definir período de busca
+        if month:
+            # Se month for fornecido (formato YYYY-MM), usar o mês específico
+            try:
+                year, month_num = month.split('-')
+                start_date = datetime(int(year), int(month_num), 1)
+                if int(month_num) == 12:
+                    end_date = datetime(int(year) + 1, 1, 1)
+                else:
+                    end_date = datetime(int(year), int(month_num) + 1, 1)
+            except Exception:
+                # Fallback para mês atual
+                now = datetime.utcnow()
+                start_date = datetime(now.year, now.month, 1)
+                if now.month == 12:
+                    end_date = datetime(now.year + 1, 1, 1)
+                else:
+                    end_date = datetime(now.year, now.month + 1, 1)
+        elif from_date and to_date:
+            try:
+                start_date = datetime.fromisoformat(from_date)
+                end_date = datetime.fromisoformat(to_date)
+            except Exception:
+                # Fallback para mês atual
+                now = datetime.utcnow()
+                start_date = datetime(now.year, now.month, 1)
+                if now.month == 12:
+                    end_date = datetime(now.year + 1, 1, 1)
+                else:
+                    end_date = datetime(now.year, now.month + 1, 1)
+        else:
+            # Padrão: mês atual
+            now = datetime.utcnow()
+            start_date = datetime(now.year, now.month, 1)
+            if now.month == 12:
+                end_date = datetime(now.year + 1, 1, 1)
+            else:
+                end_date = datetime(now.year, now.month + 1, 1)
+
+        # Calcular receita líquida (total de receitas)
+        receita_liquida = db.query(func.coalesce(func.sum(FinanceIncome.amount), 0)).filter(
+            FinanceIncome.date >= start_date,
+            FinanceIncome.date < end_date
+        ).scalar() or 0
+
+        # Calcular total de despesas
+        despesas = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
+            FinanceExpense.date >= start_date,
+            FinanceExpense.date < end_date
+        ).scalar() or 0
+
+        return {
+            "receita_liquida": float(receita_liquida),
+            "despesas": float(despesas),
+            "resultado": float(receita_liquida) - float(despesas),
+            "periodo": {
+                "inicio": start_date.isoformat(),
+                "fim": end_date.isoformat()
+            }
+        }

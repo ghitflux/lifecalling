@@ -17,11 +17,21 @@ import {
   Button,
   FilterComponent,
   useFilters,
-  type FilterOption,
 } from "@lifecalling/ui";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+
+// Definindo o tipo FilterOption localmente
+interface FilterOption {
+  key: string;
+  label: string;
+  type: 'text' | 'select' | 'multiselect' | 'date' | 'daterange' | 'number' | 'boolean';
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  min?: number;
+  max?: number;
+}
 
 /**
  * IMPORTANTE:

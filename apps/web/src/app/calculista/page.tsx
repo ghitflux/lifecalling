@@ -1,110 +1,184 @@
 "use client";
+
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   Button,
   Badge,
+  StatusBadge,
   CaseSkeleton,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-  QuickFilters
+  UnifiedFilter,
+  KPICard,
+  MiniAreaChart,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
-  useCalculistaStats
+  useCalculistaStats,
 } from "@/lib/simulation-hooks";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useCalculationKpis,
+  useCasosEfetivados,
+  useCasosCancelados,
+} from "@/lib/hooks";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Calculator, CheckCircle, XCircle, TrendingUp, DollarSign, Clock } from "lucide-react";
+import {
+  Calculator,
+  CheckCircle,
+  XCircle,
+  TrendingUp,
+  DollarSign,
+  Target,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-export default function CalculistaPage(){
+export default function CalculistaPage() {
   useLiveCaseEvents();
   const router = useRouter();
   const { user } = useAuth();
 
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
-  // Ler aba inicial via query string (?tab=...)
+  // -----------------------------
+  // Mock para mini gráficos (KPIs)
+  // -----------------------------
+  const MOCK_TREND_DATA = {
+    simulacoes: [
+      { day: "D1", value: 15 },
+      { day: "D2", value: 22 },
+      { day: "D3", value: 18 },
+      { day: "D4", value: 28 },
+      { day: "D5", value: 25 },
+      { day: "D6", value: 32 },
+      { day: "D7", value: 35 },
+    ],
+    aprovadas: [
+      { day: "D1", value: 12 },
+      { day: "D2", value: 18 },
+      { day: "D3", value: 15 },
+      { day: "D4", value: 24 },
+      { day: "D5", value: 21 },
+      { day: "D6", value: 28 },
+      { day: "D7", value: 30 },
+    ],
+    volume: [
+      { day: "D1", value: 45000 },
+      { day: "D2", value: 52000 },
+      { day: "D3", value: 48000 },
+      { day: "D4", value: 65000 },
+      { day: "D5", value: 58000 },
+      { day: "D6", value: 72000 },
+      { day: "D7", value: 78000 },
+    ],
+    taxa_aprovacao: [
+      { day: "D1", value: 80 },
+      { day: "D2", value: 82 },
+      { day: "D3", value: 83 },
+      { day: "D4", value: 86 },
+      { day: "D5", value: 84 },
+      { day: "D6", value: 88 },
+      { day: "D7", value: 86 },
+    ],
+  };
+
+  // Aba inicial via query string
   const searchParams = useSearchParams();
   useEffect(() => {
     const initialTab = searchParams.get("tab");
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
+    if (initialTab) setActiveTab(initialTab);
   }, [searchParams]);
 
-  // Buscar simulações com suporte a concluídas (sempre carregar todas para contadores corretos)
+  // Dados
   const { data: allSims, isLoading: simsLoading } = useAllSimulations(true);
   const { data: stats } = useCalculistaStats();
+  // KPIs do mês selecionado (dados reais)
+  const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: selectedMonth });
 
-  // Buscar casos com status relevantes para Retorno de Fechamento
+  const { data: casosEfetivados, isLoading: efetivadosLoading } =
+    useCasosEfetivados();
+  const { data: casosCancelados, isLoading: canceladosLoading } =
+    useCasosCancelados();
+
+  // KPIs combinados (fallback para stats locais)
+  const combinedKpis = useMemo(() => {
+    if (kpis) {
+      return {
+        simulacoes_criadas: kpis.pending || 0,
+        simulacoes_aprovadas: kpis.approvedToday || 0,
+        taxa_aprovacao: kpis.approvalRate || 0,
+        volume_financeiro: kpis.volumeToday || 0,
+        meta_mensal: kpis.meta_mensal || 50000,
+        trends: kpis.trends || {
+          pending: 0,
+          approvedToday: 0,
+          approvalRate: 0,
+          volumeToday: 0,
+          meta_mensal: 0,
+        },
+      };
+    }
+    return {
+      simulacoes_criadas: stats?.pending || 0,
+      simulacoes_aprovadas: stats?.approvedToday || 0,
+      taxa_aprovacao: stats?.approvalRate || 0,
+      volume_financeiro: stats?.volumeToday || 0,
+      meta_mensal: 50000,
+      trends: {
+        pending: 0,
+        approvedToday: 0,
+        approvalRate: 0,
+        volumeToday: 0,
+        meta_mensal: 0,
+      },
+    };
+  }, [kpis, stats]);
+
+  // Casos para outras abas
   const { data: retornoFechamento = [], isLoading: retornoLoading } = useQuery({
     queryKey: ["/cases", "retorno_fechamento_and_fechamento_aprovado"],
     queryFn: async () => {
-      const response = await api.get("/cases?status=retorno_fechamento,fechamento_aprovado&page_size=50");
-      return response.data.items || [];
+      const res = await api.get(
+        "/cases?status=retorno_fechamento,fechamento_aprovado&page_size=50"
+      );
+      return res.data.items || [];
     },
-    enabled: activeTab === "retorno_fechamento"
+    enabled: activeTab === "retorno_fechamento",
   });
 
-  // Buscar casos enviados ao financeiro
-  const { data: enviadosFinanceiro = [], isLoading: enviadosLoading } = useQuery({
-    queryKey: ["/cases", "financeiro_pendente"],
-    queryFn: async () => {
-      const response = await api.get("/cases?status=financeiro_pendente&page_size=50");
-      return response.data.items || [];
-    },
-    enabled: activeTab === "enviado_financeiro"
-  });
+  const { data: enviadosFinanceiro = [], isLoading: enviadosLoading } =
+    useQuery({
+      queryKey: ["/cases", "financeiro_pendente"],
+      queryFn: async () => {
+        const res = await api.get(
+          "/cases?status=financeiro_pendente&page_size=50"
+        );
+        return res.data.items || [];
+      },
+      enabled: activeTab === "enviado_financeiro",
+    });
 
-  // Query removida: detalhes do caso não são exibidos por modal nesta página
-
-  // Filtrar simulações
+  // Filtragem
   const allSimulations = allSims || [];
 
-  const statusCounts = {
-    draft: allSimulations.filter((sim: any) => sim.status === "draft").length,
-    approved: allSimulations.filter((sim: any) => sim.status === "approved").length,
-    rejected: allSimulations.filter((sim: any) => sim.status === "rejected").length,
-    devolvido_financeiro: allSimulations.filter((sim: any) => sim.status === "devolvido_financeiro").length,
-    fechamento_aprovado: allSimulations.filter((sim: any) => sim.status === "fechamento_aprovado").length
-  };
+  // Separar por status para as abas
+  const pendingSims = allSimulations.filter((s: any) => s.status === "draft");
+  const completedSims = allSimulations.filter(
+    (s: any) => s.status === "approved" || s.status === "rejected"
+  );
 
-  const filteredSims = allSimulations.filter((sim: any) => {
-    // Filtro por status (string)
-    if (statusFilter !== "all" && sim.status !== statusFilter) {
-      return false;
-    }
-
-    // Filtro por busca (nome do cliente ou CPF)
-    if (searchTerm) {
-      const clientName = sim.client?.name?.toLowerCase() || "";
-      const clientCpf = sim.client?.cpf || "";
-      const search = searchTerm.toLowerCase();
-      return clientName.includes(search) || clientCpf.includes(search);
-    }
-
-    return true;
-  });
-
-  // Separar simulações por status (para contadores das abas, usar dados originais)
-  const allPendingSims = allSimulations.filter((s: any) => s.status === "draft");
-  const allCompletedSims = allSimulations.filter((s: any) => s.status === "approved" || s.status === "rejected");
-  
-  // Separar simulações filtradas para exibição
-  const pendingSims = filteredSims.filter((s: any) => s.status === "draft");
-  const completedSims = filteredSims.filter((s: any) => s.status === "approved" || s.status === "rejected");
-
-  // Verificar permissões
+  // Permissões
   useEffect(() => {
     if (user && !["calculista", "supervisor", "admin"].includes(user.role)) {
       router.push("/esteira");
@@ -112,19 +186,12 @@ export default function CalculistaPage(){
     }
   }, [user, router]);
 
-  // Função para navegar para simulação específica
   const handleSimulationClick = (caseId: number) => {
     router.push(`/calculista/${caseId}`);
   };
 
-  // Função removida: visualização por modal foi desabilitada
+  if (simsLoading) return <CaseSkeleton />;
 
-  // Loading state
-  if (simsLoading) {
-    return <CaseSkeleton />;
-  }
-
-  // Lista principal de simulações
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -134,119 +201,120 @@ export default function CalculistaPage(){
             <Calculator className="h-6 w-6 text-primary" />
             Calculista
           </h1>
-          <p className="text-muted-foreground">
-            Simulações pendentes de análise
-          </p>
+          <p className="text-muted-foreground">Simulações pendentes de análise</p>
         </div>
         <Badge variant="secondary">
           {pendingSims.length} simulações pendentes
         </Badge>
       </div>
 
-      {/* KPIs Avançados */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-2 rounded-md">
-              <Clock className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Pendentes</p>
-              <p className="text-2xl font-bold">{stats?.pending || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-2 rounded-md">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Aprovadas Hoje</p>
-              <p className="text-2xl font-bold">{stats?.approvedToday || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-100 p-2 rounded-md">
-              <XCircle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Rejeitadas Hoje</p>
-              <p className="text-2xl font-bold">{stats?.rejectedToday || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-md">
-              <Calculator className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Hoje</p>
-              <p className="text-2xl font-bold">{stats?.totalToday || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-md">
-              <TrendingUp className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Taxa Aprovação</p>
-              <p className="text-2xl font-bold">{stats?.approvalRate || 0}%</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-yellow-100 p-2 rounded-md">
-              <DollarSign className="h-5 w-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Volume Hoje</p>
-              <p className="text-lg font-bold">
-                R$ {(stats?.volumeToday || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Filtros Rápidos */}
-      <QuickFilters
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        activeFilters={statusFilter === "all" ? [] : [statusFilter]}
-        onFilterToggle={(filterId) => {
-          setStatusFilter((prev) => (prev === filterId ? "all" : filterId));
-        }}
-        availableFilters={[
-          { id: "draft", label: "Pendente", value: "draft", color: "primary" as const, count: statusCounts.draft },
-          { id: "approved", label: "Aprovado", value: "approved", color: "success" as const, count: statusCounts.approved },
-          { id: "rejected", label: "Rejeitado", value: "rejected", color: "danger" as const, count: statusCounts.rejected },
-          { id: "devolvdo_financeir", label: "Devolvido Financeiro", value: "devolvido_financeiro", color: "warning" as const, count: statusCounts.devolvido_financeiro },
-          { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", color: "primary" as const, count: statusCounts.fechamento_aprovado }
-        ]}
-        onClearAll={() => {
-          setStatusFilter("all");
-          setSearchTerm("");
-        }}
-        placeholder="Buscar por nome ou CPF do cliente..."
+      {/* Filtro por mês (apenas visual - KPIs) */}
+      <UnifiedFilter
+        selectedMonth={selectedMonth}
+        onMonthChange={setSelectedMonth}
+        label="Filtrar por mês:"
+        className="mb-6"
       />
 
-      {/* Tabs: Pendentes / Retorno Fechamento / Concluídas Hoje */}
+      {/* KPIs do módulo */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+        <KPICard
+          title="Simulações Criadas"
+          value={combinedKpis.simulacoes_criadas}
+          subtitle="Total no período"
+          trend={combinedKpis.trends?.pending ?? 0}
+          icon={Calculator}
+          color="info"
+          gradientVariant="sky"
+          isLoading={isLoadingKpis && !stats}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.simulacoes}
+              dataKey="value"
+              xKey="day"
+              stroke="#0ea5e9"
+              height={60}
+            />
+          }
+        />
+
+        <KPICard
+          title="Simulações Aprovadas"
+          value={combinedKpis.simulacoes_aprovadas}
+          subtitle="Aprovadas no período"
+          trend={combinedKpis.trends?.approvedToday ?? 0}
+          icon={CheckCircle}
+          color="success"
+          gradientVariant="emerald"
+          isLoading={isLoadingKpis && !stats}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.aprovadas}
+              dataKey="value"
+              xKey="day"
+              stroke="#10b981"
+              height={60}
+            />
+          }
+        />
+
+        <KPICard
+          title="Taxa de Aprovação"
+          value={`${combinedKpis.taxa_aprovacao}%`}
+          subtitle="Eficiência do período"
+          trend={combinedKpis.trends?.approvalRate ?? 0}
+          icon={TrendingUp}
+          color="primary"
+          gradientVariant="violet"
+          isLoading={isLoadingKpis && !stats}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.taxa_aprovacao}
+              dataKey="value"
+              xKey="day"
+              stroke="#8b5cf6"
+              height={60}
+            />
+          }
+        />
+
+        <KPICard
+          title="Volume Financeiro"
+          value={`R$ ${(combinedKpis.volume_financeiro / 1000).toFixed(0)}K`}
+          subtitle="Volume aprovado"
+          trend={combinedKpis.trends?.volumeToday ?? 0}
+          icon={DollarSign}
+          color="warning"
+          gradientVariant="amber"
+          isLoading={isLoadingKpis && !stats}
+          miniChart={
+            <MiniAreaChart
+              data={MOCK_TREND_DATA.volume}
+              dataKey="value"
+              xKey="day"
+              stroke="#f59e0b"
+              height={60}
+            />
+          }
+        />
+
+        <KPICard
+          title="Meta Mensal"
+          value={`R$ ${(combinedKpis.meta_mensal / 1000).toFixed(0)}K`}
+          subtitle="10% da receita líquida"
+          trend={combinedKpis.trends?.meta_mensal ?? 0}
+          icon={Target}
+          color="success"
+          gradientVariant="emerald"
+          isLoading={isLoadingKpis && !kpis}
+        />
+      </div>
+
+      {/* Abas */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pendentes">
-            Pendentes ({allPendingSims.length})
+            Pendentes ({pendingSims.length})
           </TabsTrigger>
           <TabsTrigger value="retorno_fechamento">
             Retorno Fechamento ({retornoFechamento.length})
@@ -255,11 +323,17 @@ export default function CalculistaPage(){
             Enviado Financeiro ({enviadosFinanceiro.length})
           </TabsTrigger>
           <TabsTrigger value="concluidas">
-            Concluídas Hoje ({allCompletedSims.length})
+            Concluídas Hoje ({completedSims.length})
+          </TabsTrigger>
+          <TabsTrigger value="efetivados">
+            Casos Efetivados ({casosEfetivados?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="cancelados">
+            Casos Cancelados ({casosCancelados?.length || 0})
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab Pendentes */}
+        {/* Pendentes */}
         <TabsContent value="pendentes" className="mt-6">
           {pendingSims.length === 0 ? (
             <div className="text-center py-12">
@@ -282,13 +356,13 @@ export default function CalculistaPage(){
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{sim.case_id}</Badge>
-                      <Badge variant="secondary">Pendente</Badge>
+                      <StatusBadge status="draft" size="sm" />
                     </div>
 
                     <div>
                       <h3 className="font-medium">Simulação Multi-Bancos</h3>
                       <p className="text-sm text-muted-foreground">
-                        {sim.client?.name || 'Cliente não identificado'}
+                        {sim.client?.name || "Cliente não identificado"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Aguardando análise do calculista
@@ -296,7 +370,10 @@ export default function CalculistaPage(){
                     </div>
 
                     <div className="text-xs text-muted-foreground">
-                      Criado em: {new Date(sim.created_at || Date.now()).toLocaleDateString('pt-BR')}
+                      Criado em:{" "}
+                      {new Date(
+                        sim.created_at || Date.now()
+                      ).toLocaleDateString("pt-BR")}
                     </div>
 
                     <div className="flex gap-2">
@@ -312,7 +389,7 @@ export default function CalculistaPage(){
           )}
         </TabsContent>
 
-        {/* Tab Retorno Fechamento */}
+        {/* Retorno Fechamento */}
         <TabsContent value="retorno_fechamento" className="mt-6">
           {retornoLoading ? (
             <CaseSkeleton />
@@ -337,16 +414,15 @@ export default function CalculistaPage(){
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{caso.id}</Badge>
-                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Fechamento Aprovado
-                      </Badge>
+                      <StatusBadge status="fechamento_aprovado" size="sm" />
                     </div>
 
                     <div>
-                      <h3 className="font-medium">{caso.client?.name || 'Cliente não identificado'}</h3>
+                      <h3 className="font-medium">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        CPF: {caso.client?.cpf || '---'}
+                        CPF: {caso.client?.cpf || "---"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Revisão final antes de enviar para financeiro
@@ -354,7 +430,10 @@ export default function CalculistaPage(){
                     </div>
 
                     <div className="text-xs text-muted-foreground">
-                      Atualizado em: {new Date(caso.last_update_at || Date.now()).toLocaleDateString('pt-BR')}
+                      Atualizado em:{" "}
+                      {new Date(
+                        caso.last_update_at || Date.now()
+                      ).toLocaleDateString("pt-BR")}
                     </div>
 
                     <div className="flex gap-2">
@@ -370,7 +449,7 @@ export default function CalculistaPage(){
           )}
         </TabsContent>
 
-        {/* Tab Enviado Financeiro */}
+        {/* Enviado Financeiro */}
         <TabsContent value="enviado_financeiro" className="mt-6">
           {enviadosLoading ? (
             <CaseSkeleton />
@@ -394,22 +473,26 @@ export default function CalculistaPage(){
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{caso.id}</Badge>
-                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                        <DollarSign className="h-3 w-3 mr-1" />
-                        Aguardando Financeiro
-                      </Badge>
+                      <StatusBadge status="financeiro_pendente" size="sm" />
                     </div>
 
                     <div>
-                      <h3 className="font-medium">{caso.client?.name || 'Cliente não identificado'}</h3>
-                      <p className="text-sm text-muted-foreground">CPF: {caso.client?.cpf || '---'}</p>
+                      <h3 className="font-medium">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        CPF: {caso.client?.cpf || "---"}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Aprovado pelo calculista. Em processamento no financeiro.
                       </p>
                     </div>
 
                     <div className="text-xs text-muted-foreground">
-                      Atualizado em: {new Date(caso.last_update_at || Date.now()).toLocaleDateString('pt-BR')}
+                      Atualizado em:{" "}
+                      {new Date(
+                        caso.last_update_at || Date.now()
+                      ).toLocaleDateString("pt-BR")}
                     </div>
 
                     <div className="flex gap-2">
@@ -425,7 +508,7 @@ export default function CalculistaPage(){
           )}
         </TabsContent>
 
-        {/* Tab Concluídas Hoje */}
+        {/* Concluídas */}
         <TabsContent value="concluidas" className="mt-6">
           {completedSims.length === 0 ? (
             <div className="text-center py-12">
@@ -448,33 +531,32 @@ export default function CalculistaPage(){
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{sim.case_id}</Badge>
-                      {sim.status === "approved" ? (
-                        <Badge className="bg-green-100 text-green-700 border-green-200">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Aprovado
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-red-100 text-red-700 border-red-200">
-                          <XCircle className="h-3 w-3 mr-1" />
-                          Rejeitado
-                        </Badge>
-                      )}
+                      <StatusBadge
+                        status={sim.status === "approved" ? "aprovado" : "reprovado"}
+                        size="sm"
+                      />
                     </div>
 
                     <div>
                       <h3 className="font-medium">Simulação Multi-Bancos</h3>
                       <p className="text-sm text-muted-foreground">
-                        {sim.client?.name || 'Cliente não identificado'}
+                        {sim.client?.name || "Cliente não identificado"}
                       </p>
                       {sim.totals?.liberadoCliente && (
                         <p className="text-xs font-semibold text-green-600">
-                          R$ {sim.totals.liberadoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R${" "}
+                          {sim.totals.liberadoCliente.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                          })}
                         </p>
                       )}
                     </div>
 
                     <div className="text-xs text-muted-foreground">
-                      Atualizado em: {new Date(sim.updated_at || sim.created_at).toLocaleDateString('pt-BR')}
+                      Atualizado em:{" "}
+                      {new Date(
+                        sim.updated_at || sim.created_at
+                      ).toLocaleDateString("pt-BR")}
                     </div>
 
                     <Button variant="outline" className="w-full" size="sm">
@@ -487,9 +569,127 @@ export default function CalculistaPage(){
             </div>
           )}
         </TabsContent>
-      </Tabs>
 
-      {/* Modal removido: detalhes do caso não são exibidos nesta página */}
+        {/* Efetivados */}
+        <TabsContent value="efetivados" className="mt-6">
+          {efetivadosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CaseSkeleton key={i} />
+              ))}
+            </div>
+          ) : casosEfetivados?.length === 0 ? (
+            <div className="text-center py-12">
+              <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Nenhum caso efetivado encontrado
+              </h3>
+              <p className="text-muted-foreground">
+                Não há casos efetivados no momento.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {casosEfetivados?.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 space-y-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <StatusBadge status="contrato_efetivado" size="sm" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">Caso #{caso.id}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </p>
+                      {caso.client?.cpf && (
+                        <p className="text-xs text-muted-foreground">
+                          CPF: {caso.client.cpf}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Efetivado em:{" "}
+                      {new Date(
+                        caso.updated_at || caso.created_at
+                      ).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <Button variant="outline" className="w-full" size="sm">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Ver Detalhes
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Cancelados */}
+        <TabsContent value="cancelados" className="mt-6">
+          {canceladosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CaseSkeleton key={i} />
+              ))}
+            </div>
+          ) : casosCancelados?.length === 0 ? (
+            <div className="text-center py-12">
+              <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Nenhum caso cancelado encontrado
+              </h3>
+              <p className="text-muted-foreground">
+                Não há casos cancelados no momento.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {casosCancelados?.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 space-y-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <StatusBadge status="encerrado" size="sm" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">Caso #{caso.id}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </p>
+                      {caso.client?.cpf && (
+                        <p className="text-xs text-muted-foreground">
+                          CPF: {caso.client.cpf}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Cancelado em:{" "}
+                      {new Date(
+                        caso.updated_at || caso.created_at
+                      ).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <Button variant="outline" className="w-full" size="sm">
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Ver Detalhes
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

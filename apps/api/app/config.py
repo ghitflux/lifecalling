@@ -11,12 +11,12 @@ try:
 
     if env_local.exists():
         load_dotenv(env_local)
-        print(f"✅ Loaded environment from: {env_local}")
+        print(f"[OK] Loaded environment from: {env_local}")
     elif env_file.exists():
         load_dotenv(env_file)
-        print(f"✅ Loaded environment from: {env_file}")
+        print(f"[OK] Loaded environment from: {env_file}")
 except ImportError:
-    print("⚠️ python-dotenv not installed, using system environment variables")
+    print("[WARN] python-dotenv not installed, using system environment variables")
 
 class Settings(BaseModel):
     db_uri: str = None

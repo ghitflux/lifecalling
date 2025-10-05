@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Button } from "./Button";
 import { Input } from "./Input";
+import { FilterDropdown } from "./FilterDropdown";
 import { cn } from "./lib/utils";
 import { formatCurrency, parseCurrency, formatCurrencyInput, formatFileSize } from "./lib/currency";
 import { DollarSign, Calendar, FileText, Paperclip, Download, X } from "lucide-react";
@@ -49,7 +50,15 @@ export function ExpenseModal({
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      // Garantir que a data esteja no formato YYYY-MM-DD
+      const formattedDate = initialData.date?.includes('T')
+        ? initialData.date.split('T')[0]
+        : initialData.date;
+
+      setFormData({
+        ...initialData,
+        date: formattedDate || new Date().toISOString().split('T')[0]
+      });
       setDisplayValue(formatCurrency(initialData.amount || 0));
     } else {
       const today = new Date().toISOString().split('T')[0];
@@ -84,20 +93,20 @@ export function ExpenseModal({
     const inputValue = e.target.value;
     const formattedValue = formatCurrencyInput(inputValue);
     const numericValue = parseCurrency(inputValue);
-    
+
     setFormData({ ...formData, amount: numericValue });
     setDisplayValue(formattedValue);
   };
 
   const expenseTypes = [
-    "Aluguel",
-    "Salários",
-    "Impostos",
-    "Marketing",
-    "Infraestrutura",
-    "Manutenção",
-    "Serviços",
-    "Outros"
+    { value: "Aluguel", label: "Aluguel" },
+    { value: "Salários", label: "Salários" },
+    { value: "Impostos", label: "Impostos" },
+    { value: "Marketing", label: "Marketing" },
+    { value: "Infraestrutura", label: "Infraestrutura" },
+    { value: "Manutenção", label: "Manutenção" },
+    { value: "Serviços", label: "Serviços" },
+    { value: "Outros", label: "Outros" }
   ];
 
   return (
@@ -111,41 +120,24 @@ export function ExpenseModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           {/* Data */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Data da Despesa
-            </label>
-            <Input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              disabled={loading}
-              required
-            />
-          </div>
+          <Input
+            type="date"
+            placeholder="Data da Despesa"
+            value={formData.date}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            disabled={loading}
+            required
+          />
 
           {/* Tipo de Despesa */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Tipo de Despesa
-            </label>
-            <select
-              value={formData.expense_type}
-              onChange={(e) => setFormData({ ...formData, expense_type: e.target.value })}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              disabled={loading}
-              required
-            >
-              <option value="">Selecione...</option>
-              {expenseTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FilterDropdown
+            label="Tipo de Despesa"
+            options={expenseTypes}
+            value={formData.expense_type}
+            onChange={(value) => setFormData({ ...formData, expense_type: value as string })}
+            disabled={loading}
+            placeholder="Selecione o tipo..."
+          />
 
           {/* Nome da Despesa */}
           <div className="space-y-2">

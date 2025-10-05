@@ -6,6 +6,9 @@ export * from "./src/Input";
 export * from "./src/Badge";
 export * from "./src/Tabs";
 export * from "./src/Dialog";
+// DatePicker removed – module not found
+export * from "./src/FilterDropdown";
+export * from "./src/MonthPicker";
 
 // Advanced Components
 export * from "./src/StatusBadge";
@@ -50,7 +53,7 @@ export * from "./src/CasesTable";
 export * from "./src/UserForm";
 
 // Filter Components
-export * from "./src/FilterComponent";
+export { FilterComponent, type FilterComponentProps } from "./src/FilterComponent";
 export * from "./src/QuickFilters";
 export { AdvancedFilters, type FilterGroup, type AdvancedFilterValue } from "./src/AdvancedFilters";
 export { FilterProvider, useFilters as useFiltersContext } from "./src/FilterProvider";
@@ -77,3 +80,5 @@ export * from "./src/MiniAreaChart";
 export * from "./src/MiniBarChart";
 export * from "./src/DonutChart";
 export * from "./src/RankingTable";
+export * from "./src/UnifiedFilter";
+export * from "./src/Select";

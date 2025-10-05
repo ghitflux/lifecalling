@@ -63,6 +63,8 @@ export function useApproveSimulation() {
       // Invalidar queries relacionadas
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
       queryClient.invalidateQueries({ queryKey: ["cases"] });
+      queryClient.invalidateQueries({ queryKey: ["calculation", "kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["calculista", "stats"] });
 
       // Atualizar caso específico para refletir simulação aprovada
       queryClient.invalidateQueries({
@@ -94,6 +96,8 @@ export function useRejectSimulation() {
       // Invalidar queries relacionadas
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
       queryClient.invalidateQueries({ queryKey: ["cases"] });
+      queryClient.invalidateQueries({ queryKey: ["calculation", "kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["calculista", "stats"] });
       toast.success("Simulação rejeitada.");
     },
     onError: (error: any) => {

@@ -199,14 +199,7 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
-class Notification(Base):
-    __tablename__ = "notifications"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
-    event = Column(String(64), nullable=False)  # ex: case.updated
-    payload = Column(JSON, nullable=True)
-    is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class FinanceExpense(Base):
     __tablename__ = "finance_expenses"
@@ -230,7 +223,7 @@ class FinanceExpense(Base):
     __table_args__ = tuple()
 
     # Relacionamentos
-    creator = relationship("User")
+    creator = relationship("User", foreign_keys=[created_by])
 
 class FinanceIncome(Base):
     __tablename__ = "finance_incomes"
@@ -244,11 +237,13 @@ class FinanceIncome(Base):
     attachment_size = Column(Integer, nullable=True)  # Tamanho em bytes
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Atendente responsável (para receitas de contratos)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
-    creator = relationship("User")
+    creator = relationship("User", foreign_keys=[created_by])
+    agent = relationship("User", foreign_keys=[agent_user_id])
 
 # Payroll Import Models
 

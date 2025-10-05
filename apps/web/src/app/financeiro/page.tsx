@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useLiveCaseEvents } from "@/lib/ws";
 import {
   useFinanceQueue,
@@ -16,13 +16,14 @@ import {
   useUploadIncomeAttachment,
   useUploadExpenseAttachment
 } from "@/lib/hooks";
-import { FinanceCard, ExpenseModal, IncomeModal, AttachmentsModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard, MiniAreaChart } from "@lifecalling/ui";
+import { FinanceCard, ExpenseModal, IncomeModal, AttachmentsModal, Button, Tabs, TabsList, TabsTrigger, TabsContent, Card, QuickFilters, Pagination, KPICard, MiniAreaChart, UnifiedFilter } from "@lifecalling/ui";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DollarSign, Download, Plus, TrendingUp, Wallet, Trash2, Edit, TrendingDown, Receipt, Target, Eye, FileText, Calendar, User } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { startOfMonthBrasilia, endOfMonthBrasilia, formatDateBrasilia } from "@/lib/timezone";
 
 export default function Page(){
   useLiveCaseEvents();
@@ -51,16 +52,12 @@ export default function Page(){
 
   // Filtros para transações
   const [transactionType, setTransactionType] = useState<string>("");  // "", "receita", "despesa"
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");  // Filtro por categoria
   
   // Filtros por mês
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
-  const [showCustomDateFilter, setShowCustomDateFilter] = useState(false);
   const [fullReportMode, setFullReportMode] = useState(false);
 
   // Modal de detalhes do contrato
@@ -80,40 +77,22 @@ export default function Page(){
   // Detalhes completos do caso
   const { data: fullCaseDetails } = useFinanceCaseDetails(selectedCaseId || 0);
 
-  // Buscar categorias disponíveis
-  const { data: categoriesData, isLoading: loadingCategories } = useQuery({
-    queryKey: ["financeCategories"],
-    queryFn: async () => {
-      const response = await api.get("/finance/categories");
-      console.log("Categories response:", response.data);
-      return response.data;
-    }
-  });
-
-  const categories = categoriesData || { income_types: [], expense_types: [] };
-  console.log("Categories data:", categories);
-
   // Buscar transações unificadas (receitas e despesas)
   const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
-    queryKey: ["transactions", startDate, endDate, transactionType, selectedCategory, selectedMonth, showCustomDateFilter],
+    queryKey: ["transactions", transactionType, selectedMonth],
     queryFn: async () => {
       const params = new URLSearchParams();
-      
-      // Se não está usando filtro customizado, usar o mês selecionado
-      if (!showCustomDateFilter && selectedMonth) {
+
+      // Usar o mês selecionado
+      if (selectedMonth) {
         const [year, month] = selectedMonth.split('-');
         const startOfMonth = `${year}-${month}-01`;
-        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        const endOfMonth = new Date(parseInt(year), parseInt(month) + 1, 0).toISOString().split('T')[0];
         params.append("start_date", startOfMonth);
         params.append("end_date", endOfMonth);
-      } else {
-        // Usar filtro customizado
-        if (startDate) params.append("start_date", startDate);
-        if (endDate) params.append("end_date", endDate);
       }
-      
+
       if (transactionType) params.append("transaction_type", transactionType);
-      if (selectedCategory) params.append("category", selectedCategory);
 
       const response = await api.get(`/finance/transactions?${params.toString()}`);
       return response.data;
@@ -125,23 +104,19 @@ export default function Page(){
 
   // Buscar métricas do financeiro
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["financeMetrics", startDate, endDate, selectedMonth, showCustomDateFilter],
+    queryKey: ["financeMetrics", selectedMonth],
     queryFn: async () => {
       const params = new URLSearchParams();
-      
-      // Se não está usando filtro customizado, usar o mês selecionado
-      if (!showCustomDateFilter && selectedMonth) {
+
+      // Usar o mês selecionado
+      if (selectedMonth) {
         const [year, month] = selectedMonth.split('-');
         const startOfMonth = `${year}-${month}-01`;
-        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        const endOfMonth = new Date(parseInt(year), parseInt(month) + 1, 0).toISOString().split('T')[0];
         params.append("start_date", startOfMonth);
         params.append("end_date", endOfMonth);
-      } else {
-        // Usar filtro customizado
-        if (startDate) params.append("start_date", startDate);
-        if (endDate) params.append("end_date", endDate);
       }
-      
+
       const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
     }
@@ -189,15 +164,24 @@ export default function Page(){
     ]
   };
 
-  // Buscar detalhes do contrato
+  // Buscar detalhes do contrato (quando vindo da transação pelo case_id)
   const { data: contractDetails, isLoading: loadingContractDetails } = useQuery({
-    queryKey: ["contract", selectedContractId],
+    queryKey: ["contract", selectedContractId, selectedCaseId],
     queryFn: async () => {
-      if (!selectedContractId) return null;
-      const response = await api.get(`/finance/contracts/${selectedContractId}`);
-      return response.data;
+      // Se tiver case_id, busca os detalhes do caso no financeiro
+      if (selectedCaseId) {
+        const response = await api.get(`/finance/case/${selectedCaseId}`);
+        return response.data;
+      }
+      // Senão, busca pelo contract_id (método antigo)
+      if (selectedContractId) {
+        const response = await api.get(`/finance/contracts/${selectedContractId}`);
+        return response.data;
+      }
+      return null;
     },
-    enabled: !!selectedContractId});
+    enabled: !!(selectedContractId || selectedCaseId)
+  });
 
   // Mutation para salvar despesa
   const saveExpenseMutation = useMutation({
@@ -213,16 +197,26 @@ export default function Page(){
 
       // Se houver arquivos, fazer upload automaticamente
       if (files && files.length > 0 && expense.id) {
-        if (files.length === 1) {
-          // Usar endpoint singular para compatibilidade
-          const formData = new FormData();
-          formData.append('file', files[0]);
-          await api.post(`/finance/expenses/${expense.id}/attachment`, formData);
-        } else {
-          // Usar endpoint plural para múltiplos arquivos
-          const formData = new FormData();
-          files.forEach(file => formData.append('files', file));
-          await api.post(`/finance/expenses/${expense.id}/attachments`, formData);
+        try {
+          if (files.length === 1) {
+            // Usar endpoint singular para compatibilidade
+            const formData = new FormData();
+            formData.append('file', files[0]);
+            await api.post(`/finance/expenses/${expense.id}/attachment`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          } else {
+            // Usar endpoint plural para múltiplos arquivos
+            const formData = new FormData();
+            files.forEach(file => formData.append('files', file));
+            await api.post(`/finance/expenses/${expense.id}/attachments`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          }
+        } catch (uploadError: any) {
+          console.error('Erro ao fazer upload de anexo:', uploadError);
+          // Avisar sobre falha no upload mas não falhar toda a operação
+          toast.warning("Despesa salva, mas houve erro ao enviar o anexo. Tente anexar o arquivo novamente.");
         }
       }
 
@@ -237,8 +231,8 @@ export default function Page(){
     },
     onError: (error: any) => {
       console.error('Erro ao salvar despesa:', error);
-      const errorMessage = typeof error.response?.data?.detail === 'string' 
-        ? error.response.data.detail 
+      const errorMessage = typeof error.response?.data?.detail === 'string'
+        ? error.response.data.detail
         : "Erro ao salvar despesa";
       toast.error(errorMessage);
     }
@@ -276,16 +270,26 @@ export default function Page(){
 
       // Se houver arquivos, fazer upload automaticamente
       if (files && files.length > 0 && income.id) {
-        if (files.length === 1) {
-          // Usar endpoint singular para compatibilidade
-          const formData = new FormData();
-          formData.append('file', files[0]);
-          await api.post(`/finance/incomes/${income.id}/attachment`, formData);
-        } else {
-          // Usar endpoint plural para múltiplos arquivos
-          const formData = new FormData();
-          files.forEach(file => formData.append('files', file));
-          await api.post(`/finance/incomes/${income.id}/attachments`, formData);
+        try {
+          if (files.length === 1) {
+            // Usar endpoint singular para compatibilidade
+            const formData = new FormData();
+            formData.append('file', files[0]);
+            await api.post(`/finance/incomes/${income.id}/attachment`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          } else {
+            // Usar endpoint plural para múltiplos arquivos
+            const formData = new FormData();
+            files.forEach(file => formData.append('files', file));
+            await api.post(`/finance/incomes/${income.id}/attachments`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          }
+        } catch (uploadError: any) {
+          console.error('Erro ao fazer upload de anexo:', uploadError);
+          // Avisar sobre falha no upload mas não falhar toda a operação
+          toast.warning("Receita salva, mas houve erro ao enviar o anexo. Tente anexar o arquivo novamente.");
         }
       }
 
@@ -299,8 +303,8 @@ export default function Page(){
       setEditingIncome(null);
     },
     onError: (error: any) => {
-      const errorMessage = typeof error.response?.data?.detail === 'string' 
-        ? error.response.data.detail 
+      const errorMessage = typeof error.response?.data?.detail === 'string'
+        ? error.response.data.detail
         : "Erro ao salvar receita";
       toast.error(errorMessage);
     }
@@ -544,35 +548,49 @@ export default function Page(){
     }
   };
 
-  const handleExportReport = () => {
-    const params = new URLSearchParams();
-    
-    // Adicionar parâmetros de filtro
-    if (fullReportMode) {
-      params.append("full_report", "true");
-    } else {
-      // Se não está usando filtro customizado, usar o mês selecionado
-      if (!showCustomDateFilter && selectedMonth) {
-        const [year, month] = selectedMonth.split('-');
-        const startOfMonth = `${year}-${month}-01`;
-        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
-        params.append("start_date", startOfMonth);
-        params.append("end_date", endOfMonth);
+  const handleExportReport = async () => {
+    try {
+      const params = new URLSearchParams();
+
+      // Adicionar parâmetros de filtro
+      if (fullReportMode) {
+        params.append("full_report", "true");
       } else {
-        // Usar filtro customizado
-        if (startDate) params.append("start_date", startDate);
-        if (endDate) params.append("end_date", endDate);
+        // Usar o mês selecionado
+        if (selectedMonth) {
+          const [year, month] = selectedMonth.split('-');
+          const targetDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+          const startOfMonth = formatDateBrasilia(startOfMonthBrasilia(targetDate));
+          const endOfMonth = formatDateBrasilia(endOfMonthBrasilia(targetDate));
+          params.append("start_date", startOfMonth);
+          params.append("end_date", endOfMonth);
+        }
       }
+
+      if (transactionType) params.append("transaction_type", transactionType);
+
+      // Fazer requisição com blob para download
+      const response = await api.get('/finance/export', {
+        params: Object.fromEntries(params),
+        responseType: 'blob'
+      });
+
+      // Criar link de download
+      const blob = new Blob([response.data]);
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `financeiro_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(link.href);
+
+      toast.success("Relatório exportado com sucesso!");
+    } catch (error: any) {
+      console.error('Erro ao exportar relatório:', error);
+      toast.error(error.response?.data?.detail || "Erro ao exportar relatório");
     }
-    
-    if (transactionType) params.append("transaction_type", transactionType);
-    if (selectedCategory) params.append("category", selectedCategory);
-    
-    const url = `${api.defaults.baseURL}/finance/export?${params.toString()}`;
-    window.open(url, '_blank');
   };
 
-  // Filtros rÃ¡pidos de status
+  // Filtros rápidos de status
   const statusCounts = {
     aprovado: items.filter((i: any) => !i.contract && ["fechamento_aprovado", "financeiro_pendente"].includes(i.status)).length,
     liberado: items.filter((i: any) => !!i.contract).length,
@@ -591,7 +609,7 @@ export default function Page(){
 
   const handleFilterToggle = (filterId: string) => {
     setStatusFilter(prev => (prev.includes(filterId) ? [] : [filterId]));
-    setPage(1); // Reset para primeira pÃ¡gina ao filtrar
+    setPage(1); // Reset para primeira página ao filtrar
   };
 
   const handleClearFilters = () => {
@@ -600,7 +618,7 @@ export default function Page(){
     setPage(1);
   };
 
-  // Gerar filtros rápidos por mês
+  // Gerar filtros rápidos por mês usando timezone de Brasília
   const generateMonthFilters = () => {
     const months = [
       { value: '01', label: 'Jan' },
@@ -627,16 +645,14 @@ export default function Page(){
   };
 
   const handleMonthFilter = (monthValue: string) => {
-    setSelectedMonth(monthValue);
-    setShowCustomDateFilter(false);
-    setStartDate("");
-    setEndDate("");
-    setPage(1);
-  };
+    // Calcular start_date e end_date do mês selecionado
+    const [year, month] = monthValue.split('-');
+    const targetDate = new Date(parseInt(year), parseInt(month) - 1, 1);
 
-  const handleCustomDateFilter = () => {
-    setShowCustomDateFilter(true);
-    setSelectedMonth("");
+    const monthStart = startOfMonthBrasilia(targetDate);
+    const monthEnd = endOfMonthBrasilia(targetDate);
+
+    setSelectedMonth(monthValue);
     setPage(1);
   };
 
@@ -680,7 +696,7 @@ export default function Page(){
     return true;
   });
 
-  // Calcular paginaÃ§Ã£o
+  // Calcular paginação
   const totalItems = filteredItems.length;
   const totalPages = Math.ceil(totalItems / pageSize);
   const startIndex = (page - 1) * pageSize;
@@ -696,14 +712,6 @@ export default function Page(){
           <p className="text-muted-foreground mt-1">Visão geral das operações financeiras</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            onClick={handleCustomDateFilter}
-            variant={showCustomDateFilter ? "default" : "outline"}
-            className="flex items-center gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            Filtro Personalizado
-          </Button>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -726,59 +734,18 @@ export default function Page(){
         </div>
       </div>
 
-      {/* Filtros Rápidos por Mês */}
+      {/* Filtros por Mês */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">
-            {showCustomDateFilter ? "Filtro Personalizado" : "Filtros Rápidos"}
-          </h3>
-          {showCustomDateFilter && (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 border rounded-md text-sm"
-                placeholder="Data inicial"
-              />
-              <span className="text-muted-foreground">até</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 border rounded-md text-sm"
-                placeholder="Data final"
-              />
-              <Button
-                onClick={() => {
-                  setShowCustomDateFilter(false);
-                  setStartDate("");
-                  setEndDate("");
-                }}
-                variant="outline"
-                size="sm"
-              >
-                Voltar aos Filtros Rápidos
-              </Button>
-            </div>
-          )}
+          <h3 className="text-lg font-semibold">Filtros por Período</h3>
         </div>
         
-        {!showCustomDateFilter && (
-          <div className="flex flex-wrap gap-2">
-            {generateMonthFilters().map((month) => (
-              <Button
-                key={month.id}
-                variant={month.isActive ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleMonthFilter(month.value)}
-                className="min-w-[60px]"
-              >
-                {month.label}
-              </Button>
-            ))}
-          </div>
-        )}
+        <UnifiedFilter
+          selectedMonth={selectedMonth}
+          onMonthChange={setSelectedMonth}
+          label="Filtrar período:"
+          className="mb-4"
+        />
       </div>
 
       {/* KPIs Financeiros */}
@@ -857,12 +824,12 @@ export default function Page(){
         />
       </div>
 
-      {/* Filtros RÃ¡pidos */}
+      {/* Filtros Rápidos */}
       <QuickFilters
         searchTerm={searchTerm}
         onSearchChange={(value) => {
           setSearchTerm(value);
-          setPage(1); // Reset para primeira pÃ¡gina ao buscar
+          setPage(1); // Reset para primeira página ao buscar
         }}
         activeFilters={statusFilter}
         onFilterToggle={handleFilterToggle}
@@ -892,7 +859,7 @@ export default function Page(){
                 tipo_chave_pix: item.client.tipo_chave_pix
               } : undefined;
 
-              // Extrair valores da simulaÃ§Ã£o
+              // Extrair valores da simulação
               const simulationResult = item.simulation ? {
                 banco: item.simulation.banks?.[0]?.banco || "",
                 valorLiberado: item.simulation.totals.liberadoTotal,
@@ -906,7 +873,7 @@ export default function Page(){
                 custoConsultoriaLiquido: item.simulation.totals.custoConsultoriaLiquido || (item.simulation.totals.custoConsultoria * 0.86),
                 liberadoCliente: item.simulation.totals.liberadoCliente,
                 percentualConsultoria: item.simulation.percentualConsultoria,
-                taxaJuros: 1.99, // Mock - adicionar no backend se necessÃ¡rio
+                taxaJuros: 1.99, // Mock - adicionar no backend se necessário
                 prazo: item.simulation.prazo
               } : undefined;
 
@@ -940,7 +907,7 @@ export default function Page(){
             })}
           </div>
 
-          {/* PaginaÃ§Ã£o */}
+          {/* Paginação */}
           {totalItems > pageSize && (
             <Pagination
               currentPage={page}
@@ -958,7 +925,7 @@ export default function Page(){
         </>
         ) : (
           <Card className="p-12 text-center border-dashed">
-            <p className="text-lg text-muted-foreground">âœ¨ Nenhum atendimento encontrado</p>
+            <p className="text-lg text-muted-foreground">✨ Nenhum atendimento encontrado</p>
             <p className="text-sm text-muted-foreground mt-1">
               {statusFilter.length > 0 || searchTerm ? "Tente ajustar os filtros" : "Todos os atendimentos financeiros foram processados."}
             </p>
@@ -966,7 +933,7 @@ export default function Page(){
         )}
       </div>
 
-      {/* GestÃ£o de Receitas e Despesas */}
+      {/* Gestão de Receitas e Despesas */}
       <Card className="p-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -997,29 +964,9 @@ export default function Page(){
             </div>
           </div>
 
-          {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Data Inicial</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Data Final</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
-              />
-            </div>
-          </div>
 
-          {/* Abas de Tipos de TransaÃ§Ã£o */}
+
+          {/* Abas de Tipos de Transação */}
           <Tabs value={transactionType || "todas"} onValueChange={(v) => setTransactionType(v === "todas" ? "" : v)}>
             <TabsList>
               <TabsTrigger value="todas">Todas</TabsTrigger>
@@ -1028,53 +975,7 @@ export default function Page(){
             </TabsList>
           </Tabs>
 
-          {/* Filtros Rápidos por Categoria */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium">Filtros por Categoria</h3>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={selectedCategory === "" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("")}
-              >
-                Todas as Categorias
-              </Button>
-              
-              {loadingCategories ? (
-                <div className="text-sm text-gray-500">Carregando categorias...</div>
-              ) : (
-                <>
-                  {/* Categorias de Receita */}
-                  {(!transactionType || transactionType === "receita") && categories?.income_types?.length > 0 && categories.income_types.map((category: string) => (
-                    <Button
-                      key={`receita-${category}`}
-                      variant={selectedCategory === category ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedCategory(category)}
-                      className="text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-                    >
-                      📈 {category}
-                    </Button>
-                  ))}
-                  
-                  {/* Categorias de Despesa */}
-                  {(!transactionType || transactionType === "despesa") && categories?.expense_types?.length > 0 && categories.expense_types.map((category: string) => (
-                    <Button
-                      key={`despesa-${category}`}
-                      variant={selectedCategory === category ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedCategory(category)}
-                      className="text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                    >
-                      📉 {category}
-                    </Button>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Tabela Unificada */}
+          {/* Tabela Unificada - REDESENHADA */}
           {loadingTransactions ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">Carregando transações...</p>
@@ -1088,19 +989,26 @@ export default function Page(){
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-3 font-semibold">Data</th>
                         <th className="text-left p-3 font-semibold">Tipo</th>
+                        <th className="text-left p-3 font-semibold">Cliente</th>
+                        <th className="text-left p-3 font-semibold">CPF</th>
+                        <th className="text-left p-3 font-semibold">Atendente</th>
                         <th className="text-left p-3 font-semibold">Categoria</th>
-                        <th className="text-left p-3 font-semibold">Nome</th>
+                        <th className="text-left p-3 font-semibold">Descrição</th>
                         <th className="text-right p-3 font-semibold">Valor</th>
-                        <th className="text-center p-3 font-semibold">Anexos</th>
-                        <th className="text-right p-3 font-semibold">Ações</th>
+                        <th className="text-center p-3 font-semibold">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {transactions.map((transaction: any) => (
                         <tr key={transaction.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="p-3">{new Date(transaction.date).toLocaleDateString('pt-BR')}</td>
+                          {/* Data */}
+                          <td className="p-3 text-sm whitespace-nowrap">
+                            {new Date(transaction.date).toLocaleDateString('pt-BR')}
+                          </td>
+
+                          {/* Tipo */}
                           <td className="p-3">
-                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-md ${
+                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap ${
                               transaction.type === 'receita'
                                 ? 'bg-success/10 text-success'
                                 : 'bg-danger/10 text-danger'
@@ -1108,58 +1016,130 @@ export default function Page(){
                               {transaction.type === 'receita' ? 'Receita' : 'Despesa'}
                             </span>
                           </td>
-                          <td className="p-3">{transaction.category}</td>
-                          <td className="p-3">{transaction.name || '-'}</td>
-                          <td className={`p-3 text-right font-semibold ${
+
+                          {/* Cliente */}
+                          <td className="p-3 text-sm">
+                            {transaction.client_name ? (
+                              <span className="font-medium">{transaction.client_name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+
+                          {/* CPF */}
+                          <td className="p-3 text-sm font-mono">
+                            {transaction.client_cpf ? (
+                              <span className="text-muted-foreground">
+                                {transaction.client_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+
+                          {/* Atendente */}
+                          <td className="p-3 text-sm">
+                            {transaction.agent_name ? (
+                              <span className="font-medium">{transaction.agent_name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+
+                          {/* Categoria */}
+                          <td className="p-3 text-sm">
+                            <span className="px-2 py-1 bg-muted rounded-md text-xs">
+                              {transaction.category}
+                            </span>
+                          </td>
+
+                          {/* Descrição */}
+                          <td className="p-3 text-sm max-w-xs truncate">
+                            {transaction.name || '-'}
+                          </td>
+
+                          {/* Valor */}
+                          <td className={`p-3 text-right font-semibold whitespace-nowrap ${
                             transaction.type === 'receita' ? 'text-success' : 'text-danger'
                           }`}>
                             R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="p-3 text-center">
-                            {transaction.has_attachment && (
+
+                          {/* Ações */}
+                          <td className="p-3">
+                            <div className="flex items-center justify-center gap-1">
+                              {/* Botão Ver Detalhes do Atendimento (apenas para receitas de consultoria) */}
+                              {transaction.type === 'receita' && transaction.case_id && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedCaseId(transaction.case_id);
+                                    setShowContractModal(true);
+                                  }}
+                                  className="h-8 w-8 p-0"
+                                  title="Ver detalhes do atendimento"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              )}
+
+                              {/* Botão Ver Anexos */}
+                              {transaction.has_attachment && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleViewAttachments(transaction)}
+                                  className="h-8 w-8 p-0"
+                                  title="Ver anexos"
+                                >
+                                  <FileText className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              )}
+
+                              {/* Botão Editar */}
                               <Button
                                 size="sm"
-                                variant="ghost"
-                                onClick={() => handleViewAttachments(transaction)}
-                                className="h-6 w-6 p-0"
+                                variant="outline"
+                                onClick={() => handleEditTransaction(transaction)}
+                                className="h-8 w-8 p-0"
+                                title="Editar"
                               >
-                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <Edit className="h-4 w-4" />
                               </Button>
-                            )}
-                          </td>
-                          <td className="p-3 text-right space-x-2">
-                            {transaction.type === 'receita' && extractContractIdFromName(transaction.name) && (
-                              <Button size="sm" variant="outline" onClick={() => handleViewContractDetails(transaction)}>
-                                <Eye className="h-3 w-3" />
+
+                              {/* Botão Excluir */}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteTransaction(transaction)}
+                                className="h-8 w-8 p-0"
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                            )}
-                            <Button size="sm" variant="outline" onClick={() => handleEditTransaction(transaction)}>
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleDeleteTransaction(transaction)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {/* Linhas de totais */}
                       <tr className="bg-muted/20 border-t-2">
-                        <td colSpan={4} className="p-3 text-right font-bold">Total Receitas</td>
-                        <td className="p-3 text-right font-bold text-success text-lg">
+                        <td colSpan={7} className="p-3 text-right font-bold text-sm">Total Receitas</td>
+                        <td className="p-3 text-right font-bold text-success text-base">
                           R$ {totals.receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                         <td></td>
                       </tr>
                       <tr className="bg-muted/20">
-                        <td colSpan={4} className="p-3 text-right font-bold">Total Despesas</td>
-                        <td className="p-3 text-right font-bold text-danger text-lg">
+                        <td colSpan={7} className="p-3 text-right font-bold text-sm">Total Despesas</td>
+                        <td className="p-3 text-right font-bold text-danger text-base">
                           R$ {totals.despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                         <td></td>
                       </tr>
                       <tr className="bg-muted/30 border-t-2">
-                        <td colSpan={4} className="p-3 text-right font-bold">Saldo</td>
-                        <td className={`p-3 text-right font-bold text-lg ${
+                        <td colSpan={7} className="p-3 text-right font-bold text-sm">Saldo</td>
+                        <td className={`p-3 text-right font-bold text-base ${
                           totals.saldo >= 0 ? 'text-success' : 'text-danger'
                         }`}>
                           R$ {totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1248,27 +1228,41 @@ export default function Page(){
         loading={saveIncomeMutation.isPending}
       />
 
-      {/* Modal de Detalhes do Contrato */}
+      {/* Modal de Detalhes do Atendimento/Contrato */}
       {showContractModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowContractModal(false)}>
-          <div className="bg-card border rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => {
+          setShowContractModal(false);
+          setSelectedCaseId(null);
+          setSelectedContractId(null);
+        }}>
+          <div className="bg-card border rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 space-y-6">
               {/* Header */}
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">{loadingContractDetails || !contractDetails ? "Carregando contrato..." : `Detalhes do Contrato #${contractDetails.id}`}</h2>
-                  {contractDetails && (<p className="text-muted-foreground mt-1">Atendimento #{contractDetails.case_id}</p>)}
+                  <h2 className="text-2xl font-bold">
+                    {loadingContractDetails || !contractDetails
+                      ? "Carregando..."
+                      : contractDetails.contract
+                        ? `Detalhes do Contrato #${contractDetails.contract.id}`
+                        : "Detalhes do Atendimento"}
+                  </h2>
+                  {contractDetails && (
+                    <p className="text-muted-foreground mt-1">
+                      Atendimento #{contractDetails.id || contractDetails.case_id}
+                    </p>
+                  )}
                 </div>
-                {loadingContractDetails || !contractDetails ? (
-                  <div className="py-12 text-center text-muted-foreground">Carregando contrato...</div>
-                ) : (
-                  <button
-                    onClick={() => setShowContractModal(false)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    ✕
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    setShowContractModal(false);
+                    setSelectedCaseId(null);
+                    setSelectedContractId(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground text-2xl leading-none"
+                >
+                  ×
+                </button>
               </div>
 
               {/* Loading State */}
@@ -1299,85 +1293,104 @@ export default function Page(){
                       <p className="font-medium">{contractDetails.client.matricula}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Ã“rgÃ£o</p>
+                      <p className="text-sm text-muted-foreground">Órgão</p>
                       <p className="font-medium">{contractDetails.client.orgao || '-'}</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Financeiro */}
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Dados Financeiros
-                </h3>
-                <div className="grid grid-cols-2 gap-3 pl-6">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Valor Total</p>
-                    <p className="font-bold text-lg">R$ {contractDetails.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Consultoria LÃ­quida</p>
-                    <p className="font-bold text-lg text-success">R$ {contractDetails.consultoria_valor_liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Parcelas</p>
-                    <p className="font-medium">{contractDetails.paid_installments}/{contractDetails.installments}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <span className="inline-block px-2 py-1 text-xs rounded-md bg-primary/10 text-primary">
-                      {contractDetails.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Datas */}
-              <div className="space-y-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Datas
-                </h3>
-                <div className="grid grid-cols-2 gap-3 pl-6">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Data de Liberação</p>
-                    <p className="font-medium">
-                      {contractDetails.disbursed_at ? new Date(contractDetails.disbursed_at).toLocaleDateString('pt-BR') : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Data de Criação</p>
-                    <p className="font-medium">
-                      {contractDetails.created_at ? new Date(contractDetails.created_at).toLocaleDateString('pt-BR') : '-'}
-                    </p>
+              {/* Simulação */}
+              {contractDetails.simulation && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Receipt className="h-4 w-4" />
+                    Dados da Simulação
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 pl-6 bg-muted/20 p-3 rounded-lg">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Financiado</p>
+                      <p className="font-bold">R$ {(contractDetails.simulation.totals?.totalFinanciado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Liberado Cliente</p>
+                      <p className="font-bold text-success">R$ {(contractDetails.simulation.totals?.liberadoCliente || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Consultoria (Bruto)</p>
+                      <p className="font-medium">R$ {(contractDetails.simulation.totals?.custoConsultoria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Consultoria Líquida (86%)</p>
+                      <p className="font-medium text-success">R$ {(contractDetails.simulation.totals?.custoConsultoriaLiquido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Prazo</p>
+                      <p className="font-medium">{contractDetails.simulation.prazo || 0} meses</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">% Consultoria</p>
+                      <p className="font-medium">{contractDetails.simulation.percentual_consultoria || 0}%</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Anexos */}
-              {contractDetails.attachments && contractDetails.attachments.length > 0 && (
+              {/* Contrato */}
+              {contractDetails.contract && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Dados do Contrato
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 pl-6 bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Valor Total</p>
+                      <p className="font-bold text-lg">R$ {(contractDetails.contract.total_amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <span className="inline-block px-2 py-1 text-xs rounded-md bg-primary/10 text-primary font-medium">
+                        {contractDetails.contract.status}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Parcelas</p>
+                      <p className="font-medium">{contractDetails.contract.paid_installments || 0}/{contractDetails.contract.installments || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Data de Liberação</p>
+                      <p className="font-medium">
+                        {contractDetails.contract.disbursed_at ? new Date(contractDetails.contract.disbursed_at).toLocaleDateString('pt-BR') : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Anexos do Contrato */}
+              {contractDetails.contract?.attachments && contractDetails.contract.attachments.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="font-semibold flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Anexos ({contractDetails.attachments.length})
+                    Anexos ({contractDetails.contract.attachments.length})
                   </h3>
                   <div className="space-y-2 pl-6">
-                    {contractDetails.attachments.map((att: any) => (
-                      <div key={att.id} className="flex items-center justify-between p-2 rounded border bg-muted/30">
-                        <div>
+                    {contractDetails.contract.attachments.map((att: any) => (
+                      <div key={att.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <div className="flex-1">
                           <p className="font-medium text-sm">{att.filename}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(att.size / 1024).toFixed(2)} KB â€¢ {att.created_at ? new Date(att.created_at).toLocaleDateString('pt-BR') : '-'}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {(att.size / 1024).toFixed(2)} KB • {att.created_at ? new Date(att.created_at).toLocaleDateString('pt-BR') : '-'}
                           </p>
                         </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(`${api.defaults.baseURL}/contracts/${contractDetails.id}/attachments/${att.id}/download`, '_blank')}
+                          onClick={() => window.open(`${api.defaults.baseURL}/contracts/${contractDetails.contract.id}/attachments/${att.id}/download`, '_blank')}
+                          className="ml-3"
                         >
-                          <Download className="h-3 w-3" />
+                          <Download className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
@@ -1395,14 +1408,21 @@ export default function Page(){
                   className="flex-1"
                   onClick={() => {
                     setShowContractModal(false);
-                    router.push(`/casos/${contractDetails.case_id}`);
+                    setSelectedCaseId(null);
+                    setSelectedContractId(null);
+                    const caseId = contractDetails.id || contractDetails.case_id;
+                    router.push(`/calculista/${caseId}`);
                   }}
                 >
-                  Ver Caso Completo
+                  Ver Atendimento Completo
                 </Button>
                 <Button
                   variant="default"
-                  onClick={() => setShowContractModal(false)}
+                  onClick={() => {
+                    setShowContractModal(false);
+                    setSelectedCaseId(null);
+                    setSelectedContractId(null);
+                  }}
                 >
                   Fechar
                 </Button>

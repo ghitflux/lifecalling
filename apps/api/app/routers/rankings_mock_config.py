@@ -14,7 +14,7 @@ USE_MOCK_DATA = True  # ATIVADO - Dados mockados para demonstração
 
 # Mensagem de aviso (aparece nos logs)
 MOCK_WARNING = """
-⚠️  ATENÇÃO: Rankings está usando DADOS MOCKADOS!
+[WARN] ATENCAO: Rankings esta usando DADOS MOCKADOS!
 Para usar dados reais:
 1. Abra: apps/api/app/routers/rankings_mock_config.py
 2. Mude: USE_MOCK_DATA = False

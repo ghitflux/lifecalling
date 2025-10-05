@@ -4,7 +4,7 @@ Inclui dados realísticos com simulações multi-bancos e notificações
 """
 from datetime import datetime, timedelta
 from app.db import SessionLocal
-from app.models import User, Client, Case, CaseEvent, Simulation, Contract, Payment, ContractAttachment, Attachment, Notification
+from app.models import User, Client, Case, CaseEvent, Simulation, Contract, Payment, ContractAttachment, Attachment
 from app.security import hash_password
 import random
 from decimal import Decimal
@@ -105,15 +105,7 @@ def clear_existing_test_data():
             # Remover casos e suas dependências
             cases = db.query(Case).filter(Case.client_id == client.id).all()
             for case in cases:
-                # Remover notificações - usar SQL direto para PostgreSQL JSON
-                try:
-                    db.execute(
-                        "DELETE FROM notifications WHERE payload::text LIKE :pattern",
-                        {"pattern": f'%"case_id": {case.id}%'}
-                    )
-                except Exception:
-                    # Se falhar, skip - as notificações serão limpas de outra forma
-                    pass
+
 
                 # Remover eventos
                 db.query(CaseEvent).filter(CaseEvent.case_id == case.id).delete()
@@ -300,26 +292,7 @@ def create_enhanced_cases():
                     )
                     db.add(contract)
 
-                # Criar algumas notificações para simular atividade
-                if random.choice([True, False]) and assigned_user:
-                    notification_events = [
-                        "simulation.approved",
-                        "simulation.rejected",
-                        "case.assigned",
-                        "case.status_changed"
-                    ]
 
-                    notification = Notification(
-                        user_id=assigned_user.id,
-                        event=random.choice(notification_events),
-                        payload={
-                            "case_id": case.id,
-                            "message": f"Atualização no caso #{case.id} - {client.name}"
-                        },
-                        is_read=random.choice([True, False]),
-                        created_at=last_update
-                    )
-                    db.add(notification)
 
                 casos_criados += 1
 
@@ -354,8 +327,7 @@ def create_enhanced_cases():
         print("\n[USERS] Casos por usuário:")
         for user in atendentes + calculistas + financeiros:
             count = db.query(Case).filter(Case.assigned_user_id == user.id).count()
-            notif_count = db.query(Notification).filter(Notification.user_id == user.id).count()
-            print(f"  - {user.name} ({user.role}): {count} casos, {notif_count} notificações")
+            print(f"  - {user.name} ({user.role}): {count} casos")
 
         unassigned = db.query(Case).filter(Case.assigned_user_id.is_(None)).count()
         print(f"  - Não atribuídos: {unassigned} casos")

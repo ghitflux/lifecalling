@@ -394,3 +394,152 @@ def export_csv(
 
     csv_data = output.getvalue()
     return Response(content=csv_data, media_type="text/csv")
+
+@r.get("/kpis")
+def get_rankings_kpis(
+    from_: str | None = Query(None, alias="from"),
+    to: str | None = None,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
+):
+    """
+    KPIs agregados do módulo Rankings:
+    - Total de atendentes ativos
+    - Total de contratos no período
+    - Consultoria líquida total
+    - Ticket médio geral
+    - Atendentes que atingiram meta
+    - Top performer do período
+    """
+    start, end, prev_start, prev_end = _parse_range(from_, to)
+    
+    # Estratégia para encontrar o atendente dono do contrato
+    owner_user_id = case(
+        [(Contract.created_by.isnot(None), Contract.created_by)],
+        else_=Case.assigned_user_id
+    )
+    
+    # Query base para contratos no período
+    base_q = (db.query(Contract)
+              .join(Case, Case.id == Contract.case_id, isouter=True))
+    
+    if from_ and to:
+        base_q = base_q.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+        )
+    
+    # Total de contratos no período
+    total_contracts = base_q.count()
+    
+    # Consultoria líquida total
+    total_consultoria = float(base_q.with_entities(
+        func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+    ).scalar() or 0)
+    
+    # Ticket médio geral
+    ticket_medio_geral = (total_consultoria / total_contracts) if total_contracts > 0 else 0
+    
+    # Atendentes únicos no período
+    atendentes_query = (db.query(func.distinct(owner_user_id))
+                       .join(Case, Case.id == Contract.case_id, isouter=True))
+    
+    if from_ and to:
+        atendentes_query = atendentes_query.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+        )
+    
+    total_atendentes = atendentes_query.count()
+    
+    # Performance por atendente para calcular metas atingidas e top performer
+    performance_query = (db.query(
+        owner_user_id.label("user_id"),
+        func.count(Contract.id).label("qtd"),
+        func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("consult_sum")
+    )
+    .join(Case, Case.id == Contract.case_id, isouter=True)
+    .group_by(owner_user_id))
+    
+    if from_ and to:
+        performance_query = performance_query.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+        )
+    
+    performance_results = performance_query.all()
+    
+    # Calcular atendentes que atingiram meta (R$ 10.000 padrão)
+    meta_default = 10000.0
+    atendentes_meta_atingida = 0
+    top_performer = None
+    max_consultoria = 0
+    
+    # Buscar metas personalizadas dos usuários
+    user_targets = {}
+    for u in db.query(User).all():
+        meta = {}
+        if hasattr(u, "settings") and isinstance(u.settings, dict):
+            meta = (u.settings or {}).get("targets", {})
+        meta_consultoria = float(meta.get("consultoria", 0) or 0.0)
+        if meta_consultoria == 0:
+            meta_consultoria = meta_default
+        user_targets[u.id] = meta_consultoria
+    
+    for perf in performance_results:
+        if not perf.user_id:
+            continue
+            
+        consultoria = float(perf.consult_sum or 0)
+        meta_usuario = user_targets.get(perf.user_id, meta_default)
+        
+        # Verificar se atingiu meta
+        if consultoria >= meta_usuario:
+            atendentes_meta_atingida += 1
+        
+        # Verificar se é o top performer
+        if consultoria > max_consultoria:
+            max_consultoria = consultoria
+            user = db.get(User, perf.user_id)
+            top_performer = {
+                "user_id": perf.user_id,
+                "name": user.name if user else "—",
+                "consultoria_liq": consultoria,
+                "contracts": int(perf.qtd or 0)
+            }
+    
+    # Período anterior para comparação
+    prev_query = (db.query(Contract)
+                  .join(Case, Case.id == Contract.case_id, isouter=True))
+    
+    if from_ and to:
+        prev_query = prev_query.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(prev_start, prev_end)
+        )
+    
+    prev_total_contracts = prev_query.count()
+    prev_total_consultoria = float(prev_query.with_entities(
+        func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+    ).scalar() or 0)
+    
+    # Calcular trends
+    trend_contracts = total_contracts - prev_total_contracts
+    trend_consultoria = total_consultoria - prev_total_consultoria
+    trend_contracts_percent = (trend_contracts / prev_total_contracts * 100) if prev_total_contracts > 0 else 0
+    trend_consultoria_percent = (trend_consultoria / prev_total_consultoria * 100) if prev_total_consultoria > 0 else 0
+    
+    return {
+        "period": {"from": str(start), "to": str(end)},
+        "kpis": {
+            "total_atendentes": total_atendentes,
+            "total_contracts": total_contracts,
+            "total_consultoria": round(total_consultoria, 2),
+            "ticket_medio_geral": round(ticket_medio_geral, 2),
+            "atendentes_meta_atingida": atendentes_meta_atingida,
+            "percentual_meta_atingida": round((atendentes_meta_atingida / total_atendentes * 100) if total_atendentes > 0 else 0, 1),
+            "top_performer": top_performer,
+            "trends": {
+                "contracts": trend_contracts,
+                "contracts_percent": round(trend_contracts_percent, 1),
+                "consultoria": round(trend_consultoria, 2),
+                "consultoria_percent": round(trend_consultoria_percent, 1)
+            }
+        }
+    }

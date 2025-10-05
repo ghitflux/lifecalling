@@ -234,7 +234,7 @@ async def create_or_update_simulation(case_id: int, data: SimulationInput, user=
 @r.post("/{sim_id}/approve")
 async def approve(sim_id: int, user=Depends(require_roles("calculista","admin","supervisor"))):
     """Aprovar simulação"""
-    from ..routers.notifications import notify_case_status_change
+
 
     with SessionLocal() as db:
         sim = db.get(Simulation, sim_id)
@@ -297,23 +297,6 @@ async def approve(sim_id: int, user=Depends(require_roles("calculista","admin","
 
         db.commit()
 
-    # Notificar atendente responsável
-    notify_user_ids = []
-    if case.assigned_user_id:
-        notify_user_ids.append(case.assigned_user_id)
-
-    if notify_user_ids:
-        await notify_case_status_change(
-            case_id=case.id,
-            new_status="calculo_aprovado",
-            changed_by_user_id=user.id,
-            notify_user_ids=notify_user_ids,
-            additional_payload={
-                "liberado_cliente": float(sim.liberado_cliente or 0),
-                "total_financiado": float(sim.total_financiado or 0)
-            }
-        )
-
     await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status": "approved"})
     await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status": "calculo_aprovado"})
     return {"ok": True}
@@ -324,7 +307,7 @@ class RejectInput(BaseModel):
 @r.post("/{sim_id}/reject")
 async def reject(sim_id: int, data: RejectInput, user=Depends(require_roles("calculista","admin","supervisor"))):
     """Rejeitar simulação"""
-    from ..routers.notifications import notify_case_status_change
+
 
     with SessionLocal() as db:
         sim = db.get(Simulation, sim_id)
@@ -385,19 +368,7 @@ async def reject(sim_id: int, data: RejectInput, user=Depends(require_roles("cal
 
         db.commit()
 
-    # Notificar atendente responsável
-    notify_user_ids = []
-    if case.assigned_user_id:
-        notify_user_ids.append(case.assigned_user_id)
 
-    if notify_user_ids:
-        await notify_case_status_change(
-            case_id=case.id,
-            new_status="calculo_rejeitado",
-            changed_by_user_id=user.id,
-            notify_user_ids=notify_user_ids,
-            additional_payload={"reason": data.reason}
-        )
 
     await eventbus.broadcast("simulation.updated", {"simulation_id": sim_id, "status": "rejected"})
     await eventbus.broadcast("case.updated", {"case_id": sim.case_id, "status": "calculo_rejeitado"})
@@ -484,7 +455,7 @@ async def send_to_finance(case_id: int, user=Depends(require_roles("calculista",
     Envia caso para financeiro após revisão do fechamento aprovado.
     Usado quando o calculista revisa uma simulação aprovada pelo fechamento.
     """
-    from ..routers.notifications import notify_case_status_change
+
 
     with SessionLocal() as db:
         case = db.get(Case, case_id)
@@ -521,22 +492,191 @@ async def send_to_finance(case_id: int, user=Depends(require_roles("calculista",
 
         db.commit()
 
-    # Notificar usuários do financeiro
-    notify_user_ids = []
-    from ..models import User
-    finance_users = db.query(User).filter(User.role == "financeiro", User.active).all()
-    for fu in finance_users:
-        notify_user_ids.append(fu.id)
 
-    if notify_user_ids:
-        await notify_case_status_change(
-            case_id=case.id,
-            new_status="financeiro_pendente",
-            changed_by_user_id=user.id,
-            notify_user_ids=notify_user_ids,
-            additional_payload={"simulation_id": sim.id}
-        )
 
     await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "financeiro_pendente"})
 
     return {"ok": True, "message": "Caso enviado para financeiro"}
+
+# Adicionar novo router para KPIs de cálculo
+calculation_router = APIRouter(prefix="/calculation", tags=["calculation"])
+
+def _calculate_trend(current: float, previous: float) -> float:
+    """Calcula a tendência percentual entre dois valores."""
+    if previous == 0:
+        return 100.0 if current > 0 else 0.0
+    return round(((current - previous) / previous) * 100, 1)
+
+def _resolve_period_with_previous_calc(from_: str = None, to_: str = None, month: str = None):
+    """Resolve período atual e anterior para cálculo de trends."""
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+
+    if month:
+        # Formato: YYYY-MM
+        year, month_num = month.split('-')
+        start_date = datetime(int(year), int(month_num), 1)
+        if int(month_num) == 12:
+            end_date = datetime(int(year) + 1, 1, 1)
+        else:
+            end_date = datetime(int(year), int(month_num) + 1, 1)
+
+        # Período anterior (mês anterior)
+        prev_start = start_date - relativedelta(months=1)
+        prev_end = start_date
+
+    elif from_ and to_:
+        start_date = datetime.fromisoformat(from_)
+        end_date = datetime.fromisoformat(to_)
+
+        # Calcular duração do período
+        duration = end_date - start_date
+        prev_end = start_date
+        prev_start = start_date - duration
+
+    else:
+        # Padrão: mês atual
+        now = datetime.utcnow()
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if now.month == 12:
+            end_date = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            end_date = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Período anterior (mês anterior)
+        prev_start = start_date - relativedelta(months=1)
+        prev_end = start_date
+
+    return start_date, end_date, prev_start, prev_end
+
+def _get_calculation_kpis_for_period(start_date, end_date):
+    """Calcula KPIs do calculista para um período específico."""
+    with SessionLocal() as db:
+        from sqlalchemy import and_
+
+        # 1. Simulações pendentes (status = draft)
+        pending = db.query(Simulation).filter(
+            Simulation.status == "draft"
+        ).count()
+
+        # 2. Simulações aprovadas no período
+        approved_today = db.query(Simulation).filter(
+            and_(
+                Simulation.status == "approved",
+                Simulation.updated_at >= start_date,
+                Simulation.updated_at < end_date
+            )
+        ).count()
+
+        # 3. Simulações rejeitadas no período
+        rejected_today = db.query(Simulation).filter(
+            and_(
+                Simulation.status == "rejected",
+                Simulation.updated_at >= start_date,
+                Simulation.updated_at < end_date
+            )
+        ).count()
+
+        # 4. Total processado no período
+        total_today = approved_today + rejected_today
+
+        # 5. Taxa de aprovação
+        approval_rate = (approved_today / total_today * 100) if total_today > 0 else 0
+
+        # 6. Volume financeiro das simulações aprovadas no período
+        approved_sims = db.query(Simulation).filter(
+            and_(
+                Simulation.status == "approved",
+                Simulation.updated_at >= start_date,
+                Simulation.updated_at < end_date
+            )
+        ).all()
+
+        # Calcular volume financeiro total (soma dos valores de consultoria líquida)
+        volume_today = 0
+        for sim in approved_sims:
+            if sim.custo_consultoria_liquido:
+                volume_today += float(sim.custo_consultoria_liquido)
+
+        return {
+            "pending": pending,
+            "approvedToday": approved_today,
+            "rejectedToday": rejected_today,
+            "totalToday": total_today,
+            "approvalRate": round(approval_rate, 1),
+            "volumeToday": volume_today
+        }
+
+@calculation_router.get("/kpis")
+def get_calculation_kpis(
+    from_: str = None,
+    to_: str = None,
+    month: str = None,
+    include_trends: bool = True,
+    user=Depends(require_roles("admin","supervisor","calculista"))
+):
+    """
+    Retorna KPIs do módulo de cálculo baseados em dados reais das simulações.
+    """
+    if include_trends:
+        # Calcular período atual e anterior
+        start_date, end_date, prev_start, prev_end = _resolve_period_with_previous_calc(from_, to_, month)
+
+        # Obter KPIs para ambos os períodos
+        current_kpis = _get_calculation_kpis_for_period(start_date, end_date)
+        previous_kpis = _get_calculation_kpis_for_period(prev_start, prev_end)
+
+        # Calcular trends
+        trends = {
+            "pending": _calculate_trend(current_kpis["pending"], previous_kpis["pending"]),
+            "approvedToday": _calculate_trend(current_kpis["approvedToday"], previous_kpis["approvedToday"]),
+            "rejectedToday": _calculate_trend(current_kpis["rejectedToday"], previous_kpis["rejectedToday"]),
+            "totalToday": _calculate_trend(current_kpis["totalToday"], previous_kpis["totalToday"]),
+            "approvalRate": _calculate_trend(current_kpis["approvalRate"], previous_kpis["approvalRate"]),
+            "volumeToday": _calculate_trend(current_kpis["volumeToday"], previous_kpis["volumeToday"])
+        }
+
+        # Adicionar trends aos KPIs atuais
+        result = current_kpis.copy()
+        result["trends"] = trends
+        result["previous_period"] = previous_kpis
+        result["period"] = {
+            "from": start_date.isoformat(),
+            "to": end_date.isoformat(),
+            "prev_from": prev_start.isoformat(),
+            "prev_to": prev_end.isoformat()
+        }
+
+        return result
+    else:
+        # Modo legado sem trends
+        from datetime import datetime
+
+        # Determinar período de análise
+        if month:
+            # Formato: YYYY-MM
+            year, month_num = month.split('-')
+            start_date = datetime(int(year), int(month_num), 1)
+            if int(month_num) == 12:
+                end_date = datetime(int(year) + 1, 1, 1)
+            else:
+                end_date = datetime(int(year), int(month_num) + 1, 1)
+        elif from_ and to_:
+            start_date = datetime.fromisoformat(from_)
+            end_date = datetime.fromisoformat(to_)
+        else:
+            # Padrão: mês atual
+            now = datetime.utcnow()
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if now.month == 12:
+                end_date = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                end_date = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        result = _get_calculation_kpis_for_period(start_date, end_date)
+        result["period"] = {
+            "from": start_date.isoformat(),
+            "to": end_date.isoformat()
+        }
+
+        return result

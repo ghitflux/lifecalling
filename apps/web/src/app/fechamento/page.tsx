@@ -1,21 +1,18 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useClosingQueue, useClosingApprove, useClosingReject } from "@/lib/hooks";
+import { useClosingQueue, useClosingApprove, useClosingReject, useClosingKpis } from "@/lib/hooks";
 import {
   Button,
   Badge,
   CardFechamento,
-  QuickFilters,
-  AdvancedFilters,
-  FilterProvider,
-  useFiltersContext as useFilters,
-  type QuickFilter,
-  type FilterGroup,
-  type AdvancedFilterValue
+  KPICard,
+  MiniAreaChart,
+  UnifiedFilter
 } from "@lifecalling/ui";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, User, Calendar, DollarSign, Building, X } from "lucide-react";
+import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, Target, FileCheck } from "lucide-react";
 
 function FechamentoContent() {
   useLiveCaseEvents();
@@ -23,149 +20,145 @@ function FechamentoContent() {
   const { data: items = [], isLoading, error, refetch } = useClosingQueue();
   const approve = useClosingApprove();
   const reject = useClosingReject();
-  const {
-    searchTerm,
-    quickFilters,
-    advancedFilters,
-    setSearchTerm,
-    toggleQuickFilter,
-    setAdvancedFilters,
-    clearAll,
-    hasActiveFilters,
-    getFilteredData
-  } = useFilters();
 
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  // Estado para filtro por mês
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
-  // Definir filtros rápidos disponíveis
-  const availableQuickFilters: QuickFilter[] = [
-    {
-      id: "calculo_aprovado",
-      label: "Cálculo Aprovado",
-      value: "calculo_aprovado",
-      icon: DollarSign,
-      color: "success",
-      count: items.filter((item: any) => item.status === "calculo_aprovado").length
-    },
-    {
-      id: "fechamento_pendente",
-      label: "Fechamento Pendente",
-      value: "fechamento_pendente",
-      icon: User,
-      color: "warning",
-      count: items.filter((item: any) => item.status === "fechamento_pendente").length
-    },
-    {
-      id: "fechamento_aprovado",
-      label: "Fechamento Aprovado",
-      value: "fechamento_aprovado",
-      icon: RefreshCw,
-      color: "primary",
-      count: items.filter((item: any) => item.status === "fechamento_aprovado").length
-    },
-    {
-      id: "fechamento_reprovado",
-      label: "Fechamento Reprovado",
-      value: "fechamento_reprovado",
-      icon: X,
-      color: "danger",
-      count: items.filter((item: any) => item.status === "fechamento_reprovado").length
-    }
-  ];
+  // Hook para buscar dados de KPI do fechamento (com mês selecionado)
+  const { data: kpis, isLoading: isLoadingKpis } = useClosingKpis({ month: selectedMonth });
 
-  // Definir grupos de filtros avançados
-  const advancedFilterGroups: FilterGroup[] = [
-    {
-      id: "status",
-      label: "Status",
-      type: "multiselect",
-      icon: User,
-      options: [...new Set(items.map((item: any) => item.status))].map((status) => ({
-        id: status as string,
-        label: status as string,
-        value: status as string,
-        count: items.filter((item: any) => item.status === status).length
-      }))
-    },
-    {
-      id: "banco",
-      label: "Banco",
-      type: "multiselect",
-      icon: Building,
-      options: [...new Set(items.map((item: any) => item.banco).filter(Boolean))].map((banco) => ({
-        id: banco as string,
-        label: banco as string,
-        value: banco as string,
-        count: items.filter((item: any) => item.banco === banco).length
-      }))
-    },
-    {
-      id: "data_criacao",
-      label: "Data de Criação",
-      type: "daterange",
-      icon: Calendar
-    },
-    {
-      id: "valor_total",
-      label: "Valor Total",
-      type: "numberrange",
-      icon: DollarSign
-    }
-  ];
+  // Dados combinados com fallback para dados padrão
+  const combinedKpis = useMemo(() => {
+    if (kpis) return kpis;
 
-  // Função de filtro personalizada
-  const filterFunction = (item: any, state: any) => {
-    // Filtro de busca
-    if (state.searchTerm) {
-      const searchLower = state.searchTerm.toLowerCase();
-      const matchesSearch =
-        item.client?.name?.toLowerCase().includes(searchLower) ||
-        item.client?.cpf?.includes(state.searchTerm) ||
-        item.id.toString().includes(state.searchTerm);
-
-      if (!matchesSearch) return false;
-    }
-
-    // Filtros rápidos
-    if (state.quickFilters.length > 0) {
-      const matchesQuickFilter = state.quickFilters.some((filterId: string) => {
-        const filter = availableQuickFilters.find(f => f.id === filterId);
-        return filter && item.status === filter.value;
-      });
-
-      if (!matchesQuickFilter) return false;
-    }
-
-    // Filtros avançados
-    for (const advancedFilter of state.advancedFilters) {
-      const { groupId, values } = advancedFilter;
-
-      if (values.length === 0) continue;
-
-      switch (groupId) {
-        case "status":
-          if (!values.includes(item.status)) return false;
-          break;
-        case "banco":
-          if (!values.includes(item.banco)) return false;
-          break;
-        case "data_criacao":
-          if (values.length === 2) {
-            const itemDate = new Date(item.created_at);
-            const startDate = new Date(values[0]);
-            const endDate = new Date(values[1]);
-            if (itemDate < startDate || itemDate > endDate) return false;
-          }
-          break;
-        // Adicionar mais casos conforme necessário
+    // Fallback para dados padrão enquanto carrega
+    return {
+      casos_pendentes: 0,
+      casos_aprovados: 0,
+      casos_reprovados: 0,
+      taxa_aprovacao: 0,
+      volume_financeiro: 0,
+      consultoria_liquida: 0,
+      meta_mensal: 50000, // Valor padrão
+      trends: {
+        casos_pendentes: 0,
+        casos_aprovados: 0,
+        taxa_aprovacao: 0,
+        volume_financeiro: 0,
+        consultoria_liquida: 0
       }
+    };
+  }, [kpis]);
+
+  // Meses disponíveis para filtro
+  const availableMonths = useMemo(() => {
+    const months = [];
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(currentYear, month, 1);
+      const value = `${currentYear}-${String(month + 1).padStart(2, '0')}`;
+      const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      months.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
     }
 
-    return true;
+    return months;
+  }, []);
+
+  // Dados mockados de tendência para os mini gráficos
+  const MOCK_TREND_DATA = {
+    casos_pendentes: [
+      { day: "D1", value: 8 },
+      { day: "D2", value: 12 },
+      { day: "D3", value: 10 },
+      { day: "D4", value: 15 },
+      { day: "D5", value: 13 },
+      { day: "D6", value: 18 },
+      { day: "D7", value: 16 },
+    ],
+    casos_aprovados: [
+      { day: "D1", value: 6 },
+      { day: "D2", value: 9 },
+      { day: "D3", value: 8 },
+      { day: "D4", value: 12 },
+      { day: "D5", value: 11 },
+      { day: "D6", value: 14 },
+      { day: "D7", value: 13 },
+    ],
+
+    taxa_aprovacao: [
+      { day: "D1", value: 75 },
+      { day: "D2", value: 78 },
+      { day: "D3", value: 80 },
+      { day: "D4", value: 82 },
+      { day: "D5", value: 85 },
+      { day: "D6", value: 83 },
+      { day: "D7", value: 87 },
+    ],
+    volume_financeiro: [
+      { day: "D1", value: 35000 },
+      { day: "D2", value: 42000 },
+      { day: "D3", value: 38000 },
+      { day: "D4", value: 48000 },
+      { day: "D5", value: 45000 },
+      { day: "D6", value: 52000 },
+      { day: "D7", value: 55000 },
+    ],
+    consultoria_liquida: [
+      { day: "D1", value: 12500 },
+      { day: "D2", value: 15200 },
+      { day: "D3", value: 13800 },
+      { day: "D4", value: 18400 },
+      { day: "D5", value: 16900 },
+      { day: "D6", value: 21300 },
+      { day: "D7", value: 23100 },
+    ],
+    receita_liquida: [
+      { day: "D1", value: 45000 },
+      { day: "D2", value: 52000 },
+      { day: "D3", value: 48000 },
+      { day: "D4", value: 58000 },
+      { day: "D5", value: 55000 },
+      { day: "D6", value: 62000 },
+      { day: "D7", value: 65000 },
+    ],
+    despesas: [
+      { day: "D1", value: 25000 },
+      { day: "D2", value: 28000 },
+      { day: "D3", value: 26000 },
+      { day: "D4", value: 30000 },
+      { day: "D5", value: 29000 },
+      { day: "D6", value: 32000 },
+      { day: "D7", value: 31000 },
+    ],
+    lucro_liquido: [
+      { day: "D1", value: 20000 },
+      { day: "D2", value: 24000 },
+      { day: "D3", value: 22000 },
+      { day: "D4", value: 28000 },
+      { day: "D5", value: 26000 },
+      { day: "D6", value: 30000 },
+      { day: "D7", value: 34000 },
+    ],
+    meta_mensal: [
+      { day: "D1", value: 2000 },
+      { day: "D2", value: 2400 },
+      { day: "D3", value: 2200 },
+      { day: "D4", value: 2800 },
+      { day: "D5", value: 2600 },
+      { day: "D6", value: 3000 },
+      { day: "D7", value: 3400 },
+    ],
   };
 
-  // Aplicar filtros
-  const filteredItems = getFilteredData(items, filterFunction);
+
+
+  // Usar todos os itens sem filtros
+  const filteredItems = items;
 
   const handleApprove = (caseId: number) => {
     approve.mutate(caseId);
@@ -192,7 +185,6 @@ function FechamentoContent() {
         <div className="flex items-center gap-2">
           <Badge variant="secondary">
             {filteredItems.length} caso{filteredItems.length !== 1 ? 's' : ''}
-            {hasActiveFilters ? ' (filtrados)' : ''}
           </Badge>
           <Button
             variant="outline"
@@ -205,32 +197,78 @@ function FechamentoContent() {
         </div>
       </div>
 
-      {/* New Filter System */}
-      <div className="bg-muted/30 p-4 rounded-lg">
-        <QuickFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          activeFilters={quickFilters}
-          onFilterToggle={toggleQuickFilter}
-          availableFilters={availableQuickFilters}
-          onClearAll={clearAll}
-          onAdvancedFilters={() => setShowAdvancedFilters(true)}
-          placeholder="Buscar por nome, CPF ou ID..."
+      {/* Filtro por mês (KPIs) */}
+      <UnifiedFilter
+        selectedMonth={selectedMonth}
+        onMonthChange={setSelectedMonth}
+        label="Filtrar por mês:"
+        className="mb-6"
+      />
+
+      {/* KPIs do Módulo de Fechamento */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+        <KPICard
+          title="Casos Pendentes"
+          value={combinedKpis.casos_pendentes}
+          subtitle="Aguardando análise"
+          trend={combinedKpis.trends?.casos_pendentes || 0}
+          icon={Clock}
+          color="warning"
+          gradientVariant="amber"
+          isLoading={isLoadingKpis && !kpis}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.casos_pendentes} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
+        />
+
+        <KPICard
+          title="Casos Aprovados"
+          value={combinedKpis.casos_aprovados}
+          subtitle="Aprovados no período"
+          trend={combinedKpis.trends?.casos_aprovados || 0}
+          icon={CheckCircle}
+          color="success"
+          gradientVariant="emerald"
+          isLoading={isLoadingKpis && !kpis}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.casos_aprovados} dataKey="value" xKey="day" stroke="#10b981" height={60} />}
+        />
+
+        <KPICard
+          title="Taxa de Aprovação"
+          value={`${combinedKpis.taxa_aprovacao}%`}
+          subtitle="Eficiência do período"
+          trend={combinedKpis.trends?.taxa_aprovacao || 0}
+          icon={TrendingUp}
+          color="primary"
+          gradientVariant="violet"
+          isLoading={isLoadingKpis && !kpis}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.taxa_aprovacao} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} />}
+        />
+
+        <KPICard
+          title="Consultoria Líquida"
+          value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
+          subtitle="Casos efetivados pelo financeiro"
+          trend={combinedKpis.trends?.consultoria_liquida || 0}
+          icon={DollarSign}
+          color="warning"
+          gradientVariant="amber"
+          isLoading={isLoadingKpis && !kpis}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.consultoria_liquida} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
+        />
+
+        <KPICard
+          title="Meta Mensal"
+          value={`R$ ${(combinedKpis.meta_mensal / 1000).toFixed(0)}K`}
+          subtitle="(Receita - Despesas) * 10%"
+          trend={combinedKpis.trends?.volume_financeiro || 0}
+          icon={FileCheck}
+          color="success"
+          gradientVariant="emerald"
+          isLoading={isLoadingKpis && !kpis}
+          miniChart={<MiniAreaChart data={MOCK_TREND_DATA.volume_financeiro} dataKey="value" xKey="day" stroke="#10b981" height={60} />}
         />
       </div>
 
-      {/* Advanced Filters Dialog */}
-      <AdvancedFilters
-        open={showAdvancedFilters}
-        onOpenChange={setShowAdvancedFilters}
-        filterGroups={advancedFilterGroups}
-        values={advancedFilters}
-        onValuesChange={setAdvancedFilters}
-        onApply={() => {
-          // Filtros são aplicados automaticamente via getFilteredData
-        }}
-        onClear={() => setAdvancedFilters([])}
-      />
+
 
       {/* Content */}
       {error ? (
@@ -251,19 +289,8 @@ function FechamentoContent() {
       ) : filteredItems.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-muted-foreground mb-2">
-            {items.length === 0
-              ? "Nenhum caso pendente para fechamento"
-              : "Nenhum caso encontrado com os filtros aplicados"
-            }
+            Nenhum caso pendente para fechamento
           </div>
-          {hasActiveFilters && (
-            <Button
-              variant="outline"
-              onClick={clearAll}
-            >
-              Limpar filtros
-            </Button>
-          )}
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -291,9 +318,5 @@ function FechamentoContent() {
 }
 
 export default function Page() {
-  return (
-    <FilterProvider>
-      <FechamentoContent />
-    </FilterProvider>
-  );
+  return <FechamentoContent />;
 }

@@ -3,14 +3,30 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Button } from "./Button";
 import { Input } from "./Input";
+
+import { FilterDropdown } from "./FilterDropdown";
 import { cn } from "./lib/utils";
 // local helper utilities (moved inline to avoid missing module)
 const formatCurrency = (value: number): string =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 const parseCurrency = (input: string): number => {
-  const cleaned = input.replace(/[^\d,]/g, '').replace(',', '.');
-  return parseFloat(cleaned) || 0;
+  if (!input) return 0;
+
+  // Remove todos os caracteres que não são dígitos
+  const cleanValue = input.replace(/\D/g, '');
+
+  if (!cleanValue) return 0;
+
+  // Converte para número dividindo por 100 (centavos)
+  const result = parseFloat(cleanValue) / 100;
+
+  // Garante que o resultado é um número válido
+  if (isNaN(result) || !isFinite(result)) {
+    return 0;
+  }
+
+  return result;
 };
 
 const formatCurrencyInput = (input: string): string => {
@@ -113,13 +129,13 @@ export function IncomeModal({
   };
 
   const incomeTypes = [
-    "Receita Manual",
-    "Bônus",
-    "Comissão",
-    "Serviços Extras",
-    "Investimentos",
-    "Parcerias",
-    "Outros"
+    { value: "Receita Manual", label: "Receita Manual" },
+    { value: "Bônus", label: "Bônus" },
+    { value: "Comissão", label: "Comissão" },
+    { value: "Serviços Extras", label: "Serviços Extras" },
+    { value: "Investimentos", label: "Investimentos" },
+    { value: "Parcerias", label: "Parcerias" },
+    { value: "Outros", label: "Outros" }
   ];
 
   return (
@@ -134,10 +150,7 @@ export function IncomeModal({
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           {/* Data */}
           <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Data da Receita
-            </label>
+            <label className="text-sm font-medium">Data da Receita</label>
             <Input
               type="date"
               value={formData.date || ""}
@@ -148,26 +161,14 @@ export function IncomeModal({
           </div>
 
           {/* Tipo de Receita */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Tipo de Receita
-            </label>
-            <select
-              value={formData.income_type}
-              onChange={(e) => setFormData({ ...formData, income_type: e.target.value })}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              disabled={loading}
-              required
-            >
-              <option value="">Selecione...</option>
-              {incomeTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FilterDropdown
+            label="Tipo de Receita"
+            options={incomeTypes}
+            value={formData.income_type}
+            onChange={(value) => setFormData({ ...formData, income_type: value as string })}
+            disabled={loading}
+            placeholder="Selecione o tipo..."
+          />
 
           {/* Nome da Receita */}
           <div className="space-y-2">

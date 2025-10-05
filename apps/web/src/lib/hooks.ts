@@ -675,18 +675,24 @@ const buildAnalyticsParams = (range?: AnalyticsRange) => {
   return params;
 };
 
-export function useAnalyticsKpis(range?: AnalyticsRange) {
+export function useAnalyticsKpis(range?: AnalyticsRange, selectedMonth?: string) {
   return useQuery({
-    queryKey: ["analytics", "kpis", range?.from ?? null, range?.to ?? null],
-    queryFn: async () => (await api.get("/analytics/kpis", { params: buildAnalyticsParams(range) })).data,
+    queryKey: ["analytics", "kpis", range?.from ?? null, range?.to ?? null, selectedMonth ?? null],
+    queryFn: async () => {
+      const params = buildAnalyticsParams(range);
+      params.include_trends = "true";
+      return (await api.get("/analytics/kpis", { params })).data;
+    },
     staleTime: ANALYTICS_STALE_TIME,
     enabled: Boolean(range?.from && range?.to),
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
 }
 
-export function useAnalyticsSeries(range: AnalyticsRange | undefined, bucket: AnalyticsBucket) {
+export function useAnalyticsSeries(range: AnalyticsRange | undefined, bucket: AnalyticsBucket, selectedMonth?: string) {
   return useQuery({
-    queryKey: ["analytics", "series", range?.from ?? null, range?.to ?? null, bucket],
+    queryKey: ["analytics", "series", range?.from ?? null, range?.to ?? null, bucket, selectedMonth ?? null],
     queryFn: async () => {
       const params = buildAnalyticsParams(range);
       params.bucket = bucket;
@@ -694,6 +700,8 @@ export function useAnalyticsSeries(range: AnalyticsRange | undefined, bucket: An
     },
     staleTime: ANALYTICS_STALE_TIME,
     enabled: Boolean(range?.from && range?.to),
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
 }
 
@@ -786,40 +794,180 @@ export function useMyStats() {
   });
 }
 
-/** Notificações */
-export function useNotifications(unreadOnly: boolean = false) {
+
+
+/** KPIs para módulo de Cálculo */
+export function useCalculationKpis(params?: { from?: string; to?: string; month?: string }) {
   return useQuery({
-    queryKey:["notifications", unreadOnly],
-    queryFn: async ()=> (await api.get(`/notifications?unread_only=${unreadOnly}`)).data.items ?? [],
-    refetchInterval: 30000 // 30 segundos
+    queryKey: ["calculation", "kpis", params],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+
+      // Converter month em start_date/end_date (igual ao Financeiro)
+      if (params?.month) {
+        const [year, month] = params.month.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        searchParams.append("from", startOfMonth);
+        searchParams.append("to", endOfMonth);
+      } else if (params?.from && params?.to) {
+        searchParams.append("from", params.from);
+        searchParams.append("to", params.to);
+      }
+
+      searchParams.append("include_trends", "true");
+
+      try {
+        const response = await api.get(`/calculation/kpis?${searchParams.toString()}`);
+        return response.data;
+      } catch (error) {
+        console.error('Erro ao carregar KPIs de cálculo:', error);
+        // Retornar dados padrão em caso de erro
+        return {
+          pending: 0,
+          approvedToday: 0,
+          rejectedToday: 0,
+          totalToday: 0,
+          approvalRate: 0,
+          volumeToday: 0,
+          meta_mensal: 0,
+          trends: {
+            pending: 0,
+            approvedToday: 0,
+            approvalRate: 0,
+            volumeToday: 0,
+            meta_mensal: 0
+          }
+        };
+      }
+    },
+    staleTime: 30000, // 30 segundos
+    gcTime: 60000, // 1 minuto
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: 30000 // Refetch a cada 30 segundos
   });
 }
 
-export function useUnreadNotificationsCount() {
+/** KPIs para módulo de Fechamento */
+export function useClosingKpis(params?: { from?: string; to?: string; month?: string }) {
   return useQuery({
-    queryKey:["notifications","unread-count"],
-    queryFn: async ()=> (await api.get("/notifications/unread-count")).data.count ?? 0,
-    refetchInterval: 15000 // 15 segundos
+    queryKey: ["closing", "kpis", params],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+
+      // Converter month em start_date/end_date (igual ao Financeiro)
+      if (params?.month) {
+        const [year, month] = params.month.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+        searchParams.append("from_date", startOfMonth);
+        searchParams.append("to_date", endOfMonth);
+      } else if (params?.from && params?.to) {
+        searchParams.append("from_date", params.from);
+        searchParams.append("to_date", params.to);
+      }
+
+      searchParams.append("include_trends", "true");
+
+      try {
+        const response = await api.get(`/closing/kpis?${searchParams.toString()}`);
+        return response.data;
+      } catch (error) {
+        console.error('Erro ao carregar KPIs de fechamento:', error);
+        // Retornar dados padrão em caso de erro
+        return {
+          casos_pendentes: 0,
+          casos_aprovados: 0,
+          casos_reprovados: 0,
+          taxa_aprovacao: 0,
+          tempo_medio: 0,
+          volume_financeiro: 0,
+          consultoria_liquida: 0,
+          meta_mensal: 0,
+          trends: {
+            casos_pendentes: 0,
+            casos_aprovados: 0,
+            taxa_aprovacao: 0,
+            volume_financeiro: 0,
+            consultoria_liquida: 0
+          }
+        };
+      }
+    },
+    staleTime: 30000, // 30 segundos
+    gcTime: 60000, // 1 minuto
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: 30000 // Refetch a cada 30 segundos
   });
 }
 
-export function useMarkNotificationAsRead() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (notificationId: number) =>
-      (await api.post(`/notifications/${notificationId}/mark-read`)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["notifications"] });
-    }
+/** Hook para buscar dados financeiros para cálculo da Meta Mensal */
+export function useFinancialData(params?: { month?: string }) {
+  return useQuery({
+    queryKey: ["financial", "data", params],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      if (params?.month) searchParams.append("month", params.month);
+
+      try {
+        const response = await api.get(`/financial/data?${searchParams.toString()}`);
+        const data = response.data;
+
+        // Calcular Meta Mensal: (Receita líquida - despesas) * 10%
+        const receitaLiquida = data.receita_liquida || 0;
+        const despesas = data.despesas || 0;
+        const metaMensal = (receitaLiquida - despesas) * 0.1;
+
+        return {
+          ...data,
+          meta_mensal: metaMensal
+        };
+      } catch (error) {
+        console.error('Erro ao carregar dados financeiros:', error);
+        // Retornar dados padrão em caso de erro
+        return {
+          receita_liquida: 0,
+          despesas: 0,
+          lucro: 0,
+          margem: 0,
+          meta_mensal: 0
+        };
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false
   });
 }
 
-export function useMarkAllNotificationsAsRead() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async () => (await api.post("/notifications/mark-all-read")).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["notifications"] });
-    }
+/** Casos efetivados */
+export function useCasosEfetivados() {
+  return useQuery({
+    queryKey: ["cases", "efetivados"],
+    queryFn: async () => {
+      const response = await api.get("/cases?status=contrato_efetivado");
+      return response.data?.items || [];
+    },
+    refetchInterval: 30000, // Refetch a cada 30 segundos
+    retry: 2,
+    staleTime: 15000, // Considerar dados obsoletos após 15 segundos
+  });
+}
+
+/** Casos cancelados */
+export function useCasosCancelados() {
+  return useQuery({
+    queryKey: ["cases", "cancelados"],
+    queryFn: async () => {
+      const response = await api.get("/cases?status=contrato_cancelado");
+      return response.data?.items || [];
+    },
+    refetchInterval: 30000, // Refetch a cada 30 segundos
+    retry: 2,
+    staleTime: 15000, // Considerar dados obsoletos após 15 segundos
   });
 }

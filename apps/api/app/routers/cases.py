@@ -937,12 +937,12 @@ def update_case_expiry(
 
 @r.post("/{case_id}/to-calculista")
 async def to_calculista(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
-    from ..models import Simulation, User
-    from .notifications import create_notification_for_user
+    from ..models import Simulation
+
 
     sim_id = None
-    calculista_ids = []
-    client_name = "Cliente"
+    # calculista_ids = []  # removido – variável não utilizada
+    # client_name = "Cliente"  # removido: variável não utilizada
 
     with SessionLocal() as db:
         c = db.get(Case, case_id)
@@ -950,7 +950,7 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
             raise HTTPException(404)
 
         # Salvar dados antes de fechar a sessão
-        client_name = c.client.name if c.client else "Cliente"
+        # client_name = c.client.name if c.client else "Cliente"  # variável não utilizada
 
         sim = Simulation(case_id=c.id, status="draft", created_by=user.id)
         db.add(sim)
@@ -969,25 +969,7 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
         db.refresh(sim)
         sim_id = sim.id
 
-        # Buscar todos os calculistas para notificar
-        calculistas = db.query(User).filter(
-            User.role == "calculista",
-            User.active
-        ).all()
-        calculista_ids = [calc.id for calc in calculistas]
 
-    # Enviar notificações para os calculistas (agora fora da sessão, mas com dados já carregados)
-    for calc_id in calculista_ids:
-        await create_notification_for_user(
-            user_id=calc_id,
-            event="case.to_calculista",
-            payload={
-                "case_id": case_id,
-                "message": f"📊 Novo caso enviado por {user.name}",
-                "client_name": client_name,
-                "simulation_id": sim_id
-            }
-        )
 
     await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "calculista_pendente"})
     return {"simulation_id": sim_id}
@@ -1034,11 +1016,7 @@ async def mark_no_contact(case_id: int, user=Depends(require_roles("admin", "sup
 @r.post("/{case_id}/to-fechamento")
 async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
     """Envia um caso com cálculo aprovado para a fila de fechamento."""
-    from ..models import User
-    from .notifications import create_notification_for_user
-
-    client_name = "Cliente"
-    fechamento_user_ids = []
+  
 
     with SessionLocal() as db:
         c = db.get(Case, case_id)
@@ -1050,7 +1028,7 @@ async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "super
             raise HTTPException(400, "Apenas casos com cálculo aprovado podem ser enviados para fechamento")
 
         # Salvar nome do cliente antes de fechar a sessão
-        client_name = c.client.name if c.client else "Cliente"
+        # client_name = c.client.name if c.client else "Cliente"
 
         # Atualizar status do caso
         c.status = "fechamento_pendente"
@@ -1069,25 +1047,6 @@ async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "super
             )
         )
         db.commit()
-
-        # Buscar todos os usuários do módulo fechamento para notificar
-        fechamento_users = db.query(User).filter(
-            User.role.in_(["fechamento", "admin", "supervisor"]),
-            User.active
-        ).all()
-        fechamento_user_ids = [u.id for u in fechamento_users]
-
-    # Enviar notificações (fora da sessão)
-    for user_id in fechamento_user_ids:
-        await create_notification_for_user(
-            user_id=user_id,
-            event="case.to_fechamento",
-            payload={
-                "case_id": case_id,
-                "message": f"📋 Novo caso enviado para fechamento por {user.name}",
-                "client_name": client_name
-            }
-        )
 
     await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "fechamento_pendente"})
     return {"success": True, "case_id": case_id, "status": "fechamento_pendente"}

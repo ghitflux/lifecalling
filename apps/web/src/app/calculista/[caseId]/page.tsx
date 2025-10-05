@@ -180,7 +180,12 @@ export default function CalculistaSimulationPage() {
       return response.data;
     },
     onSuccess: () => {
+      // Invalidar todas as queries relacionadas
       queryClient.invalidateQueries({ queryKey: ["cases"] });
+      queryClient.invalidateQueries({ queryKey: ["simulations"] });
+      queryClient.invalidateQueries({ queryKey: ["/cases", "retorno_fechamento_and_fechamento_aprovado"] });
+      queryClient.invalidateQueries({ queryKey: ["/cases", "financeiro_pendente"] });
+      queryClient.invalidateQueries({ queryKey: ["calculation", "kpis"] });
       toast.success("Caso enviado para financeiro!");
       // Redirecionar para a aba Enviado Financeiro
       router.push("/calculista?tab=enviado_financeiro");
