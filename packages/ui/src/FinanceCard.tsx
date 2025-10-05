@@ -55,7 +55,7 @@ export interface FinanceCardProps {
   installments?: number;
   paidInstallments?: number;
 
-  status: "pending" | "approved" | "disbursed" | "overdue";
+  status: "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado";
   dueDate?: string;
 
   /** callbacks como opcionais para evitar TS2774 */
@@ -270,20 +270,34 @@ export function FinanceCard({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+
+
   const statusColors = {
-    pending:
-      "border-warning/40 bg-warning-subtle text-warning-foreground",
-    approved:
-      "border-success/40 bg-success-subtle text-success-foreground",
+    // Status legados (compatibilidade)
+    pending: "border-warning/40 bg-warning-subtle text-warning-foreground",
+    approved: "border-success/40 bg-success-subtle text-success-foreground",
     disbursed: "border-info/40 bg-info-subtle text-info-foreground",
     overdue: "border-danger/40 bg-danger-subtle text-danger-foreground",
+    
+    // Status reais do sistema
+    financeiro_pendente: "border-info/40 bg-info-subtle text-info-foreground",
+    contrato_efetivado: "border-success/40 bg-success-subtle text-success-foreground",
+    fechamento_aprovado: "border-emerald/40 bg-emerald-subtle text-emerald-foreground",
+    encerrado: "border-muted/40 bg-muted text-muted-foreground",
   } as const;
 
   const statusLabels = {
+    // Status legados (compatibilidade)
     pending: "Pendente",
-    approved: "Fechamento Aprovado",
+    approved: "Fechamento Aprovado", 
     disbursed: "Liberado",
     overdue: "Em atraso",
+    
+    // Status reais do sistema
+    financeiro_pendente: "Aguardando Financeiro",
+    contrato_efetivado: "Contrato Efetivado",
+    fechamento_aprovado: "Fechamento Aprovado",
+    encerrado: "Encerrado",
   };
 
   const formatCurrency = (value: number) => {
@@ -336,7 +350,9 @@ export function FinanceCard({
             </div>
           )}
         </div>
-        <Badge className={statusColors[status]}>{statusLabels[status]}</Badge>
+        <Badge className={statusColors[status] || statusColors.pending}>
+          {statusLabels[status] || status.replace(/_/g, ' ')}
+        </Badge>
       </div>
 
       {/* Financial Details (placeholder para evolução futura) */}

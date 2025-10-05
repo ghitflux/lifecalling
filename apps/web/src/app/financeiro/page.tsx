@@ -649,14 +649,14 @@ export default function Page() {
 
   // Contadores/filters
   const statusCounts = {
-    aprovado: items.filter((i: any) => ["fechamento_aprovado", "financeiro_pendente"].includes(i.status) && !i.contract).length,
+    aprovado: items.filter((i: any) => i.status === "financeiro_pendente" && !i.contract).length,
     liberado: items.filter((i: any) => i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado")).length,
     cancelado: items.filter((i: any) => i.status === "contrato_cancelado").length,
     todos: items.length
   };
 
   const availableFilters = [
-    { id: "aprovado", label: "Fechamento Aprovado", value: "aprovado", color: "success" as const, count: statusCounts.aprovado },
+    { id: "aprovado", label: "Aguardando Financeiro", value: "aprovado", color: "success" as const, count: statusCounts.aprovado },
     { id: "liberado", label: "Contrato Efetivado", value: "liberado", color: "primary" as const, count: statusCounts.liberado },
     { id: "cancelado", label: "Cancelados", value: "cancelado", color: "danger" as const, count: statusCounts.cancelado }
   ];
@@ -694,7 +694,7 @@ export default function Page() {
       const active = statusFilter[0];
       switch (active) {
         case "aprovado":
-          if (!(["fechamento_aprovado", "financeiro_pendente"].includes(item.status) && !item.contract)) return false;
+          if (!(item.status === "financeiro_pendente" && !item.contract)) return false;
           break;
         case "liberado":
           if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado"))) return false;
@@ -816,7 +816,7 @@ export default function Page() {
         activeFilters={statusFilter}
         onFilterToggle={handleFilterToggle}
         availableFilters={[
-          { id: "aprovado", label: "Fechamento Aprovado", value: "aprovado", color: "success", count: statusCounts.aprovado },
+          { id: "aprovado", label: "Aguardando Financeiro", value: "aprovado", color: "success", count: statusCounts.aprovado },
           { id: "liberado", label: "Contrato Efetivado", value: "liberado", color: "primary", count: statusCounts.liberado },
           { id: "cancelado", label: "Cancelados", value: "cancelado", color: "danger", count: statusCounts.cancelado }
         ]}
@@ -1304,13 +1304,7 @@ export default function Page() {
               id={financeCardDetails.id}
               clientName={financeCardDetails.client?.name || `Cliente ${financeCardDetails.id}`}
               clientCpf={financeCardDetails.client?.cpf || ""}
-              status={
-                financeCardDetails.status === "contrato_efetivado" || financeCardDetails.contract
-                  ? "disbursed"
-                  : ["fechamento_aprovado", "financeiro_pendente"].includes(financeCardDetails.status)
-                  ? "approved"
-                  : "pending"
-              }
+              status={financeCardDetails.status}
               simulationResult={
                 financeCardDetails.simulation
                   ? {

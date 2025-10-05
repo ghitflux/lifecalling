@@ -1,120 +1,16 @@
 "use client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { KPICard, RankingTable, GradientPanel, ProgressBar, MiniAreaChart, FilterDropdown } from "@lifecalling/ui"; // reuse
+import { KPICard, RankingTable, GradientPanel, ProgressBar, MiniAreaChart } from "@lifecalling/ui";
 import { CampaignModal } from "@/components/CampaignModal";
 import { useAuth } from "@/lib/auth";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 
-// Dados mockados de campanhas - ATIVO
-const MOCK_CAMPANHAS = [
-  {
-    id: 1,
-    nome: "🎄 Campanha de Natal 2024",
-    descricao: "Bata a meta em dezembro e ganhe prêmios especiais! Período festivo com premiações incríveis para quem se destacar.",
-    periodo: "01/12/2024 - 31/12/2024",
-    data_inicio: "2024-12-01",
-    data_fim: "2024-12-31",
-    status: "ativa",
-    premiacoes: [
-      { posicao: "1º Lugar", premio: "R$ 5.000 + Viagem para 2 pessoas" },
-      { posicao: "2º Lugar", premio: "R$ 3.000 + Voucher de compras R$ 1.000" },
-      { posicao: "3º Lugar", premio: "R$ 2.000 + Kit premium de produtos" },
-      { posicao: "Top 10", premio: "Bônus de R$ 500 cada" }
-    ],
-    progresso: 68
-  },
-  {
-    id: 2,
-    nome: "🚀 Desafio Q1 2025",
-    descricao: "Meta trimestral com premiação progressiva. Início de ano forte com grandes recompensas!",
-    periodo: "01/01/2025 - 31/03/2025",
-    data_inicio: "2025-01-01",
-    data_fim: "2025-03-31",
-    status: "proxima",
-    premiacoes: [
-      { posicao: "1º Lugar", premio: "R$ 8.000 + Eletrodoméstico Premium" },
-      { posicao: "2º Lugar", premio: "R$ 5.000 + Smartphone top de linha" },
-      { posicao: "3º Lugar", premio: "R$ 3.000 + Tablet + Fone Bluetooth" },
-      { posicao: "Top 5", premio: "Bônus de R$ 1.000" }
-    ],
-    progresso: 0
-  },
-  {
-    id: 3,
-    nome: "🛍️ Campanha Black Friday",
-    descricao: "Recordes na semana do consumo. Quem vendeu mais na semana mais importante do ano!",
-    periodo: "20/11/2024 - 30/11/2024",
-    data_inicio: "2024-11-20",
-    data_fim: "2024-11-30",
-    status: "encerrada",
-    premiacoes: [
-      { posicao: "1º Lugar", premio: "R$ 3.000 em vale-compras" },
-      { posicao: "2º Lugar", premio: "R$ 2.000 em vale-compras" },
-      { posicao: "3º Lugar", premio: "R$ 1.000 em vale-compras" },
-      { posicao: "4º ao 10º", premio: "R$ 500 em vale-compras" }
-    ],
-    progresso: 100,
-    vencedores: ["Maria Oliveira", "Ana Silva", "Patricia Souza"]
-  },
-  {
-    id: 4,
-    nome: "⚡ Sprint de Outubro",
-    descricao: "Desafio relâmpago de 15 dias com meta agressiva e prêmios rápidos!",
-    periodo: "10/10/2024 - 25/10/2024",
-    data_inicio: "2024-10-10",
-    data_fim: "2024-10-25",
-    status: "encerrada",
-    premiacoes: [
-      { posicao: "1º Lugar", premio: "R$ 4.000 + Apple Watch" },
-      { posicao: "2º Lugar", premio: "R$ 2.500 + AirPods Pro" },
-      { posicao: "3º Lugar", premio: "R$ 1.500 + Smart Speaker" }
-    ],
-    progresso: 100,
-    vencedores: ["João Pereira", "Fernanda Costa", "Carlos Santos"]
-  },
-  {
-    id: 5,
-    nome: "🏆 Mega Desafio Semestral",
-    descricao: "Campanha de longo prazo com as maiores premiações do ano! 6 meses de competição saudável.",
-    periodo: "01/07/2024 - 31/12/2024",
-    data_inicio: "2024-07-01",
-    data_fim: "2024-12-31",
-    status: "ativa",
-    premiacoes: [
-      { posicao: "1º Lugar", premio: "R$ 15.000 + Carro 0km ou Viagem Internacional" },
-      { posicao: "2º Lugar", premio: "R$ 10.000 + Notebook top + Smartphone" },
-      { posicao: "3º Lugar", premio: "R$ 7.000 + Smart TV 65' + Videogame" },
-      { posicao: "4º e 5º", premio: "R$ 5.000 + Kit eletrônicos" },
-      { posicao: "Top 20", premio: "Bônus de R$ 1.000" }
-    ],
-    progresso: 85
-  },
-  {
-    id: 6,
-    nome: "🎯 Desafio Novatos 2025",
-    descricao: "Campanha exclusiva para atendentes com menos de 6 meses na empresa. Oportunidade de brilhar!",
-    periodo: "01/02/2025 - 28/02/2025",
-    data_inicio: "2025-02-01",
-    data_fim: "2025-02-28",
-    status: "proxima",
-    premiacoes: [
-      { posicao: "1º Lugar", premio: "R$ 3.000 + Mentoria executiva" },
-      { posicao: "2º Lugar", premio: "R$ 2.000 + Curso profissionalizante" },
-      { posicao: "3º Lugar", premio: "R$ 1.000 + Kit boas-vindas premium" }
-    ],
-    progresso: 0
-  }
-];
-
-// Dados de fallback para os mini gráficos quando não há dados reais
+// Fallback para mini-gráficos
 const FALLBACK_TREND_DATA = {
   contratos: [
     { day: "D1", value: 0 },
@@ -139,24 +35,27 @@ const FALLBACK_TREND_DATA = {
 export default function RankingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [range, setRange] = useState<{from?: string; to?: string}>({});
+  const [range, setRange] = useState<{ from?: string; to?: string }>({});
   const [showNovaCampanhaModal, setShowNovaCampanhaModal] = useState(false);
-  const [editingCampanha, setEditingCampanha] = useState(null);
+  const [editingCampanha, setEditingCampanha] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [campanhaToDelete, setCampanhaToDelete] = useState(null);
+  const [campanhaToDelete, setCampanhaToDelete] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // ---------------- Queries ----------------
   const agents = useQuery({
-    queryKey: ["rankings","agents",range],
-    queryFn: async () => (await api.get("/rankings/agents", { params: range })).data.items
+    queryKey: ["rankings", "agents", range],
+    queryFn: async () => {
+      const response = await api.get("/rankings/agents", { params: range });
+      return response.data.items;
+    }
   });
 
   const targets = useQuery({
-    queryKey: ["rankings","targets"],
+    queryKey: ["rankings", "targets"],
     queryFn: async () => (await api.get("/rankings/agents/targets")).data.items
   });
 
-  // Buscar campanhas da API
   const campanhas = useQuery({
     queryKey: ["campanhas"],
     queryFn: async () => {
@@ -170,13 +69,12 @@ export default function RankingsPage() {
     }
   });
 
-  // Buscar campanhas ativas com rankings
   const campanhasAtivas = useQuery({
     queryKey: ["campanhas", "ativas", "rankings"],
     queryFn: async () => {
       try {
         const response = await api.get("/campanhas/ativas/rankings");
-        return response.data.campanhas_ativas;
+        return response.data.campanhas_ativas || [];
       } catch (error) {
         console.error("Erro ao buscar campanhas ativas:", error);
         return [];
@@ -184,55 +82,32 @@ export default function RankingsPage() {
     }
   });
 
-
-
-  // Mutation para criar campanha
+  // ---------------- Mutations ----------------
   const criarCampanhaMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await api.post("/campanhas", data);
-      return response.data;
-    },
+    mutationFn: async (data: any) => (await api.post("/campanhas", data)).data,
     onSuccess: () => {
-      // Invalidar todas as queries relacionadas a campanhas
       queryClient.invalidateQueries({ queryKey: ["campanhas"] });
       queryClient.invalidateQueries({ queryKey: ["campanhas", "ativas", "rankings"] });
       toast.success("Campanha criada com sucesso!");
       setShowNovaCampanhaModal(false);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao criar campanha");
-    }
+    onError: (error: any) => toast.error(error.response?.data?.detail || "Erro ao criar campanha")
   });
 
-  // Mutation para excluir campanha
   const excluirCampanhaMutation = useMutation({
-    mutationFn: async (campanhaId: number) => {
-      const response = await api.delete(`/campanhas/${campanhaId}`);
-      return response.data;
-    },
+    mutationFn: async (campanhaId: number) => (await api.delete(`/campanhas/${campanhaId}`)).data,
     onSuccess: () => {
-      // Invalidar todas as queries relacionadas a campanhas
       queryClient.invalidateQueries({ queryKey: ["campanhas"] });
       queryClient.invalidateQueries({ queryKey: ["campanhas", "ativas", "rankings"] });
       toast.success("Campanha excluída com sucesso!");
       setShowDeleteModal(false);
       setCampanhaToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao excluir campanha");
-    }
+    onError: (error: any) => toast.error(error.response?.data?.detail || "Erro ao excluir campanha")
   });
 
-  const handleCriarCampanha = (data: any) => {
-    criarCampanhaMutation.mutate(data);
-  };
-
-  // Mutation para editar campanha
   const editarCampanhaMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await api.put(`/campanhas/${data.id}`, data);
-      return response.data;
-    },
+    mutationFn: async (data: any) => (await api.put(`/campanhas/${data.id}`, data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campanhas"] });
       queryClient.invalidateQueries({ queryKey: ["campanhas", "ativas", "rankings"] });
@@ -240,78 +115,29 @@ export default function RankingsPage() {
       setShowEditModal(false);
       setEditingCampanha(null);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao atualizar campanha");
-    }
+    onError: (error: any) => toast.error(error.response?.data?.detail || "Erro ao atualizar campanha")
   });
 
-  const handleEditarCampanha = (campanha: any) => {
-    setEditingCampanha(campanha);
-    setShowEditModal(true);
-  };
+  const handleCriarCampanha = (data: any) => criarCampanhaMutation.mutate(data);
+  const handleEditarCampanha = (campanha: any) => { setEditingCampanha(campanha); setShowEditModal(true); };
+  const handleSalvarEdicao = (data: any) => { if (editingCampanha) editarCampanhaMutation.mutate({ ...data, id: editingCampanha.id }); };
+  const handleExcluirCampanha = (campanha: any) => { setCampanhaToDelete(campanha); setShowDeleteModal(true); };
+  const confirmarExclusao = () => { if (campanhaToDelete) excluirCampanhaMutation.mutate(campanhaToDelete.id); };
 
-  const handleSalvarEdicao = (data: any) => {
-    if (editingCampanha) {
-      editarCampanhaMutation.mutate({ ...data, id: (editingCampanha as any).id });
-    }
-  };
-
-  const handleExcluirCampanha = (campanha: any) => {
-    setCampanhaToDelete(campanha);
-    setShowDeleteModal(true);
-  };
-
-  const confirmarExclusao = () => {
-    if (campanhaToDelete) {
-      excluirCampanhaMutation.mutate((campanhaToDelete as any).id);
-    }
-  };
-
-  // Separar campanhas por status
-  const campanhasAtivasData = useMemo(() => {
-    return campanhasAtivas.data || [];
-  }, [campanhasAtivas.data]);
+  // ---------------- Memós ----------------
+  const campanhasAtivasData = useMemo(() => campanhasAtivas.data || [], [campanhasAtivas.data]);
 
   const campanhasInativas = useMemo(() => {
     return (campanhas.data || []).filter((c: any) => c.status !== "ativa");
   }, [campanhas.data]);
 
-  // calcular "meus números" - buscar dados do usuário atual nos rankings das campanhas ativas
-  const me = useMemo(() => {
-    if (!user?.id || !campanhasAtivasData.length) return null;
-
-    // Buscar o usuário nos rankings de todas as campanhas ativas
-    for (const campanha of campanhasAtivasData) {
-      if (campanha.rankings) {
-        const userRanking = campanha.rankings.find((r: any) => r.user_id === user.id);
-        if (userRanking) {
-          return {
-            ...userRanking,
-            campanha_id: campanha.id,
-            campanha_nome: campanha.nome
-          };
-        }
-      }
-    }
-    return null;
-  }, [campanhasAtivasData, user?.id]);
-
-  const myTarget = useMemo(() => {
-    return targets.data?.find((t: any) => t.user_id === user?.id);
-  }, [targets.data, user?.id]);
-
-  // Query para dados de tendência do usuário (últimos 7 dias)
   const trendData = useQuery({
     queryKey: ["trend-data", user?.id],
-    queryFn: async () => {
-      const response = await api.get("/users/me/trend-data");
-      return response.data;
-    },
+    queryFn: async () => (await api.get("/users/me/trend-data")).data,
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutos,
+    staleTime: 5 * 60 * 1000
   });
 
-  // Função para processar dados de tendência
   const getTrendChartData = useMemo(() => {
     if (trendData.data) {
       return {
@@ -322,88 +148,26 @@ export default function RankingsPage() {
     return FALLBACK_TREND_DATA;
   }, [trendData.data]);
 
-  // Função para calcular tendência percentual
   const calculateTrend = (data: any[]) => {
     if (!data || data.length < 2) return 0;
-
-    const recent = data.slice(-3); // últimos 3 dias
-    const previous = data.slice(-6, -3); // 3 dias anteriores
-
-    const recentAvg = recent.reduce((sum, item) => sum + item.value, 0) / recent.length;
-    const previousAvg = previous.reduce((sum, item) => sum + item.value, 0) / previous.length;
-
+    const recent = data.slice(-3);
+    const previous = data.slice(-6, -3);
+    const recentAvg = recent.reduce((s, i) => s + i.value, 0) / recent.length;
+    const previousAvg = previous.reduce((s, i) => s + i.value, 0) / previous.length;
     if (previousAvg === 0) return recentAvg > 0 ? 100 : 0;
-
     return ((recentAvg - previousAvg) / previousAvg) * 100;
   };
 
-  // Calcular tendências reais
-  const vendasTrend = useMemo(() => {
-    return calculateTrend(getTrendChartData.contratos);
-  }, [getTrendChartData.contratos]);
-
-  const valorTrend = useMemo(() => {
-    return calculateTrend(getTrendChartData.consultoria);
-  }, [getTrendChartData.consultoria]);
+  const vendasTrend = useMemo(() => calculateTrend(getTrendChartData.contratos), [getTrendChartData.contratos]);
+  const valorTrend = useMemo(() => calculateTrend(getTrendChartData.consultoria), [getTrendChartData.consultoria]);
 
   const tableData = useMemo(() => {
-    // Se há campanhas ativas, usar dados das campanhas
-    if (campanhasAtivasData.length > 0) {
-      // Combinar rankings de todas as campanhas ativas
-      const allRankings: any[] = [];
-      campanhasAtivasData.forEach((campanha: any) => {
-        if (campanha.rankings) {
-          campanha.rankings.forEach((ranking: any) => {
-            allRankings.push({
-              ...ranking,
-              campanha_id: campanha.id,
-              campanha_nome: campanha.nome
-            });
-          });
-        }
-      });
-
-      // Agrupar por agente e somar pontuações
-      const agentMap = new Map();
-      allRankings.forEach(ranking => {
-        const key = ranking.user_id || ranking.nome_agente;
-        if (agentMap.has(key)) {
-          const existing = agentMap.get(key);
-          existing.pontuacao += ranking.pontuacao || 0;
-          existing.valor_vendas += ranking.valor_vendas || 0;
-          existing.quantidade_vendas += ranking.quantidade_vendas || 0;
-        } else {
-          agentMap.set(key, {
-            ...ranking,
-            pontuacao: ranking.pontuacao || 0,
-            valor_vendas: ranking.valor_vendas || 0,
-            quantidade_vendas: ranking.quantidade_vendas || 0
-          });
-        }
-      });
-
-      // Converter para array e ordenar por pontuação
-      const sortedAgents = Array.from(agentMap.values())
-        .sort((a, b) => (b.pontuacao || 0) - (a.pontuacao || 0));
-
-      return sortedAgents.map((row: any, idx: number) => ({
-        ...row,
-        pos: idx + 1,
-        isTop3: idx < 3  // Marcar top 3 para destaque visual
-      }));
-    }
-
-    // Se não há campanhas ativas, usar dados gerais dos agentes
     if (agents.data && agents.data.length > 0) {
-      // Ordenar por consultoria líquida (principal métrica de produtividade)
-      const sortedAgents = [...agents.data].sort((a, b) => 
-        (b.consultoria_liq || 0) - (a.consultoria_liq || 0)
-      );
-
-      return sortedAgents.map((agent: any, idx: number) => ({
+      const sorted = [...agents.data].sort((a, b) => (b.consultoria_liq || 0) - (a.consultoria_liq || 0));
+      return sorted.map((agent: any, idx: number) => ({
         user_id: agent.user_id,
         nome_agente: agent.name,
-        pontuacao: agent.consultoria_liq || 0, // Usar consultoria líquida como pontuação
+        pontuacao: agent.consultoria_liq || 0,
         valor_vendas: agent.consultoria_liq || 0,
         quantidade_vendas: agent.contracts || 0,
         pos: idx + 1,
@@ -411,30 +175,25 @@ export default function RankingsPage() {
         campanha_nome: "Ranking Geral"
       }));
     }
-
     return [];
-  }, [campanhasAtivasData, agents.data]);
+  }, [agents.data]);
 
   function ProgressCell(row: any) {
     const t = targets.data?.find((x: any) => x.user_id === row.user_id);
-    const metaVendas = t?.meta_vendas ?? 50000; // Meta padrão R$ 50.000
+    const metaVendas = t?.meta_vendas ?? 50000;
     const achieved = metaVendas ? Math.min(100, Math.round(100 * (row.valor_vendas ?? 0) / metaVendas)) : 0;
     const variant = achieved < 50 ? "danger" : achieved < 80 ? "warning" : "success";
     return (
       <div className="min-w-[160px]">
         <ProgressBar value={achieved} max={100} size="sm" variant={variant} />
-        <div className="text-xs text-muted-foreground mt-1">
-          {achieved}% da meta
-        </div>
+        <div className="text-xs text-muted-foreground mt-1">{achieved}% da meta</div>
       </div>
     );
   }
 
-  // Função para renderizar ícone de medalha para top 3
   function RankCell(row: any) {
     const medals = ["🥇", "🥈", "🥉"];
     const colors = ["text-yellow-500", "text-gray-400", "text-amber-600"];
-
     if (row.pos <= 3) {
       return (
         <div className="flex items-center gap-2">
@@ -455,6 +214,44 @@ export default function RankingsPage() {
     window.open(url, "_blank");
   };
 
+  const safeDateRange = (c: any) => {
+    if (c?.data_inicio && c?.data_fim) {
+      try {
+        const i = new Date(c.data_inicio).toLocaleDateString("pt-BR");
+        const f = new Date(c.data_fim).toLocaleDateString("pt-BR");
+        return `${i} - ${f}`;
+      } catch {
+        /* ignore */
+      }
+    }
+    return c?.periodo ?? "-";
+  };
+
+  // “Meus números” baseado no top5 das campanhas ativas (quando existir)
+  const me = useMemo(() => {
+    if (!user?.id || !campanhasAtivasData.length) return null;
+    for (const campanha of campanhasAtivasData) {
+      if (campanha.top_5_ranking) {
+        const r = campanha.top_5_ranking.find((x: any) => x.usuario?.id === user.id);
+        if (r) {
+          return {
+            user_id: r.usuario?.id,
+            nome_agente: r.usuario?.nome,
+            pontuacao: r.pontuacao || 0,
+            valor_vendas: r.pontuacao || 0,
+            quantidade_vendas: 0,
+            campanha_id: campanha.id,
+            campanha_nome: campanha.nome
+          };
+        }
+      }
+    }
+    return null;
+  }, [campanhasAtivasData, user?.id]);
+
+  const myTarget = useMemo(() => targets.data?.find((t: any) => t.user_id === user?.id), [targets.data, user?.id]);
+
+  // ---------------- Render ----------------
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* header (range + export) */}
@@ -465,7 +262,7 @@ export default function RankingsPage() {
             <input
               type="date"
               value={range.from ?? ""}
-              onChange={(e) => setRange(r => ({ ...r, from: e.target.value }))}
+              onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
               className="w-full px-3 py-2 border rounded text-sm"
             />
           </div>
@@ -474,7 +271,7 @@ export default function RankingsPage() {
             <input
               type="date"
               value={range.to ?? ""}
-              onChange={(e) => setRange(r => ({ ...r, to: e.target.value }))}
+              onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
               className="w-full px-3 py-2 border rounded text-sm"
             />
           </div>
@@ -484,7 +281,8 @@ export default function RankingsPage() {
           <Button variant="outline" onClick={() => handleExportCsv("teams")}>Exportar Times (CSV)</Button>
         </div>
       </div>
-      {/* card "meus números" */}
+
+      {/* KPIs “meus números” */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard
           title="Minhas vendas"
@@ -493,20 +291,14 @@ export default function RankingsPage() {
           subtitle="Total nas campanhas ativas"
           trend={vendasTrend}
           miniChart={
-            <MiniAreaChart
-              data={getTrendChartData.contratos}
-              dataKey="value"
-              xKey="day"
-              stroke="#10b981"
-              height={60}
-            />
+            <MiniAreaChart data={getTrendChartData.contratos} dataKey="value" xKey="day" stroke="#10b981" height={60} />
           }
         />
         <KPICard
           title="Meu valor em vendas"
-          value={`R$ ${(me?.valor_vendas ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          value={`R$ ${(me?.valor_vendas ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           gradientVariant="violet"
-          subtitle={`Meta: R$ ${(myTarget?.meta_vendas ?? 50000).toLocaleString('pt-BR')}/mês`}
+          subtitle={`Meta: R$ ${(myTarget?.meta_vendas ?? 50000).toLocaleString("pt-BR")}/mês`}
           trend={valorTrend}
           miniChart={
             <MiniAreaChart
@@ -515,29 +307,27 @@ export default function RankingsPage() {
               xKey="day"
               stroke="#8b5cf6"
               height={60}
-              tooltipFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              tooltipFormatter={(value) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
             />
           }
         />
         <GradientPanel>
           <div className="space-y-2">
             <div className="text-sm font-medium">Minha Pontuação</div>
-            <div className="text-2xl font-bold text-primary">
-              {me?.pontuacao ?? 0} pts
-            </div>
+            <div className="text-2xl font-bold text-primary">{me?.pontuacao ?? 0} pts</div>
             <div className="text-xs text-muted-foreground">
-              {me?.campanha_nome ? `Campanha: ${me.campanha_nome}` : 'Nenhuma campanha ativa'}
+              {me?.campanha_nome ? `Campanha: ${me.campanha_nome}` : "Nenhuma campanha ativa"}
             </div>
             {me && (
               <div className="text-xs text-muted-foreground">
-                Posição no ranking: {tableData.findIndex(agent => agent.user_id === me.user_id) + 1}º lugar
+                Posição no ranking: {tableData.findIndex((a) => a.user_id === me.user_id) + 1}º lugar
               </div>
             )}
           </div>
         </GradientPanel>
       </div>
 
-      {/* ranking de atendentes */}
+      {/* Ranking geral */}
       <GradientPanel>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -555,7 +345,7 @@ export default function RankingsPage() {
                 { key: "pontuacao", header: "Pontuação", format: "number" },
                 { key: "valor_vendas", header: "Valor Vendas", format: "currency" },
                 { key: "quantidade_vendas", header: "Qtd. Vendas", format: "number" },
-                { key: "atingimento", header: "Atingimento Meta", render: ProgressCell },
+                { key: "atingimento", header: "Atingimento Meta", render: ProgressCell }
               ]}
               highlightTop3
             />
@@ -575,17 +365,10 @@ export default function RankingsPage() {
             <h2 className="text-2xl font-semibold">🔥 Campanhas Ativas</h2>
             <p className="text-sm text-muted-foreground mt-1">Campanhas em andamento - Participe agora!</p>
           </div>
-
-          {/* Botão Nova Campanha */}
-          <Button
-            className="flex items-center gap-2"
-            onClick={() => setShowNovaCampanhaModal(true)}
-          >
+          <Button className="flex items-center gap-2" onClick={() => setShowNovaCampanhaModal(true)}>
             <Plus className="h-4 w-4" />
             Nova Campanha
           </Button>
-
-          {/* Modal de Nova Campanha */}
           <CampaignModal
             open={showNovaCampanhaModal}
             onOpenChange={setShowNovaCampanhaModal}
@@ -597,9 +380,7 @@ export default function RankingsPage() {
 
         <div className="grid grid-cols-1 gap-4">
           {campanhasAtivas.isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Carregando campanhas ativas...
-            </div>
+            <div className="text-center py-12 text-muted-foreground">Carregando campanhas ativas...</div>
           ) : campanhasAtivasData.length === 0 ? (
             <div className="text-center py-12 border border-dashed rounded-lg">
               <p className="text-muted-foreground">Nenhuma campanha ativa no momento</p>
@@ -611,13 +392,13 @@ export default function RankingsPage() {
                 ativa: { bg: "bg-green-500/10", text: "text-green-600", label: "🟢 Ativa" },
                 proxima: { bg: "bg-blue-500/10", text: "text-blue-600", label: "🔵 Próxima" },
                 encerrada: { bg: "bg-gray-500/10", text: "text-gray-600", label: "⚫ Encerrada" }
-              };
-              const statusConfig = statusConfigs[campanha.status as keyof typeof statusConfigs] || statusConfigs.ativa;
+              } as const;
+              const statusKey = (campanha.status ?? "ativa") as keyof typeof statusConfigs;
+              const statusConfig = statusConfigs[statusKey] || statusConfigs.ativa;
 
               return (
                 <GradientPanel key={campanha.id}>
                   <div className="space-y-4">
-                    {/* Header da campanha */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
@@ -626,18 +407,11 @@ export default function RankingsPage() {
                             {statusConfig.label}
                           </span>
                         </div>
-                        <p className="text-muted-foreground mt-1">{campanha.descricao}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          📅 {new Date(campanha.data_inicio).toLocaleDateString('pt-BR')} - {new Date(campanha.data_fim).toLocaleDateString('pt-BR')}
-                        </p>
+                        {campanha.descricao && <p className="text-muted-foreground mt-1">{campanha.descricao}</p>}
+                        <p className="text-sm text-muted-foreground mt-1">📅 {safeDateRange(campanha)}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditarCampanha(campanha)}
-                          className="flex items-center gap-2"
-                        >
+                        <Button variant="outline" size="sm" onClick={() => handleEditarCampanha(campanha)} className="flex items-center gap-2">
                           <Edit className="h-4 w-4" />
                           Editar
                         </Button>
@@ -654,32 +428,24 @@ export default function RankingsPage() {
                     </div>
 
                     {/* Ranking da campanha */}
-                    {campanha.rankings && campanha.rankings.length > 0 && (
+                    {campanha.top_5_ranking && campanha.top_5_ranking.length > 0 && (
                       <div className="space-y-3">
-                        <h4 className="font-semibold text-sm">🏆 Ranking Atual</h4>
+                        <h4 className="font-semibold text-sm">🏆 Ranking Atual (Top 5)</h4>
                         <div className="space-y-2">
-                          {campanha.rankings.slice(0, 5).map((ranking: any, idx: number) => {
+                          {campanha.top_5_ranking.map((ranking: any, idx: number) => {
                             const medals = ["🥇", "🥈", "🥉"];
                             const medal = idx < 3 ? medals[idx] : `${idx + 1}º`;
-
                             return (
-                              <div key={ranking.id} className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
-                                <div className="flex-shrink-0 w-8 text-center font-bold text-sm">
-                                  {medal}
-                                </div>
+                              <div key={idx} className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
+                                <div className="flex-shrink-0 w-8 text-center font-bold text-sm">{medal}</div>
                                 <div className="flex-1">
-                                  <div className="font-medium text-sm">{ranking.nome_agente}</div>
+                                  <div className="font-medium text-sm">{ranking.usuario?.nome || "Desconhecido"}</div>
                                   <div className="text-xs text-muted-foreground">
-                                    {ranking.pontuacao} pontos
+                                    {ranking.pontuacao?.toFixed(2) || 0} pontos
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-sm font-medium">
-                                    R$ {ranking.valor_vendas?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {ranking.quantidade_vendas || 0} vendas
-                                  </div>
+                                  <div className="text-sm font-medium text-muted-foreground">Posição: {ranking.posicao}º</div>
                                 </div>
                               </div>
                             );
@@ -695,30 +461,23 @@ export default function RankingsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {campanha.premiacoes.map((premiacao: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
-                              <div className="flex-shrink-0 w-20 font-bold text-sm text-muted-foreground">
-                                {premiacao.posicao}º lugar
-                              </div>
-                              <div className="flex-1 text-sm font-medium">
-                                {premiacao.descricao}
-                              </div>
+                              <div className="flex-shrink-0 font-bold text-sm text-muted-foreground">{premiacao.posicao}</div>
+                              <div className="flex-1 text-sm font-medium">{premiacao.premio}</div>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                  {/* CTA */}
-                  {campanha.status === "ativa" && (
-                    <div className="pt-2 border-t">
-                      <Button className="w-full" variant="default">
-                        Ver Ranking da Campanha →
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </GradientPanel>
-            );
-          })
+                    {statusKey === "ativa" && (
+                      <div className="pt-2 border-t">
+                        <Button className="w-full" variant="default">Ver Ranking da Campanha →</Button>
+                      </div>
+                    )}
+                  </div>
+                </GradientPanel>
+              );
+            })
           )}
         </div>
       </div>
@@ -738,13 +497,12 @@ export default function RankingsPage() {
                 proxima: { bg: "bg-blue-500/10", text: "text-blue-600", label: "🔵 Próxima" },
                 encerrada: { bg: "bg-gray-500/10", text: "text-gray-600", label: "⚫ Encerrada" }
               } as const;
-
-              const statusConfig = STATUS_CONFIG[campanha.status as keyof typeof STATUS_CONFIG];
+              const sKey = campanha.status as keyof typeof STATUS_CONFIG;
+              const statusConfig = STATUS_CONFIG[sKey];
 
               return (
                 <GradientPanel key={campanha.id}>
                   <div className="space-y-4">
-                    {/* Header da campanha */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
@@ -753,22 +511,21 @@ export default function RankingsPage() {
                             {statusConfig.label}
                           </span>
                         </div>
-                        <p className="text-muted-foreground mt-1">{campanha.descricao}</p>
+                        {campanha.descricao && <p className="text-muted-foreground mt-1">{campanha.descricao}</p>}
                         <p className="text-sm text-muted-foreground mt-1">📅 {campanha.periodo}</p>
                       </div>
                     </div>
 
-                    {/* Vencedores (se encerrada) */}
                     {campanha.status === "encerrada" && campanha.vencedores && (
                       <div className="bg-muted/30 rounded-lg p-4 space-y-2">
                         <h4 className="font-semibold text-sm">🏆 Vencedores</h4>
                         <div className="flex gap-2 flex-wrap">
-                          {campanha.vencedores.map((vencedor: string, idx: number) => {
+                          {campanha.vencedores.map((v: string, idx: number) => {
                             const medals = ["🥇", "🥈", "🥉"];
                             return (
                               <div key={idx} className="flex items-center gap-2 bg-background px-3 py-2 rounded-md">
                                 <span className="text-lg">{medals[idx]}</span>
-                                <span className="font-medium text-sm">{vencedor}</span>
+                                <span className="font-medium text-sm">{v}</span>
                               </div>
                             );
                           })}
@@ -776,31 +533,20 @@ export default function RankingsPage() {
                       </div>
                     )}
 
-                    {/* Premiações */}
                     <div className="space-y-2">
                       <h4 className="font-semibold text-sm">🎯 Premiações</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {campanha.premiacoes.map((premiacao: any, idx: number) => (
+                        {campanha.premiacoes?.map((premiacao: any, idx: number) => (
                           <div key={idx} className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
-                            <div className="flex-shrink-0 w-20 font-bold text-sm text-muted-foreground">
-                              {premiacao.posicao}
-                            </div>
-                            <div className="flex-1 text-sm font-medium">
-                              {premiacao.premio}
-                            </div>
+                            <div className="flex-shrink-0 w-20 font-bold text-sm text-muted-foreground">{premiacao.posicao}</div>
+                            <div className="flex-1 text-sm font-medium">{premiacao.premio}</div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Botões de Ação */}
                     <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditarCampanha(campanha)}
-                        className="flex-1"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleEditarCampanha(campanha)} className="flex-1">
                         Editar
                       </Button>
                       <Button
@@ -820,7 +566,7 @@ export default function RankingsPage() {
         </div>
       )}
 
-      {/* Modal de Edição de Campanha */}
+      {/* Modal de Edição */}
       <CampaignModal
         open={showEditModal}
         onOpenChange={setShowEditModal}
@@ -830,29 +576,20 @@ export default function RankingsPage() {
         initialData={editingCampanha}
       />
 
-      {/* Modal de Confirmação de Exclusão */}
+      {/* Modal de Exclusão */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir a campanha "{(campanhaToDelete as any)?.nome}"?
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a campanha "{campanhaToDelete?.nome}"? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteModal(false)}
-              disabled={excluirCampanhaMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={excluirCampanhaMutation.isPending}>
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmarExclusao}
-              disabled={excluirCampanhaMutation.isPending}
-            >
+            <Button variant="destructive" onClick={confirmarExclusao} disabled={excluirCampanhaMutation.isPending}>
               {excluirCampanhaMutation.isPending ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>

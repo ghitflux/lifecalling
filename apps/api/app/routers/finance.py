@@ -21,10 +21,10 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
     from ..models import Simulation, Attachment, ContractAttachment
     with SessionLocal() as db:
         # Buscar todos os casos relevantes para o módulo financeiro
-        # Inclui: pendentes, aprovados, efetivados e cancelados
+        # Inclui: pendentes (enviados pelo calculista), efetivados e cancelados
+        # Nota: 'fechamento_aprovado' removido - casos só chegam aqui após calculista enviar
         financial_statuses = [
             "financeiro_pendente",
-            "fechamento_aprovado",
             "contrato_efetivado",
             "contrato_cancelado"
         ]
