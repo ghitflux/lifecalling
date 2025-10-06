@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ import shutil
 
 from sqlalchemy import or_
 from ..rbac import require_roles
-from ..security import get_current_user
+from ..security import get_current_user, verify_csrf
 from ..db import SessionLocal
 from ..models import Case, Client, CaseEvent, Contract, ContractAttachment
 from ..services.case_scheduler import CaseScheduler
@@ -231,10 +231,13 @@ def get_case(case_id: int, user=Depends(get_current_user)):
 @r.post("/{case_id}/assign")
 def assign_case(
     case_id: int,
+    request: Request,
     user=Depends(
         require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
+    # Verificar CSRF token
+    verify_csrf(request)
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
@@ -416,11 +419,14 @@ def list_attachments(case_id: int, user=Depends(get_current_user)):
 @r.post("/{case_id}/attachments")
 def upload_attachment(
     case_id: int,
+    request: Request,
     file: UploadFile = File(...),
     user=Depends(
         require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
     ),
 ):
+    # Verificar CSRF token
+    verify_csrf(request)
     from ..models import Attachment
 
     with SessionLocal() as db:
@@ -1092,7 +1098,13 @@ def get_cases_near_expiry(hours_before: int = 2, user=Depends(require_roles("adm
 
 
 @r.post("/bulk-delete")
-async def bulk_delete_cases(payload: BulkDeleteRequest, user=Depends(require_roles("admin"))):
+async def bulk_delete_cases(
+    payload: BulkDeleteRequest, 
+    request: Request,
+    user=Depends(require_roles("admin"))
+):
+    # Verificar CSRF token
+    verify_csrf(request)
     """Exclusão em lote de casos (apenas admin)."""
     from ..models import Simulation, Attachment
 

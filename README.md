@@ -1,397 +1,212 @@
-# Lifecalling - Sistema de Gestão de Atendimentos
+# Lifecalling - Sistema de Gestão de Casos
 
-Sistema completo de gestão de atendimentos financeiros com PostgreSQL, FastAPI e Next.js.
+Sistema monorepo para gestão de casos com autenticação segura por cookies HttpOnly + CSRF protection.
 
-## 🚀 Início Rápido
+## 🏗️ Arquitetura
 
-### Pré-requisitos
+- **Frontend**: Next.js 15 (apps/web) - Porta 3000
+- **Backend**: FastAPI (apps/api) - Porta 8000  
+- **Database**: PostgreSQL - Porta 5432
+- **Autenticação**: Cookies HttpOnly + CSRF double-submit pattern
 
-- **Docker Desktop** (instalado e rodando)
-- **Git**
+## 🚀 Desenvolvimento Local
 
-### Iniciar Ambiente de Desenvolvimento
+### 1. Configurar Ambiente
 
-**Windows:**
+**Backend:**
 ```bash
-start-dev.bat
+cd lifecalling/apps/api
+cp env.example .env.local
+# Editar .env.local com suas configurações
 ```
 
-**Linux/Mac:**
+**Frontend:**
 ```bash
-chmod +x start-dev.sh
-./start-dev.sh
+cd lifecalling/apps/web
+cp env.example .env.local
+# Editar .env.local com suas configurações
 ```
 
-**Ou manualmente:**
+### 2. Iniciar Banco de Dados
+
 ```bash
-docker compose up -d
+cd lifecalling
+docker-compose up db -d
 ```
 
-### 🌐 Acessar Aplicação
+### 3. Configurar Backend
 
-| Serviço | URL | Descrição |
-|---------|-----|-----------|
-| **Frontend** | http://localhost:3000 | Interface principal Next.js |
-| **API** | http://localhost:8000 | Backend FastAPI |
-| **API Docs** | http://localhost:8000/docs | Documentação Swagger |
-| **PostgreSQL** | localhost:5432 | Banco de dados |
+```bash
+cd lifecalling/apps/api
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 4. Configurar Frontend
+
+```bash
+cd lifecalling/apps/web
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+## 🔐 Autenticação
+
+O sistema utiliza **cookies HttpOnly** com proteção CSRF:
+
+- ✅ **Cookies HttpOnly**: Tokens JWT seguros
+- ✅ **CSRF Protection**: Double-submit cookie pattern  
+- ✅ **SameSite=Lax**: Proteção básica contra CSRF
+- ✅ **Secure em produção**: Cookies seguros apenas em HTTPS
+
+### Como Funciona
+
+1. **Login**: Backend seta cookies `access`, `refresh`, `role`, `csrf_token`
+2. **Requisições**: Frontend envia cookies + header `X-CSRF-Token` para POST/PUT/DELETE
+3. **Logout**: Backend limpa todos os cookies
+
+## 🐳 Deploy com Docker
+
+### 1. Build e Deploy
+
+```bash
+cd lifecalling
+docker-compose build
+docker-compose up -d
+```
+
+### 2. Configurar Variáveis de Produção
+
+**Backend (.env):**
+```env
+ENV=production
+COOKIE_DOMAIN=.lifeservicos.com
+FRONTEND_URL=https://lifeservicos.com,https://www.lifeservicos.com
+JWT_SECRET=your-secure-secret-32-chars-minimum
+```
+
+**Frontend (.env):**
+```env
+NEXT_PUBLIC_API_BASE_URL=https://api.lifeservicos.com
+NODE_ENV=production
+```
+
+### 3. Migrações
+
+```bash
+# Aplicar migrações
+docker-compose exec api alembic upgrade head
+```
 
 ## 📁 Estrutura do Projeto
 
 ```
-lifecallingv1/
-├── docker-compose.yml         # Orquestração Docker
-├── .env                       # Variáveis de ambiente
-├── start-dev.bat             # Script Windows
-├── start-dev.sh              # Script Linux/Mac
-└── lifecalling/
-    ├── apps/
-    │   ├── api/              # Backend FastAPI
-    │   │   ├── Dockerfile.dev
-    │   │   ├── app/
-    │   │   ├── migrations/   # Migrações Alembic
-    │   │   └── requirements.txt
-    │   └── web/              # Frontend Next.js
-    │       ├── Dockerfile.dev
-    │       ├── src/
-    │       └── package.json
-    └── packages/
-        ├── types/            # Tipos TypeScript compartilhados
-        └── ui/               # Componentes UI compartilhados
+lifecalling/
+├── apps/
+│   ├── api/                 # FastAPI Backend
+│   │   ├── app/
+│   │   │   ├── routers/     # Endpoints da API
+│   │   │   ├── security.py  # Autenticação + CSRF
+│   │   │   └── main.py      # App FastAPI
+│   │   ├── env.example      # Configuração de exemplo
+│   │   └── requirements.txt
+│   └── web/                 # Next.js Frontend
+│       ├── src/
+│       │   ├── lib/
+│       │   │   ├── api.ts   # Cliente HTTP + CSRF
+│       │   │   └── auth.tsx # Context de autenticação
+│       │   └── middleware.ts # Proteção de rotas
+│       ├── env.example      # Configuração de exemplo
+│       └── package.json
+├── docker-compose.yml       # Orquestração de containers
+└── README.md               # Este arquivo
 ```
 
-## 🛠️ Comandos Úteis
+## 🔧 Comandos Úteis
+
+### Desenvolvimento
+
+```bash
+# Backend standalone
+cd lifecalling/apps/api
+uvicorn app.main:app --reload
+
+# Frontend standalone  
+cd lifecalling/apps/web
+pnpm dev
+
+# Build frontend para produção
+cd lifecalling/apps/web
+pnpm build && pnpm start
+```
+
+### Banco de Dados
+
+```bash
+# Aplicar migrações
+cd lifecalling/apps/api
+alembic upgrade head
+
+# Criar nova migração
+alembic revision --autogenerate -m "descrição"
+
+# Ver status das migrações
+alembic current
+```
 
 ### Docker
 
 ```bash
-# Ver status
-docker compose ps
+# Build completo
+docker-compose build
 
-# Ver logs
-docker compose logs -f
-docker compose logs -f api
-docker compose logs -f web
+# Deploy completo
+docker-compose up -d
+
+# Logs em tempo real
+docker-compose logs -f
 
 # Parar tudo
-docker compose down
-
-# Reconstruir
-docker compose build
-docker compose up -d --build
-
-# Limpar tudo (remove volumes/dados)
-docker compose down -v
+docker-compose down
 ```
 
-### Migrações do Banco
+## 🛡️ Segurança
 
-```bash
-# Aplicar migrações
-docker compose exec api alembic upgrade head
+### Cookies HttpOnly
+- Tokens JWT armazenados em cookies seguros
+- Não acessíveis via JavaScript (XSS protection)
+- Transmitidos automaticamente pelo navegador
 
-# Ver migração atual
-docker compose exec api alembic current
+### CSRF Protection
+- Double-submit cookie pattern
+- Token CSRF em cookie + header para validação
+- Proteção em todos os endpoints mutantes
 
-# Criar nova migração
-docker compose exec api alembic revision -m "descrição"
+### CORS
+- Configuração dinâmica baseada em `FRONTEND_URL`
+- `allow_credentials=True` para cookies
+- Headers `X-CSRF-Token` permitidos
 
-# Reverter última migração
-docker compose exec api alembic downgrade -1
-```
+## 📚 Documentação Adicional
 
-### Acessar Containers
-
-```bash
-# API
-docker compose exec api bash
-
-# Banco de dados
-docker compose exec db psql -U lifecalling -d lifecalling
-
-# Frontend
-docker compose exec web sh
-```
-
-## 🔧 Configuração
-
-### Variáveis de Ambiente (.env)
-
-```env
-# PostgreSQL
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-POSTGRES_DB=lifecalling
-POSTGRES_USER=lifecalling
-POSTGRES_PASSWORD=lifecalling
-
-# JWT
-JWT_SECRET=dev-secret-key-change-in-production
-
-# API
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-DEBUG=true
-ENVIRONMENT=development
-```
-
-## 📊 Funcionalidades
-
-- ✅ Importação de arquivos iNETConsig
-- ✅ Gestão de Clientes
-- ✅ Controle de Contratos
-- ✅ Esteira de Atendimentos
-- ✅ Dashboards e KPIs
-- ✅ Sistema de Autenticação JWT
-- ✅ Upload de Arquivos
-
-## 🔐 Configuração do NextAuth com JWT
-
-### Instalação
-
-No diretório do frontend (`apps/web`):
-
-```bash
-# Instalar NextAuth
-pnpm add next-auth
-
-# Instalar adaptadores JWT (opcional)
-pnpm add @auth/prisma-adapter  # Se usar Prisma
-```
-
-### Configuração Básica
-
-1. **Criar arquivo de configuração** `apps/web/src/lib/auth.ts`:
-
-```typescript
-import NextAuth from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        // Validar credenciais com sua API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: credentials.email,
-            password: credentials.password,
-          }),
-        })
-
-        if (!response.ok) {
-          return null
-        }
-
-        const user = await response.json()
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        }
-      },
-    }),
-  ],
-  session: {
-    strategy: "jwt", // Usar JWT em vez de database sessions
-    maxAge: 24 * 60 * 60, // 24 horas
-  },
-  jwt: {
-    maxAge: 24 * 60 * 60, // 24 horas
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub
-        session.user.role = token.role
-      }
-      return session
-    },
-  },
-  pages: {
-    signIn: "/login",
-    error: "/auth/error",
-  },
-})
-```
-
-2. **Criar route handler** `apps/web/src/app/api/auth/[...nextauth]/route.ts`:
-
-```typescript
-import { handlers } from "@/lib/auth"
-
-export const { GET, POST } = handlers
-```
-
-3. **Adicionar Provider** `apps/web/src/app/layout.tsx`:
-
-```typescript
-import { SessionProvider } from "next-auth/react"
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html lang="pt-BR">
-      <body>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
-      </body>
-    </html>
-  )
-}
-```
-
-### Variáveis de Ambiente
-
-Adicionar ao `.env.local`:
-
-```env
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key-here
-
-# API
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-```
-
-### Uso nos Componentes
-
-```typescript
-"use client"
-import { useSession, signIn, signOut } from "next-auth/react"
-
-export default function LoginButton() {
-  const { data: session, status } = useSession()
-
-  if (status === "loading") return <p>Carregando...</p>
-
-  if (session) {
-    return (
-      <>
-        <p>Logado como {session.user?.email}</p>
-        <button onClick={() => signOut()}>Sair</button>
-      </>
-    )
-  }
-
-  return (
-    <>
-      <p>Não logado</p>
-      <button onClick={() => signIn()}>Entrar</button>
-    </>
-  )
-}
-```
-
-### Middleware de Proteção
-
-Criar `apps/web/src/middleware.ts`:
-
-```typescript
-import { auth } from "@/lib/auth"
-
-export default auth((req) => {
-  const { pathname } = req.nextUrl
-
-  // Rotas públicas
-  const publicRoutes = ["/login", "/", "/api/auth"]
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
-
-  // Redirecionar para login se não autenticado
-  if (!req.auth && !isPublicRoute) {
-    const newUrl = new URL("/login", req.nextUrl.origin)
-    return Response.redirect(newUrl)
-  }
-})
-
-export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
-}
-```
-
-### Vantagens da Estratégia JWT
-
-- ✅ **Stateless**: Não precisa armazenar sessões no servidor
-- ✅ **Escalável**: Funciona bem em ambientes distribuídos
-- ✅ **Performance**: Menos consultas ao banco de dados
-- ✅ **Simplicidade**: Não precisa de tabelas de sessão
+- [Configuração de Autenticação](CONFIGURACAO_AUTH.md)
+- [Arquivos de Ambiente](apps/api/env.example) (Backend)
+- [Arquivos de Ambiente](apps/web/env.example) (Frontend)
 
 ## 🐛 Troubleshooting
 
-### Porta já em uso
+### Erro de CSRF
+- Verificar se frontend está enviando header `X-CSRF-Token`
+- Verificar se cookie `csrf_token` existe
+- Verificar se endpoint não está isento de CSRF
 
-```bash
-# Windows
-netstat -ano | findstr :3000
-taskkill /F /PID <PID>
+### Erro de CORS
+- Verificar `FRONTEND_URL` no backend
+- Verificar `NEXT_PUBLIC_API_BASE_URL` no frontend
+- Verificar se `withCredentials: true` está configurado
 
-# Linux/Mac
-lsof -i :3000
-kill -9 <PID>
-```
-
-### Erro de migração
-
-```bash
-# Resetar banco (apaga dados!)
-docker compose up -d
-docker compose exec api alembic upgrade head
-```
-
-### Reinstalar dependências
-
-```bash
-# API
-docker compose build --no-cache api
-docker compose up -d
-
-# Frontend
-docker compose build --no-cache web
-docker compose up -d
-```
-
-## 📝 Notas Importantes
-
-- ⚠️ **NUNCA usar SQLite** - Sempre PostgreSQL via Docker
-- 🔧 **Ambiente de desenvolvimento** - Não fazer build de produção ainda
-- 🐳 **Docker obrigatório** - Todos os serviços rodam em containers
-- 🔄 **Hot reload ativo** - Código atualiza automaticamente
-
-## 🤝 Desenvolvimento
-
-Este projeto usa:
-- **Backend:** FastAPI + Python 3.11 + SQLAlchemy + Alembic
-- **Frontend:** Next.js 15 + React 19 + TypeScript + Tailwind CSS
-- **Banco:** PostgreSQL 15
-- **Workspaces:** pnpm workspaces para monorepo
-
----
-
-**Para iniciar agora:**
-```bash
-docker compose up -d
-```
-
-🎉 **Frontend:** http://localhost:3000
-🚀 **API:** http://localhost:8000/docs
+### Erro de Cookies
+- Verificar se `secure=False` em desenvolvimento
+- Verificar se `domain` está correto em produção
+- Verificar se `SameSite=Lax` está configurado

@@ -18,6 +18,7 @@
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.17.4",
     "@nextui-org/snippet": "^2.2.10",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone', // Required for Docker deployment
+  // output: 'standalone', // Required for Docker deployment - disabled for Windows build
   transpilePackages: ["@lifecalling/ui"],
   // Enable Turbopack for development
   turbopack: {

@@ -25,6 +25,11 @@ class Settings(BaseModel):
     access_ttl: int = int(os.getenv("JWT_ACCESS_TTL_SECONDS", "3600"))
     refresh_ttl: int = int(os.getenv("JWT_REFRESH_TTL_SECONDS", "2592000"))
     upload_dir: str = os.getenv("UPLOAD_DIR", os.path.join(os.getcwd(), "uploads"))
+    
+    # Environment and deployment settings
+    env: str = os.getenv("ENV", "development")
+    cookie_domain: str | None = os.getenv("COOKIE_DOMAIN", None)
+    frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -872,7 +872,6 @@ export default function Page() {
                     simulationResult={simulationResult}
                     onDisburse={handleDisburse}
                     onCancel={contractId ? () => handleCancel(contractId) : undefined}
-                    onDelete={contractId ? () => handleDelete(contractId) : () => handleDeleteCase(item.id)}
                     clientBankInfo={clientBankInfo}
                     attachments={item.contract?.attachments || item.attachments || []}
                     onUploadAttachment={createUploadHandler(contractId, item.id)}
@@ -1323,11 +1322,6 @@ export default function Page() {
               }
               attachments={financeCardDetails.contract?.attachments || financeCardDetails.attachments || []}
               onDisburse={handleDisburse}
-              onDelete={
-                financeCardDetails.contract
-                  ? () => handleDelete(financeCardDetails.contract!.id)
-                  : () => handleDeleteCase(financeCardDetails.id)
-              }
               caseDetails={{
                 cpf: financeCardDetails.client?.cpf,
                 matricula: financeCardDetails.client?.matricula,

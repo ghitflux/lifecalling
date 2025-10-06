@@ -41,6 +41,8 @@ interface AppUser {
   last_login?: string | null;
   department?: string;
   phone?: string;
+  contratos_efetivados?: number;
+  producao_total?: number;
 }
 
 interface UserStats {
@@ -113,6 +115,16 @@ export default function UsuariosPage() {
     refetchInterval: 30000,
   });
 
+  // Query para dados de performance dos usuários
+  const { data: performanceData } = useQuery({
+    queryKey: ["users", "performance"],
+    queryFn: async () => {
+      const response = await api.get("/users/performance");
+      return response.data;
+    },
+    refetchInterval: 60000,
+  });
+
   const { data: stats } = useQuery<UserStats>({
     queryKey: ["users", "stats"],
     queryFn: async () => {
@@ -170,15 +182,31 @@ export default function UsuariosPage() {
     },
   });
 
+  // Combinar dados de usuários com performance
+  const usersWithPerformance = useMemo(() => {
+    if (!performanceData?.performance) return users;
+    
+    const performanceMap = new Map();
+    performanceData.performance.forEach((perf: any) => {
+      performanceMap.set(perf.user_id, perf);
+    });
+    
+    return users.map(user => ({
+      ...user,
+      contratos_efetivados: performanceMap.get(user.id)?.contratos_efetivados || 0,
+      producao_total: performanceMap.get(user.id)?.producao_total || 0
+    }));
+  }, [users, performanceData]);
+
   // Busca simples por nome ou email
   const filteredUsers: AppUser[] = useMemo(() => {
-    if (!searchTerm) return users;
+    if (!searchTerm) return usersWithPerformance;
     
-    return users.filter(user => {
+    return usersWithPerformance.filter(user => {
       const searchable = `${user.name} ${user.email}`.toLowerCase();
       return searchable.includes(searchTerm.toLowerCase());
     });
-  }, [users, searchTerm]);
+  }, [usersWithPerformance, searchTerm]);
 
   // Cálculo local das estatísticas como fallback
   const localStats = useMemo(() => {

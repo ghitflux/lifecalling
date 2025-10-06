@@ -5,6 +5,7 @@ from .routers import closing, finance, dashboard, contract_attachments, analytic
 from .db import Base, engine
 from .routers import simulations
 from .routers.simulations import calculation_router
+from .config import settings
 import os
 
 # Configurar timezone para Brasil (America/Sao_Paulo)
@@ -18,18 +19,15 @@ except AttributeError:
 
 app = FastAPI(title="Lifecalling API")
 
-# Configuração CORS para desenvolvimento e produção
+# Parse FRONTEND_URL para suportar múltiplas URLs separadas por vírgula
+frontend_urls = [url.strip() for url in settings.frontend_url.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://lifeservicos.com",
-        "https://www.lifeservicos.com",
-    ],
+    allow_origins=frontend_urls,
     allow_credentials=True,  # CRÍTICO: necessário para cookies HttpOnly
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-CSRF-Token"],
     expose_headers=["Set-Cookie"],  # Expõe cookies para o frontend
 )
 

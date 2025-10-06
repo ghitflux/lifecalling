@@ -22,6 +22,32 @@ export const api: AxiosInstance = axios.create({
   },
 });
 
+// --- CSRF Token Management ----------------------------------------
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  
+  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+  
+  return cookies.csrf_token || null;
+}
+
+async function fetchCsrfToken(): Promise<string | null> {
+  try {
+    const response = await axios.get('/auth/csrf', {
+      baseURL: BASE_URL,
+      withCredentials: true
+    });
+    return response.data.csrf_token;
+  } catch (error) {
+    console.error('Failed to fetch CSRF token:', error);
+    return null;
+  }
+}
+
 // --- util pra logar erro de forma confiável -----------------------
 function logAxiosError(err: unknown) {
   // Logar apenas erros não-401 ou em desenvolvimento
@@ -75,7 +101,31 @@ async function doRefreshOnce() {
 // Flag por request para não entrar em loop ao repetir
 const RETRIED = Symbol('retried');
 
-// --- interceptores ------------------------------------------------
+// --- Request interceptor para CSRF ---------------------------------
+api.interceptors.request.use(
+  async (config) => {
+    // Apenas para métodos que modificam dados
+    const isMutating = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase() || '');
+    
+    if (isMutating) {
+      let csrfToken = getCsrfToken();
+      
+      // Se não tem token, tenta buscar um novo
+      if (!csrfToken) {
+        csrfToken = await fetchCsrfToken();
+      }
+      
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
+    }
+    
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// --- Response interceptor ------------------------------------------
 api.interceptors.response.use(
   (res) => res,
   async (error: unknown) => {

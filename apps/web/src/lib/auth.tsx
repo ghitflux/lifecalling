@@ -116,6 +116,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
+      
+      // Buscar CSRF token após login bem-sucedido
+      try {
+        await api.get("/auth/csrf");
+      } catch (error) {
+        console.warn("Failed to fetch CSRF token after login:", error);
+      }
+      
       await refresh();
       // redireciona por role, com prioridade para "next" se fornecido
       let redirectTo = next;

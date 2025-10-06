@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Response, HTTPException, Depends, Cookie, Request
 from pydantic import BaseModel
-from ..security import set_auth_cookies, verify_password, get_current_user
+from ..security import (
+    set_auth_cookies, 
+    verify_password, 
+    get_current_user, 
+    generate_csrf_token, 
+    set_csrf_cookie
+)
 from ..db import SessionLocal
 from ..models import User
 
@@ -85,9 +91,18 @@ def debug_cookies(request: Request):
         "referer": request.headers.get("referer", "")
     }
 
+@r.get("/csrf")
+def get_csrf_token(resp: Response):
+    """Endpoint para obter token CSRF (usado pelo frontend)"""
+    csrf_token = generate_csrf_token()
+    set_csrf_cookie(resp, csrf_token)
+    return {"csrf_token": csrf_token}
+
 @r.post("/logout")
 def logout(resp: Response):
+    """Logout que limpa todos os cookies de autenticação e CSRF"""
     resp.delete_cookie("access")
     resp.delete_cookie("refresh")
     resp.delete_cookie("role")
+    resp.delete_cookie("csrf_token")
     return {"ok": True}
