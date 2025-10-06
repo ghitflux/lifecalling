@@ -56,10 +56,10 @@ export function PodiumCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:scale-105",
+        "relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl",
         `bg-gradient-to-br ${config.bgGradient}`,
         config.borderColor,
-        isFirst ? "p-8" : "p-6",
+        isFirst ? "p-8 shadow-xl" : "p-6 shadow-lg",
         className
       )}
     >
@@ -74,7 +74,7 @@ export function PodiumCard({
         {/* Header com Posição */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-4xl">{config.icon}</span>
+            <span className={cn("transition-transform duration-300 hover:scale-110", isFirst ? "text-5xl" : "text-4xl")}>{config.icon}</span>
             <div>
               <div className={cn("font-bold", isFirst ? "text-lg" : "text-md", config.textColor)}>
                 {config.label}
@@ -82,14 +82,14 @@ export function PodiumCard({
               <div className="text-xs text-muted-foreground">Top Performer</div>
             </div>
           </div>
-          <Trophy className={cn("h-8 w-8", config.textColor)} />
+          <Trophy className={cn("transition-all duration-300 hover:rotate-12", isFirst ? "h-9 w-9" : "h-8 w-8", config.textColor)} />
         </div>
 
         {/* Avatar e Nome */}
         <div className="flex flex-col items-center gap-3 py-4">
           <div className={cn(
-            "rounded-full flex items-center justify-center font-bold",
-            isFirst ? "h-20 w-20 text-2xl" : "h-16 w-16 text-xl bg-gradient-to-br text-white shadow-lg",
+            "rounded-full flex items-center justify-center font-bold transition-transform duration-300 hover:scale-105",
+            isFirst ? "h-32 w-32 text-2xl" : "h-16 w-16 text-xl bg-gradient-to-br text-white shadow-lg",
             !isFirst && config.gradient
           )}>
             {isFirst ? (
@@ -97,7 +97,7 @@ export function PodiumCard({
                 src="https://lottie.host/d2c00569-38c4-4910-b5b3-9bea095ff602/uN1szORaiA.lottie"
                 loop
                 autoplay
-                className="w-20 h-20"
+                className="w-32 h-32"
               />
             ) : avatar ? (
               <img src={avatar} alt={userName} className="rounded-full w-full h-full object-cover" />
@@ -107,7 +107,7 @@ export function PodiumCard({
           </div>
           <h3 className={cn(
             "font-bold text-center",
-            isFirst ? "text-xl" : "text-lg"
+            isFirst ? "text-2xl" : "text-lg"
           )}>
             {userName}
           </h3>
@@ -156,10 +156,10 @@ export function PodiumCard({
             </div>
           </div>
 
-          {/* Ticket Médio */}
+          {/* Consultoria Líq. por Contrato */}
           <div className="bg-card/30 backdrop-blur-sm rounded-lg p-3 border border-border/30">
             <div className="flex items-center justify-between">
-              <div className="text-xs text-muted-foreground font-medium">Ticket Médio</div>
+              <div className="text-xs text-muted-foreground font-medium">Consultoria Líq. por Contrato</div>
               <div className="font-semibold text-sm">
                 {(consultoriaLiq / contracts).toLocaleString("pt-BR", {
                   style: "currency",
