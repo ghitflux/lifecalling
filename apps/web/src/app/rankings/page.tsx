@@ -475,6 +475,37 @@ export default function RankingsPage() {
         mode="edit"
         initialData={editingCampaign}
       />
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && campaignToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">Confirmar Exclusão</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Tem certeza que deseja excluir a campanha <span className="font-semibold">{campaignToDelete.nome}</span>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setCampaignToDelete(null);
+                }}
+                disabled={deleteCampaignMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteCampaignMutation.mutate(campaignToDelete.id)}
+                disabled={deleteCampaignMutation.isPending}
+              >
+                {deleteCampaignMutation.isPending ? "Excluindo..." : "Excluir"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

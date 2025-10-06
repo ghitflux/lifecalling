@@ -18,43 +18,42 @@ def clean_database():
     print("\n[LIMPEZA] Limpando banco de dados...")
     
     with SessionLocal() as db:
-        try:
-            # Ordem de exclusão respeitando foreign keys
-            tables_to_clean = [
-                "contract_attachments",
-                "contracts",
-                "case_events",
-                "simulations",
-                "attachments",
-                "cases",
-                "client_phones",
-                "clients",
-                "payroll_lines",
-                "payroll_contracts",
-                "payroll_clients",
-                "import_batches",
-                "payroll_import_batches",
-                "finance_expenses",
-                "finance_incomes",
-                "agent_targets",
-                "campaigns",
-                "users"
-            ]
-            
-            for table in tables_to_clean:
-                try:
-                    db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
-                    print(f"  [OK] Tabela {table} limpa")
-                except Exception as e:
+        # Ordem de exclusão respeitando foreign keys
+        tables_to_clean = [
+            "contract_attachments",
+            "contracts",
+            "case_events",
+            "simulations",
+            "attachments",
+            "cases",
+            "client_phones",
+            "clients",
+            "payroll_lines",
+            "payroll_contracts",
+            "payroll_clients",
+            "import_batches",
+            "payroll_import_batches",
+            "finance_expenses",
+            "finance_incomes",
+            "agent_targets",
+            "campaigns",
+            "users"
+        ]
+        
+        for table in tables_to_clean:
+            try:
+                db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+                db.commit()
+                print(f"  [OK] Tabela {table} limpa")
+            except Exception as e:
+                db.rollback()
+                # Se a tabela não existe, apenas avisa e continua
+                if "does not exist" in str(e):
+                    print(f"  [AVISO] Tabela {table} nao existe")
+                else:
                     print(f"  [AVISO] Erro ao limpar {table}: {e}")
-            
-            db.commit()
-            print("[OK] Banco de dados limpo com sucesso!\n")
-            
-        except Exception as e:
-            db.rollback()
-            print(f"[ERRO] Erro ao limpar banco: {e}")
-            raise
+        
+        print("[OK] Banco de dados limpo com sucesso!\n")
 
 def create_users():
     """Cria os usuários essenciais."""
