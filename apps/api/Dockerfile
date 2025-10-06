@@ -29,7 +29,9 @@ COPY . .
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' --shell /bin/bash user \
-    && chown -R user:user /app
+    && chown -R user:user /app \
+    && mkdir -p /app/uploads \
+    && chown -R user:user /app/uploads
 USER user
 
 # Expose port
