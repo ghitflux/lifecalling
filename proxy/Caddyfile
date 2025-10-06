@@ -1,0 +1,13 @@
+{
+  email ghitflux@gmail.com
+}
+
+lifeservicos.com, www.lifeservicos.com {
+  encode gzip
+  reverse_proxy web:3000
+}
+
+api.lifeservicos.com {
+  encode gzip
+  reverse_proxy api:8000
+}

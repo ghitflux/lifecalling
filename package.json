@@ -1,0 +1,19 @@
+{
+  "name": "lifecalling",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @lifecalling/web dev",
+    "build": "pnpm --filter @lifecalling/web build",
+    "start": "pnpm --filter @lifecalling/web start",
+    "lint": "pnpm --filter @lifecalling/web lint",
+    "type-check": "pnpm --filter @lifecalling/web type-check"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

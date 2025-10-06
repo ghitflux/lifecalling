@@ -1,0 +1,118 @@
+═══════════════════════════════════════════════════════════════════
+    GUIA RÁPIDO: COMO REMOVER MOCKS DO MÓDULO RANKINGS
+═══════════════════════════════════════════════════════════════════
+
+📋 PASSO 1: DELETAR ARQUIVOS
+────────────────────────────────────────────────────────────────────
+
+Delete estes 3 arquivos:
+
+✗ apps/api/app/routers/rankings_mock_config.py
+✗ apps/api/app/routers/rankings_mock_data.py
+✗ apps/api/app/routers/RANKINGS_MOCKS_README.md
+✗ apps/api/app/routers/REMOVER_MOCKS.txt (este arquivo)
+
+
+📋 PASSO 2: LIMPAR rankings.py
+────────────────────────────────────────────────────────────────────
+
+Arquivo: apps/api/app/routers/rankings.py
+
+🔴 DELETE as linhas 12-28 (imports de mocks):
+
+# ========== IMPORTS DE MOCKS (REMOVER JUNTO COM OS ARQUIVOS) ==========
+try:
+    from .rankings_mock_config import USE_MOCK_DATA, MOCK_WARNING
+    from .rankings_mock_data import (
+        get_mock_agents_ranking,
+        get_mock_targets,
+        get_mock_teams_ranking,
+        get_mock_export_csv_agents,
+        get_mock_export_csv_teams
+    )
+    MOCKS_AVAILABLE = True
+    if USE_MOCK_DATA:
+        print(MOCK_WARNING)
+except ImportError:
+    MOCKS_AVAILABLE = False
+    USE_MOCK_DATA = False
+# ========== FIM DOS IMPORTS DE MOCKS ==========
+
+
+🔴 DELETE as linhas 64-67 (no endpoint /agents):
+
+# ========== USAR MOCK SE CONFIGURADO ==========
+if USE_MOCK_DATA and MOCKS_AVAILABLE:
+    return get_mock_agents_ranking(from_, to, page, per_page, agent_id)
+# ========== FIM DO MOCK ==========
+
+
+🔴 DELETE as linhas 173-176 (no endpoint /agents/targets):
+
+# ========== USAR MOCK SE CONFIGURADO ==========
+if USE_MOCK_DATA and MOCKS_AVAILABLE:
+    return get_mock_targets()
+# ========== FIM DO MOCK ==========
+
+
+🔴 DELETE as linhas 226-229 (no endpoint /teams):
+
+# ========== USAR MOCK SE CONFIGURADO ==========
+if USE_MOCK_DATA and MOCKS_AVAILABLE:
+    return get_mock_teams_ranking(from_, to)
+# ========== FIM DO MOCK ==========
+
+
+🔴 DELETE as linhas 259-280 (no endpoint /export.csv):
+
+# ========== USAR MOCK SE CONFIGURADO ==========
+if USE_MOCK_DATA and MOCKS_AVAILABLE:
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if kind == "agents":
+        writer.writerow([
+            "user_id","name","contracts","consultoria_liq","ticket_medio","trend_contracts","trend_consult",
+            "meta_contratos","meta_consultoria","atingimento_contratos","atingimento_consultoria"
+        ])
+        writer.writerows(get_mock_export_csv_agents())
+    elif kind == "teams":
+        writer.writerow(["team","contracts","consultoria_liq"])
+        writer.writerows(get_mock_export_csv_teams())
+    else:
+        raise HTTPException(status_code=400, detail="kind deve ser 'agents' ou 'teams'")
+
+    csv_data = output.getvalue()
+    return Response(content=csv_data, media_type="text/csv")
+# ========== FIM DO MOCK ==========
+
+
+📋 PASSO 3: REINICIAR SERVIDOR
+────────────────────────────────────────────────────────────────────
+
+Reinicie o servidor da API:
+
+$ # Reinicie seu processo Python/uvicorn/gunicorn
+
+
+📋 PASSO 4: TESTAR
+────────────────────────────────────────────────────────────────────
+
+Teste os endpoints para confirmar que estão usando dados reais:
+
+$ curl http://localhost:8000/rankings/agents
+$ curl http://localhost:8000/rankings/teams
+
+
+═══════════════════════════════════════════════════════════════════
+    ✅ PRONTO! Agora todos os endpoints usam dados reais do banco
+═══════════════════════════════════════════════════════════════════
+
+ATENÇÃO: Procure pelos comentários que começam com:
+         "========== USAR MOCK"
+         ou
+         "========== IMPORTS DE MOCKS"
+
+Eles marcam exatamente o que deve ser deletado!
+
+═══════════════════════════════════════════════════════════════════
