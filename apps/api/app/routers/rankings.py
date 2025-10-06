@@ -58,7 +58,7 @@ def ranking_agents(
     # 1) se Contract tiver agent_user_id, use;
     # 2) senão, pegue Case.assigned_user_id (fallback).
     owner_user_id = case(
-        [(Contract.agent_user_id.isnot(None), Contract.agent_user_id)],
+        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
         else_=Case.assigned_user_id
     )
 
@@ -100,7 +100,15 @@ def ranking_agents(
 
     # buscar metas (se existir campo User.settings)
     targets_map = {}
-    # TODO: implementar busca de metas se necessário
+    for u in all_users:
+        if hasattr(u, "settings") and isinstance(u.settings, dict):
+            targets = u.settings.get("targets", {})
+            targets_map[u.id] = {
+                "contratos": int(targets.get("contracts", 0) or 0),
+                "consultoria": float(targets.get("consultoria", 10000.0) or 10000.0)
+            }
+        else:
+            targets_map[u.id] = {"contratos": 0, "consultoria": 10000.0}
 
     items = []
     for user in all_users:
@@ -119,9 +127,9 @@ def ranking_agents(
         # ticket médio
         ticket_medio = current_data["consult_sum"] / current_data["qtd"] if current_data["qtd"] > 0 else 0
 
-        # metas (placeholder)
+        # metas (buscar do settings ou usar padrão)
         meta_contratos = targets_map.get(user.id, {}).get("contratos", 0)
-        meta_consultoria = targets_map.get(user.id, {}).get("consultoria", 0)
+        meta_consultoria = targets_map.get(user.id, {}).get("consultoria", 10000.0)
 
         # atingimento
         atingimento_contratos = (current_data["qtd"] / meta_contratos * 100) if meta_contratos > 0 else 0
@@ -224,7 +232,7 @@ def ranking_teams(
     # Como não há User.department explícito, agregamos por User.role
     start, end, *_ = _parse_range(from_, to)
     owner_user_id = case(
-        [(Contract.created_by.isnot(None), Contract.created_by)],
+        (Contract.created_by.isnot(None), Contract.created_by),
         else_=Case.assigned_user_id
     )
     q = (db.query(
@@ -261,7 +269,7 @@ def export_csv(
 
     if kind == "agents":
         owner_user_id = case(
-            [(Contract.created_by.isnot(None), Contract.created_by)],
+            (Contract.created_by.isnot(None), Contract.created_by),
             else_=Case.assigned_user_id
         )
         rows = (db.query(
@@ -335,7 +343,7 @@ def export_csv(
 
     elif kind == "teams":
         owner_user_id = case(
-            [(Contract.created_by.isnot(None), Contract.created_by)],
+            (Contract.created_by.isnot(None), Contract.created_by),
             else_=Case.assigned_user_id
         )
         rows = (db.query(
@@ -358,27 +366,143 @@ def export_csv(
     csv_data = output.getvalue()
     return Response(content=csv_data, media_type="text/csv")
 
-@r.get("/kpis")
-def get_rankings_kpis(
+@r.get("/podium")
+def get_podium(
     from_: str | None = Query(None, alias="from"),
     to: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
 ):
     """
-    KPIs agregados do módulo Rankings:
-    - Total de atendentes ativos
-    - Total de contratos no período
-    - Consultoria líquida total
-    - Ticket médio geral
-    - Atendentes que atingiram meta
-    - Top performer do período
+    Retorna Top 3 usuários por volume de consultoria líquida e contratos efetivados.
+    Apenas contratos com status="ativo" são considerados.
     """
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
     # Estratégia para encontrar o atendente dono do contrato
     owner_user_id = case(
-        [(Contract.created_by.isnot(None), Contract.created_by)],
+        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
+        else_=Case.assigned_user_id
+    )
+
+    # Query para ranking por consultoria líquida
+    ranking_query = (db.query(
+                owner_user_id.label("user_id"),
+                func.count(Contract.id).label("contracts"),
+                func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("consultoria_liq")
+            )
+            .join(Case, Case.id == Contract.case_id, isouter=True)
+            .filter(Contract.status == "ativo"))
+
+    if from_ and to:
+        ranking_query = ranking_query.filter(
+            func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+        )
+
+    ranking_data = ranking_query.group_by(owner_user_id).order_by(
+        func.sum(Contract.consultoria_valor_liquido).desc()
+    ).limit(3).all()
+
+    # Formatar Top 3
+    podium = []
+    for idx, row in enumerate(ranking_data):
+        if row.user_id:
+            user_obj = db.get(User, row.user_id)
+            podium.append({
+                "position": idx + 1,
+                "user_id": row.user_id,
+                "name": user_obj.name if user_obj else "Desconhecido",
+                "contracts": int(row.contracts or 0),
+                "consultoria_liq": float(row.consultoria_liq or 0)
+            })
+
+    return {
+        "period": {"from": str(start), "to": str(end)},
+        "podium": podium
+    }
+
+@r.get("/kpis")
+def get_rankings_kpis(
+    from_: str | None = Query(None, alias="from"),
+    to: str | None = None,
+    user_id: int | None = Query(None, description="Filtrar por ID do usuário específico"),
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin","supervisor","financeiro","calculista","atendente")),
+):
+    """
+    KPIs agregados do módulo Rankings:
+    - Se user_id fornecido: retorna KPIs individuais do usuário
+    - Caso contrário: KPIs agregados de todos os usuários
+    """
+    start, end, prev_start, prev_end = _parse_range(from_, to)
+
+    # Estratégia para encontrar o atendente dono do contrato
+    owner_user_id = case(
+        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
+        else_=Case.assigned_user_id
+    )
+
+    # Se user_id fornecido, retornar KPIs individuais
+    if user_id:
+        # Buscar dados do usuário específico
+        user_obj = db.get(User, user_id)
+        if not user_obj:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+        # Contratos do usuário no período
+        user_contracts_query = (db.query(Contract)
+                               .join(Case, Case.id == Contract.case_id, isouter=True)
+                               .filter(Contract.status == "ativo"))
+
+        # Aplicar filtro de usuário
+        user_contracts_query = user_contracts_query.filter(
+            func.coalesce(Contract.agent_user_id, Case.assigned_user_id) == user_id
+        )
+
+        if from_ and to:
+            user_contracts_query = user_contracts_query.filter(
+                func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
+            )
+
+        # Calcular métricas do usuário
+        user_contracts = user_contracts_query.count()
+        user_consultoria = float(user_contracts_query.with_entities(
+            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+        ).scalar() or 0)
+
+        # Buscar meta do usuário
+        meta = {}
+        if hasattr(user_obj, "settings") and isinstance(user_obj.settings, dict):
+            meta = (user_obj.settings or {}).get("targets", {})
+        meta_contratos = int(meta.get("contracts", 0) or 0)
+        meta_consultoria = float(meta.get("consultoria", 0) or 10000.0)
+        if meta_consultoria == 0:
+            meta_consultoria = 10000.0
+
+        # Calcular progresso
+        progresso_contratos = (user_contracts / meta_contratos * 100) if meta_contratos > 0 else 0
+        progresso_consultoria = (user_consultoria / meta_consultoria * 100) if meta_consultoria > 0 else 0
+
+        return {
+            "period": {"from": str(start), "to": str(end)},
+            "user_id": user_id,
+            "name": user_obj.name,
+            "kpis": {
+                "contracts": user_contracts,
+                "consultoria_liq": round(user_consultoria, 2),
+                "meta_contratos": meta_contratos,
+                "meta_consultoria": round(meta_consultoria, 2),
+                "progresso_contratos": round(progresso_contratos, 1),
+                "progresso_consultoria": round(progresso_consultoria, 1),
+                "falta_contratos": max(0, meta_contratos - user_contracts),
+                "falta_consultoria": max(0, round(meta_consultoria - user_consultoria, 2))
+            }
+        }
+
+    # KPIs agregados (todos os usuários)
+    # Estratégia para encontrar o atendente dono do contrato
+    owner_user_id = case(
+        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
         else_=Case.assigned_user_id
     )
 

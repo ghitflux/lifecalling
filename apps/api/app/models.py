@@ -245,6 +245,29 @@ class FinanceIncome(Base):
     creator = relationship("User", foreign_keys=[created_by])
     agent = relationship("User", foreign_keys=[agent_user_id])
 
+class Campaign(Base):
+    """
+    Campanhas de vendas e gamificação.
+    Permite criar campanhas com premiações e acompanhar rankings.
+    """
+    __tablename__ = "campaigns"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String(255), nullable=False)
+    descricao = Column(Text, nullable=True)
+    data_inicio = Column(DateTime, nullable=False)
+    data_fim = Column(DateTime, nullable=False)
+    status = Column(String(20), nullable=False, default="proxima")  # proxima, ativa, encerrada
+    criterio_pontuacao = Column(String(50), nullable=False, default="consultoria_liquida")
+    premiacoes = Column(JSON, nullable=False, default=list)  # Lista de {posicao, premio}
+    meta_contratos = Column(Integer, nullable=True)
+    meta_consultoria = Column(Numeric(14,2), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relacionamentos
+    creator = relationship("User", foreign_keys=[created_by])
+
 # Payroll Import Models
 
 class PayrollClient(Base):
@@ -413,27 +436,3 @@ class PayrollLine(Base):
         UniqueConstraint('cpf', 'matricula', 'financiamento_code', 'ref_month', 'ref_year',
                         name='uix_payroll_unique_ref'),
     )
-
-class Campaign(Base):
-    """
-    Modelo para campanhas de ranking.
-    Permite criar campanhas com diferentes critérios de pontuação.
-    """
-    __tablename__ = "campaigns"
-
-    id = Column(Integer, primary_key=True)
-    nome = Column(String(255), nullable=False)
-    descricao = Column(Text, nullable=True)
-    data_inicio = Column(DateTime, nullable=False)
-    data_fim = Column(DateTime, nullable=False)
-    status = Column(String(20), nullable=False, default='proxima')  # proxima, ativa, finalizada
-    criterio_pontuacao = Column(String(50), nullable=False, default='consultoria_liquida')  # volume_contratos, percentual_renda_liquida, consultoria_liquida, ticket_medio
-    premiacoes = Column(JSON, nullable=False, default=list)  # Lista de premiações por posição
-    meta_contratos = Column(Integer, nullable=True)  # Meta de contratos (opcional)
-    meta_consultoria = Column(Numeric(14, 2), nullable=True)  # Meta de consultoria (opcional)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relacionamentos
-    creator = relationship("User", foreign_keys=[created_by])

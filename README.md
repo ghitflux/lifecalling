@@ -355,7 +355,6 @@ kill -9 <PID>
 
 ```bash
 # Resetar banco (apaga dados!)
-docker compose down -v
 docker compose up -d
 docker compose exec api alembic upgrade head
 ```
@@ -364,12 +363,10 @@ docker compose exec api alembic upgrade head
 
 ```bash
 # API
-docker compose down
 docker compose build --no-cache api
 docker compose up -d
 
 # Frontend
-docker compose down
 docker compose build --no-cache web
 docker compose up -d
 ```

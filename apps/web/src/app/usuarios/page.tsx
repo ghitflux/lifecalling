@@ -15,23 +15,13 @@ import {
   CardHeader,
   CardTitle,
   Button,
-  FilterComponent,
-  useFilters,
+  Input,
 } from "@lifecalling/ui";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-// Definindo o tipo FilterOption localmente
-interface FilterOption {
-  key: string;
-  label: string;
-  type: 'text' | 'select' | 'multiselect' | 'date' | 'daterange' | 'number' | 'boolean';
-  options?: { value: string; label: string }[];
-  placeholder?: string;
-  min?: number;
-  max?: number;
-}
+
 
 /**
  * IMPORTANTE:
@@ -109,72 +99,8 @@ export default function UsuariosPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
-  // Configuração dos filtros
-  const filterOptions: FilterOption[] = [
-    {
-      key: "role",
-      label: "Função",
-      type: "select",
-      options: [
-        { value: "admin", label: "Administrador" },
-        { value: "supervisor", label: "Supervisor" },
-        { value: "user", label: "Usuário" },
-        { value: "viewer", label: "Visualizador" },
-      ],
-      placeholder: "Selecionar função",
-    },
-    {
-      key: "active",
-      label: "Status",
-      type: "select",
-      options: [
-        { value: "true", label: "Ativo" },
-        { value: "false", label: "Inativo" },
-      ],
-      placeholder: "Selecionar status",
-    },
-    {
-      key: "department",
-      label: "Departamento",
-      type: "select",
-      options: [
-        { value: "ti", label: "TI" },
-        { value: "rh", label: "Recursos Humanos" },
-        { value: "financeiro", label: "Financeiro" },
-        { value: "operacional", label: "Operacional" },
-        { value: "juridico", label: "Jurídico" },
-      ],
-      placeholder: "Selecionar departamento",
-    },
-    {
-      key: "created_date",
-      label: "Data de Criação",
-      type: "daterange",
-      placeholder: "Período de criação",
-    },
-    {
-      key: "has_login",
-      label: "Já fez login",
-      type: "boolean",
-    },
-  ];
-
-  // Hook de filtros
-  const {
-    searchTerm,
-    setFilter,
-    clearAllFilters,
-    setSearchTerm,
-    hasActiveFilters,
-    getFilteredData,
-  } = useFilters({
-    onFiltersChange: (newFilters) => {
-      // console.log('Filtros atualizados:', newFilters);
-    },
-    onSearch: (term) => {
-      // console.log('Busca atualizada:', term);
-    },
-  });
+  // Estado para busca simples
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Queries
   const { data: users = [], isLoading: usersLoading } = useQuery<AppUser[]>({
@@ -244,48 +170,35 @@ export default function UsuariosPage() {
     },
   });
 
-  // Função personalizada de filtro para usuários
-  const filterUsers = (user: AppUser, filters: any, term: string): boolean => {
-    // Busca de texto
-    if (term) {
-      const searchable = `${user.name} ${user.email} ${user.department ?? ""}`.toLowerCase();
-      if (!searchable.includes(term.toLowerCase())) return false;
-    }
-
-    // Função/role
-    if (filters.role && user.role !== filters.role) return false;
-
-    // Ativo/inativo (coagir string -> boolean quando vier do UI)
-    if (filters.active !== undefined && filters.active !== "") {
-      const isActive = typeof filters.active === "boolean" ? filters.active : String(filters.active) === "true";
-      if (user.active !== isActive) return false;
-    }
-
-    // Departamento
-    if (filters.department && user.department !== filters.department) return false;
-
-    // Período de criação
-    if (filters.created_date?.start && filters.created_date?.end) {
-      const d = new Date(user.created_at);
-      const start = new Date(filters.created_date.start);
-      const end = new Date(filters.created_date.end);
-      if (d < start || d > end) return false;
-    }
-
-    // Já fez login
-    if (filters.has_login !== undefined && filters.has_login !== "") {
-      const hasLoginFilter = typeof filters.has_login === "boolean" ? filters.has_login : String(filters.has_login) === "true";
-      const hasLogin = Boolean(user.last_login);
-      if (hasLogin !== hasLoginFilter) return false;
-    }
-
-    return true;
-  };
-
-  // Dados filtrados (no cliente)
+  // Busca simples por nome ou email
   const filteredUsers: AppUser[] = useMemo(() => {
-    return getFilteredData<AppUser>(users, filterUsers);
-  }, [users, getFilteredData]);
+    if (!searchTerm) return users;
+    
+    return users.filter(user => {
+      const searchable = `${user.name} ${user.email}`.toLowerCase();
+      return searchable.includes(searchTerm.toLowerCase());
+    });
+  }, [users, searchTerm]);
+
+  // Cálculo local das estatísticas como fallback
+  const localStats = useMemo(() => {
+    const total_users = users.length;
+    const active_users = users.filter(user => user.active).length;
+    const inactive_users = users.filter(user => !user.active).length;
+    const admin_users = users.filter(user => 
+      user.role === "admin" || user.role === "administrator" || user.role === "administrador"
+    ).length;
+
+    return {
+      total_users,
+      active_users,
+      inactive_users,
+      admin_users,
+    };
+  }, [users]);
+
+  // Usa stats da API se disponível, senão usa cálculo local
+  const displayStats = stats || localStats;
 
   // Handlers
   const handleCreateUser = (userData: Partial<AppUser>) => {
@@ -334,29 +247,24 @@ export default function UsuariosPage() {
       </div>
 
       {/* Stats Cards */}
-      {stats && (
+      {displayStats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <UserCard title="Total de Usuários" value={stats.total_users} icon={<Users className="h-4 w-4" />} trend={{ value: 12, isPositive: true }} />
-          <UserCard title="Usuários Ativos" value={stats.active_users} icon={<UserCheck className="h-4 w-4" />} trend={{ value: 8, isPositive: true }} />
-          <UserCard title="Usuários Inativos" value={stats.inactive_users} icon={<UserX className="h-4 w-4" />} trend={{ value: 3, isPositive: false }} />
-          <UserCard title="Administradores" value={stats.admin_users} icon={<Shield className="h-4 w-4" />} trend={{ value: 1, isPositive: true }} />
+          <UserCard title="Total de Usuários" value={displayStats.total_users} icon={<Users className="h-4 w-4" />} trend={{ value: 12, isPositive: true }} />
+          <UserCard title="Usuários Ativos" value={displayStats.active_users} icon={<UserCheck className="h-4 w-4" />} trend={{ value: 8, isPositive: true }} />
+          <UserCard title="Usuários Inativos" value={displayStats.inactive_users} icon={<UserX className="h-4 w-4" />} trend={{ value: 3, isPositive: false }} />
+          <UserCard title="Administradores" value={displayStats.admin_users} icon={<Shield className="h-4 w-4" />} trend={{ value: 1, isPositive: true }} />
         </div>
       )}
 
-      {/* Filtros */}
-      <FilterComponent
-        filters={filterOptions}
-        onFiltersChange={(newFilters) => {
-          Object.entries(newFilters).forEach(([key, value]) => {
-            setFilter(key, value);
-          });
-        }}
-        onSearch={setSearchTerm}
-        searchPlaceholder="Buscar por nome, email ou departamento..."
-        showSearch
-        showFilterCount
-        className="mb-6"
-      />
+      {/* Campo de Busca */}
+      <div className="mb-6">
+        <Input
+          placeholder="Buscar por nome ou email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
 
       {/* Resultados */}
       <Card>
@@ -364,21 +272,16 @@ export default function UsuariosPage() {
           <CardTitle className="flex items-center justify-between">
             <span>
               Usuários
-              {hasActiveFilters && (
+              {searchTerm && (
                 <span className="text-sm font-normal text-muted-foreground ml-2">
                   ({filteredUsers.length} de {users.length} usuários)
                 </span>
               )}
             </span>
-            {hasActiveFilters && (
-              <Button variant="outline" size="sm" onClick={clearAllFilters}>
-                Limpar Filtros
-              </Button>
-            )}
           </CardTitle>
           <CardDescription>
-            {hasActiveFilters
-              ? `Mostrando ${filteredUsers.length} usuários filtrados`
+            {searchTerm
+              ? `Mostrando ${filteredUsers.length} usuários encontrados`
               : `Lista completa de ${users.length} usuários do sistema`}
           </CardDescription>
         </CardHeader>

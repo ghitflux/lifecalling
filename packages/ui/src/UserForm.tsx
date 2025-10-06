@@ -16,7 +16,6 @@ interface User {
   status: string;
   created_at: string;
   last_login?: string;
-  department?: string;
   phone?: string;
 }
 
@@ -33,6 +32,7 @@ const ROLES = [
   { value: 'supervisor', label: 'Supervisor' },
   { value: 'financeiro', label: 'Financeiro' },
   { value: 'calculista', label: 'Calculista' },
+  { value: 'fechamento', label: 'Fechamento' },
   { value: 'atendente', label: 'Atendente' }
 ];
 
@@ -42,14 +42,7 @@ const STATUSES = [
   { value: 'suspended', label: 'Suspenso' }
 ];
 
-const DEPARTMENTS = [
-  'Atendimento',
-  'Financeiro',
-  'Jurídico',
-  'Calculista',
-  'Supervisão',
-  'Administração'
-];
+
 
 export function UserForm({ user, onSubmit, onCancel, loading, className }: UserFormProps) {
   const [formData, setFormData] = useState({
@@ -57,7 +50,6 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
     email: '',
     role: 'atendente',
     status: 'active',
-    department: '',
     phone: '',
     password: ''
   });
@@ -71,7 +63,6 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
         email: user.email || '',
         role: user.role || 'atendente',
         status: user.status || 'active',
-        department: user.department || '',
         phone: user.phone || '',
         password: ''
       });
@@ -81,7 +72,6 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
         email: '',
         role: 'atendente',
         status: 'active',
-        department: '',
         phone: '',
         password: ''
       });
@@ -128,7 +118,6 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
       email: formData.email.trim(),
       role: formData.role,
       status: formData.status,
-      department: formData.department.trim() || null,
       phone: formData.phone.trim() || null
     };
 
@@ -223,20 +212,7 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Departamento</label>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    disabled={loading}
-                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Selecione um departamento</option>
-                    {DEPARTMENTS.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
+
               </div>
             </CardContent>
           </Card>

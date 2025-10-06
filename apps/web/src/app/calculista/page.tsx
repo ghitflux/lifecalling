@@ -29,7 +29,7 @@ import {
   useCasosEfetivados,
   useCasosCancelados,
 } from "@/lib/hooks";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -39,6 +39,7 @@ import {
   TrendingUp,
   DollarSign,
   Target,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -46,9 +47,16 @@ function CalculistaPageContent() {
   useLiveCaseEvents();
   const router = useRouter();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
+
+  // Função para atualizar todos os dados
+  const handleRefresh = () => {
+    queryClient.refetchQueries();
+    toast.success("Dados atualizados com sucesso!");
+  };
 
 
 
@@ -225,9 +233,20 @@ function CalculistaPageContent() {
           </h1>
           <p className="text-muted-foreground">Simulações pendentes de análise</p>
         </div>
-        <Badge variant="secondary">
-          {pendingSims.length} simulações pendentes
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary">
+            {pendingSims.length} simulações pendentes
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
 

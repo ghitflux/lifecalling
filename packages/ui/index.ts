@@ -82,6 +82,8 @@ export * from "./src/MiniAreaChart";
 export * from "./src/MiniBarChart";
 export * from "./src/DonutChart";
 export * from "./src/RankingTable";
+export * from "./src/PodiumCard";
+export * from "./src/CampaignCard";
 export * from "./src/UnifiedFilter";
 export * from "./src/DateRangeFilter";
 export * from "./src/Select";

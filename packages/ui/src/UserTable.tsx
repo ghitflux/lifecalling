@@ -15,8 +15,9 @@ interface User {
   status?: string;
   created_at: string;
   last_login?: string;
-  department?: string;
   phone?: string;
+  contratos_efetivados?: number;
+  producao_total?: number;
 }
 
 interface UserTableProps {
@@ -88,8 +89,8 @@ export function UserTable({ users, onEdit, onDelete, loading, className }: UserT
         <div className="col-span-3">Usuário</div>
         <div className="col-span-2">Função</div>
         <div className="col-span-2">Status</div>
-        <div className="col-span-2">Departamento</div>
-        <div className="col-span-2">Criado em</div>
+        <div className="col-span-2">Contratos Efetivados</div>
+        <div className="col-span-2">Produção Total</div>
         <div className="col-span-1">Ações</div>
       </div>
 
@@ -138,13 +139,16 @@ export function UserTable({ users, onEdit, onDelete, loading, className }: UserT
               </div>
               
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {user.department && (
-                  <span>{user.department}</span>
-                )}
                 <div className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
                   {formatDate(user.created_at)}
                 </div>
+                {user.contratos_efetivados !== undefined && (
+                  <span>Contratos: {user.contratos_efetivados}</span>
+                )}
+                {user.producao_total !== undefined && (
+                  <span>Produção: R$ {user.producao_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                )}
               </div>
             </div>
 
@@ -169,11 +173,14 @@ export function UserTable({ users, onEdit, onDelete, loading, className }: UserT
               </div>
               
               <div className="col-span-2 text-sm">
-                {user.department || '-'}
+                {user.contratos_efetivados !== undefined ? user.contratos_efetivados : '-'}
               </div>
               
               <div className="col-span-2 text-sm">
-                {formatDate(user.created_at)}
+                {user.producao_total !== undefined 
+                  ? `R$ ${user.producao_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+                  : '-'
+                }
               </div>
               
               <div className="col-span-1 flex gap-1">

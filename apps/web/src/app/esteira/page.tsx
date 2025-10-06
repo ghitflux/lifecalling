@@ -335,31 +335,26 @@ export default function EsteiraPage() {
                 title="Total de Casos"
                 value={myStats?.totalCases || 0}
                 icon={Target}
-                trend={myStats?.totalCases > 0 ? 12.5 : 0}
               />
               <KPICard
                 title="Casos Ativos"
                 value={myStats?.activeCases || 0}
                 icon={AlertCircle}
-                trend={myStats?.activeCases > 0 ? 8.3 : 0}
               />
               <KPICard
                 title="Casos Finalizados"
                 value={myStats?.completedCases || 0}
                 icon={CheckCircle}
-                trend={myStats?.completedCases > 0 ? 15.2 : 0}
               />
               <KPICard
                 title="Taxa de Conversão"
                 value={`${myStats?.conversionRate || 0}%`}
                 icon={TrendingUp}
-                trend={myStats?.conversionRate > 50 ? 5.4 : myStats?.conversionRate > 25 ? 0 : -2.1}
               />
               <KPICard
                 title="Volume Financeiro"
                 value={`R$ ${(myStats?.totalVolume || 0).toLocaleString('pt-BR')}`}
                 icon={DollarSign}
-                trend={myStats?.totalVolume > 0 ? 18.7 : 0}
               />
             </div>
 
