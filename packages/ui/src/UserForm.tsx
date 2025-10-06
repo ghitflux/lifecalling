@@ -117,8 +117,7 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
       name: formData.name.trim(),
       email: formData.email.trim(),
       role: formData.role,
-      status: formData.status,
-      phone: formData.phone.trim() || null
+      status: formData.status
     };
 
     if (formData.password.trim()) {
