@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // mapas de acesso por prefixo
-const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|"atendente">> = {
+const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|"atendente"|"fechamento">> = {
   "/esteira":      ["admin","supervisor","atendente"],
   "/calculista":   ["admin","supervisor","calculista"],
-  "/fechamento":   ["admin","supervisor","atendente"],
+  "/fechamento":   ["admin","supervisor","fechamento"],
   "/financeiro":   ["admin","supervisor","financeiro"],
   "/contratos":    ["admin","supervisor","financeiro"],
-  "/casos":        ["admin","supervisor","atendente","calculista","financeiro"],
+  "/casos":        ["admin","supervisor","atendente","calculista","financeiro","fechamento"],
   "/dashboard":    ["admin","supervisor","financeiro","calculista"],
   "/usuarios":     ["admin","supervisor"],
   "/config":       ["admin"],
-  "/rankings":     ["admin","supervisor","financeiro","calculista","atendente"],
+  "/rankings":     ["admin","supervisor","financeiro","calculista","atendente","fechamento"],
 };
 
 // rota padrão por role para evitar loops de redirecionamento
@@ -21,6 +21,7 @@ const DEFAULT_ROUTE: Record<string, string> = {
   atendente: "/rankings",
   calculista: "/calculista",
   financeiro: "/financeiro",
+  fechamento: "/fechamento",
 };
 
 export function middleware(req: NextRequest) {

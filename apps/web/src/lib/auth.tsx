@@ -116,19 +116,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
-      
+
       // Buscar CSRF token após login bem-sucedido
       try {
         await api.get("/auth/csrf");
       } catch (error) {
         console.warn("Failed to fetch CSRF token after login:", error);
       }
-      
-      await refresh();
+
+      // Busca o usuário atual após login
+      const currentUser = await fetchMe();
+      setUser(currentUser);
+
       // redireciona por role, com prioridade para "next" se fornecido
       let redirectTo = next;
       if (!redirectTo) {
-        const role = (user?.role) as Role | undefined;
+        const role = currentUser.role;
         switch (role) {
           case "atendente":
             redirectTo = "/esteira";
@@ -154,6 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       setLoading(false);
       throw error; // propaga o erro para o componente de login
+    } finally {
+      setLoading(false);
     }
   };
 
