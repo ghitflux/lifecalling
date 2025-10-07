@@ -106,7 +106,8 @@ def list_pending(
                 # Adicionar totais se simulação foi calculada
                 "totals": {
                     "liberadoCliente": float(sim.liberado_cliente or 0)
-                } if sim.status in ["approved", "rejected"] else None
+                } if sim.status in ["approved", "rejected"] else None,
+                "observacao_calculista": sim.observacao_calculista
             })
 
         count = len(items)
@@ -148,7 +149,8 @@ def list_retorno_fechamento(user=Depends(require_roles("admin","supervisor","cal
                         },
                         "banks": enrich_banks_with_names(sim.banks_json or []),
                         "prazo": sim.prazo,
-                        "percentualConsultoria": float(sim.percentual_consultoria or 0)
+                        "percentualConsultoria": float(sim.percentual_consultoria or 0),
+                        "observacao_calculista": sim.observacao_calculista
                     }
 
             items.append({
@@ -210,6 +212,7 @@ async def create_or_update_simulation(case_id: int, data: SimulationInput, user=
         sim.coeficiente = data.coeficiente
         sim.seguro = Decimal(str(data.seguro))
         sim.percentual_consultoria = Decimal(str(data.percentualConsultoria))
+        sim.observacao_calculista = data.observacaoCalculista if data.observacaoCalculista else None
 
         # Salvar totais calculados
         sim.valor_parcela_total = Decimal(str(totals.valorParcelaTotal))

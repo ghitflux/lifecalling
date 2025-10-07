@@ -10,7 +10,7 @@ const inter = Inter({
   variable: "--font-inter"
 });
 
-export const metadata = { title: "Lifecalling" };
+export const metadata = { title: "Life Digital" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

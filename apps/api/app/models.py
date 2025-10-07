@@ -145,6 +145,9 @@ class Simulation(Base):
     custo_consultoria_liquido = Column(Numeric(14,2))
     liberado_cliente = Column(Numeric(14,2))
 
+    # Campo de observações do calculista
+    observacao_calculista = Column(Text, nullable=True)
+
     # Manter campos legados para compatibilidade
     manual_input = Column(JSON, default={})
     results = Column(JSON, default={})

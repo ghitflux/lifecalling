@@ -12,6 +12,7 @@ const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|
   "/usuarios":     ["admin","supervisor"],
   "/config":       ["admin"],
   "/rankings":     ["admin","supervisor","financeiro","calculista","atendente","fechamento"],
+  "/faq":          ["admin","supervisor","financeiro","calculista","atendente","fechamento"],
 };
 
 // rota padrão por role para evitar loops de redirecionamento
