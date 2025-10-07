@@ -42,6 +42,7 @@ def list_pending(
     limit: int = 50,
     date: str = None,
     include_completed_today: bool = False,  # NOVO parâmetro
+    all: bool = False,  # NOVO parâmetro para retornar todas as simulações
     user=Depends(require_roles("admin","supervisor","calculista","fechamento"))
 ):
     """
@@ -52,6 +53,7 @@ def list_pending(
     - limit: Número máximo de resultados
     - date: Filtro por data ("today")
     - include_completed_today: Se True, inclui simulações approved/rejected de hoje junto com draft
+    - all: Se True, retorna todas as simulações independente de status ou data
     """
     with SessionLocal() as db:
         from datetime import datetime
@@ -61,7 +63,10 @@ def list_pending(
         q = db.query(Simulation, Case, Client).join(Case, Simulation.case_id==Case.id).join(Client, Case.client_id==Client.id)
 
         # Filtro de status com suporte para múltiplos
-        if include_completed_today:
+        if all:
+            # Retorna todas as simulações sem filtro de status
+            pass
+        elif include_completed_today:
             # Inclui draft + approved/rejected de hoje
             today = datetime.utcnow().date()
             q = q.filter(
@@ -77,8 +82,8 @@ def list_pending(
             # Apenas o status especificado
             q = q.filter(Simulation.status == status)
 
-        # Filtro por data se especificado
-        if date == "today":
+        # Filtro por data se especificado (não aplicar quando all=true)
+        if date == "today" and not all:
             today = datetime.utcnow().date()
             q = q.filter(func.date(Simulation.updated_at) == today)
 

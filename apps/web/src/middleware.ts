@@ -17,9 +17,9 @@ const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|
 
 // rota padrão por role para evitar loops de redirecionamento
 const DEFAULT_ROUTE: Record<string, string> = {
-  admin: "/esteira",
-  supervisor: "/esteira",
-  atendente: "/rankings",
+  admin: "/dashboard",
+  supervisor: "/dashboard",
+  atendente: "/esteira",
   calculista: "/calculista",
   financeiro: "/financeiro",
   fechamento: "/fechamento",

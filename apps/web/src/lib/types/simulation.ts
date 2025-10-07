@@ -11,6 +11,7 @@ export interface SimulationInput {
   coeficiente: string;          // texto livre
   seguro: number;               // R$
   percentualConsultoria: number; // 0-100%
+  observacao_calculista?: string; // observações do calculista
 }
 
 export interface SimulationTotals {
@@ -39,6 +40,7 @@ export interface SimulationDB {
   coeficiente: string;
   seguro: number;
   percentual_consultoria: number;
+  observacao_calculista?: string;
 
   valor_parcela_total: number;
   saldo_total: number;

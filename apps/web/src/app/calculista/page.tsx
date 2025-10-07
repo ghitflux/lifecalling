@@ -18,6 +18,7 @@ import {
   KPICard,
   MiniAreaChart,
   ProgressBar,
+  Input,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
@@ -51,6 +52,7 @@ function CalculistaPageContent() {
 
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Função para atualizar todos os dados
   const handleRefresh = () => {
@@ -122,6 +124,18 @@ function CalculistaPageContent() {
     useCasosEfetivados();
   const { data: casosCancelados, isLoading: canceladosLoading } =
     useCasosCancelados();
+
+  // Query para todas as simulações (para a nova tab)
+  const { data: allSimulations = [], isLoading: allSimulationsLoading } = useQuery({
+    queryKey: ["allSimulations"],
+    queryFn: async () => {
+      const response = await api.get("/simulations", {
+        params: { all: true, limit: 100 }
+      });
+      return response.data || [];
+    },
+    enabled: activeTab === "todas_simulacoes"
+  });
 
   // KPIs combinados (usando dados do fechamento para meta_mensal e consultoria_liquida)
   const combinedKpis = useMemo(() => {
@@ -205,6 +219,18 @@ function CalculistaPageContent() {
   const completedSims = allSimulations.filter(
     (s: any) => s.status === "approved" || s.status === "rejected"
   );
+
+  // Filtro para todas as simulações
+  const filteredAllSimulations = useMemo(() => {
+    if (!searchTerm) return allSimulations;
+    
+    const term = searchTerm.toLowerCase();
+    return allSimulations.filter((sim: any) => {
+      const clientName = sim.client_name || "";
+      const clientCpf = sim.client_cpf || "";
+      return clientName.toLowerCase().includes(term) || clientCpf.includes(term);
+    });
+  }, [allSimulations, searchTerm]);
 
   // Permissões
   useEffect(() => {
@@ -324,7 +350,7 @@ function CalculistaPageContent() {
 
       {/* Abas */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
@@ -336,6 +362,9 @@ function CalculistaPageContent() {
           </TabsTrigger>
           <TabsTrigger value="concluidas">
             Concluídas Hoje ({completedSims.length})
+          </TabsTrigger>
+          <TabsTrigger value="todas_simulacoes">
+            Todas Simulações
           </TabsTrigger>
           <TabsTrigger value="efetivados">
             Casos Efetivados ({casosEfetivados?.length || 0})
@@ -580,6 +609,82 @@ function CalculistaPageContent() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Todas Simulações */}
+        <TabsContent value="todas_simulacoes" className="mt-6">
+          <div className="space-y-4">
+            {/* Campo de busca */}
+            <div className="flex gap-4 items-center">
+              <Input
+                placeholder="Buscar por nome do cliente ou CPF..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              <Button variant="outline" onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Atualizar
+              </Button>
+            </div>
+
+            {/* Lista de todas as simulações */}
+            {allSimulations.length === 0 ? (
+              <div className="text-center py-12">
+                <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="font-medium text-muted-foreground mb-1">
+                  Nenhuma simulação encontrada
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {searchTerm ? "Tente ajustar os termos de busca." : "Não há simulações registradas."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredAllSimulations.map((sim: any) => (
+                  <Card
+                    key={sim.id}
+                    className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleSimulationClick(sim.case_id)}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <StatusBadge status={sim.status} size="sm" />
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="font-medium">Caso #{sim.case_id}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {sim.client_name || "Cliente não identificado"}
+                        </p>
+                        {sim.client_cpf && (
+                          <p className="text-xs text-muted-foreground">
+                            CPF: {sim.client_cpf}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        {sim.observacao_calculista && (
+                          <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+                            <strong>Obs:</strong> {sim.observacao_calculista}
+                          </div>
+                        )}
+                      </div>
+
+                      <Button variant="outline" className="w-full" size="sm">
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Ver Detalhes
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* Efetivados */}

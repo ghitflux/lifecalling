@@ -75,9 +75,38 @@ export default function ClienteDetalhe() {
     }
   });
 
+  // Mutation para deletar cliente em cascata
+  const deleteClientCascadeMutation = useMutation({
+    mutationFn: async (clientId: number) => {
+      const response = await api.delete(`/clients/${clientId}/cascade`);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+      toast.success(data.message || "Cliente e casos associados excluídos com sucesso!");
+      router.push("/clientes");
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.detail || "Erro ao excluir cliente";
+      toast.error(errorMessage);
+    }
+  });
+
   const handleDeleteClient = () => {
     if (confirm("Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.")) {
       deleteClientMutation.mutate(parseInt(id));
+    }
+  };
+
+  const handleDeleteClientCascade = () => {
+    const casesCount = clientData?.financiamentos?.length || 0;
+    const message = casesCount > 0 
+      ? `Tem certeza que deseja excluir este cliente e ${casesCount} caso(s) associado(s)? Esta ação não pode ser desfeita.`
+      : "Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.";
+    
+    if (confirm(message)) {
+      deleteClientCascadeMutation.mutate(parseInt(id));
     }
   };
 
@@ -152,11 +181,11 @@ export default function ClienteDetalhe() {
         {user?.role === "admin" && (
           <Button
             variant="destructive"
-            onClick={handleDeleteClient}
-            disabled={deleteClientMutation.isPending}
+            onClick={handleDeleteClientCascade}
+            disabled={deleteClientCascadeMutation.isPending}
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            {deleteClientMutation.isPending ? "Excluindo..." : "Excluir Cliente"}
+            {deleteClientCascadeMutation.isPending ? "Excluindo..." : "Excluir Cliente e Casos"}
           </Button>
         )}
       </div>

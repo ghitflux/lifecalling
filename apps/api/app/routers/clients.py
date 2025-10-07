@@ -622,6 +622,66 @@ def delete_client(client_id: int, db: Session = Depends(get_db), user=Depends(re
     return {"ok": True, "message": "Cliente excluído com sucesso"}
 
 
+@r.delete("/{client_id}/cascade")
+def delete_client_cascade(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin"))):
+    """
+    Deleta um cliente e todos os casos associados (apenas admin).
+    Exclusão em cascata - remove casos, anexos, eventos, simulações, etc.
+    """
+    # Buscar cliente
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar casos associados
+    cases = db.query(Case).filter_by(client_id=client.id).all()
+    
+    # Deletar em cascata
+    for case in cases:
+        # Deletar anexos
+        from ..models import Attachment
+        db.query(Attachment).filter_by(case_id=case.id).delete()
+        
+        # Deletar eventos
+        from ..models import CaseEvent
+        db.query(CaseEvent).filter_by(case_id=case.id).delete()
+        
+        # Deletar simulações
+        from ..models import Simulation
+        db.query(Simulation).filter_by(case_id=case.id).delete()
+        
+        # Deletar contrato se existir
+        from ..models import Contract
+        contract = db.query(Contract).filter_by(case_id=case.id).first()
+        if contract:
+            # Deletar anexos do contrato
+            from ..models import ContractAttachment
+            db.query(ContractAttachment).filter_by(contract_id=contract.id).delete()
+            
+            # Deletar pagamentos
+            from ..models import Payment
+            db.query(Payment).filter_by(contract_id=contract.id).delete()
+            
+            # Deletar contrato
+            db.delete(contract)
+        
+        # Deletar caso
+        db.delete(case)
+
+    # Deletar telefones do cliente
+    db.query(ClientPhone).filter_by(client_id=client.id).delete()
+    
+    # Deletar cliente
+    db.delete(client)
+    db.commit()
+
+    return {
+        "ok": True, 
+        "message": f"Cliente e {len(cases)} caso(s) associado(s) excluído(s) com sucesso",
+        "deleted_cases": len(cases)
+    }
+
+
 # Rotas de histórico de telefones
 
 class PhoneUpdate(BaseModel):

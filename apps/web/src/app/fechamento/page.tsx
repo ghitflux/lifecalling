@@ -218,7 +218,7 @@ function FechamentoContent() {
         <KPICard
           title="Casos Pendentes"
           value={combinedKpis.casos_pendentes}
-          subtitle="Aguardando análise"
+          subtitle="Aguardando envio do atendente"
           trend={combinedKpis.trends?.casos_pendentes || 0}
           icon={Clock}
           color="warning"

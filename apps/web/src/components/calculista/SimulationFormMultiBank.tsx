@@ -58,6 +58,8 @@ export function SimulationFormMultiBank({
     percentualConsultoria: 12
   });
 
+  const [observacao_calculista, setObservacao_calculista] = useState("");
+
   const [inputValues, setInputValues] = useState<{
     [key: string]: {
       parcela: string;
@@ -279,7 +281,8 @@ export function SimulationFormMultiBank({
         prazo: formData.prazo,
         coeficiente: formData.coeficiente,
         seguro: formData.seguro,
-        percentualConsultoria: formData.percentualConsultoria
+        percentualConsultoria: formData.percentualConsultoria,
+        observacao_calculista: observacao_calculista
       };
 
       onCalculate?.(simulationData);
@@ -466,6 +469,20 @@ export function SimulationFormMultiBank({
             ))}
           </div>
 
+          {/* Campo de Observações */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Observações do Calculista</label>
+            <textarea
+              value={observacao_calculista}
+              onChange={(e) => setObservacao_calculista(e.target.value)}
+              placeholder="Adicione observações sobre esta simulação..."
+              rows={3}
+              className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <p className="text-xs text-muted-foreground">
+              Observações serão salvas junto com a simulação e aparecerão no histórico
+            </p>
+          </div>
 
           {/* Submit Button */}
           <div className="border-t pt-4">
