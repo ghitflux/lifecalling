@@ -1,5 +1,5 @@
 from sqlalchemy import Numeric
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint, JSON, Text, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -468,5 +468,5 @@ class Comment(Base):
 
     # Índice composto para queries eficientes
     __table_args__ = (
-        UniqueConstraint(name='ix_comments_case_channel_created'),
+        Index('ix_comments_case_channel_created', 'case_id', 'channel', 'created_at'),
     )
