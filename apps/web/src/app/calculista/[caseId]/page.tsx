@@ -18,6 +18,8 @@ import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileTex
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
 import { SimulationResultCard } from "@lifecalling/ui";
 import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
+import CaseChat from "@/components/case/CaseChat";
+import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 
 export default function CalculistaSimulationPage() {
   const params = useParams();
@@ -583,6 +585,12 @@ export default function CalculistaSimulationPage() {
           setShowHistoryModal(false);
         }}
       />
+
+      {/* Admin Status Changer (apenas para admin) */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseData?.status || ''} />
+
+      {/* Chat do Calculista */}
+      <CaseChat caseId={caseId} defaultChannel="SIMULACAO" />
     </div>
   );
 }

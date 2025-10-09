@@ -644,32 +644,53 @@ function CalculistaPageContent() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredAllSimulations.map((sim: any) => (
                   <Card
-                    key={sim.id}
+                    key={sim?.id || Math.random()}
                     className="p-4 cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => handleSimulationClick(sim.case_id)}
+                    onClick={() => handleSimulationClick(sim?.case_id || 0)}
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <StatusBadge status={sim.status} size="sm" />
+                        <StatusBadge status={sim?.status || 'draft'} size="sm" />
                         <span className="text-xs text-muted-foreground">
-                          {new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")}
+                          {sim?.updated_at || sim?.created_at
+                            ? new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")
+                            : 'Data não disponível'
+                          }
                         </span>
                       </div>
 
                       <div>
-                        <h3 className="font-medium">Caso #{sim.case_id}</h3>
+                        <h3 className="font-medium">Caso #{sim?.case_id || '---'}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {sim.client_name || "Cliente não identificado"}
+                          {sim?.client_name || "Cliente não identificado"}
                         </p>
-                        {sim.client_cpf && (
+                        {sim?.client_cpf && (
                           <p className="text-xs text-muted-foreground">
                             CPF: {sim.client_cpf}
                           </p>
                         )}
                       </div>
 
+                      {/* Informações adicionais da simulação */}
+                      {(sim?.prazo || sim?.banks_json) && (
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {sim.prazo && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Prazo:</span>
+                              <span>{sim.prazo} meses</span>
+                            </div>
+                          )}
+                          {sim.banks_json && Array.isArray(sim.banks_json) && sim.banks_json.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">Bancos:</span>
+                              <span>{sim.banks_json.length}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="text-xs text-muted-foreground">
-                        {sim.observacao_calculista && (
+                        {sim?.observacao_calculista && (
                           <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
                             <strong>Obs:</strong> {sim.observacao_calculista}
                           </div>

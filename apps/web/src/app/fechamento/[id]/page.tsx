@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, History, CheckCircle, XCircle, Eye, User, DollarSign, Calendar, FileText, Download, Save, FileImage, File, Printer, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import CaseChat from "@/components/case/CaseChat";
+import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 
 export default function FechamentoDetalhesPage() {
   const params = useParams();
@@ -705,6 +707,12 @@ export default function FechamentoDetalhesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Admin Status Changer (apenas para admin) */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseData?.status || ''} />
+
+      {/* Chat do Fechamento */}
+      <CaseChat caseId={caseId} defaultChannel="FECHAMENTO" />
 
       {/* Modal de Histórico */}
       <SimulationHistoryModal

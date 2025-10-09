@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2 } from "lucide-react";
 import Financiamentos from "@/components/clients/Financiamentos";
 import { Snippet } from "@nextui-org/snippet";
+import CaseChat from "@/components/case/CaseChat";
 
 export default function ClienteDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -343,8 +344,9 @@ export default function ClienteDetalhe() {
         </Card>
       )}
 
-
-
+      {/* Chat do Cliente - Precisa de um caseId associado */}
+      {/* Para clientes, vamos criar um chat global sem caseId específico */}
+      {/* TODO: Implementar sistema de chat de cliente sem caseId ou usar o caso mais recente */}
 
     </div>
   );
