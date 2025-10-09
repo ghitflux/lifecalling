@@ -180,7 +180,7 @@ export default function CaseDetailPage() {
       }
     },
     enabled: !!caseId,
-    retry: (failureCount, error) => {
+    retry: (failureCount, error: any) => {
       // Não tentar novamente para erros de auth ou permissão
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false;
@@ -401,7 +401,10 @@ export default function CaseDetailPage() {
     );
   }
 
-  if (!caseDetail && !isLoading) {
+  if (!caseDetail) {
+    if (isLoading) {
+      return <DetailsSkeleton />;
+    }
     return (
       <div className="p-6">
         <div className="text-center py-8 text-red-500">Atendimento não encontrado</div>

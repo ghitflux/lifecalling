@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardBody, CardHeader } from '@heroui/system';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar } from '@/components/ui/avatar';
@@ -105,14 +105,14 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
   };
 
   return (
-    <Card className="w-full h-full flex flex-col">
-      <CardHeader className="flex flex-row items-center gap-3 border-b pb-3">
+    <Card className="w-full h-full flex flex-col p-6">
+      <div className="flex flex-row items-center gap-3 border-b pb-3 mb-4">
         <MessageCircle className="h-5 w-5 text-primary" />
         <h3 className="text-lg font-semibold">Chat - {defaultChannel}</h3>
         {getChannelBadge(defaultChannel)}
-      </CardHeader>
+      </div>
 
-      <CardBody className="flex-1 flex flex-col p-4 gap-4">
+      <div className="flex-1 flex flex-col gap-4">
         {/* Lista de Mensagens - Scrollable */}
         <div className="flex-1 overflow-y-auto space-y-3 max-h-[500px]">
           {isLoading ? (
@@ -190,7 +190,7 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
             <Send className="h-4 w-4" />
           </Button>
         </div>
-      </CardBody>
+      </div>
     </Card>
   );
 }

@@ -587,7 +587,7 @@ export default function CalculistaSimulationPage() {
       />
 
       {/* Admin Status Changer (apenas para admin) */}
-      <AdminStatusChanger caseId={caseId} currentStatus={caseData?.status || ''} />
+      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
 
       {/* Chat do Calculista */}
       <CaseChat caseId={caseId} defaultChannel="SIMULACAO" />
