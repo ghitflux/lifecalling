@@ -1,0 +1,30 @@
+--- a/lifecalling/apps/web/src/app/calculista/[caseId]/page.tsx
++++ b/lifecalling/apps/web/src/app/calculista/[caseId]/page.tsx
+@@ -14,7 +14,7 @@ import {
+   SimulationHistoryCard,
+   SimulationHistoryModal
+ } from "@lifecalling/ui";
+-import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw } from "lucide-react";
++import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw, DollarSign } from "lucide-react";
+ import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
+ import { SimulationResultCard } from "@lifecalling/ui";
+ import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
+@@ -410,6 +410,18 @@ export default function CalculistaSimulationPage() {
+                 </div>
+               ))}
+             </div>
++
++            {/* Botão Ver Financiamentos */}
++            <div className="mt-4 pt-4 border-t">
++              <Button
++                variant="outline"
++                className="w-full flex items-center justify-center gap-2"
++                onClick={() => router.push(`/financeiro/${caseId}`)}
++              >
++                <DollarSign className="h-4 w-4" />
++                Ver Financiamentos
++              </Button>
++            </div>
+           </Card>
+         )}
+       </div>

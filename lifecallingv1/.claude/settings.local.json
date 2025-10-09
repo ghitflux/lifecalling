@@ -47,7 +47,16 @@
       "Bash(ssh root@72.60.158.156 'netstat -tlnp | grep -E \"\":(80|443|8000|3000)\"\"')",
       "Bash(ssh root@72.60.158.156 'ufw status')",
       "Bash(ssh:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(pnpm start:*)",
+      "Bash(pnpm dev:turbo:*)",
+      "Bash(powershell:*)",
+      "Bash(node:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker logs:*)",
+      "Bash(uvicorn:*)",
+      "Bash(C:Usershelciovenanciominiforge3python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(pnpm dev:*)"
     ],
     "deny": [],
     "ask": []
