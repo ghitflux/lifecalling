@@ -1,21 +1,38 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request
-from pydantic import BaseModel
+from fastapi import (  # pyright: ignore[reportMissingImports]
+    APIRouter, Depends, HTTPException, UploadFile, File, Query, Request
+)
+from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from typing import List
 from datetime import datetime, timedelta
 import os
 import shutil
+from decimal import Decimal
 
-from sqlalchemy import or_
+from sqlalchemy import or_  # pyright: ignore[reportMissingImports]
 from ..rbac import require_roles
 from ..security import get_current_user, verify_csrf
 from ..db import SessionLocal
-from ..models import Case, Client, CaseEvent, Contract, ContractAttachment
+from ..models import (
+    Case, Client, CaseEvent, Contract, ContractAttachment
+)
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
 from ..config import settings
 from ..events import eventbus  # uso consistente do eventbus
 
 r = APIRouter(prefix="/cases", tags=["cases"])
+
+
+def _normalize_json(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [_normalize_json(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _normalize_json(v) for k, v in value.items()}
+    return value
 
 
 class PageOut(BaseModel):
@@ -47,16 +64,22 @@ class BulkDeleteRequest(BaseModel):
 
 
 class ExpiryUpdate(BaseModel):
-    # Define uma nova data de expiração absoluta em ISO UTC (ex.: 2024-01-31T12:00:00Z)
     expires_at_iso: str | None = None
-    # Força expiração imediata: define expiração para agora - 1 segundo
     force_expired: bool = False
 
 
 @r.get("/{case_id}")
-def get_case(case_id: int, user=Depends(get_current_user)):
+def get_case(
+    case_id: int,
+    user=Depends(
+        require_roles(
+            "admin", "supervisor", "atendente", "calculista",
+            "financeiro", "fechamento"
+        )
+    )
+):
     from ..models import Simulation, Attachment
-    from app.models import PayrollLine  # mantém import absoluto que você já usa
+    from app.models import PayrollLine
 
     with SessionLocal() as db:
         c = db.get(Case, case_id)
@@ -72,7 +95,9 @@ def get_case(case_id: int, user=Depends(get_current_user)):
         )
 
         # Anexos
-        attachments = db.query(Attachment).filter(Attachment.case_id == case_id).all()
+        attachments = (
+            db.query(Attachment).filter(Attachment.case_id == case_id).all()
+        )
 
         # Buscar todas as matrículas do CPF
         from app.models import PayrollClient
@@ -83,7 +108,6 @@ def get_case(case_id: int, user=Depends(get_current_user)):
             .all()
         )
 
-        # Financiamentos do cliente (todas as matrículas do CPF)
         financiamentos = (
             db.query(PayrollLine)
             .filter(
@@ -100,11 +124,17 @@ def get_case(case_id: int, user=Depends(get_current_user)):
         result = {
             "id": c.id,
             "status": c.status,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
-            "last_update_at": c.last_update_at.isoformat() if c.last_update_at else None,
+            "created_at": (
+                c.created_at.isoformat() if c.created_at else None
+            ),
+            "last_update_at": (
+                c.last_update_at.isoformat() if c.last_update_at else None
+            ),
             "assigned_to": c.assigned_user.name if c.assigned_user else None,
             "entidade": getattr(c, "entidade", None),
-            "referencia_competencia": getattr(c, "referencia_competencia", None),
+            "referencia_competencia": getattr(
+                c, "referencia_competencia", None
+            ),
             "importado_em": c.importado_em.isoformat()
             if getattr(c, "importado_em", None)
             else None,
@@ -112,8 +142,8 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "id": c.client.id,
                 "name": c.client.name,
                 "cpf": c.client.cpf,
-                "matricula": c.client.matricula,  # Primeira matrícula (legado)
-                "matriculas": [  # Todas as matrículas do CPF
+                "matricula": c.client.matricula,
+                "matriculas": [
                     {"matricula": m.matricula, "orgao": m.orgao}
                     for m in matriculas
                 ],
@@ -129,11 +159,10 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "conta": getattr(c.client, "conta", None),
                 "chave_pix": getattr(c.client, "chave_pix", None),
                 "tipo_chave_pix": getattr(c.client, "tipo_chave_pix", None),
-                # Financiamentos (todas as matrículas do CPF)
                 "financiamentos": [
                     {
                         "id": line.id,
-                        "matricula": line.matricula,  # Identificar de qual matrícula é
+                        "matricula": line.matricula,
                         "financiamento_code": line.financiamento_code,
                         "total_parcelas": line.total_parcelas,
                         "parcelas_pagas": line.parcelas_pagas,
@@ -161,22 +190,30 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "id": simulation.id,
                 "status": simulation.status,
                 "totals": {
-                    "valorParcelaTotal": float(simulation.valor_parcela_total or 0),
+                    "valorParcelaTotal": float(
+                        simulation.valor_parcela_total or 0
+                    ),
                     "saldoTotal": float(simulation.saldo_total or 0),
                     "liberadoTotal": float(simulation.liberado_total or 0),
                     "seguroObrigatorio": float(simulation.seguro or 0),
-                    "totalFinanciado": float(simulation.total_financiado or 0),
+                    "totalFinanciado": float(
+                        simulation.total_financiado or 0
+                    ),
                     "valorLiquido": float(simulation.valor_liquido or 0),
-                    "custoConsultoria": float(simulation.custo_consultoria or 0),
-                    "liberadoCliente": float(simulation.liberado_cliente or 0),
+                    "custoConsultoria": float(
+                        simulation.custo_consultoria or 0
+                    ),
+                    "liberadoCliente": float(
+                        simulation.liberado_cliente or 0
+                    ),
                 },
                 "banks": enrich_banks_with_names(simulation.banks_json or []),
                 "prazo": simulation.prazo,
                 "percentualConsultoria": float(
                     simulation.percentual_consultoria or 0
                 ),
-                "results": simulation.results,
-                "manual_input": simulation.manual_input,
+                "results": _normalize_json(simulation.results),
+                "manual_input": _normalize_json(simulation.manual_input),
                 "created_at": simulation.created_at.isoformat()
                 if simulation.created_at
                 else None,
@@ -192,13 +229,17 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "size": a.size,
                 "mime": a.mime,
                 "mime_type": a.mime,
-                "uploaded_at": a.created_at.isoformat() if a.created_at else None,
+                "uploaded_at": (
+                    a.created_at.isoformat() if a.created_at else None
+                ),
                 "uploaded_by": a.uploaded_by,
             }
             for a in attachments
         ]
 
-        contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+        contract = (
+            db.query(Contract).filter(Contract.case_id == case_id).first()
+        )
         if contract:
             contract_attachments = db.query(ContractAttachment).filter(
                 ContractAttachment.contract_id == contract.id
@@ -209,9 +250,21 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                 "total_amount": float(contract.total_amount or 0),
                 "installments": contract.installments,
                 "paid_installments": contract.paid_installments,
-                "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
-                "created_at": contract.created_at.isoformat() if contract.created_at else None,
-                "updated_at": contract.updated_at.isoformat() if contract.updated_at else None,
+                "disbursed_at": (
+                    contract.disbursed_at.isoformat()
+                    if contract.disbursed_at
+                    else None
+                ),
+                "created_at": (
+                    contract.created_at.isoformat()
+                    if contract.created_at
+                    else None
+                ),
+                "updated_at": (
+                    contract.updated_at.isoformat()
+                    if contract.updated_at
+                    else None
+                ),
                 "attachments": [
                     {
                         "id": att.id,
@@ -219,7 +272,11 @@ def get_case(case_id: int, user=Depends(get_current_user)):
                         "size": att.size,
                         "mime": att.mime,
                         "mime_type": att.mime,
-                        "created_at": att.created_at.isoformat() if att.created_at else None,
+                        "created_at": (
+                            att.created_at.isoformat()
+                            if att.created_at
+                            else None
+                        ),
                     }
                     for att in contract_attachments
                 ],
@@ -233,7 +290,10 @@ def assign_case(
     case_id: int,
     request: Request,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista",
+            "atendente", "fechamento"
+        )
     ),
 ):
     # Verificar CSRF token
@@ -248,7 +308,9 @@ def assign_case(
             and c.assignment_expires_at
             and c.assignment_expires_at > datetime.utcnow()
         ):
-            raise HTTPException(400, "Caso já está atribuído a outro usuário")
+            raise HTTPException(
+                400, "Caso já está atribuído a outro usuário"
+            )
 
         now = datetime.utcnow()
         c.assigned_user_id = user.id
@@ -274,19 +336,27 @@ def assign_case(
             CaseEvent(
                 case_id=c.id,
                 type="case.assigned",
-                payload={"to": user.id, "expires_at": c.assignment_expires_at.isoformat()},
+                payload={
+                    "to": user.id,
+                    "expires_at": c.assignment_expires_at.isoformat()
+                },
                 created_by=user.id,
             )
         )
         db.commit()
-        return {"ok": True, "expires_at": c.assignment_expires_at.isoformat()}
+        return {
+            "ok": True,
+            "expires_at": c.assignment_expires_at.isoformat()
+        }
 
 
 @r.patch("/{case_id}/assignee")
 def change_assignee(
-    case_id: int, payload: AssigneeUpdate, user=Depends(require_roles("admin", "supervisor"))
+    case_id: int,
+    payload: AssigneeUpdate,
+    user=Depends(require_roles("admin", "supervisor"))
 ):
-    """Reatribui um caso a outro atendente (apenas admin/supervisor)."""
+    """Reatribui um caso a outro atendente."""
     from ..models import User
 
     with SessionLocal() as db:
@@ -301,7 +371,9 @@ def change_assignee(
             raise HTTPException(400, "Usuário inativo")
 
         old_user_id = case.assigned_user_id
-        old_user_name = case.assigned_user.name if case.assigned_user else None
+        old_user_name = (
+            case.assigned_user.name if case.assigned_user else None
+        )
 
         now = datetime.utcnow()
         case.assigned_user_id = new_user.id
@@ -352,8 +424,13 @@ def change_assignee(
 
 @r.patch("/{case_id}")
 def patch_case(
-    case_id: int, data: CasePatch, user=Depends(require_roles("admin", "supervisor", "atendente"))
+    case_id: int,
+    request: Request,
+    data: CasePatch,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
 ):
+    # Verificar CSRF token
+    verify_csrf(request)
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
@@ -361,9 +438,11 @@ def patch_case(
 
         if data.telefone_preferencial is not None:
             c.client.telefone_preferencial = data.telefone_preferencial
-        if data.numero_cliente is not None and hasattr(c.client, "numero_cliente"):
+        if (data.numero_cliente is not None and
+                hasattr(c.client, "numero_cliente")):
             c.client.numero_cliente = data.numero_cliente
-        if data.observacoes is not None and hasattr(c.client, "observacoes"):
+        if (data.observacoes is not None and
+                hasattr(c.client, "observacoes")):
             c.client.observacoes = data.observacoes
 
         # Bancários
@@ -387,6 +466,7 @@ def patch_case(
                 created_by=user.id,
             )
         )
+        
         db.commit()
         return {"ok": True}
 
@@ -400,7 +480,9 @@ def list_attachments(case_id: int, user=Depends(get_current_user)):
         if not c:
             raise HTTPException(404, "Case not found")
 
-        attachments = db.query(Attachment).filter(Attachment.case_id == case_id).all()
+        attachments = (
+            db.query(Attachment).filter(Attachment.case_id == case_id).all()
+        )
         return {
             "items": [
                 {
@@ -408,7 +490,9 @@ def list_attachments(case_id: int, user=Depends(get_current_user)):
                     "filename": a.filename,
                     "size": a.size,
                     "mime": a.mime,
-                    "uploaded_at": a.created_at.isoformat() if a.created_at else None,
+                    "uploaded_at": (
+                        a.created_at.isoformat() if a.created_at else None
+                    ),
                     "uploaded_by": a.uploaded_by,
                 }
                 for a in attachments
@@ -422,7 +506,10 @@ def upload_attachment(
     request: Request,
     file: UploadFile = File(...),
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista",
+            "atendente", "fechamento"
+        )
     ),
 ):
     # Verificar CSRF token
@@ -438,7 +525,9 @@ def upload_attachment(
 
     import uuid
 
-    file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
+    file_extension = (
+        os.path.splitext(file.filename)[1] if file.filename else ""
+    )
     unique_filename = f"case_{case_id}_{uuid.uuid4().hex[:8]}{file_extension}"
     dest = os.path.join(settings.upload_dir, unique_filename)
 
@@ -473,7 +562,9 @@ def upload_attachment(
             "id": a.id,
             "filename": file.filename,
             "size": a.size,
-            "uploaded_at": a.created_at.isoformat() if a.created_at else None,
+            "uploaded_at": (
+                a.created_at.isoformat() if a.created_at else None
+            ),
         }
 
 
@@ -482,23 +573,19 @@ def delete_attachment(
     case_id: int,
     attachment_id: int,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista",
+            "atendente", "fechamento"
+        )
     ),
 ):
-    """
-    Remove um anexo de um caso.
-    - Atendentes podem remover anexos que eles mesmos enviaram
-    - Admin/Supervisor podem remover qualquer anexo
-    """
+    """Remove um anexo de um caso."""
     from ..models import Attachment
 
     with SessionLocal() as db:
-        # Verificar se o caso existe
         case = db.get(Case, case_id)
         if not case:
             raise HTTPException(404, "Caso não encontrado")
-
-        # Buscar o anexo
         attachment = db.query(Attachment).filter(
             Attachment.id == attachment_id,
             Attachment.case_id == case_id
@@ -506,44 +593,40 @@ def delete_attachment(
 
         if not attachment:
             raise HTTPException(404, "Anexo não encontrado")
-
-        # Verificar permissões
         if user.role not in ["admin", "supervisor"]:
-            # Atendentes só podem remover seus próprios anexos
             if attachment.uploaded_by != user.id:
                 raise HTTPException(
                     403,
                     "Você só pode remover anexos que você mesmo enviou"
                 )
-
-        # Salvar informações antes de deletar
         filename = os.path.basename(attachment.path)
         file_path = attachment.path
 
-        # Remover arquivo físico
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
         except Exception as e:
             print(f"Erro ao remover arquivo físico {file_path}: {e}")
-            # Continua mesmo se falhar ao remover o arquivo
-
-        # Remover registro do banco
         db.delete(attachment)
 
-        # Adicionar evento
         db.add(
             CaseEvent(
                 case_id=case_id,
                 type="attachment.deleted",
-                payload={"filename": filename, "deleted_by": user.name},
+                payload={
+                    "filename": filename,
+                    "deleted_by": user.name
+                },
                 created_by=user.id,
             )
         )
 
         db.commit()
 
-        return {"ok": True, "message": f"Anexo '{filename}' removido com sucesso"}
+        return {
+            "ok": True,
+            "message": f"Anexo '{filename}' removido com sucesso"
+        }
 
 
 @r.get("/{case_id}/attachments/{attachment_id}/download")
@@ -552,20 +635,14 @@ def download_attachment(
     attachment_id: int,
     user=Depends(get_current_user)
 ):
-    """
-    Download de um anexo específico.
-    Retorna o arquivo para visualização/download no navegador.
-    """
-    from fastapi.responses import FileResponse
+    """Download de um anexo específico."""
+    from fastapi.responses import FileResponse  # pyright: ignore
     from ..models import Attachment
 
     with SessionLocal() as db:
-        # Verificar se o caso existe
         case = db.get(Case, case_id)
         if not case:
             raise HTTPException(404, "Caso não encontrado")
-
-        # Buscar o anexo
         attachment = db.query(Attachment).filter(
             Attachment.id == attachment_id,
             Attachment.case_id == case_id
@@ -573,13 +650,14 @@ def download_attachment(
 
         if not attachment:
             raise HTTPException(404, "Anexo não encontrado")
-
-        # Verificar se o arquivo existe
         if not os.path.exists(attachment.path):
-            raise HTTPException(404, "Arquivo não encontrado no servidor")
+            raise HTTPException(
+                404, "Arquivo não encontrado no servidor"
+            )
 
-        # Retornar arquivo para download - usar nome ORIGINAL do arquivo
-        filename = attachment.filename or os.path.basename(attachment.path)
+        filename = (
+            attachment.filename or os.path.basename(attachment.path)
+        )
         return FileResponse(
             path=attachment.path,
             media_type=attachment.mime or "application/octet-stream",
@@ -594,21 +672,22 @@ def list_cases(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     q: str | None = None,
-    status: str | None = None,  # único ou CSV
-    assigned: int | None = None,  # 0 = não atribuídos
-    mine: bool = Query(False),  # True = meus casos
-    order: str = Query("id_desc"),  # id_desc | id_asc | updated_desc
-    created_after: str | None = None,  # ISO
-    created_before: str | None = None,  # ISO
+    status: str | None = None,
+    assigned: int | None = None,
+    mine: bool = Query(False),
+    order: str = Query("id_desc"),
+    created_after: str | None = None,
+    created_before: str | None = None,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista",
+            "atendente", "fechamento"
+        )
     ),
 ):
     with SessionLocal() as db:
         try:
             qry = db.query(Case)
-
-            # RBAC
             if user.role == "atendente":
                 if mine:
                     qry = qry.filter(Case.assigned_user_id == user.id)
@@ -623,7 +702,9 @@ def list_cases(
                 else:
                     if assigned and assigned != user.id:
                         raise HTTPException(
-                            403, "Você não tem permissão para ver casos de outros atendentes"
+                            403,
+                            "Você não tem permissão para ver casos de outros "
+                            "atendentes"
                         )
                     qry = qry.filter(Case.assigned_user_id == user.id)
             else:
@@ -635,52 +716,55 @@ def list_cases(
                     else:
                         qry = qry.filter(Case.assigned_user_id == assigned)
 
-            # status (um ou CSV)
             if status:
                 status_list = [s.strip() for s in status.split(",")]
                 if len(status_list) == 1:
                     qry = qry.filter(Case.status == status_list[0])
                 else:
                     qry = qry.filter(Case.status.in_(status_list))
-
-            # datas
             if created_after:
                 try:
-                    date_after = datetime.fromisoformat(created_after.replace("Z", "+00:00"))
+                    date_after = datetime.fromisoformat(
+                        created_after.replace("Z", "+00:00")
+                    )
                     qry = qry.filter(Case.created_at >= date_after)
                 except ValueError:
                     pass
 
             if created_before:
                 try:
-                    date_before = datetime.fromisoformat(created_before.replace("Z", "+00:00"))
+                    date_before = datetime.fromisoformat(
+                        created_before.replace("Z", "+00:00")
+                    )
                     qry = qry.filter(Case.created_at <= date_before)
                 except ValueError:
                     pass
 
-            # busca texto por cliente
             if q:
                 qry = qry.join(Client, Client.id == Case.client_id)
                 like = f"%{q}%"
-                qry = qry.filter(or_(Client.name.ilike(like), Client.cpf.ilike(like)))
+                qry = qry.filter(
+                    or_(Client.name.ilike(like), Client.cpf.ilike(like))
+                )
 
             total = qry.count()
 
-            # ordenação
             if order == "id_asc":
                 qry = qry.order_by(Case.id.asc())
             elif order == "updated_desc":
-                qry = qry.order_by(Case.last_update_at.desc().nullslast(), Case.id.desc())
+                qry = qry.order_by(
+                    Case.last_update_at.desc().nullslast(), Case.id.desc()
+                )
             elif order == "financiamentos_desc":
-                # Para ordenação por financiamentos, vamos buscar todos e ordenar após
                 pass
             else:
                 qry = qry.order_by(Case.id.desc())
 
-            # eager
-            from sqlalchemy.orm import joinedload
+            from sqlalchemy.orm import joinedload  # pyright: ignore
 
-            qry = qry.options(joinedload(Case.client), joinedload(Case.assigned_user))
+            qry = qry.options(
+                joinedload(Case.client), joinedload(Case.assigned_user)
+            )
 
             rows = qry.offset((page - 1) * page_size).limit(page_size).all()
             items = []
@@ -692,11 +776,15 @@ def list_cases(
                         "status": c.status or "novo",
                         "client_id": c.client_id,
                         "assigned_user_id": c.assigned_user_id,
-                        "assigned_to": c.assigned_user.name if c.assigned_user else None,
+                        "assigned_to": (
+                            c.assigned_user.name if c.assigned_user else None
+                        ),
                         "last_update_at": c.last_update_at.isoformat()
                         if c.last_update_at
                         else None,
-                        "created_at": c.created_at.isoformat() if c.created_at else None,
+                        "created_at": (
+                            c.created_at.isoformat() if c.created_at else None
+                        ),
                         "banco": getattr(c, "banco", None),
                         "entidade": getattr(c, "entidade", None),
                         "referencia_competencia": getattr(
@@ -708,7 +796,6 @@ def list_cases(
                     }
 
                     if hasattr(c, "client") and c.client:
-                        # Contar financiamentos do cliente
                         from app.models import PayrollLine
                         num_financiamentos = db.query(PayrollLine).filter(
                             PayrollLine.cpf == c.client.cpf
@@ -721,7 +808,11 @@ def list_cases(
                             "num_financiamentos": num_financiamentos,
                         }
                     else:
-                        client = db.get(Client, c.client_id) if c.client_id else None
+                        client = (
+                            db.get(Client, c.client_id)
+                            if c.client_id
+                            else None
+                        )
                         if client:
                             from app.models import PayrollLine
                             num_financiamentos = db.query(PayrollLine).filter(
@@ -763,11 +854,20 @@ def list_cases(
                         }
                     )
 
-            # Ordenar por número de financiamentos se necessário
             if order == "financiamentos_desc":
-                items.sort(key=lambda x: x.get("client", {}).get("num_financiamentos", 0), reverse=True)
+                items.sort(
+                    key=lambda x: x.get("client", {}).get(
+                        "num_financiamentos", 0
+                    ),
+                    reverse=True
+                )
 
-            return {"items": items, "total": total, "page": page, "page_size": page_size}
+            return {
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size
+            }
 
         except Exception as e:
             print(f"Erro na query de casos: {e}")
@@ -784,17 +884,23 @@ def list_cases(
 def release_case(
     case_id: int,
     user=Depends(
-        require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento")
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista",
+            "atendente", "fechamento"
+        )
     ),
 ):
-    """Libera um caso antes do prazo (lock) de 72 horas."""
+    """Libera um caso antes do prazo."""
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
             raise HTTPException(404)
 
-        if c.assigned_user_id != user.id and user.role not in ["admin", "supervisor"]:
-            raise HTTPException(403, "Você só pode liberar casos atribuídos a você")
+        if (c.assigned_user_id != user.id and
+                user.role not in ["admin", "supervisor"]):
+            raise HTTPException(
+                403, "Você só pode liberar casos atribuídos a você"
+            )
 
         if not c.assignment_history:
             c.assignment_history = []
@@ -827,15 +933,20 @@ def release_case(
 
 
 @r.post("/{case_id}/check-expiry")
-def check_case_expiry(case_id: int, user=Depends(require_roles("admin", "supervisor"))):
-    """Verifica se um caso expirou e libera se necessário."""
+def check_case_expiry(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """Verifica se um caso expirou."""
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
             raise HTTPException(404)
 
         now = datetime.utcnow()
-        is_expired = c.assignment_expires_at and c.assignment_expires_at <= now
+        is_expired = (
+            c.assignment_expires_at and c.assignment_expires_at <= now
+        )
 
         if is_expired and c.assigned_user_id:
             if not c.assignment_history:
@@ -868,9 +979,11 @@ def check_case_expiry(case_id: int, user=Depends(require_roles("admin", "supervi
         return {
             "case_id": case_id,
             "is_expired": is_expired,
-            "assignment_expires_at": c.assignment_expires_at.isoformat()
-            if c.assignment_expires_at
-            else None,
+            "assignment_expires_at": (
+                c.assignment_expires_at.isoformat()
+                if c.assignment_expires_at
+                else None
+            ),
             "was_released": is_expired and c.assigned_user_id is None,
         }
 
@@ -881,12 +994,7 @@ def update_case_expiry(
     payload: ExpiryUpdate,
     user=Depends(require_roles("admin", "supervisor")),
 ):
-    """Ajusta manualmente `assignment_expires_at` para facilitar testes de SLA.
-
-    - Se `force_expired` for True, define expiração para o passado (agora - 1s).
-    - Se `expires_at_iso` for fornecido, usa essa data/hora em UTC.
-    - Mantém demais campos e não libera automaticamente; use `/check-expiry` ou scheduler.
-    """
+    """Ajusta manualmente assignment_expires_at."""
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
@@ -898,16 +1006,26 @@ def update_case_expiry(
         if payload.force_expired:
             new_expiry = now - timedelta(seconds=1)
         elif payload.expires_at_iso:
-            # Aceita formato "Z" e sem "Z"
             try:
-                iso = payload.expires_at_iso.replace("Z", "+00:00") if payload.expires_at_iso.endswith("Z") else payload.expires_at_iso
+                iso = (
+                    payload.expires_at_iso.replace("Z", "+00:00")
+                    if payload.expires_at_iso.endswith("Z")
+                    else payload.expires_at_iso
+                )
                 dt = datetime.fromisoformat(iso)
-                # Normaliza para naive UTC se vier com tzinfo
-                new_expiry = dt.astimezone(tz=None).replace(tzinfo=None) if dt.tzinfo else dt
+                new_expiry = (
+                    dt.astimezone(tz=None).replace(tzinfo=None)
+                    if dt.tzinfo
+                    else dt
+                )
             except Exception:
-                raise HTTPException(400, "Formato inválido para expires_at_iso")
+                raise HTTPException(
+                    400, "Formato inválido para expires_at_iso"
+                )
         else:
-            raise HTTPException(400, "Informe force_expired ou expires_at_iso")
+            raise HTTPException(
+                400, "Informe force_expired ou expires_at_iso"
+            )
 
         c.assignment_expires_at = new_expiry
         c.last_update_at = now
@@ -920,7 +1038,9 @@ def update_case_expiry(
                 "user_name": user.name,
                 "updated_at": now.isoformat(),
                 "action": "expiry_adjusted",
-                "new_expiry": new_expiry.isoformat() if new_expiry else None,
+                "new_expiry": (
+                    new_expiry.isoformat() if new_expiry else None
+                ),
             }
         )
 
@@ -934,31 +1054,29 @@ def update_case_expiry(
         )
         db.commit()
 
-    # Não muda status automaticamente; permite acionar manualmente o check
     return {
         "case_id": case_id,
-        "assignment_expires_at": new_expiry.isoformat() if new_expiry else None,
+        "assignment_expires_at": (
+            new_expiry.isoformat() if new_expiry else None
+        ),
         "status": "unchanged",
-        "note": "Use /cases/{id}/check-expiry ou scheduler para processar expiração",
+        "note": "Use /cases/{id}/check-expiry para processar expiração",
     }
 
 
 @r.post("/{case_id}/to-calculista")
-async def to_calculista(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
+async def to_calculista(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
     from ..models import Simulation
 
-
     sim_id = None
-    # calculista_ids = []  # removido – variável não utilizada
-    # client_name = "Cliente"  # removido: variável não utilizada
 
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
             raise HTTPException(404)
-
-        # Salvar dados antes de fechar a sessão
-        # client_name = c.client.name if c.client else "Cliente"  # variável não utilizada
 
         sim = Simulation(case_id=c.id, status="draft", created_by=user.id)
         db.add(sim)
@@ -977,24 +1095,24 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
         db.refresh(sim)
         sim_id = sim.id
 
-
-
-    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "calculista_pendente"})
+    await eventbus.broadcast(
+        "case.updated", {"case_id": case_id, "status": "calculista_pendente"}
+    )
     return {"simulation_id": sim_id}
 
 
 @r.post("/{case_id}/mark-no-contact")
-async def mark_no_contact(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
-    """Marca uma tentativa de contato sem sucesso no caso."""
+async def mark_no_contact(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """Marca uma tentativa de contato sem sucesso."""
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
             raise HTTPException(404, "Case not found")
 
-        # Mudar status do caso para "sem_contato"
         c.status = "sem_contato"
-
-        # Adicionar evento de histórico
         db.add(
             CaseEvent(
                 case_id=c.id,
@@ -1008,41 +1126,42 @@ async def mark_no_contact(case_id: int, user=Depends(require_roles("admin", "sup
             )
         )
 
-        # Atualizar observações do cliente
         current_obs = c.client.observacoes or ""
         timestamp = datetime.utcnow().strftime("%d/%m/%Y %H:%M")
-        new_obs = f"{current_obs}\n[{timestamp}] Sem contato - {user.name}".strip()
+        new_obs = (
+            f"{current_obs}\n[{timestamp}] Sem contato - {user.name}"
+        ).strip()
         c.client.observacoes = new_obs
 
         c.last_update_at = datetime.utcnow()
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "sem_contato"})
+    await eventbus.broadcast(
+        "case.updated", {"case_id": case_id, "status": "sem_contato"}
+    )
     return {"success": True, "case_id": case_id, "status": "sem_contato"}
 
 
 @r.post("/{case_id}/to-fechamento")
-async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "supervisor", "atendente"))):
-    """Envia um caso com cálculo aprovado para a fila de fechamento."""
-  
-
+async def to_fechamento(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """Envia um caso para a fila de fechamento."""
     with SessionLocal() as db:
         c = db.get(Case, case_id)
         if not c:
             raise HTTPException(404, "Case not found")
 
-        # Verificar se o status é "calculo_aprovado"
         if c.status != "calculo_aprovado":
-            raise HTTPException(400, "Apenas casos com cálculo aprovado podem ser enviados para fechamento")
+            raise HTTPException(
+                400,
+                "Apenas casos com cálculo aprovado podem ser enviados "
+                "para fechamento"
+            )
 
-        # Salvar nome do cliente antes de fechar a sessão
-        # client_name = c.client.name if c.client else "Cliente"
-
-        # Atualizar status do caso
         c.status = "fechamento_pendente"
         c.last_update_at = datetime.utcnow()
-
-        # Adicionar evento de histórico
         db.add(
             CaseEvent(
                 case_id=c.id,
@@ -1056,13 +1175,22 @@ async def to_fechamento(case_id: int, user=Depends(require_roles("admin", "super
         )
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "fechamento_pendente"})
-    return {"success": True, "case_id": case_id, "status": "fechamento_pendente"}
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": case_id, "status": "fechamento_pendente"}
+    )
+    return {
+        "success": True,
+        "case_id": case_id,
+        "status": "fechamento_pendente"
+    }
 
 
 @r.post("/scheduler/run-maintenance")
-def run_scheduler_maintenance(user=Depends(require_roles("admin", "supervisor"))):
-    """Executa manualmente a manutenção do scheduler."""
+def run_scheduler_maintenance(
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """Executa manutenção do scheduler."""
     with SessionLocal() as db:
         scheduler = CaseScheduler(db)
         stats = scheduler.process_expired_cases()
@@ -1075,8 +1203,11 @@ def run_scheduler_maintenance(user=Depends(require_roles("admin", "supervisor"))
 
 
 @r.get("/scheduler/statistics")
-def get_scheduler_statistics(days: int = 7, user=Depends(require_roles("admin", "supervisor"))):
-    """Retorna estatísticas do scheduler dos últimos N dias."""
+def get_scheduler_statistics(
+    days: int = 7,
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """Retorna estatísticas do scheduler."""
     with SessionLocal() as db:
         scheduler = CaseScheduler(db)
         stats = scheduler.get_assignment_statistics(days)
@@ -1089,23 +1220,30 @@ def get_scheduler_statistics(days: int = 7, user=Depends(require_roles("admin", 
 
 
 @r.get("/scheduler/cases-near-expiry")
-def get_cases_near_expiry(hours_before: int = 2, user=Depends(require_roles("admin", "supervisor"))):
+def get_cases_near_expiry(
+    hours_before: int = 2,
+    user=Depends(require_roles("admin", "supervisor"))
+):
     """Lista casos próximos de expirar."""
     with SessionLocal() as db:
         scheduler = CaseScheduler(db)
         cases = scheduler.get_cases_near_expiry(hours_before)
-        return {"cases": cases, "count": len(cases), "hours_before_expiry": hours_before}
+        return {
+            "cases": cases,
+            "count": len(cases),
+            "hours_before_expiry": hours_before
+        }
 
 
 @r.post("/bulk-delete")
 async def bulk_delete_cases(
-    payload: BulkDeleteRequest, 
+    payload: BulkDeleteRequest,
     request: Request,
     user=Depends(require_roles("admin"))
 ):
     # Verificar CSRF token
     verify_csrf(request)
-    """Exclusão em lote de casos (apenas admin)."""
+    """Exclusão em lote de casos."""
     from ..models import Simulation, Attachment
 
     if not payload.ids:
@@ -1114,22 +1252,37 @@ async def bulk_delete_cases(
         raise HTTPException(400, "Máximo de 100 casos por vez")
 
     with SessionLocal() as db:
-        results = {"deleted": [], "failed": [], "total_requested": len(payload.ids)}
+        results = {
+            "deleted": [],
+            "failed": [],
+            "total_requested": len(payload.ids)
+        }
 
         for case_id in payload.ids:
             try:
                 case = db.get(Case, case_id)
                 if not case:
-                    results["failed"].append({"id": case_id, "reason": "Caso não encontrado"})
+                    results["failed"].append({
+                        "id": case_id,
+                        "reason": "Caso não encontrado"
+                    })
                     continue
 
                 # simulações
-                simulations = db.query(Simulation).filter(Simulation.case_id == case_id).all()
+                simulations = (
+                    db.query(Simulation)
+                    .filter(Simulation.case_id == case_id)
+                    .all()
+                )
                 for sim in simulations:
                     db.delete(sim)
 
                 # anexos
-                attachments = db.query(Attachment).filter(Attachment.case_id == case_id).all()
+                attachments = (
+                    db.query(Attachment)
+                    .filter(Attachment.case_id == case_id)
+                    .all()
+                )
                 for att in attachments:
                     try:
                         if os.path.exists(att.path):
@@ -1139,7 +1292,11 @@ async def bulk_delete_cases(
                     db.delete(att)
 
                 # eventos
-                events = db.query(CaseEvent).filter(CaseEvent.case_id == case_id).all()
+                events = (
+                    db.query(CaseEvent)
+                    .filter(CaseEvent.case_id == case_id)
+                    .all()
+                )
                 for event in events:
                     db.delete(event)
 
@@ -1148,22 +1305,33 @@ async def bulk_delete_cases(
                 results["deleted"].append(case_id)
 
             except Exception as e:
-                results["failed"].append({"id": case_id, "reason": str(e)})
+                results["failed"].append({
+                    "id": case_id,
+                    "reason": str(e)
+                })
                 print(f"Erro ao excluir caso {case_id}: {e}")
 
         db.commit()
 
     await eventbus.broadcast(
         "cases.bulk_deleted",
-        {"deleted_ids": results["deleted"], "count": len(results["deleted"]), "deleted_by": user.id},
+        {
+            "deleted_ids": results["deleted"],
+            "count": len(results["deleted"]),
+            "deleted_by": user.id
+        },
     )
 
-    return {**results, "success_count": len(results["deleted"]), "failed_count": len(results["failed"])}
+    return {
+        **results,
+        "success_count": len(results["deleted"]),
+        "failed_count": len(results["failed"]),
+    }
 
 
 @r.get("/{case_id}/events")
 def get_case_events(case_id: int, user=Depends(get_current_user)):
-    """Retorna o histórico de eventos de um caso específico."""
+    """Retorna o histórico de eventos."""
     from ..models import User
 
     with SessionLocal() as db:
@@ -1180,7 +1348,11 @@ def get_case_events(case_id: int, user=Depends(get_current_user)):
 
         user_ids = {e.created_by for e in events if e.created_by}
         users = (
-            {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+            {
+                u.id: u for u in db.query(User)
+                .filter(User.id.in_(user_ids))
+                .all()
+            }
             if user_ids
             else {}
         )
@@ -1193,7 +1365,9 @@ def get_case_events(case_id: int, user=Depends(get_current_user)):
                     "id": e.id,
                     "type": e.type,
                     "payload": e.payload or {},
-                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                    "created_at": (
+                        e.created_at.isoformat() if e.created_at else None
+                    ),
                     "created_by": {
                         "id": created_by_user.id,
                         "name": created_by_user.name,
@@ -1204,7 +1378,11 @@ def get_case_events(case_id: int, user=Depends(get_current_user)):
                 }
             )
 
-        return {"case_id": case_id, "events": formatted_events, "total": len(formatted_events)}
+        return {
+            "case_id": case_id,
+            "events": formatted_events,
+            "total": len(formatted_events)
+        }
 
 
 class CreateEventRequest(BaseModel):
@@ -1218,13 +1396,12 @@ async def create_case_event(
     data: CreateEventRequest,
     user=Depends(get_current_user)
 ):
-    """Cria um novo evento/anotação em um caso."""
+    """Cria um novo evento."""
     with SessionLocal() as db:
         case = db.get(Case, case_id)
         if not case:
             raise HTTPException(404, "Caso não encontrado")
 
-        # Criar o evento
         event = CaseEvent(
             case_id=case_id,
             type=data.type,
@@ -1233,13 +1410,11 @@ async def create_case_event(
         )
         db.add(event)
 
-        # Atualizar timestamp do caso
         case.last_update_at = datetime.utcnow()
 
         db.commit()
         db.refresh(event)
 
-        # Broadcast via WebSocket
         await eventbus.broadcast("case.updated", {
             "case_id": case_id,
             "event_type": data.type,
@@ -1250,7 +1425,9 @@ async def create_case_event(
             "id": event.id,
             "type": event.type,
             "payload": event.payload,
-            "created_at": event.created_at.isoformat() if event.created_at else None,
+            "created_at": (
+                event.created_at.isoformat() if event.created_at else None
+            ),
             "created_by": {
                 "id": user.id,
                 "name": user.name,
@@ -1261,9 +1438,10 @@ async def create_case_event(
 
 @r.post("/{case_id}/return-to-calculista")
 async def return_to_calculista(
-    case_id: int, user=Depends(require_roles("admin", "supervisor", "financeiro"))
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Retorna um caso para o calculista (refazer simulação)."""
+    """Retorna um caso para o calculista."""
     with SessionLocal() as db:
         case = db.get(Case, case_id)
         if not case:
@@ -1288,5 +1466,101 @@ async def return_to_calculista(
         )
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "devolvido_financeiro"})
-    return {"success": True, "message": "Caso retornado ao calculista com sucesso"}
+    await eventbus.broadcast(
+        "case.updated", {"case_id": case_id, "status": "devolvido_financeiro"}
+    )
+    return {
+        "success": True,
+        "message": "Caso retornado ao calculista com sucesso"
+    }
+
+
+class StatusChangeRequest(BaseModel):
+    """Schema para mudança de status pelo admin"""
+    new_status: str
+
+
+@r.patch("/{case_id}/status")
+async def change_case_status(
+    case_id: int,
+    data: StatusChangeRequest,
+    user=Depends(require_roles("admin"))
+):
+    """
+    Permite que admin altere o status de qualquer caso.
+
+    Registra evento 'case.status_changed' com from/to.
+    Broadcast via WebSocket para atualizar UI em tempo real.
+
+    Restrito a admins apenas.
+    """
+    from ..services.events import create_case_event
+
+    # Status válidos (todos os estados possíveis do sistema)
+    valid_statuses = [
+        "novo", "em_atendimento", "calculista_pendente", "aprovado",
+        "retorno_fechamento", "fechamento_aprovado", "financeiro_pendente",
+        "contrato_efetivado", "encerrado", "devolvido_financeiro", "sem_contato"
+    ]
+
+    if data.new_status not in valid_statuses:
+        raise HTTPException(
+            400,
+            f"Status inválido. Status válidos: {', '.join(valid_statuses)}"
+        )
+
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Guardar status anterior
+        previous_status = case.status
+
+        # Não fazer nada se o status for o mesmo
+        if previous_status == data.new_status:
+            return {
+                "success": True,
+                "message": "Status já é o mesmo",
+                "previous_status": previous_status,
+                "new_status": data.new_status
+            }
+
+        # Atualizar status
+        case.status = data.new_status
+        case.last_update_at = datetime.utcnow()
+
+        # Criar evento de mudança de status
+        create_case_event(
+            db=db,
+            case_id=case_id,
+            actor_id=user.id,
+            event_type="case.status_changed",
+            payload={
+                "from": previous_status,
+                "to": data.new_status,
+                "changed_by": user.name,
+                "changed_by_role": user.role,
+                "reason": "Alteração manual pelo administrador"
+            }
+        )
+
+        db.commit()
+
+    # Broadcast via WebSocket
+    await eventbus.broadcast(
+        "case.updated",
+        {
+            "case_id": case_id,
+            "status": data.new_status,
+            "previous_status": previous_status,
+            "changed_by": user.name
+        }
+    )
+
+    return {
+        "success": True,
+        "message": f"Status alterado de '{previous_status}' para '{data.new_status}' com sucesso",
+        "previous_status": previous_status,
+        "new_status": data.new_status
+    }

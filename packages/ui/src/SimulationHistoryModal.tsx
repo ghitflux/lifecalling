@@ -33,6 +33,7 @@ interface SimulationHistoryEntry {
   rejected_by?: number;
   rejected_by_name?: string;
   reason?: string;
+  observacao_calculista?: string;
   totals: {
     valorParcelaTotal: number;
     saldoTotal: number;

@@ -260,7 +260,7 @@ export default function FAQPage() {
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
                 <li>Sempre adicione observações relevantes nas simulações</li>
                 <li>Confira os valores de parcela, saldo e liberado de cada banco</li>
-                <li>Use a aba "Todas Simulações" para consultar históricos e padrões</li>
+                <li>Use a aba &quot;Todas Simulações&quot; para consultar históricos e padrões</li>
                 <li>Ao rejeitar, seja claro no motivo para o atendente entender</li>
               </ul>
             </div>
@@ -270,7 +270,7 @@ export default function FAQPage() {
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
                 <li>Valide todos os dados antes de aprovar</li>
                 <li>Se encontrar inconsistências, retorne para o calculista com observações</li>
-                <li>Lembre-se: casos em "Cálculo Aprovado" ainda não foram enviados pelo atendente</li>
+                <li>Lembre-se: casos em &quot;Cálculo Aprovado&quot; ainda não foram enviados pelo atendente</li>
               </ul>
             </div>
 

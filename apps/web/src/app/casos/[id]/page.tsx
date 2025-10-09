@@ -16,6 +16,8 @@ import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
 import { RefreshCw } from "lucide-react";
+import CaseChat from "@/components/case/CaseChat";
+import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 
 interface CaseDetail {
   id: number;
@@ -132,21 +134,60 @@ export default function CaseDetailPage() {
     queryKey: ["case", caseId],
     queryFn: async () => {
       try {
+        console.log(`[CaseDetails] Fetching case ${caseId}...`);
         const response = await api.get(`/cases/${caseId}`);
+        console.log(`[CaseDetails] Successfully fetched case ${caseId}:`, response.data);
         return response.data as CaseDetail;
       } catch (error: any) {
+        console.error(`[CaseDetails] Error fetching case ${caseId}:`, error);
+        
+        // Log detalhado do erro
+        if (error.response) {
+          console.error(`[CaseDetails] Response status: ${error.response.status}`);
+          console.error(`[CaseDetails] Response data:`, error.response.data);
+          console.error(`[CaseDetails] Response headers:`, error.response.headers);
+        } else if (error.request) {
+          console.error(`[CaseDetails] Request error:`, error.request);
+        } else {
+          console.error(`[CaseDetails] General error:`, error.message);
+        }
+        
         if (error.response?.status === 401) {
+          console.error(`[CaseDetails] Authentication error - redirecting to login`);
           toast.error("Você precisa estar logado para ver os detalhes do caso");
           // Redirecionar para login
           window.location.href = '/login';
           throw error;
         }
-        toast.error("Erro ao carregar detalhes do caso");
+        
+        if (error.response?.status === 403) {
+          console.error(`[CaseDetails] Permission denied for case ${caseId}`);
+          toast.error("Você não tem permissão para ver este caso");
+          throw error;
+        }
+        
+        if (error.response?.status === 404) {
+          console.error(`[CaseDetails] Case ${caseId} not found`);
+          toast.error("Caso não encontrado");
+          throw error;
+        }
+        
+        // Erro genérico com mais detalhes
+        const errorMessage = error.response?.data?.detail || error.message || "Erro desconhecido";
+        console.error(`[CaseDetails] Generic error: ${errorMessage}`);
+        toast.error(`Erro ao carregar detalhes do caso: ${errorMessage}`);
         throw error;
       }
     },
     enabled: !!caseId,
-    retry: false, // Não tentar novamente em caso de erro de auth
+    retry: (failureCount, error) => {
+      // Não tentar novamente para erros de auth ou permissão
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false;
+      }
+      // Tentar até 2 vezes para outros erros
+      return failureCount < 2;
+    },
   });
 
   // Hook para carregar anexos do caso
@@ -333,7 +374,34 @@ export default function CaseDetailPage() {
     );
   }
 
-  if (!caseDetail) {
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-8">
+          <div className="text-red-500 text-lg font-semibold mb-2">
+            Erro ao carregar detalhes do atendimento
+          </div>
+          <div className="text-gray-600 mb-4">
+            {error?.response?.status === 401 && "Você precisa estar logado para ver os detalhes do caso"}
+            {error?.response?.status === 403 && "Você não tem permissão para ver este caso"}
+            {error?.response?.status === 404 && "Caso não encontrado"}
+            {error?.response?.status === 500 && "Erro interno do servidor"}
+            {!error?.response?.status && "Erro de conexão - verifique sua internet"}
+            {error?.response?.status && error?.response?.status >= 400 && error?.response?.status < 500 && !error?.response?.status.toString().startsWith("4") && 
+              `Erro ${error.response.status}: ${error.response?.data?.detail || "Erro desconhecido"}`}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!caseDetail && !isLoading) {
     return (
       <div className="p-6">
         <div className="text-center py-8 text-red-500">Atendimento não encontrado</div>
@@ -853,6 +921,27 @@ export default function CaseDetailPage() {
                   }}
                   isActive={true}
                 />
+
+                {/* Consultoria Líquida - Exibir quando aprovado */}
+                {caseDetail.simulation.status === 'approved' && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-900">Consultoria Líquida (86%)</span>
+                      <span className="text-lg font-bold text-green-700">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        }).format(
+                          caseDetail.simulation.totals.custoConsultoriaLiquido ??
+                          caseDetail.simulation.totals.custoConsultoria
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">
+                      Valor líquido da consultoria após descontos
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -871,6 +960,12 @@ export default function CaseDetailPage() {
           </Card>
         )}
       </div>
+
+      {/* Admin Status Changer (apenas para admin) */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
+
+      {/* Chat do Caso */}
+      <CaseChat caseId={caseId} defaultChannel="ATENDIMENTO" />
 
       {/* Histórico do Caso */}
       <Card className="p-6">

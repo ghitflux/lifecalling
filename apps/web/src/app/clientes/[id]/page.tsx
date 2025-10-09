@@ -100,7 +100,7 @@ export default function ClienteDetalhe() {
   };
 
   const handleDeleteClientCascade = () => {
-    const casesCount = clientData?.financiamentos?.length || 0;
+    const casesCount = client?.financiamentos?.length || 0;
     const message = casesCount > 0 
       ? `Tem certeza que deseja excluir este cliente e ${casesCount} caso(s) associado(s)? Esta ação não pode ser desfeita.`
       : "Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.";

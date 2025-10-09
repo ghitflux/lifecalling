@@ -1,8 +1,10 @@
 from sqlalchemy import Numeric
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint, JSON, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .db import Base
+import uuid
 
 class User(Base):
     __tablename__ = "users"
@@ -438,4 +440,33 @@ class PayrollLine(Base):
     __table_args__ = (
         UniqueConstraint('cpf', 'matricula', 'financiamento_code', 'ref_month', 'ref_year',
                         name='uix_payroll_unique_ref'),
+    )
+
+class Comment(Base):
+    """
+    Sistema unificado de comentários para casos.
+    Substitui observações dispersas com canais específicos.
+    """
+    __tablename__ = "comments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    author_name = Column(String(120), nullable=False)
+    role = Column(String(30), nullable=False)  # Role do autor no momento
+    channel = Column(String(20), nullable=False)  # ATENDIMENTO|SIMULACAO|FECHAMENTO|CLIENTE
+    content = Column(Text, nullable=False)
+    parent_id = Column(UUID(as_uuid=True), ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    edited_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)  # Soft delete
+
+    # Relacionamentos
+    case = relationship("Case")
+    author = relationship("User")
+    parent = relationship("Comment", remote_side=[id])
+
+    # Índice composto para queries eficientes
+    __table_args__ = (
+        UniqueConstraint(name='ix_comments_case_channel_created'),
     )

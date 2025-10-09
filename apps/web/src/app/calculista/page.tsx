@@ -126,7 +126,7 @@ function CalculistaPageContent() {
     useCasosCancelados();
 
   // Query para todas as simulações (para a nova tab)
-  const { data: allSimulations = [], isLoading: allSimulationsLoading } = useQuery({
+  const { data: allSimulationsQuery = [], isLoading: allSimulationsLoading } = useQuery({
     queryKey: ["allSimulations"],
     queryFn: async () => {
       const response = await api.get("/simulations", {
@@ -212,7 +212,7 @@ function CalculistaPageContent() {
     });
 
   // Filtragem
-  const allSimulations = allSims || [];
+  const allSimulations = useMemo(() => allSims || [], [allSims]);
 
   // Separar por status para as abas
   const pendingSims = allSimulations.filter((s: any) => s.status === "draft");
@@ -222,15 +222,16 @@ function CalculistaPageContent() {
 
   // Filtro para todas as simulações
   const filteredAllSimulations = useMemo(() => {
-    if (!searchTerm) return allSimulations;
+    const dataToFilter = activeTab === "todas_simulacoes" ? allSimulationsQuery : allSimulations;
+    if (!searchTerm) return dataToFilter;
     
     const term = searchTerm.toLowerCase();
-    return allSimulations.filter((sim: any) => {
+    return dataToFilter.filter((sim: any) => {
       const clientName = sim.client_name || "";
       const clientCpf = sim.client_cpf || "";
       return clientName.toLowerCase().includes(term) || clientCpf.includes(term);
     });
-  }, [allSimulations, searchTerm]);
+  }, [allSimulations, allSimulationsQuery, searchTerm, activeTab]);
 
   // Permissões
   useEffect(() => {
@@ -629,7 +630,7 @@ function CalculistaPageContent() {
             </div>
 
             {/* Lista de todas as simulações */}
-            {allSimulations.length === 0 ? (
+            {allSimulationsQuery.length === 0 ? (
               <div className="text-center py-12">
                 <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="font-medium text-muted-foreground mb-1">
