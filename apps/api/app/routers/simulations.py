@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from ..rbac import require_roles
 from ..db import SessionLocal
-from ..models import Case, Client, Simulation, CaseEvent
+from ..models import Case, Client, Simulation, CaseEvent, now_brt
 from ..events import eventbus
 from ..constants import enrich_banks_with_names
 from ..services.simulation_service import (
@@ -10,9 +10,9 @@ from ..services.simulation_service import (
     compute_simulation_totals,
     validate_simulation_input
 )
-from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import func
+from datetime import datetime
 
 r = APIRouter(prefix="/simulations", tags=["simulations"])
 
@@ -36,7 +36,7 @@ async def create_sim(
         sim = Simulation(case_id=c.id, status="pending", created_by=user.id)
         db.add(sim)
         c.status = "calculista_pendente"
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
         db.add(CaseEvent(
             case_id=c.id,
             type="case.to_calculista",
@@ -59,13 +59,16 @@ def list_pending(
     date: str = None,
     include_completed_today: bool = False,  # NOVO parâmetro
     all: bool = False,  # NOVO parâmetro para retornar todas as simulações
+    search: str = None,  # NOVO parâmetro para busca
+    page: int = 1,  # NOVO parâmetro para paginação
+    page_size: int = 20,  # NOVO parâmetro para paginação
+    case_status: str = None,  # NOVO parâmetro para filtrar por status do caso
     user=Depends(require_roles(
         "admin", "supervisor", "calculista", "fechamento"
     ))
 ):
 
     with SessionLocal() as db:
-        from datetime import datetime
         from sqlalchemy import or_, and_
 
         # Base query
@@ -73,13 +76,23 @@ def list_pending(
             Case, Simulation.case_id == Case.id
         ).join(Client, Case.client_id == Client.id)
 
+        # Filtro de busca se fornecido
+        if search:
+            search_term = f"%{search}%"
+            q = q.filter(
+                or_(
+                    Client.name.ilike(search_term),
+                    Client.cpf.ilike(search_term)
+                )
+            )
+
         # Filtro de status com suporte para múltiplos
         if all:
             # Retorna todas as simulações sem filtro de status
             pass
         elif include_completed_today:
             # Inclui draft + approved/rejected de hoje
-            today = datetime.utcnow().date()
+            today = now_brt().date()
             q = q.filter(
                 or_(
                     Simulation.status == "draft",
@@ -93,15 +106,23 @@ def list_pending(
             # Apenas o status especificado
             q = q.filter(Simulation.status == status)
 
+        # Filtro por status do caso se especificado
+        if case_status:
+            q = q.filter(Case.status == case_status)
+
         # Filtro por data se especificado (não aplicar quando all=true)
         if date == "today" and not all:
-            today = datetime.utcnow().date()
+            today = now_brt().date()
             q = q.filter(func.date(Simulation.updated_at) == today)
 
-        # Aplicar ordenação e limite
+        # Contar total de resultados
+        total_count = q.count()
+
+        # Aplicar paginação
+        offset = (page - 1) * page_size
         q = q.order_by(
             Simulation.updated_at.desc(), Simulation.id.desc()
-        ).limit(limit)
+        ).offset(offset).limit(page_size)
 
         items = []
         for sim, case, client in q.all():
@@ -137,7 +158,14 @@ def list_pending(
             f"[DEBUG] Found {count} simulations with status={status}, "
             f"include_completed_today={include_completed_today}, date={date}"
         )
-        return {"items": items, "count": count}
+        return {
+            "items": items,
+            "count": count,
+            "total_count": total_count,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
 
 
 @r.get("/retorno-fechamento")
@@ -277,7 +305,7 @@ async def create_or_update_simulation(
             str(totals.custoConsultoriaLiquido)
         )
         sim.liberado_cliente = Decimal(str(totals.liberadoCliente))
-        sim.updated_at = datetime.utcnow()
+        sim.updated_at = now_brt()
 
         db.commit()
         db.refresh(sim)
@@ -306,12 +334,12 @@ async def approve(
             )
 
         sim.status = "approved"
-        sim.updated_at = datetime.utcnow()
+        sim.updated_at = now_brt()
 
         case = db.get(Case, sim.case_id)
         case.status = "calculo_aprovado"
         case.last_simulation_id = sim.id
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         if not case.simulation_history:
             case.simulation_history = []
@@ -320,7 +348,7 @@ async def approve(
             "simulation_id": sim.id,
             "action": "approved",
             "status": "approved",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now_brt().isoformat(),
             "approved_by": user.id,
             "approved_by_name": user.name,
             "totals": {
@@ -390,11 +418,11 @@ async def reject(
             )
 
         sim.status = "rejected"
-        sim.updated_at = datetime.utcnow()
+        sim.updated_at = now_brt()
 
         case = db.get(Case, sim.case_id)
         case.status = "calculo_rejeitado"
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         if not case.simulation_history:
             case.simulation_history = []
@@ -403,7 +431,7 @@ async def reject(
             "simulation_id": sim.id,
             "action": "rejected",
             "status": "rejected",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now_brt().isoformat(),
             "rejected_by": user.id,
             "rejected_by_name": user.name,
             "reason": data.reason,
@@ -514,11 +542,11 @@ async def reopen_simulation(
 
         # Reabrir simulação
         sim.status = "draft"
-        sim.updated_at = datetime.utcnow()
+        sim.updated_at = now_brt()
 
         case = db.get(Case, sim.case_id)
         case.status = "calculista_pendente"
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         db.add(CaseEvent(
             case_id=case.id,
@@ -556,12 +584,14 @@ async def send_to_finance(
         if not case:
             raise HTTPException(404, "Caso não encontrado")
 
-        # Permitir envio ao financeiro tanto para casos marcados como 'retorno_fechamento'
-        # quanto para casos já aprovados no fechamento ('fechamento_aprovado')
+        # Permitir envio ao financeiro tanto para casos marcados como
+        # 'retorno_fechamento' quanto para casos já aprovados no fechamento
+        # ('fechamento_aprovado')
         if case.status not in ("retorno_fechamento", "fechamento_aprovado"):
             raise HTTPException(
                 400,
-                "Apenas casos de retorno de fechamento ou fechamento aprovado podem ser enviados para financeiro"
+                "Apenas casos de retorno de fechamento ou fechamento aprovado "
+                "podem ser enviados para financeiro"
             )
 
         # Verificar se tem simulação aprovada
@@ -574,7 +604,7 @@ async def send_to_finance(
 
         # Atualizar status do caso
         case.status = "financeiro_pendente"
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         db.add(CaseEvent(
             case_id=case.id,
@@ -637,7 +667,7 @@ def _resolve_period_with_previous_calc(
 
     else:
         # Padrão: mês atual
-        now = datetime.utcnow()
+        now = now_brt()
         start_date = now.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
@@ -713,7 +743,8 @@ def _get_calculation_kpis_for_period(start_date, end_date):
             )
         ).all()
 
-        # Calcular volume financeiro total (soma dos valores de consultoria líquida)
+        # Calcular volume financeiro total (soma dos valores de
+        # consultoria líquida)
         volume_today = 0
         for sim in approved_sims:
             if sim.custo_consultoria_liquido:
@@ -786,7 +817,6 @@ def get_calculation_kpis(
         return result
     else:
         # Modo legado sem trends
-        from datetime import datetime
 
         # Determinar período de análise
         if month:
@@ -802,7 +832,7 @@ def get_calculation_kpis(
             end_date = datetime.fromisoformat(to_)
         else:
             # Padrão: mês atual
-            now = datetime.utcnow()
+            now = now_brt()
             start_date = now.replace(
                 day=1, hour=0, minute=0, second=0, microsecond=0
             )
