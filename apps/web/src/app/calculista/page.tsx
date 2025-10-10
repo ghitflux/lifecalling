@@ -160,6 +160,16 @@ function CalculistaPageContent() {
   const { data: casosCancelados, isLoading: canceladosLoading } =
     useCasosCancelados();
 
+  // Query para casos encerrados
+  const { data: casosEncerrados = [], isLoading: encerradosLoading } = useQuery({
+    queryKey: ["/cases", "encerrado"],
+    queryFn: async () => {
+      const res = await api.get("/cases?status=encerrado&page_size=50");
+      return res.data.items || [];
+    },
+    enabled: activeTab === "encerrados",
+  });
+
   // Query para todas as simulações (para a nova tab)
   const { data: allSimulationsQuery = [], isLoading: allSimulationsLoading } = useQuery({
     queryKey: ["allSimulations"],
@@ -408,7 +418,7 @@ function CalculistaPageContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
@@ -426,6 +436,9 @@ function CalculistaPageContent() {
           </TabsTrigger>
           <TabsTrigger value="efetivados">
             Casos Efetivados ({casosEfetivados?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="encerrados">
+            Encerrados ({casosEncerrados?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="cancelados">
             Casos Cancelados ({casosCancelados?.length || 0})
@@ -823,6 +836,66 @@ function CalculistaPageContent() {
 
                     <Button variant="outline" className="w-full" size="sm">
                       <CheckCircle className="h-4 w-4 mr-2" />
+                      Ver Detalhes
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Encerrados */}
+        <TabsContent value="encerrados" className="mt-6">
+          {encerradosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CaseSkeleton key={i} />
+              ))}
+            </div>
+          ) : casosEncerrados?.length === 0 ? (
+            <div className="text-center py-12">
+              <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Nenhum caso encerrado encontrado
+              </h3>
+              <p className="text-muted-foreground">
+                Não há casos encerrados no momento.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {casosEncerrados?.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 space-y-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <StatusBadge status="encerrado" size="sm" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">Caso #{caso.id}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </p>
+                      {caso.client?.cpf && (
+                        <p className="text-xs text-muted-foreground">
+                          CPF: {caso.client.cpf}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Encerrado em:{" "}
+                      {new Date(
+                        caso.updated_at || caso.created_at
+                      ).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <Button variant="outline" className="w-full" size="sm">
+                      <Archive className="h-4 w-4 mr-2" />
                       Ver Detalhes
                     </Button>
                   </div>

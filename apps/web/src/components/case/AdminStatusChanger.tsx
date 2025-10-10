@@ -137,7 +137,7 @@ export default function AdminStatusChanger({ caseId, currentStatus }: AdminStatu
         </div>
         
         {/* Status Atual */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-foreground">Status Atual:</span>
           <StatusBadge status={currentStatus} size="sm" />
         </div>

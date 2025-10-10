@@ -785,15 +785,6 @@ export default function CaseDetailPage() {
                 </Button>
               </div>
             </div>
-
-
-            <Button
-              onClick={handleSave}
-              disabled={updateCaseMutation.isPending}
-              className="w-full"
-            >
-              {updateCaseMutation.isPending ? "Salvando..." : "Salvar Alterações"}
-            </Button>
           </div>
 
           {/* Upload de Contracheque e Anexos */}
