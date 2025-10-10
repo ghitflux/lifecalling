@@ -11,7 +11,7 @@ export interface SimulationInput {
   coeficiente: string;          // texto livre
   seguro: number;               // R$
   percentualConsultoria: number; // 0-100%
-  observacao_calculista?: string; // observações do calculista
+  observacao_calculista?: string; // DEPRECADO: usar chat ao invés de observações
 }
 
 export interface SimulationTotals {

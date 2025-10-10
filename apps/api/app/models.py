@@ -2,9 +2,16 @@ from sqlalchemy import Numeric
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint, JSON, Text, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from .db import Base
 import uuid
+
+# Timezone Brasil (GMT-3)
+BRT = timezone(timedelta(hours=-3))
+
+def now_brt():
+    """Retorna datetime atual no timezone de Brasília"""
+    return datetime.now(BRT)
 
 class User(Base):
     __tablename__ = "users"
@@ -14,7 +21,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(30), nullable=False)  # admin|supervisor|financeiro|calculista|atendente
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
 
 class Client(Base):
     __tablename__ = "clients"
@@ -53,8 +60,8 @@ class ClientPhone(Base):
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     phone = Column(String(20), nullable=False)
     is_primary = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 
     client = relationship("Client")
 
@@ -68,8 +75,8 @@ class Case(Base):
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
     assigned_user_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String(40), default="novo")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_update_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt, nullable=False)
+    last_update_at = Column(DateTime, default=now_brt)
     last_simulation_id = Column(Integer, ForeignKey("simulations.id"), nullable=True)
 
     # Campos de importação (legado)
@@ -107,7 +114,7 @@ class CaseEvent(Base):
     type = Column(String(60), nullable=False)
     payload = Column(JSON, default={})
     created_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
 
 class Attachment(Base):
     __tablename__ = "attachments"
@@ -118,7 +125,7 @@ class Attachment(Base):
     mime = Column(String(100))
     size = Column(Integer)
     uploaded_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
 
 
 class Simulation(Base):
@@ -127,7 +134,7 @@ class Simulation(Base):
     case_id = Column(Integer, ForeignKey("cases.id"), nullable=False)
     status = Column(String(20), default="draft")  # draft|approved|rejected
     created_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     # Dados de entrada multi-bancos
@@ -163,7 +170,7 @@ class Contract(Base):
     installments = Column(Integer, default=0)
     paid_installments = Column(Integer, default=0)
     disbursed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     # Campos para receita e ranking
@@ -188,7 +195,7 @@ class ContractAttachment(Base):
     size = Column(Integer)
     type = Column(String(50), default="comprovante")  # comprovante, documento, etc
     uploaded_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     contract = relationship("Contract", back_populates="attachments")
     case = relationship("Case")
     uploaded_by_user = relationship("User")
@@ -201,7 +208,7 @@ class Payment(Base):
     amount = Column(Numeric(14,2), nullable=False)
     paid_at = Column(DateTime, nullable=False)
     receipt_url = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -221,7 +228,7 @@ class FinanceExpense(Base):
     attachment_size = Column(Integer, nullable=True)  # Tamanho em bytes
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
     # Sem constraint único - permite múltiplas despesas por mês
@@ -233,7 +240,7 @@ class FinanceExpense(Base):
 class FinanceIncome(Base):
     __tablename__ = "finance_incomes"
     id = Column(Integer, primary_key=True)
-    date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    date = Column(DateTime, default=now_brt, nullable=False)
     income_type = Column(String(100), nullable=False)  # Tipo da receita (ex: "Receita Manual", "Bônus")
     income_name = Column(String(255), nullable=True)  # Nome/descrição da receita
     amount = Column(Numeric(14, 2), nullable=False)
@@ -243,8 +250,8 @@ class FinanceIncome(Base):
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Atendente responsável (para receitas de contratos)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 
     # Relacionamentos
     creator = relationship("User", foreign_keys=[created_by])
@@ -267,8 +274,8 @@ class Campaign(Base):
     meta_contratos = Column(Integer, nullable=True)
     meta_consultoria = Column(Numeric(14,2), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 
     # Relacionamentos
     creator = relationship("User", foreign_keys=[created_by])
@@ -287,7 +294,7 @@ class PayrollClient(Base):
     matricula = Column(String(20), nullable=False)
     nome = Column(String(200), nullable=False)
     orgao = Column(String(200), nullable=True)         # último orgão visto
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
 
     __table_args__ = (UniqueConstraint('cpf', 'matricula', name='uq_payroll_client_cpf_matricula'),)
 
@@ -316,7 +323,7 @@ class PayrollContract(Base):
     lanc = Column(String(12), nullable=True)
 
     status = Column(String(30), nullable=False, default='ativo')
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
 
     __table_args__ = (
         UniqueConstraint('client_id','entidade_code','referencia_month','referencia_year', name='uq_payroll_contract_ref'),
@@ -363,7 +370,7 @@ class Import(Base):
     id = Column(Integer, primary_key=True)
     filename = Column(String(255))
     created_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     counters = Column(JSON)
 
 
@@ -382,7 +389,7 @@ class ImportBatch(Base):
     ref_month = Column(Integer, nullable=False)
     ref_year = Column(Integer, nullable=False)
     generated_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     filename = Column(String(255), nullable=True)
     file_path = Column(String(512), nullable=True)  # Caminho do arquivo no sistema
@@ -431,7 +438,7 @@ class PayrollLine(Base):
     ref_year = Column(Integer, nullable=False)
 
     # Controle
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_brt)
     line_number = Column(Integer, nullable=True)
 
     # Relacionamentos
@@ -457,7 +464,7 @@ class Comment(Base):
     channel = Column(String(20), nullable=False)  # ATENDIMENTO|SIMULACAO|FECHAMENTO|CLIENTE
     content = Column(Text, nullable=False)
     parent_id = Column(UUID(as_uuid=True), ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=now_brt, nullable=False)
     edited_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete
 

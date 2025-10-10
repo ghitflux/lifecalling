@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDele
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowLeft } from "lucide-react";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 
@@ -97,6 +97,7 @@ interface CaseDetail {
 
 export default function CaseDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const caseId = parseInt(params.id as string);
   const queryClient = useQueryClient();
 
@@ -414,16 +415,71 @@ export default function CaseDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Admin Status Changer (apenas para admin) - Movido para o topo */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
+
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <StatusBadge status={caseDetail.status as Status} />
-            {caseDetail.assigned_to && (
-              <span className="text-sm text-muted-foreground">
-                Atribuído a: <strong>{caseDetail.assigned_to}</strong>
-              </span>
-            )}
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              // Debug: verificar todo o sessionStorage
+              console.log('Todo o sessionStorage:', {
+                'esteira-page': sessionStorage.getItem('esteira-page'),
+                'esteira-tab': sessionStorage.getItem('esteira-tab'),
+                'esteira-filters': sessionStorage.getItem('esteira-filters')
+              });
+              
+              // Verificar se há parâmetros de paginação salvos no sessionStorage
+              const savedPage = sessionStorage.getItem('esteira-page');
+              const savedTab = sessionStorage.getItem('esteira-tab');
+              const savedFilters = sessionStorage.getItem('esteira-filters');
+              
+              console.log('Dados salvos no sessionStorage:', { savedPage, savedTab, savedFilters });
+              
+              if (savedPage && savedTab && savedTab === 'global') {
+                // Construir URL com parâmetros salvos
+                const params = new URLSearchParams();
+                params.set('page', savedPage);
+                params.set('tab', savedTab);
+                
+                if (savedFilters) {
+                  try {
+                    const filters = JSON.parse(savedFilters);
+                    if (filters.status && filters.status.length > 0) {
+                      params.set('status', filters.status.join(','));
+                    }
+                    if (filters.search) {
+                      params.set('search', filters.search);
+                    }
+                  } catch (e) {
+                    console.warn('Erro ao parsear filtros salvos:', e);
+                  }
+                }
+                
+                console.log('Navegando com parâmetros:', params.toString());
+                router.push(`/esteira?${params.toString()}`);
+              } else {
+                // Fallback para a esteira padrão (global)
+                console.log('Navegando para global (fallback)');
+                router.push('/esteira');
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retornar à Esteira
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <StatusBadge status={caseDetail.status as Status} />
+              {caseDetail.assigned_to && (
+                <span className="text-sm text-muted-foreground">
+                  Atribuído a: <strong>{caseDetail.assigned_to}</strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex gap-3">
@@ -730,15 +786,6 @@ export default function CaseDetailPage() {
               </div>
             </div>
 
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                placeholder="Adicione observações sobre o caso..."
-                rows={3}
-              />
-            </div>
 
             <Button
               onClick={handleSave}
@@ -936,7 +983,7 @@ export default function CaseDetailPage() {
                           currency: 'BRL'
                         }).format(
                           caseDetail.simulation.totals.custoConsultoriaLiquido ??
-                          caseDetail.simulation.totals.custoConsultoria
+                          (caseDetail.simulation.totals.custoConsultoria * 0.86)
                         )}
                       </span>
                     </div>
@@ -964,8 +1011,6 @@ export default function CaseDetailPage() {
         )}
       </div>
 
-      {/* Admin Status Changer (apenas para admin) */}
-      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
 
       {/* Chat do Caso */}
       <CaseChat caseId={caseId} defaultChannel="ATENDIMENTO" />

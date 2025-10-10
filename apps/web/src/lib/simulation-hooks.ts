@@ -126,19 +126,48 @@ export function usePendingSimulations() {
 /**
  * Hook para buscar todas as simulações (incluindo concluídas de hoje)
  */
-export function useAllSimulations(includeCompletedToday: boolean = false) {
+export function useAllSimulations(
+  includeCompletedToday: boolean = false,
+  params?: { search?: string; page?: number; pageSize?: number; caseStatus?: string }
+) {
   return useQuery({
-    queryKey: ["simulations", includeCompletedToday ? "all" : "draft"],
+    queryKey: [
+      "simulations",
+      includeCompletedToday ? "all" : "draft",
+      params?.search,
+      params?.page,
+      params?.pageSize,
+      params?.caseStatus
+    ],
     queryFn: async () => {
-      const params = includeCompletedToday
-        ? "?include_completed_today=true"
-        : "?status=draft";
-      const response = await api.get(`/simulations${params}`);
-      return response.data?.items || [];
+      const searchParams = new URLSearchParams();
+
+      if (includeCompletedToday) {
+        searchParams.append("include_completed_today", "true");
+      } else {
+        searchParams.append("status", "draft");
+      }
+
+      if (params?.search) searchParams.append("search", params.search);
+      if (params?.page) searchParams.append("page", params.page.toString());
+      if (params?.pageSize) searchParams.append("page_size", params.pageSize.toString());
+      if (params?.caseStatus) searchParams.append("case_status", params.caseStatus);
+
+      const response = await api.get(`/simulations?${searchParams.toString()}`);
+      return {
+        items: response.data?.items || [],
+        totalCount: response.data?.total_count || 0,
+        page: response.data?.page || 1,
+        pageSize: response.data?.page_size || 20,
+        totalPages: response.data?.total_pages || 1
+      };
     },
-    refetchInterval: 10000, // Refetch a cada 10 segundos
-    retry: 2,
     staleTime: 5000, // Considerar dados obsoletos após 5 segundos
+    refetchInterval: false, // Desabilitar refetch automático para evitar interrupções
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    retry: 2,
+    placeholderData: (previousData) => previousData, // Manter dados anteriores durante nova busca (melhor que keepPreviousData)
   });
 }
 

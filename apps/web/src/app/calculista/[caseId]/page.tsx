@@ -14,12 +14,13 @@ import {
   SimulationHistoryCard,
   SimulationHistoryModal
 } from "@lifecalling/ui";
-import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw, DollarSign } from "lucide-react";
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
 import { SimulationResultCard } from "@lifecalling/ui";
 import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
+import { FinancialInfoModal } from "@/components/calculista/FinancialInfoModal";
 
 export default function CalculistaSimulationPage() {
   const params = useParams();
@@ -32,6 +33,7 @@ export default function CalculistaSimulationPage() {
   const [currentTotals, setCurrentTotals] = useState<SimulationTotals | null>(null);
   const [simulationId, setSimulationId] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showFinancialModal, setShowFinancialModal] = useState(false);
 
   // Helper para extrair mensagem de erro
   const getErrorMessage = (error: any): string => {
@@ -288,6 +290,9 @@ export default function CalculistaSimulationPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto print-container">
+      {/* Admin Status Changer (apenas para admin) - Movido para o topo */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -411,6 +416,20 @@ export default function CalculistaSimulationPage() {
                 </div>
               ))}
             </div>
+
+            {/* Botão Informações Financeiras */}
+            {caseDetail?.client?.financiamentos && caseDetail.client.financiamentos.length > 0 && (
+              <div className="mt-4 pt-3 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFinancialModal(true)}
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  Ver Informações Financeiras ({caseDetail.client.financiamentos.length})
+                </Button>
+              </div>
+            )}
           </Card>
         )}
       </div>
@@ -433,6 +452,7 @@ export default function CalculistaSimulationPage() {
                 totals={currentTotals}
                 simulation={currentSimulation}
                 isActive={true}
+                atendente={caseDetail?.assigned_user?.name}
               />
 
               {/* Ações */}
@@ -586,8 +606,18 @@ export default function CalculistaSimulationPage() {
         }}
       />
 
-      {/* Admin Status Changer (apenas para admin) */}
-      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
+      {/* Modal Informações Financeiras */}
+      {caseDetail?.client?.financiamentos && caseDetail.client.financiamentos.length > 0 && (
+        <FinancialInfoModal
+          isOpen={showFinancialModal}
+          onClose={() => setShowFinancialModal(false)}
+          financiamentos={caseDetail.client.financiamentos}
+          clientMatricula={caseDetail.client.matricula}
+          clientName={caseDetail.client.name}
+          simulationTotals={currentTotals || undefined}
+        />
+      )}
+
 
       {/* Chat do Calculista */}
       <CaseChat caseId={caseId} defaultChannel="SIMULACAO" />

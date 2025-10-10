@@ -1,7 +1,7 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor, KPICard, CasesTable, QuickFilters, Pagination } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -24,9 +24,11 @@ interface Case {
   banco?: string;
 }
 
-export default function EsteiraPage() {
+function EsteiraPageContent() {
   useLiveCaseEvents();
-  const [activeTab, setActiveTab] = useState("mine");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState("global");
   const [editingCase, setEditingCase] = useState<Case | null>(null);
 
   // Estados de paginaÃ§Ã£o e filtro
@@ -41,10 +43,65 @@ export default function EsteiraPage() {
   const [mySearchTerm, setMySearchTerm] = useState("");
 
   const queryClient = useQueryClient();
-  const router = useRouter();
+
+  // Restaurar estado da esteira quando a página carregar
+  useEffect(() => {
+    const savedPage = searchParams.get('page');
+    const savedTab = searchParams.get('tab');
+    const savedStatus = searchParams.get('status');
+    const savedSearch = searchParams.get('search');
+
+    console.log('Parâmetros da URL:', { savedPage, savedTab, savedStatus, savedSearch });
+
+    // Só alterar a aba se houver parâmetro explícito na URL
+    if (savedTab && (savedTab === 'mine' || savedTab === 'global')) {
+      setActiveTab(savedTab);
+    }
+    // Se não houver parâmetro de aba, manter o padrão (global)
+
+    if (savedPage) {
+      const pageNum = parseInt(savedPage);
+      const tabToUse = savedTab || 'global'; // Usar global como padrão se não houver tab
+      console.log('Restaurando página:', { pageNum, tabToUse });
+      
+      if (tabToUse === 'mine') {
+        setMyPage(pageNum);
+      } else {
+        setGlobalPage(pageNum);
+      }
+    }
+
+    if (savedStatus) {
+      const statusArray = savedStatus.split(',');
+      const tabToUse = savedTab || 'global';
+      if (tabToUse === 'mine') {
+        setMyStatusFilter(statusArray);
+      } else {
+        setGlobalStatusFilter(statusArray);
+      }
+    }
+
+    if (savedSearch) {
+      const tabToUse = savedTab || 'global';
+      if (tabToUse === 'mine') {
+        setMySearchTerm(savedSearch);
+      } else {
+        setGlobalSearchTerm(savedSearch);
+      }
+    }
+  }, [searchParams]);
 
   // Query para mÃ©tricas do usuÃ¡rio
   const { data: myStats, isLoading: loadingStats } = useMyStats();
+
+  // Debug do estado da página
+  console.log('Estado atual da esteira:', {
+    activeTab,
+    globalPage,
+    myPage,
+    globalStatusFilter,
+    myStatusFilter
+  });
 
   // Query para listar atendimentos globais
   const { data: globalData, isLoading: loadingGlobal, error: errorGlobal } = useQuery({
@@ -56,16 +113,16 @@ export default function EsteiraPage() {
         order: "financiamentos_desc", // Ordenar por nÃºmero de financiamentos (decrescente)
       });
 
-      // Admin e supervisor veem TODOS os casos quando aplicam filtros
-      // Atendentes veem apenas casos disponÃ­veis (assigned=0)
+      // Admin e supervisor veem TODOS os casos quando aplicam filtros ou buscam
+      // Atendentes veem apenas casos disponíveis (assigned=0)
       if (globalStatusFilter.length > 0) {
         params.append("status", globalStatusFilter[0]);
-        // NÃ£o adicionar filtro de assigned quando houver filtro de status
-        // Isso permite que admin/supervisor vejam todos os casos naquele status
-      } else {
-        // Sem filtro de status, mostrar apenas casos nÃ£o atribuÃ­dos
+        // Não adicionar filtro de assigned quando houver filtro de status
+      } else if (!globalSearchTerm) {
+        // Sem filtro de status E sem busca: mostrar apenas casos não atribuídos
         params.append("assigned", "0");
       }
+      // Se houver busca (globalSearchTerm), não adiciona assigned=0 para permitir buscar em todos os casos
 
       if (globalSearchTerm) {
         params.append("q", globalSearchTerm);
@@ -163,6 +220,34 @@ export default function EsteiraPage() {
   };
 
   const handleViewCase = (caseId: number) => {
+    // Salvar estado atual da esteira no sessionStorage
+    const currentPage = activeTab === 'mine' ? myPage : globalPage;
+    const currentStatusFilter = activeTab === 'mine' ? myStatusFilter : globalStatusFilter;
+    const currentSearchTerm = activeTab === 'mine' ? mySearchTerm : globalSearchTerm;
+    
+    // Forçar aba global se não estiver explicitamente em 'mine'
+    const tabToSave = activeTab === 'mine' ? 'mine' : 'global';
+    
+    console.log('Salvando estado antes de navegar:', {
+      currentPage,
+      tabToSave,
+      activeTab,
+      globalPage,
+      myPage
+    });
+    
+    sessionStorage.setItem('esteira-page', currentPage.toString());
+    sessionStorage.setItem('esteira-tab', tabToSave);
+    sessionStorage.setItem('esteira-filters', JSON.stringify({
+      status: currentStatusFilter,
+      search: currentSearchTerm
+    }));
+    
+    // Verificar se foi salvo corretamente
+    const savedPage = sessionStorage.getItem('esteira-page');
+    const savedTab = sessionStorage.getItem('esteira-tab');
+    console.log('Verificação após salvar:', { savedPage, savedTab });
+    
     router.push(`/casos/${caseId}`);
   };
 
@@ -175,23 +260,17 @@ export default function EsteiraPage() {
     }
   };
 
-  // Calcular contadores por status
-  const allCases = activeTab === "global" ? globalCases : myCases;
-  const getStatusCount = (status: string) => {
-    return allCases.filter((c: Case) => c.status === status).length;
-  };
-
-  // Definir filtros disponÃ­veis por status com contadores
+  // Definir filtros disponíveis por status (sem contadores)
   const statusFilters = [
-    { id: "novo", label: "Novo", value: "novo", icon: FileText, color: "primary" as const, count: getStatusCount("novo") },
-    { id: "em_atendimento", label: "Em Atendimento", value: "em_atendimento", icon: AlertCircle, color: "warning" as const, count: getStatusCount("em_atendimento") },
-    { id: "calculista_pendente", label: "Calculista", value: "calculista_pendente", icon: Clock, color: "secondary" as const, count: getStatusCount("calculista_pendente") },
-    { id: "calculo_aprovado", label: "Aprovado", value: "calculo_aprovado", icon: CheckCircle, color: "success" as const, count: getStatusCount("calculo_aprovado") },
-    { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", icon: Target, color: "success" as const, count: getStatusCount("fechamento_aprovado") },
-    { id: "efetivado", label: "Efetivados", value: "efetivado", icon: DollarSign, color: "success" as const, count: getStatusCount("efetivado") },
-    { id: "cancelado", label: "Cancelados", value: "cancelado", icon: AlertCircle, color: "destructive" as const, count: getStatusCount("cancelado") },
-    { id: "devolvido", label: "Devolvidos", value: "devolvido", icon: TrendingUp, color: "warning" as const, count: getStatusCount("devolvido") },
-    { id: "arquivado", label: "Arquivado", value: "arquivado", icon: Archive, color: "default" as const, count: getStatusCount("arquivado") },
+    { id: "novo", label: "Novo", value: "novo", icon: FileText, color: "primary" as const },
+    { id: "em_atendimento", label: "Em Atendimento", value: "em_atendimento", icon: AlertCircle, color: "warning" as const },
+    { id: "calculista_pendente", label: "Calculista", value: "calculista_pendente", icon: Clock, color: "secondary" as const },
+    { id: "calculo_aprovado", label: "Cálculo Aprovado", value: "calculo_aprovado", icon: CheckCircle, color: "success" as const },
+    { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", icon: Target, color: "success" as const },
+    { id: "contrato_efetivado", label: "Efetivados", value: "contrato_efetivado", icon: DollarSign, color: "success" as const },
+    { id: "contrato_cancelado", label: "Cancelados", value: "contrato_cancelado", icon: AlertCircle, color: "destructive" as const },
+    { id: "devolvido", label: "Devolvidos", value: "devolvido", icon: TrendingUp, color: "warning" as const },
+    { id: "arquivado", label: "Arquivado", value: "arquivado", icon: Archive, color: "default" as const },
   ];
 
   // Handlers de filtro para aba global
@@ -258,7 +337,7 @@ export default function EsteiraPage() {
           <EsteiraCard
             key={caso.id}
             caso={caso}
-            onView={(id) => router.push(`/casos/${id}`)}
+            onView={handleViewCase}
             onAssign={showPegarButton ? handlePegarAtendimento : undefined}
             onEdit={handleEditCase}
           />
@@ -418,6 +497,14 @@ export default function EsteiraPage() {
         isLoading={updateCaseMutation.isPending}
       />
     </div>
+  );
+}
+
+export default function EsteiraPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <EsteiraPageContent />
+    </Suspense>
   );
 }
 

@@ -9,10 +9,11 @@ import { StatusBadge } from "@lifecalling/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2 } from "lucide-react";
+import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle } from "lucide-react";
 import Financiamentos from "@/components/clients/Financiamentos";
 import { Snippet } from "@nextui-org/snippet";
 import CaseChat from "@/components/case/CaseChat";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function ClienteDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -94,21 +95,15 @@ export default function ClienteDetalhe() {
     }
   });
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteCascadeModal, setShowDeleteCascadeModal] = useState(false);
+
   const handleDeleteClient = () => {
-    if (confirm("Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.")) {
-      deleteClientMutation.mutate(parseInt(id));
-    }
+    setShowDeleteModal(true);
   };
 
   const handleDeleteClientCascade = () => {
-    const casesCount = client?.financiamentos?.length || 0;
-    const message = casesCount > 0 
-      ? `Tem certeza que deseja excluir este cliente e ${casesCount} caso(s) associado(s)? Esta ação não pode ser desfeita.`
-      : "Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.";
-    
-    if (confirm(message)) {
-      deleteClientCascadeMutation.mutate(parseInt(id));
-    }
+    setShowDeleteCascadeModal(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -347,6 +342,71 @@ export default function ClienteDetalhe() {
       {/* Chat do Cliente - Precisa de um caseId associado */}
       {/* Para clientes, vamos criar um chat global sem caseId específico */}
       {/* TODO: Implementar sistema de chat de cliente sem caseId ou usar o caso mais recente */}
+
+      {/* Modal de Confirmação de Exclusão Simples */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Confirmar Exclusão de Cliente
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                deleteClientMutation.mutate(parseInt(id));
+                setShowDeleteModal(false);
+              }}
+              disabled={deleteClientMutation.isPending}
+            >
+              {deleteClientMutation.isPending ? 'Excluindo...' : 'Confirmar Exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Exclusão em Cascata */}
+      <Dialog open={showDeleteCascadeModal} onOpenChange={setShowDeleteCascadeModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Confirmar Exclusão de Cliente e Casos
+            </DialogTitle>
+            <DialogDescription>
+              {client?.financiamentos?.length > 0 
+                ? `Tem certeza que deseja excluir este cliente e ${client.financiamentos.length} caso(s) associado(s)? Esta ação não pode ser desfeita.`
+                : "Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita."
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteCascadeModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                deleteClientCascadeMutation.mutate(parseInt(id));
+                setShowDeleteCascadeModal(false);
+              }}
+              disabled={deleteClientCascadeMutation.isPending}
+            >
+              {deleteClientCascadeMutation.isPending ? 'Excluindo...' : 'Confirmar Exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

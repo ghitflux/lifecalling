@@ -4,14 +4,14 @@ import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useClosingApprove, useClosingReject, useCaseEvents, useClosingCaseDetails } from "@/lib/hooks";
+import { useClosingApprove, useClosingReject, useCaseEvents, useClosingCaseDetails, useAttachments } from "@/lib/hooks";
 import { Button, Card, CaseDetails, SimulationResultCard, SimulationHistoryModal, Tabs, TabsList, TabsTrigger, TabsContent, CaseHistory, Dialog, DialogContent, DialogHeader, DialogTitle } from "@lifecalling/ui";
-import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, History, CheckCircle, XCircle, Eye, User, DollarSign, Calendar, FileText, Download, Save, FileImage, File, Printer, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, History, CheckCircle, XCircle, Eye, User, DollarSign, Calendar, FileText, Download, FileImage, File, Printer, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
+import FinanciamentosModal from "@/components/case/FinanciamentosModal";
 
 export default function FechamentoDetalhesPage() {
   const params = useParams();
@@ -20,7 +20,7 @@ export default function FechamentoDetalhesPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showConfirm, setShowConfirm] = useState<'approve' | 'reject' | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [closingNotes, setClosingNotes] = useState("");
+  const [showFinanciamentosModal, setShowFinanciamentosModal] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
@@ -31,28 +31,6 @@ export default function FechamentoDetalhesPage() {
   const approve = useClosingApprove();
   const reject = useClosingReject();
 
-  // Mutation para salvar anotações do fechamento
-  const saveNotesMutation = useMutation({
-    mutationFn: async (notes: string) => {
-      const response = await api.post(`/cases/${caseId}/events`, {
-        type: "closing.notes",
-        payload: { notes }
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success("Anotação salva com sucesso!");
-      queryClient.invalidateQueries({ queryKey: ["case", caseId, "events"] });
-      queryClient.invalidateQueries({ queryKey: ["cases", caseId] });
-      queryClient.invalidateQueries({ queryKey: ["closing", "case", caseId] });
-      setClosingNotes("");
-    },
-    onError: (error: any) => {
-      console.error('Erro ao salvar anotação:', error);
-      const errorMessage = error.response?.data?.detail || "Erro ao salvar anotação";
-      toast.error(errorMessage);
-    }
-  });
 
   // Buscar detalhes do caso
   const { data: caseData, isLoading } = useQuery({
@@ -75,6 +53,9 @@ export default function FechamentoDetalhesPage() {
 
   // Buscar eventos do caso para usar como notas
   const { data: caseEvents, error: eventsError, isLoading: eventsLoading } = useCaseEvents(Number(caseId));
+
+  // Buscar anexos do caso
+  const { data: attachments, isLoading: attachmentsLoading } = useAttachments(caseId);
 
   // Converter eventos para formato de notas
   const notes = useMemo(() => {
@@ -207,6 +188,36 @@ export default function FechamentoDetalhesPage() {
     }
   };
 
+  // Função para download de anexos
+  const handleDownloadAttachment = (attachmentId: number, filename?: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const downloadUrl = `${baseUrl}/cases/${caseId}/attachments/${attachmentId}/download`;
+    
+    // Criar link temporário para download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename || 'anexo';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Função para download de anexos do contrato
+  const handleDownloadContractAttachment = (contractId: number, attachmentId: number, filename?: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const downloadUrl = `${baseUrl}/contracts/${contractId}/attachments/${attachmentId}/download`;
+    
+    // Criar link temporário para download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename || 'anexo_contrato';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -276,6 +287,11 @@ export default function FechamentoDetalhesPage() {
             Ver Detalhes
           </Button>
         </div>
+      </div>
+
+      {/* Controle de Status no Topo */}
+      <div className="mb-6">
+        <AdminStatusChanger caseId={caseId} currentStatus={caseData?.status || ''} />
       </div>
 
       {/* Botões de Aprovação/Rejeição - Só aparece se status for fechamento_pendente */}
@@ -350,10 +366,8 @@ export default function FechamentoDetalhesPage() {
         </div>
       )}
 
-
-
-      {/* Grid de 3 colunas */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Grid de 2 colunas */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Coluna 1: Detalhes do Caso */}
         <div className="lg:col-span-2 space-y-6">
           <CaseDetails
@@ -364,31 +378,71 @@ export default function FechamentoDetalhesPage() {
             hideNotesCard={true} // Esconde o card de anotações pois já aparece no histórico
           />
 
-          {/* Campo de Anotações do Fechamento */}
+          {/* Informações Financeiras */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Anotações do Fechamento</h3>
-            <div className="space-y-4">
-              <Textarea
-                placeholder="Digite suas anotações sobre este fechamento..."
-                value={closingNotes}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setClosingNotes(e.target.value)}
-                rows={4}
-                className="resize-none"
-              />
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Informações Financeiras</h3>
+                <p className="text-sm text-muted-foreground">
+                  Visualize todos os financiamentos do cliente
+                </p>
+              </div>
               <Button
-                onClick={() => saveNotesMutation.mutate(closingNotes)}
-                disabled={!closingNotes.trim() || saveNotesMutation.isPending}
-                className="w-full"
+                variant="outline"
+                onClick={() => setShowFinanciamentosModal(true)}
+                className="flex items-center gap-2"
               >
-                <Save className="h-4 w-4 mr-2" />
-                {saveNotesMutation.isPending ? "Salvando..." : "Salvar Anotação"}
+                <DollarSign className="h-4 w-4" />
+                Ver Financiamentos
               </Button>
             </div>
+
+            {/* Resumo dos Financiamentos */}
+            {caseData.client?.financiamentos && caseData.client.financiamentos.length > 0 ? (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-foreground">Resumo dos Financiamentos Ativos</h4>
+                <div className="max-h-80 overflow-y-auto pr-2 space-y-3">
+                  {caseData.client.financiamentos.map((fin: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-foreground">
+                            {fin.entity_name || fin.orgao_pagamento_nome || 'Financiamento'}
+                          </span>
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            fin.status_code === '1' 
+                              ? 'bg-green-100 text-green-800' 
+                              : fin.status_code === '2'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {fin.status_description || 'Status'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Matrícula: {fin.matricula}</span>
+                          <span>Parcelas: {fin.parcelas_pagas}/{fin.total_parcelas}</span>
+                          <span>Valor: R$ {fin.valor_parcela_ref}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <DollarSign className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground mb-2">Nenhum financiamento encontrado</p>
+                <p className="text-xs text-muted-foreground">
+                  Clique em &quot;Ver Financiamentos&quot; para verificar se há dados disponíveis
+                </p>
+              </div>
+            )}
           </Card>
         </div>
 
         {/* Coluna 2: Simulação Aprovada */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
           {caseData.simulation && caseData.simulation.status === "approved" && (
             <SimulationResultCard
               totals={{
@@ -411,8 +465,73 @@ export default function FechamentoDetalhesPage() {
               }}
             />
           )}
+
+          {/* Anexos do Caso */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Anexos do Caso</h3>
+              {attachments && attachments.length > 0 && (
+                <span className="text-sm text-muted-foreground">({attachments.length})</span>
+              )}
+            </div>
+
+            {attachmentsLoading ? (
+              <div className="text-center py-4">
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4 mx-auto"></div>
+                  <div className="h-4 bg-muted rounded w-1/2 mx-auto"></div>
+                </div>
+              </div>
+            ) : attachments && attachments.length > 0 ? (
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                {attachments.map((attachment: any) => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      {getFileIcon(attachment.filename, attachment.mime)}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-foreground truncate">
+                          {attachment.filename}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{formatFileSize(attachment.size)}</span>
+                          <span>•</span>
+                          <span>
+                            {formatDate(attachment.uploaded_at || attachment.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadAttachment(attachment.id, attachment.filename)}
+                      className="flex items-center gap-2 shrink-0"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground mb-2">Nenhum anexo encontrado</p>
+                <p className="text-xs text-muted-foreground">
+                  Os anexos do caso aparecerão aqui quando disponíveis
+                </p>
+              </div>
+            )}
+          </Card>
         </div>
       </div>
+
+      {/* Chat do Fechamento - Full Width */}
+      <CaseChat caseId={caseId} defaultChannel="FECHAMENTO" />
 
       {/* Histórico do Caso */}
       <Card className="p-6">
@@ -656,7 +775,12 @@ export default function FechamentoDetalhesPage() {
                                 <p className="text-xs text-muted-foreground">{formatFileSize(att.size)}</p>
                               </div>
                             </div>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleDownloadContractAttachment(fullCaseDetails.contract.id, att.id, att.filename)}
+                              title="Baixar anexo do contrato"
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
                           </div>
@@ -688,7 +812,12 @@ export default function FechamentoDetalhesPage() {
                           </p>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleDownloadAttachment(att.id, att.filename)}
+                        title="Baixar anexo"
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
@@ -708,11 +837,13 @@ export default function FechamentoDetalhesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Admin Status Changer (apenas para admin) */}
-      <AdminStatusChanger caseId={caseId} currentStatus={caseData?.status || ''} />
-
-      {/* Chat do Fechamento */}
-      <CaseChat caseId={caseId} defaultChannel="FECHAMENTO" />
+      {/* Modal de Financiamentos */}
+      <FinanciamentosModal
+        isOpen={showFinanciamentosModal}
+        onClose={() => setShowFinanciamentosModal(false)}
+        clientId={caseData?.client?.id || 0}
+        clientName={caseData?.client?.name}
+      />
 
       {/* Modal de Histórico */}
       <SimulationHistoryModal

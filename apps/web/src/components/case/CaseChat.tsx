@@ -4,7 +4,7 @@
  * Componente de Chat Unificado para Casos
  * Usa Hero UI / Next UI para consistência com o design system.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,12 +26,11 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Query para buscar comentários
   const { data: comments = [], isLoading } = useQuery({
-    queryKey: ['comments', caseId, defaultChannel],
-    queryFn: () => getComments(caseId, defaultChannel),
+    queryKey: ['comments', caseId],
+    queryFn: () => getComments(caseId),
     refetchInterval: 10000, // Atualizar a cada 10s
   });
 
@@ -40,7 +39,7 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
     mutationFn: (content: string) => addComment(caseId, defaultChannel, content),
     onSuccess: () => {
       // Invalidar queries para atualizar lista
-      queryClient.invalidateQueries({ queryKey: ['comments', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['comments'] }); // Invalida todos os comentários globalmente
       queryClient.invalidateQueries({ queryKey: ['caseEvents', caseId] });
       setMessage('');
       setIsSending(false);
@@ -53,10 +52,6 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
     },
   });
 
-  // Scroll automático ao final quando novos comentários chegam
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [comments]);
 
   const handleSend = () => {
     if (!message.trim()) {
@@ -108,13 +103,13 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
     <Card className="w-full h-full flex flex-col p-6">
       <div className="flex flex-row items-center gap-3 border-b pb-3 mb-4">
         <MessageCircle className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-semibold">Chat - {defaultChannel}</h3>
+        <h3 className="text-lg font-semibold">Chat</h3>
         {getChannelBadge(defaultChannel)}
       </div>
 
       <div className="flex-1 flex flex-col gap-4">
         {/* Lista de Mensagens - Scrollable */}
-        <div className="flex-1 overflow-y-auto space-y-3 max-h-[500px]">
+        <div className="flex-1 overflow-y-auto space-y-3 max-h-[500px] pr-2">
           {isLoading ? (
             <div className="flex justify-center items-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -144,15 +139,42 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
                   {/* Mensagem */}
                   <div className={`flex-1 max-w-[80%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <div className={`rounded-lg p-3 ${
-                      isCurrentUser
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
+                      comment.role === 'admin'
+                        ? 'bg-red-600/90 backdrop-blur-sm border border-red-500/50 text-white'
+                        : comment.role === 'supervisor'
+                        ? 'bg-purple-600/90 backdrop-blur-sm border border-purple-500/50 text-white'
+                        : comment.role === 'financeiro'
+                        ? 'bg-green-600/90 backdrop-blur-sm border border-green-500/50 text-white'
+                        : comment.role === 'calculista'
+                        ? 'bg-blue-600/90 backdrop-blur-sm border border-blue-500/50 text-white'
+                        : comment.role === 'atendente'
+                        ? 'bg-orange-600/90 backdrop-blur-sm border border-orange-500/50 text-white'
+                        : comment.role === 'fechamento'
+                        ? 'bg-cyan-600/90 backdrop-blur-sm border border-cyan-500/50 text-white'
+                        : 'bg-slate-700/90 backdrop-blur-sm border border-slate-600/50 text-white'
                     }`}>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-semibold">
                           {comment.author_name}
                         </span>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            comment.role === 'admin' 
+                              ? 'bg-red-100 text-red-800 border-red-300' 
+                              : comment.role === 'supervisor'
+                              ? 'bg-purple-100 text-purple-800 border-purple-300'
+                              : comment.role === 'financeiro'
+                              ? 'bg-green-100 text-green-800 border-green-300'
+                              : comment.role === 'calculista'
+                              ? 'bg-blue-100 text-blue-800 border-blue-300'
+                              : comment.role === 'atendente'
+                              ? 'bg-orange-100 text-orange-800 border-orange-300'
+                              : comment.role === 'fechamento'
+                              ? 'bg-cyan-100 text-cyan-800 border-cyan-300'
+                              : 'bg-gray-100 text-gray-800 border-gray-300'
+                          }`}
+                        >
                           {comment.role}
                         </Badge>
                       </div>
@@ -168,7 +190,7 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
               );
             })
           )}
-          <div ref={chatEndRef} />
+          
         </div>
 
         {/* Campo de Envio */}

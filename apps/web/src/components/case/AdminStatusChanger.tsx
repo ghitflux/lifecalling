@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@lifecalling/ui';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -71,6 +72,10 @@ export default function AdminStatusChanger({ caseId, currentStatus }: AdminStatu
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       queryClient.invalidateQueries({ queryKey: ['cases'] });
       queryClient.invalidateQueries({ queryKey: ['/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['calculista'] });
+      queryClient.invalidateQueries({ queryKey: ['closing'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+      queryClient.invalidateQueries({ queryKey: ['simulations'] });
 
       toast.success(data.message || 'Status alterado com sucesso!');
       setShowConfirmDialog(false);
@@ -124,24 +129,37 @@ export default function AdminStatusChanger({ caseId, currentStatus }: AdminStatu
 
   return (
     <>
-      <div className="flex items-center gap-3 p-4 border rounded-lg bg-orange-50 border-orange-200">
-        <Shield className="h-5 w-5 text-orange-600" />
+      <div className="flex items-center gap-4 p-4 border rounded-lg bg-card border-border">
+        <Shield className="h-5 w-5 text-orange-400" />
         <div className="flex-1">
-          <h4 className="text-sm font-semibold text-orange-900">Controle Administrativo</h4>
-          <p className="text-xs text-orange-700">Alterar status manualmente (apenas admin)</p>
+          <h4 className="text-sm font-semibold text-foreground">Controle Administrativo</h4>
+          <p className="text-xs text-muted-foreground">Alterar status manualmente (apenas admin)</p>
         </div>
+        
+        {/* Status Atual */}
         <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">Status Atual:</span>
+          <StatusBadge status={currentStatus} size="sm" />
+        </div>
+        
+        {/* Dropdown de Seleção */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">Alterar para:</span>
           <Select value={selectedStatus} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Selecionar status" />
+            <SelectTrigger className="w-[200px] h-9 bg-background border-border text-foreground hover:bg-accent focus:ring-ring focus:border-ring">
+              <SelectValue placeholder="Selecionar status" className="text-foreground" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px] bg-background border-border">
               {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  <div className="flex items-center gap-2">
-                    <span>{label}</span>
+                <SelectItem 
+                  key={value} 
+                  value={value} 
+                  className="py-2 text-foreground hover:bg-accent focus:bg-accent"
+                >
+                  <div className="flex items-center justify-between w-full gap-3">
+                    <span className="text-foreground">{label}</span>
                     {value === currentStatus && (
-                      <Badge variant="outline" className="text-xs">Atual</Badge>
+                      <Badge className="bg-orange-600 text-white text-xs px-2 py-1">Atual</Badge>
                     )}
                   </div>
                 </SelectItem>
@@ -153,39 +171,39 @@ export default function AdminStatusChanger({ caseId, currentStatus }: AdminStatu
 
       {/* Modal de Confirmação */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <AlertTriangle className="h-5 w-5 text-orange-400" />
               Confirmar Alteração de Status
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               Você está prestes a alterar o status deste caso manualmente.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <span className="text-sm font-medium">Status Atual:</span>
-              <Badge variant="outline">{STATUS_LABELS[currentStatus]}</Badge>
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border">
+              <span className="text-sm font-medium text-foreground">Status Atual:</span>
+              <Badge variant="outline" className="text-foreground border-border">{STATUS_LABELS[currentStatus]}</Badge>
             </div>
             <div className="flex items-center justify-center">
               <div className="text-muted-foreground">↓</div>
             </div>
-            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
-              <span className="text-sm font-medium">Novo Status:</span>
-              <Badge className="bg-orange-600 text-white">{STATUS_LABELS[selectedStatus]}</Badge>
+            <div className="flex items-center justify-between p-3 bg-accent/50 rounded-lg border border-border">
+              <span className="text-sm font-medium text-foreground">Novo Status:</span>
+              <Badge className="bg-orange-600 text-white border-orange-600">{STATUS_LABELS[selectedStatus]}</Badge>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={cancelChange}>
+            <Button variant="outline" onClick={cancelChange} className="border-border text-foreground hover:bg-accent">
               Cancelar
             </Button>
             <Button
               onClick={confirmChange}
               disabled={changeStatusMutation.isPending}
-              className="bg-orange-600 hover:bg-orange-700"
+              className="bg-orange-600 hover:bg-orange-700 text-white border-orange-500 font-medium"
             >
               {changeStatusMutation.isPending ? 'Alterando...' : 'Confirmar Alteração'}
             </Button>

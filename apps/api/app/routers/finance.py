@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import Response
-from pydantic import BaseModel
+from fastapi import (  # pyright: ignore[reportMissingImports]
+    APIRouter,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+)
+from fastapi.responses import Response  # pyright: ignore[reportMissingImports]
+from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
 from ..db import SessionLocal
-from ..models import Case, CaseEvent, Contract
+from ..models import Case, CaseEvent, Contract, now_brt
 from ..rbac import require_roles
 from ..events import eventbus
 from ..config import settings
@@ -15,14 +21,17 @@ import shutil
 
 r = APIRouter(prefix="/finance", tags=["finance"])
 
+
 @r.get("/queue")
-def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
-    from sqlalchemy.orm import joinedload
+def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
+    from sqlalchemy.orm import (  # pyright: ignore[reportMissingImports]
+        joinedload
+    )
     from ..models import Simulation, Attachment, ContractAttachment
     with SessionLocal() as db:
         # Buscar todos os casos relevantes para o módulo financeiro
         # Inclui: pendentes (enviados pelo calculista), efetivados e cancelados
-        # Nota: 'fechamento_aprovado' removido - casos só chegam aqui após calculista enviar
+        # 'fechamento_aprovado' removido - casos chegam após calculista
         financial_statuses = [
             "financeiro_pendente",
             "contrato_efetivado",
@@ -31,7 +40,9 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
         rows = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status.in_(financial_statuses)).order_by(Case.id.desc()).all()
+        ).filter(Case.status.in_(financial_statuses)).order_by(
+            Case.id.desc()
+        ).all()
 
         items = []
         for c in rows:
@@ -44,18 +55,32 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
                         "id": sim.id,
                         "status": sim.status,
                         "totals": {
-                            "valorParcelaTotal": float(sim.valor_parcela_total or 0),
-                            "saldoTotal": float(sim.saldo_total or 0),
-                            "liberadoTotal": float(sim.liberado_total or 0),
-                    "seguroObrigatorio": float(sim.seguro or 0),  # NOVO
-                            "totalFinanciado": float(sim.total_financiado or 0),
+                            "valorParcelaTotal": float(
+                                sim.valor_parcela_total or 0
+                            ),
+                            "saldoTotal": float(
+                                sim.saldo_total or 0
+                            ),
+                            "liberadoTotal": float(
+                                sim.liberado_total or 0
+                            ),
+                            "seguroObrigatorio": float(sim.seguro or 0),
+                            "totalFinanciado": float(
+                                sim.total_financiado or 0
+                            ),
                             "valorLiquido": float(sim.valor_liquido or 0),
-                            "custoConsultoria": float(sim.custo_consultoria or 0),
-                            "liberadoCliente": float(sim.liberado_cliente or 0)
+                            "custoConsultoria": float(
+                                sim.custo_consultoria or 0
+                            ),
+                            "liberadoCliente": float(
+                                sim.liberado_cliente or 0
+                            )
                         },
                         "banks": sim.banks_json,
                         "prazo": sim.prazo,
-                        "percentualConsultoria": float(sim.percentual_consultoria or 0)
+                        "percentualConsultoria": float(
+                            sim.percentual_consultoria or 0
+                        )
                     }
 
             item = {
@@ -77,16 +102,26 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
             }
 
             # Buscar contrato se existir para incluir anexos
-            contract = db.query(Contract).filter(Contract.case_id == c.id).first()
+            contract = db.query(Contract).filter(
+                Contract.case_id == c.id
+            ).first()
             if contract:
                 contract_attachments = db.query(ContractAttachment).filter(
                     ContractAttachment.contract_id == contract.id
                 ).all()
                 item["contract"] = {
                     "id": contract.id,
-                    "total_amount": float(contract.total_amount) if contract.total_amount else 0,
+                    "total_amount": (
+                        float(contract.total_amount)
+                        if contract.total_amount
+                        else 0
+                    ),
                     "installments": contract.installments,
-                    "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                    "disbursed_at": (
+                        contract.disbursed_at.isoformat()
+                        if contract.disbursed_at
+                        else None
+                    ),
                     "status": contract.status,
                     "attachments": [
                         {
@@ -95,7 +130,11 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
                             "size": a.size,
                             "mime": a.mime,
                             "mime_type": a.mime,
-                            "uploaded_at": a.created_at.isoformat() if a.created_at else None
+                            "uploaded_at": (
+                                a.created_at.isoformat()
+                                if a.created_at
+                                else None
+                            )
                         } for a in contract_attachments
                     ]
                 }
@@ -112,7 +151,11 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
                     "size": att.size,
                     "mime": att.mime,
                     "mime_type": att.mime,
-                    "uploaded_at": att.created_at.isoformat() if att.created_at else None
+                    "uploaded_at": (
+                        att.created_at.isoformat()
+                        if att.created_at
+                        else None
+                    )
                 }
                 for att in case_attachments
             ]
@@ -121,10 +164,17 @@ def queue(user=Depends(require_roles("admin","supervisor","financeiro"))):
 
         return {"items": items}
 
+
 @r.get("/case/{case_id}")
-def get_case_details(case_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
-    """Retorna detalhes completos de um caso para exibição no modal financeiro"""
-    from sqlalchemy.orm import joinedload
+def get_case_details(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Retorna detalhes completos de um caso para exibição no modal
+    financeiro"""
+    from sqlalchemy.orm import (  # pyright: ignore[reportMissingImports]
+        joinedload
+    )
     from ..models import Simulation, Attachment
 
     with SessionLocal() as db:
@@ -165,23 +215,35 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
                     "prazo": sim.prazo,
                     "coeficiente": sim.coeficiente,
                     "seguro": float(sim.seguro or 0),
-                    "percentual_consultoria": float(sim.percentual_consultoria or 0),
+                    "percentual_consultoria": float(
+                        sim.percentual_consultoria or 0
+                    ),
                     "banks_json": sim.banks_json,
                     "totals": {
-                        "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                        "valorParcelaTotal": float(
+                            sim.valor_parcela_total or 0
+                        ),
                         "saldoTotal": float(sim.saldo_total or 0),
                         "liberadoTotal": float(sim.liberado_total or 0),
-                        "totalFinanciado": float(sim.total_financiado or 0),
+                        "totalFinanciado": float(
+                            sim.total_financiado or 0
+                        ),
                         "valorLiquido": float(sim.valor_liquido or 0),
-                        "custoConsultoria": float(sim.custo_consultoria or 0),
-                        "custoConsultoriaLiquido": float(sim.custo_consultoria_liquido or 0),
+                        "custoConsultoria": float(
+                            sim.custo_consultoria or 0
+                        ),
+                        "custoConsultoriaLiquido": float(
+                            sim.custo_consultoria_liquido or 0
+                        ),
                         "liberadoCliente": float(sim.liberado_cliente or 0)
                     }
                 }
 
         # Contrato efetivado (se existir)
         contract_data = None
-        contract = db.query(Contract).filter(Contract.case_id == case.id).first()
+        contract = db.query(Contract).filter(
+            Contract.case_id == case.id
+        ).first()
         if contract:
             from ..models import ContractAttachment
             attachments = db.query(ContractAttachment).filter(
@@ -189,9 +251,15 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
             ).all()
             contract_data = {
                 "id": contract.id,
-                "total_amount": float(contract.total_amount or 0),
+                "total_amount": float(
+                    contract.total_amount or 0
+                ),
                 "installments": contract.installments,
-                "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                "disbursed_at": (
+                    contract.disbursed_at.isoformat()
+                    if contract.disbursed_at
+                    else None
+                ),
                 "status": contract.status,
                 "attachments": [
                     {
@@ -199,7 +267,11 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
                         "filename": a.filename,
                         "size": a.size,
                         "mime": a.mime,
-                        "created_at": a.created_at.isoformat() if a.created_at else None
+                        "created_at": (
+                            a.created_at.isoformat()
+                            if a.created_at
+                            else None
+                        )
                     } for a in attachments
                 ]
             }
@@ -213,7 +285,11 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
             {
                 "id": e.id,
                 "type": e.type,
-                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "created_at": (
+                    e.created_at.isoformat()
+                    if e.created_at
+                    else None
+                ),
                 "payload": e.payload,
                 "created_by": e.created_by
             } for e in events
@@ -230,14 +306,20 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
                 "path": a.path,
                 "mime": a.mime,
                 "size": a.size,
-                "created_at": a.created_at.isoformat() if a.created_at else None
+                "created_at": (
+                    a.created_at.isoformat() if a.created_at else None
+                )
             } for a in attachments
         ]
 
         return {
             "id": case.id,
             "status": case.status,
-            "created_at": case.created_at.isoformat() if case.created_at else None,
+            "created_at": (
+                case.created_at.isoformat()
+                if case.created_at
+                else None
+            ),
             "client": client_data,
             "simulation": simulation_data,
             "contract": contract_data,
@@ -245,14 +327,15 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
             "attachments": attachments_data
         }
 
+
 @r.get("/metrics")
 def finance_metrics(
     start_date: str | None = None,
     end_date: str | None = None,
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     from ..models import Contract, FinanceIncome, FinanceExpense
-    from sqlalchemy import func
+    from sqlalchemy import func  # pyright: ignore[reportMissingImports]
     from datetime import datetime, timedelta
 
     with SessionLocal() as db:
@@ -261,22 +344,24 @@ def finance_metrics(
             try:
                 start_filter = datetime.fromisoformat(start_date)
             except Exception:
-                start_filter = datetime.utcnow() - timedelta(days=30)
+                start_filter = now_brt() - timedelta(days=30)
         else:
-            start_filter = datetime.utcnow() - timedelta(days=30)
+            start_filter = now_brt() - timedelta(days=30)
 
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
             except Exception:
-                end_filter = datetime.utcnow()
+                end_filter = now_brt()
         else:
-            end_filter = datetime.utcnow()
+            end_filter = now_brt()
 
         # Usar uma única query agregada para contratos
         contract_stats = db.query(
             func.count(Contract.id).label("total_contracts"),
-            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("total_consultoria_liq")
+            func.coalesce(
+                func.sum(Contract.consultoria_valor_liquido), 0
+            ).label("total_consultoria_liq")
         ).filter(
             Contract.status == "ativo",
             Contract.signed_at >= start_filter,
@@ -284,7 +369,9 @@ def finance_metrics(
         ).first()
 
         total_contracts = contract_stats.total_contracts or 0
-        total_consultoria_liquida = float(contract_stats.total_consultoria_liq or 0)
+        total_consultoria_liquida = float(
+            contract_stats.total_consultoria_liq or 0
+        )
 
         # Receitas e despesas em queries agregadas
         total_manual_income = float(db.query(
@@ -304,8 +391,13 @@ def finance_metrics(
         # Receita total = consultoria líquida (já é 86%) + receitas manuais
         total_revenue = total_consultoria_liquida + total_manual_income
 
-        # Impostos: 14% sobre consultoria bruta (consultoria_liq / 0.86 * 0.14)
-        total_tax = (total_consultoria_liquida / 0.86 * 0.14) if total_consultoria_liquida > 0 else 0
+        # Impostos: 14% sobre consultoria bruta
+        # (consultoria_liq / 0.86 * 0.14)
+        total_tax = (
+            (total_consultoria_liquida / 0.86 * 0.14)
+            if total_consultoria_liquida > 0
+            else 0
+        )
 
         # Lucro líquido = Receitas - Despesas - Impostos
         net_profit = total_revenue - total_expenses - total_tax
@@ -320,20 +412,25 @@ def finance_metrics(
             "totalConsultoriaLiq": round(total_consultoria_liquida, 2)
         }
 
+
 class DisburseIn(BaseModel):
     case_id: int
     total_amount: float
     installments: int
     disbursed_at: datetime | None = None
 
+
 @r.post("/disburse")
-async def disburse(data: DisburseIn, user=Depends(require_roles("admin","supervisor","financeiro"))):
+async def disburse(
+    data: DisburseIn,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     with SessionLocal() as db:
         c = db.get(Case, data.case_id)
         if not c:
             raise HTTPException(404, "case not found")
 
-        ct = db.query(Contract).filter(Contract.case_id==c.id).first()
+        ct = db.query(Contract).filter(Contract.case_id == c.id).first()
         if not ct:
             ct = Contract(case_id=c.id)
 
@@ -343,16 +440,18 @@ async def disburse(data: DisburseIn, user=Depends(require_roles("admin","supervi
             Simulation.case_id == c.id
         ).order_by(Simulation.id.desc()).first()
 
-        consultoria_liquida = simulation.custo_consultoria_liquido if simulation else 0
+        consultoria_liquida = (
+            simulation.custo_consultoria_liquido if simulation else 0
+        )
 
         ct.total_amount = data.total_amount
         ct.installments = data.installments
-        ct.disbursed_at = data.disbursed_at or datetime.utcnow()
-        ct.updated_at = datetime.utcnow()
+        ct.disbursed_at = data.disbursed_at or now_brt()
+        ct.updated_at = now_brt()
 
         # Campos de receita e ranking
         ct.consultoria_valor_liquido = consultoria_liquida
-        ct.signed_at = data.disbursed_at or datetime.utcnow()
+        ct.signed_at = data.disbursed_at or now_brt()
         ct.created_by = user.id
         ct.agent_user_id = c.assigned_user_id  # Atendente do caso
 
@@ -363,37 +462,54 @@ async def disburse(data: DisburseIn, user=Depends(require_roles("admin","supervi
         if consultoria_liquida and consultoria_liquida > 0:
             from ..models import FinanceIncome
             income = FinanceIncome(
-                date=data.disbursed_at or datetime.utcnow(),
+                date=data.disbursed_at or now_brt(),
                 income_type="Consultoria Líquida",
                 income_name=f"Contrato #{ct.id} - {c.client.name}",
                 amount=consultoria_liquida,
                 created_by=user.id,
-                agent_user_id=c.assigned_user_id  # Atendente responsável pelo caso
+                agent_user_id=c.assigned_user_id  # Atendente
             )
             db.add(income)
 
         c.status = "contrato_efetivado"
-        c.last_update_at = datetime.utcnow()
-        db.add(CaseEvent(case_id=c.id, type="finance.disbursed",
-                         payload={"contract_id": None, "amount": data.total_amount, "installments": data.installments},
-                         created_by=user.id))
+        c.last_update_at = now_brt()
+        db.add(CaseEvent(
+            case_id=c.id,
+            type="finance.disbursed",
+            payload={
+                "contract_id": None,
+                "amount": data.total_amount,
+                "installments": data.installments
+            },
+            created_by=user.id
+        ))
         db.commit()
         db.refresh(ct)
 
-    await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"contrato_efetivado"})
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": data.case_id, "status": "contrato_efetivado"}
+    )
     return {"contract_id": ct.id}
+
 
 class DisburseSimpleIn(BaseModel):
     case_id: int
     disbursed_at: datetime | None = None
 
+
 @r.post("/disburse-simple")
-async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("admin","supervisor","financeiro"))):
+async def disburse_simple(
+    data: DisburseSimpleIn,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Efetiva liberação usando os valores já calculados da simulação"""
     try:
         with SessionLocal() as db:
             # Buscar caso com eager loading do cliente
-            c = db.query(Case).options(joinedload(Case.client)).filter(Case.id == data.case_id).first()
+            c = db.query(Case).options(
+                joinedload(Case.client)
+            ).filter(Case.id == data.case_id).first()
 
             if not c:
                 raise HTTPException(404, "case not found")
@@ -410,34 +526,48 @@ async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("ad
             ).order_by(Simulation.id.desc()).first()
 
             if not simulation:
-                raise HTTPException(400, "Nenhuma simulação aprovada encontrada para este caso")
+                raise HTTPException(
+                    400,
+                    "Nenhuma simulação aprovada encontrada para este caso"
+                )
 
             # Validar valores da simulação
-            total_amount = simulation.liberado_cliente or simulation.liberado_total
+            total_amount = (
+                simulation.liberado_cliente or simulation.liberado_total
+            )
             if total_amount is None or total_amount <= 0:
-                raise HTTPException(400, "Simulação não possui valores válidos de liberação")
+                raise HTTPException(
+                    400,
+                    "Simulação não possui valores válidos de liberação"
+                )
 
             if not simulation.prazo or simulation.prazo <= 0:
-                raise HTTPException(400, "Simulação não possui prazo válido")
+                raise HTTPException(
+                    400,
+                    "Simulação não possui prazo válido"
+                )
 
             # Validar consultoria líquida
             consultoria_liquida = simulation.custo_consultoria_liquido or 0
             if consultoria_liquida <= 0:
-                print(f"[AVISO] Consultoria líquida é zero para caso {c.id}, não será criada receita automática")
+                print(
+                    f"[AVISO] Consultoria líquida é zero para caso {c.id}, "
+                    f"não será criada receita automática"
+                )
 
-            ct = db.query(Contract).filter(Contract.case_id==c.id).first()
+            ct = db.query(Contract).filter(Contract.case_id == c.id).first()
             if not ct:
                 ct = Contract(case_id=c.id)
 
             ct.total_amount = total_amount
             ct.installments = simulation.prazo or 0
-            ct.disbursed_at = data.disbursed_at or datetime.utcnow()
-            ct.updated_at = datetime.utcnow()
+            ct.disbursed_at = data.disbursed_at or now_brt()
+            ct.updated_at = now_brt()
             ct.status = "ativo"
 
             # Campos de receita e ranking
             ct.consultoria_valor_liquido = consultoria_liquida
-            ct.signed_at = data.disbursed_at or datetime.utcnow()
+            ct.signed_at = data.disbursed_at or now_brt()
             ct.created_by = user.id
             ct.agent_user_id = c.assigned_user_id  # Atendente do caso
 
@@ -447,26 +577,38 @@ async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("ad
             # Criar receita automática (Consultoria Líquida 86%)
             if consultoria_liquida and consultoria_liquida > 0:
                 from ..models import FinanceIncome
-                client_name = c.client.name if c.client else f"Cliente {c.id}"
+                client_name = (
+                    c.client.name if c.client else f"Cliente {c.id}"
+                )
                 income = FinanceIncome(
-                    date=data.disbursed_at or datetime.utcnow(),
+                    date=data.disbursed_at or now_brt(),
                     income_type="Consultoria Líquida",
                     income_name=f"Contrato #{ct.id} - {client_name}",
                     amount=consultoria_liquida,
                     created_by=user.id,
-                    agent_user_id=c.assigned_user_id  # Atendente responsável pelo caso
+                    agent_user_id=c.assigned_user_id  # Atendente
                 )
                 db.add(income)
 
             c.status = "contrato_efetivado"
-            c.last_update_at = datetime.utcnow()
-            db.add(CaseEvent(case_id=c.id, type="finance.disbursed",
-                             payload={"contract_id": ct.id, "amount": float(total_amount), "installments": simulation.prazo},
-                             created_by=user.id))
+            c.last_update_at = now_brt()
+            db.add(CaseEvent(
+                case_id=c.id,
+                type="finance.disbursed",
+                payload={
+                    "contract_id": ct.id,
+                    "amount": float(total_amount),
+                    "installments": simulation.prazo
+                },
+                created_by=user.id
+            ))
             db.commit()
             db.refresh(ct)
 
-        await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"contrato_efetivado"})
+        await eventbus.broadcast(
+            "case.updated",
+            {"case_id": data.case_id, "status": "contrato_efetivado"}
+        )
         return {"contract_id": ct.id}
 
     except HTTPException:
@@ -475,12 +617,22 @@ async def disburse_simple(data: DisburseSimpleIn, user=Depends(require_roles("ad
     except Exception as e:
         # Log detalhado do erro
         import traceback
-        print(f"[ERRO] Falha ao efetivar liberação do caso {data.case_id}: {str(e)}")
+        print(
+            f"[ERRO] Falha ao efetivar liberação do caso {data.case_id}: "
+            f"{str(e)}"
+        )
         print(traceback.format_exc())
-        raise HTTPException(500, f"Erro ao efetivar liberação: {str(e)}")
+        raise HTTPException(
+            500,
+            f"Erro ao efetivar liberação: {str(e)}"
+        )
+
 
 @r.post("/cancel/{contract_id}")
-async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+async def cancel_contract(
+    contract_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Cancela um contrato efetivado e remove receita associada"""
     with SessionLocal() as db:
         contract = db.get(Contract, contract_id)
@@ -493,7 +645,9 @@ async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","
 
         # Verifica se pode ser cancelado
         if case.status != "contrato_efetivado":
-            raise HTTPException(400, "contract cannot be cancelled in current status")
+            raise HTTPException(
+                400, "contract cannot be cancelled in current status"
+            )
 
         # Remover receita associada ao contrato (se existir)
         from ..models import FinanceIncome
@@ -505,7 +659,7 @@ async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","
 
         # Atualiza status para cancelado
         case.status = "contrato_cancelado"
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         # Adiciona evento de cancelamento
         db.add(CaseEvent(
@@ -517,12 +671,19 @@ async def cancel_contract(contract_id: int, user=Depends(require_roles("admin","
 
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "contrato_cancelado"})
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": case.id, "status": "contrato_cancelado"}
+    )
     return {"success": True, "message": "Contract cancelled successfully"}
 
+
 @r.delete("/delete/{contract_id}")
-async def delete_contract(contract_id: int, user=Depends(require_roles("admin","supervisor"))):
-    """Deleta permanentemente um contrato, receita associada e todos os dados relacionados"""
+async def delete_contract(
+    contract_id: int,
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """Deleta permanentemente um contrato, receita associada e todos os dados relacionados"""  # noqa: E501
     with SessionLocal() as db:
         contract = db.get(Contract, contract_id)
         if not contract:
@@ -553,7 +714,9 @@ async def delete_contract(contract_id: int, user=Depends(require_roles("admin","
         # Remove eventos relacionados ao contrato
         events = db.query(CaseEvent).filter(
             CaseEvent.case_id == case.id,
-            CaseEvent.type.in_(["finance.disbursed", "finance.cancelled"])
+            CaseEvent.type.in_([
+                "finance.disbursed", "finance.cancelled"
+            ])
         ).all()
 
         for event in events:
@@ -564,20 +727,27 @@ async def delete_contract(contract_id: int, user=Depends(require_roles("admin","
 
         # Volta o caso para status anterior (financeiro pendente)
         case.status = "financeiro_pendente"
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         # Adiciona evento de deleção
         db.add(CaseEvent(
             case_id=case.id,
             type="finance.deleted",
-            payload={"deleted_contract_id": contract_id, "deleted_by": user.id},
+            payload={
+                "deleted_contract_id": contract_id,
+                "deleted_by": user.id
+            },
             created_by=user.id
         ))
 
         db.commit()
 
-    await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "financeiro_pendente"})
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": case.id, "status": "financeiro_pendente"}
+    )
     return {"success": True, "message": "Contract deleted successfully"}
+
 
 # Gestão de Despesas Individuais
 
@@ -590,8 +760,11 @@ class ExpenseInput(BaseModel):
     month: int | None = None
     year: int | None = None
 
+
 @r.get("/expenses")
-def list_expenses(user=Depends(require_roles("admin","supervisor","financeiro"))):
+def list_expenses(
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Lista todas as despesas individuais"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
@@ -612,17 +785,22 @@ def list_expenses(user=Depends(require_roles("admin","supervisor","financeiro"))
                     "attachment_filename": exp.attachment_filename,
                     "attachment_size": exp.attachment_size,
                     "has_attachment": bool(exp.attachment_path),
-                    "created_at": exp.created_at.isoformat() if exp.created_at else None
+                    "created_at": (
+                        exp.created_at.isoformat()
+                        if exp.created_at
+                        else None
+                    )
                 }
                 for exp in expenses
             ],
             "total": round(total, 2)
         }
 
+
 @r.get("/expenses/{expense_id}")
 def get_expense(
     expense_id: int,
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Obtém uma despesa específica"""
     with SessionLocal() as db:
@@ -639,15 +817,23 @@ def get_expense(
             "expense_name": expense.expense_name,
             "amount": float(expense.amount),
             "created_by": expense.created_by,
-            "created_at": expense.created_at.isoformat() if expense.created_at else None,
+            "created_at": (
+                expense.created_at.isoformat()
+                if expense.created_at
+                else None
+            ),
             "has_attachment": bool(expense.attachment_path),
             "attachment_filename": expense.attachment_filename,
             "attachment_size": expense.attachment_size,
             "attachment_mime": expense.attachment_mime
         }
 
+
 @r.post("/expenses")
-def create_expense(data: ExpenseInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+def create_expense(
+    data: ExpenseInput,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Cria uma nova despesa individual"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
@@ -657,7 +843,10 @@ def create_expense(data: ExpenseInput, user=Depends(require_roles("admin","super
             raise HTTPException(400, "Valor é obrigatório")
 
         if not isinstance(data.amount, (int, float)):
-            raise HTTPException(400, f"Valor deve ser um número, recebido: {type(data.amount)}")
+            raise HTTPException(
+                400,
+                f"Valor deve ser um número, recebido: {type(data.amount)}"
+            )
 
         if data.amount < 0:
             raise HTTPException(400, "Valor não pode ser negativo")
@@ -693,8 +882,13 @@ def create_expense(data: ExpenseInput, user=Depends(require_roles("admin","super
             "amount": float(expense.amount)
         }
 
+
 @r.put("/expenses/{expense_id}")
-def update_expense(expense_id: int, data: ExpenseInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+def update_expense(
+    expense_id: int,
+    data: ExpenseInput,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Atualiza uma despesa existente"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
@@ -708,7 +902,10 @@ def update_expense(expense_id: int, data: ExpenseInput, user=Depends(require_rol
             raise HTTPException(400, "Valor é obrigatório")
 
         if not isinstance(data.amount, (int, float)):
-            raise HTTPException(400, f"Valor deve ser um número, recebido: {type(data.amount)}")
+            raise HTTPException(
+                400,
+                f"Valor deve ser um número, recebido: {type(data.amount)}"
+            )
 
         if data.amount < 0:
             raise HTTPException(400, "Valor não pode ser negativo")
@@ -729,7 +926,7 @@ def update_expense(expense_id: int, data: ExpenseInput, user=Depends(require_rol
         expense.expense_type = data.expense_type
         expense.expense_name = data.expense_name
         expense.amount = data.amount
-        expense.updated_at = datetime.utcnow()
+        expense.updated_at = now_brt()
 
         db.commit()
         db.refresh(expense)
@@ -742,10 +939,11 @@ def update_expense(expense_id: int, data: ExpenseInput, user=Depends(require_rol
             "amount": float(expense.amount)
         }
 
+
 @r.delete("/expenses/{expense_id}")
 def delete_expense(
     expense_id: int,
-    user=Depends(require_roles("admin","supervisor"))
+    user=Depends(require_roles("admin", "supervisor"))
 ):
     """Remove uma despesa"""
     with SessionLocal() as db:
@@ -760,11 +958,12 @@ def delete_expense(
 
         return {"message": "Despesa removida com sucesso"}
 
+
 @r.post("/expenses/{expense_id}/attachment")
 def upload_expense_attachment(
     expense_id: int,
     file: UploadFile = File(...),
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Upload de anexo para uma despesa (compatibilidade - arquivo único)"""
     from ..models import FinanceExpense
@@ -779,8 +978,12 @@ def upload_expense_attachment(
     os.makedirs(settings.upload_dir, exist_ok=True)
 
     # Gerar nome único para o arquivo
-    file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
-    unique_filename = f"expense_{expense_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+    file_extension = (
+        os.path.splitext(file.filename)[1] if file.filename else ""
+    )
+    unique_filename = (
+        f"expense_{expense_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+    )
     dest = os.path.join(settings.upload_dir, unique_filename)
 
     # Salvar arquivo
@@ -797,7 +1000,7 @@ def upload_expense_attachment(
         expense.attachment_filename = file.filename or unique_filename
         expense.attachment_size = os.path.getsize(dest)
         expense.attachment_mime = file.content_type
-        expense.updated_at = datetime.utcnow()
+        expense.updated_at = now_brt()
 
         db.commit()
         db.refresh(expense)
@@ -809,11 +1012,12 @@ def upload_expense_attachment(
             "message": "Anexo enviado com sucesso"
         }
 
+
 @r.post("/expenses/{expense_id}/attachments")
 def upload_expense_attachments(
     expense_id: int,
     files: list[UploadFile] = File(...),
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Upload de múltiplos anexos para uma despesa"""
     from ..models import FinanceExpense
@@ -834,8 +1038,12 @@ def upload_expense_attachments(
 
     for file in files:
         # Gerar nome único para cada arquivo
-        file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
-        unique_filename = f"expense_{expense_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+        file_extension = (
+            os.path.splitext(file.filename)[1] if file.filename else ""
+        )
+        unique_filename = (
+            f"expense_{expense_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+        )
         dest = os.path.join(settings.upload_dir, unique_filename)
 
         # Salvar arquivo
@@ -854,10 +1062,13 @@ def upload_expense_attachments(
             for uploaded in uploaded_files:
                 if os.path.exists(uploaded["path"]):
                     os.remove(uploaded["path"])
-            raise HTTPException(500, f"Erro ao salvar arquivo {file.filename}: {str(e)}")
+            raise HTTPException(
+                500,
+                f"Erro ao salvar arquivo {file.filename}: {str(e)}"
+            )
 
     # Atualizar registro da despesa com o último arquivo (compatibilidade)
-    # Em uma implementação futura, isso poderia ser uma tabela separada para múltiplos anexos
+    # Futuro: tabela separada para múltiplos anexos
     if uploaded_files:
         last_file = uploaded_files[-1]
         with SessionLocal() as db:
@@ -866,7 +1077,7 @@ def upload_expense_attachments(
             expense.attachment_filename = last_file["filename"]
             expense.attachment_size = last_file["size"]
             expense.attachment_mime = last_file["mime"]
-            expense.updated_at = datetime.utcnow()
+            expense.updated_at = now_brt()
 
             db.commit()
             db.refresh(expense)
@@ -874,17 +1085,23 @@ def upload_expense_attachments(
     return {
         "id": expense.id,
         "uploaded_files": len(uploaded_files),
-        "files": [{"filename": f["filename"], "size": f["size"]} for f in uploaded_files],
+        "files": [
+            {"filename": f["filename"], "size": f["size"]}
+            for f in uploaded_files
+        ],
         "message": f"{len(uploaded_files)} arquivo(s) enviado(s) com sucesso"
-    }
+        }
+
 
 @r.get("/expenses/{expense_id}/attachment")
 def download_expense_attachment(
     expense_id: int,
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Download do anexo de uma despesa"""
-    from fastapi.responses import FileResponse
+    from fastapi.responses import (  # pyright: ignore[reportMissingImports]
+        FileResponse
+    )
 
     with SessionLocal() as db:
         from ..models import FinanceExpense
@@ -893,11 +1110,17 @@ def download_expense_attachment(
         if not expense:
             raise HTTPException(404, "Despesa não encontrada")
 
-        if not expense.attachment_path or not os.path.exists(expense.attachment_path):
+        if (
+            not expense.attachment_path
+            or not os.path.exists(expense.attachment_path)
+        ):
             raise HTTPException(404, "Anexo não encontrado")
 
         # Usar o nome original do arquivo ou fallback para o nome salvo
-        filename = expense.attachment_filename or os.path.basename(expense.attachment_path)
+        filename = (
+            expense.attachment_filename
+            or os.path.basename(expense.attachment_path)
+        )
 
         return FileResponse(
             path=expense.attachment_path,
@@ -907,10 +1130,11 @@ def download_expense_attachment(
             }
         )
 
+
 @r.delete("/expenses/{expense_id}/attachment")
 def delete_expense_attachment(
     expense_id: int,
-    user=Depends(require_roles("admin","supervisor"))
+    user=Depends(require_roles("admin", "supervisor"))
 ):
     """Remove o anexo de uma despesa"""
     with SessionLocal() as db:
@@ -927,11 +1151,12 @@ def delete_expense_attachment(
         expense.attachment_filename = None
         expense.attachment_size = None
         expense.attachment_mime = None
-        expense.updated_at = datetime.utcnow()
+        expense.updated_at = now_brt()
 
         db.commit()
 
         return {"message": "Anexo removido com sucesso"}
+
 
 # Gestão de Receitas Manuais
 
@@ -941,8 +1166,11 @@ class IncomeInput(BaseModel):
     income_name: str | None = None  # Nome/descrição da receita
     amount: float
 
+
 @r.get("/incomes")
-def list_incomes(user=Depends(require_roles("admin","supervisor","financeiro"))):
+def list_incomes(
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Lista todas as receitas manuais"""
     with SessionLocal() as db:
         from ..models import FinanceIncome
@@ -964,15 +1192,23 @@ def list_incomes(user=Depends(require_roles("admin","supervisor","financeiro")))
                     "attachment_size": inc.attachment_size,
                     "has_attachment": bool(inc.attachment_path),
                     "created_by": inc.created_by,
-                    "created_at": inc.created_at.isoformat() if inc.created_at else None
+                    "created_at": (
+                        inc.created_at.isoformat()
+                        if inc.created_at
+                        else None
+                    )
                 }
                 for inc in incomes
             ],
             "total": round(total, 2)
         }
 
+
 @r.post("/incomes")
-def create_income(data: IncomeInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+def create_income(
+    data: IncomeInput,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Cria uma nova receita manual"""
     with SessionLocal() as db:
         from ..models import FinanceIncome
@@ -1005,11 +1241,17 @@ def create_income(data: IncomeInput, user=Depends(require_roles("admin","supervi
             "income_name": income.income_name,
             "amount": float(income.amount),
             "created_by": income.created_by,
-            "created_at": income.created_at.isoformat() if income.created_at else None
+            "created_at": (
+                income.created_at.isoformat() if income.created_at else None
+            )
         }
 
+
 @r.get("/incomes/{income_id}")
-def get_income(income_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+def get_income(
+    income_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Busca uma receita específica por ID"""
     with SessionLocal() as db:
         from ..models import FinanceIncome
@@ -1025,15 +1267,24 @@ def get_income(income_id: int, user=Depends(require_roles("admin","supervisor","
             "income_name": income.income_name,
             "amount": float(income.amount),
             "created_by": income.created_by,
-            "created_at": income.created_at.isoformat() if income.created_at else None,
+            "created_at": (
+                income.created_at.isoformat()
+                if income.created_at
+                else None
+            ),
             "has_attachment": bool(income.attachment_path),
             "attachment_filename": income.attachment_filename,
             "attachment_size": income.attachment_size,
             "attachment_mime": income.attachment_mime
         }
 
+
 @r.put("/incomes/{income_id}")
-def update_income(income_id: int, data: IncomeInput, user=Depends(require_roles("admin","supervisor","financeiro"))):
+def update_income(
+    income_id: int,
+    data: IncomeInput,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Atualiza uma receita existente"""
     with SessionLocal() as db:
         from ..models import FinanceIncome
@@ -1057,7 +1308,7 @@ def update_income(income_id: int, data: IncomeInput, user=Depends(require_roles(
         income.income_type = data.income_type
         income.income_name = data.income_name
         income.amount = data.amount
-        income.updated_at = datetime.utcnow()
+        income.updated_at = now_brt()
 
         db.commit()
         db.refresh(income)
@@ -1070,8 +1321,12 @@ def update_income(income_id: int, data: IncomeInput, user=Depends(require_roles(
             "amount": float(income.amount)
         }
 
+
 @r.delete("/incomes/{income_id}")
-def delete_income(income_id: int, user=Depends(require_roles("admin","supervisor"))):
+def delete_income(
+    income_id: int,
+    user=Depends(require_roles("admin", "supervisor"))
+):
     """Remove uma receita manual"""
     with SessionLocal() as db:
         from ..models import FinanceIncome
@@ -1085,11 +1340,12 @@ def delete_income(income_id: int, user=Depends(require_roles("admin","supervisor
 
         return {"message": "Receita removida com sucesso"}
 
+
 @r.post("/incomes/{income_id}/attachment")
 def upload_income_attachment(
     income_id: int,
     file: UploadFile = File(...),
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Upload de anexo para uma receita (compatibilidade - arquivo único)"""
     from ..models import FinanceIncome
@@ -1104,8 +1360,12 @@ def upload_income_attachment(
     os.makedirs(settings.upload_dir, exist_ok=True)
 
     # Gerar nome único para o arquivo
-    file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
-    unique_filename = f"income_{income_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+    file_extension = (
+        os.path.splitext(file.filename)[1] if file.filename else ""
+    )
+    unique_filename = (
+        f"income_{income_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+    )
     dest = os.path.join(settings.upload_dir, unique_filename)
 
     # Salvar arquivo
@@ -1122,7 +1382,7 @@ def upload_income_attachment(
         income.attachment_filename = file.filename or unique_filename
         income.attachment_size = os.path.getsize(dest)
         income.attachment_mime = file.content_type
-        income.updated_at = datetime.utcnow()
+        income.updated_at = now_brt()
 
         db.commit()
         db.refresh(income)
@@ -1134,11 +1394,12 @@ def upload_income_attachment(
             "message": "Anexo enviado com sucesso"
         }
 
+
 @r.post("/incomes/{income_id}/attachments")
 def upload_income_attachments(
     income_id: int,
     files: list[UploadFile] = File(...),
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Upload de múltiplos anexos para uma receita"""
     from ..models import FinanceIncome
@@ -1159,8 +1420,12 @@ def upload_income_attachments(
 
     for file in files:
         # Gerar nome único para cada arquivo
-        file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
-        unique_filename = f"income_{income_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+        file_extension = (
+            os.path.splitext(file.filename)[1] if file.filename else ""
+        )
+        unique_filename = (
+            f"income_{income_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+        )
         dest = os.path.join(settings.upload_dir, unique_filename)
 
         # Salvar arquivo
@@ -1179,10 +1444,13 @@ def upload_income_attachments(
             for uploaded in uploaded_files:
                 if os.path.exists(uploaded["path"]):
                     os.remove(uploaded["path"])
-            raise HTTPException(500, f"Erro ao salvar arquivo {file.filename}: {str(e)}")
+            raise HTTPException(
+                500,
+                f"Erro ao salvar arquivo {file.filename}: {str(e)}"
+            )
 
     # Atualizar registro da receita com o último arquivo (compatibilidade)
-    # Em uma implementação futura, isso poderia ser uma tabela separada para múltiplos anexos
+    # Futuro: tabela separada para múltiplos anexos
     if uploaded_files:
         last_file = uploaded_files[-1]
         with SessionLocal() as db:
@@ -1191,7 +1459,7 @@ def upload_income_attachments(
             income.attachment_filename = last_file["filename"]
             income.attachment_size = last_file["size"]
             income.attachment_mime = last_file["mime"]
-            income.updated_at = datetime.utcnow()
+            income.updated_at = now_brt()
 
             db.commit()
             db.refresh(income)
@@ -1199,17 +1467,23 @@ def upload_income_attachments(
     return {
         "id": income.id,
         "uploaded_files": len(uploaded_files),
-        "files": [{"filename": f["filename"], "size": f["size"]} for f in uploaded_files],
+        "files": [
+            {"filename": f["filename"], "size": f["size"]}
+            for f in uploaded_files
+        ],
         "message": f"{len(uploaded_files)} arquivo(s) enviado(s) com sucesso"
-    }
+        }
+
 
 @r.get("/incomes/{income_id}/attachment")
 def download_income_attachment(
     income_id: int,
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Download do anexo de uma receita"""
-    from fastapi.responses import FileResponse
+    from fastapi.responses import (  # pyright: ignore[reportMissingImports]
+        FileResponse
+    )
 
     with SessionLocal() as db:
         from ..models import FinanceIncome
@@ -1218,11 +1492,17 @@ def download_income_attachment(
         if not income:
             raise HTTPException(404, "Receita não encontrada")
 
-        if not income.attachment_path or not os.path.exists(income.attachment_path):
+        if (
+            not income.attachment_path
+            or not os.path.exists(income.attachment_path)
+        ):
             raise HTTPException(404, "Anexo não encontrado")
 
         # Usar o nome original do arquivo ou fallback para o nome salvo
-        filename = income.attachment_filename or os.path.basename(income.attachment_path)
+        filename = (
+            income.attachment_filename
+            or os.path.basename(income.attachment_path)
+        )
 
         return FileResponse(
             path=income.attachment_path,
@@ -1232,10 +1512,11 @@ def download_income_attachment(
             }
         )
 
+
 @r.delete("/incomes/{income_id}/attachment")
 def delete_income_attachment(
     income_id: int,
-    user=Depends(require_roles("admin","supervisor"))
+    user=Depends(require_roles("admin", "supervisor"))
 ):
     """Remove o anexo de uma receita"""
     with SessionLocal() as db:
@@ -1252,25 +1533,29 @@ def delete_income_attachment(
         income.attachment_filename = None
         income.attachment_size = None
         income.attachment_mime = None
-        income.updated_at = datetime.utcnow()
+        income.updated_at = now_brt()
 
         db.commit()
 
         return {"message": "Anexo removido com sucesso"}
 
+
 # Séries Temporais para Gráficos
 
 @r.get("/timeseries")
-def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro"))):
+def get_timeseries(
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Retorna séries temporais agregadas por mês para alimentar gráficos"""
     from ..models import FinanceIncome, FinanceExpense, Simulation
-    from sqlalchemy import func, extract
-    from datetime import datetime, timedelta
-    # unused import removed
+    from sqlalchemy import (  # pyright: ignore[reportMissingImports]
+        func, extract
+    )
+    from datetime import timedelta
 
     with SessionLocal() as db:
         # Definir intervalo de tempo (últimos 6 meses)
-        six_months_ago = datetime.utcnow() - timedelta(days=180)
+        six_months_ago = now_brt() - timedelta(days=180)
 
         # Agregação de receitas por mês (consultoria líquida)
         revenue_query = db.query(
@@ -1298,7 +1583,9 @@ def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro")
 
         for row in manual_income_query:
             key = f"{int(row.year)}-{int(row.month):02d}"
-            revenue_dict[key] = revenue_dict.get(key, 0) + float(row.total or 0)
+            revenue_dict[key] = (
+                revenue_dict.get(key, 0) + float(row.total or 0)
+            )
 
         # Agregação de despesas por mês
         expenses_query = db.query(
@@ -1331,7 +1618,7 @@ def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro")
 
         # Gerar lista de meses completa
         months = []
-        current = datetime.utcnow().replace(day=1)
+        current = now_brt().replace(day=1)
         for i in range(6):
             month_key = current.strftime("%Y-%m")
             month_label = current.strftime("%b/%Y")
@@ -1358,10 +1645,18 @@ def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro")
             tax = tax_dict.get(key, 0)
             net_profit = revenue - expenses - tax
 
-            revenue_series.append({"date": month["label"], "value": round(revenue, 2)})
-            expenses_series.append({"date": month["label"], "value": round(expenses, 2)})
-            tax_series.append({"date": month["label"], "value": round(tax, 2)})
-            net_profit_series.append({"date": month["label"], "value": round(net_profit, 2)})
+            revenue_series.append(
+                {"date": month["label"], "value": round(revenue, 2)}
+            )
+            expenses_series.append(
+                {"date": month["label"], "value": round(expenses, 2)}
+            )
+            tax_series.append(
+                {"date": month["label"], "value": round(tax, 2)}
+            )
+            net_profit_series.append(
+                {"date": month["label"], "value": round(net_profit, 2)}
+            )
 
         return {
             "revenue": revenue_series,
@@ -1370,10 +1665,14 @@ def get_timeseries(user=Depends(require_roles("admin","supervisor","financeiro")
             "netProfit": net_profit_series
         }
 
+
 # Buscar detalhes de contrato individual
 
 @r.get("/contracts/{contract_id}")
-def get_contract_details(contract_id: int, user=Depends(require_roles("admin","supervisor","financeiro"))):
+def get_contract_details(
+    contract_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Retorna detalhes completos de um contrato específico"""
     from ..models import ContractAttachment
 
@@ -1399,9 +1698,19 @@ def get_contract_details(contract_id: int, user=Depends(require_roles("admin","s
             "total_amount": float(contract.total_amount or 0),
             "installments": contract.installments,
             "paid_installments": contract.paid_installments,
-            "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
-            "created_at": contract.created_at.isoformat() if contract.created_at else None,
-            "consultoria_valor_liquido": float(contract.consultoria_valor_liquido or 0),
+            "disbursed_at": (
+                contract.disbursed_at.isoformat()
+                if contract.disbursed_at
+                else None
+            ),
+            "created_at": (
+                contract.created_at.isoformat()
+                if contract.created_at
+                else None
+            ),
+            "consultoria_valor_liquido": float(
+                contract.consultoria_valor_liquido or 0
+            ),
             "client": {
                 "id": client.id,
                 "name": client.name,
@@ -1419,15 +1728,22 @@ def get_contract_details(contract_id: int, user=Depends(require_roles("admin","s
                     "filename": att.filename,
                     "size": att.size,
                     "mime": att.mime,
-                    "created_at": att.created_at.isoformat() if att.created_at else None
+                    "created_at": (
+                        att.created_at.isoformat()
+                        if att.created_at
+                        else None
+                    )
                 } for att in attachments
             ]
         }
 
+
 # Endpoint para buscar categorias únicas
 
 @r.get("/categories")
-def get_categories(user=Depends(require_roles("admin","supervisor","financeiro"))):
+def get_categories(
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Retorna todas as categorias únicas de receitas e despesas"""
     from ..models import FinanceIncome, FinanceExpense
 
@@ -1446,15 +1762,16 @@ def get_categories(user=Depends(require_roles("admin","supervisor","financeiro")
             "todas": sorted(list(set(income_categories + expense_categories)))
         }
 
+
 # Endpoint unificado de Receitas e Despesas
 
 @r.get("/transactions")
 def get_transactions(
     start_date: str | None = None,
     end_date: str | None = None,
-    transaction_type: str | None = None,  # "receita", "despesa", ou None (todos)
+    transaction_type: str | None = None,  # "receita", "despesa", ou None
     category: str | None = None,  # Filtro por categoria
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Retorna receitas e despesas unificadas com filtros opcionais"""
     from ..models import FinanceIncome, FinanceExpense
@@ -1485,29 +1802,50 @@ def get_transactions(
                     joinedload(FinanceIncome.creator)
                 )
                 if start:
-                    incomes_query = incomes_query.filter(FinanceIncome.date >= start)
+                    incomes_query = incomes_query.filter(
+                        FinanceIncome.date >= start
+                    )
                 if end:
-                    incomes_query = incomes_query.filter(FinanceIncome.date <= end)
+                    incomes_query = incomes_query.filter(
+                        FinanceIncome.date <= end
+                    )
                 if category:
-                    incomes_query = incomes_query.filter(FinanceIncome.income_type == category)
+                    incomes_query = incomes_query.filter(
+                        FinanceIncome.income_type == category
+                    )
 
                 incomes = incomes_query.all()
                 for inc in incomes:
-                    # Extrair case_id do nome da receita (formato: "Contrato #<id> - <nome>")
+                    # Extrair case_id do nome da receita
                     case_id = None
                     contract_id = None
                     client_name = None
                     client_cpf = None
 
-                    if inc.income_name and inc.income_name.startswith("Contrato #"):
+                    if (
+                        inc.income_name
+                        and inc.income_name.startswith("Contrato #")
+                    ):
                         try:
-                            contract_id = int(inc.income_name.split("#")[1].split(" ")[0])
+                            contract_id = int(
+                                inc.income_name.split("#")[1].split(" ")[0]
+                            )
                             # Buscar contrato para pegar informações do cliente
-                            contract = db.query(Contract).options(
-                                joinedload(Contract.case).joinedload(Case.client)
-                            ).filter(Contract.id == contract_id).first()
+                            contract = (
+                                db.query(Contract)
+                                .options(
+                                    joinedload(Contract.case)
+                                    .joinedload(Case.client)
+                                )
+                                .filter(Contract.id == contract_id)
+                                .first()
+                            )
 
-                            if contract and contract.case and contract.case.client:
+                            if (
+                                contract
+                                and contract.case
+                                and contract.case.client
+                            ):
                                 case_id = contract.case_id
                                 client_name = contract.case.client.name
                                 client_cpf = contract.case.client.cpf
@@ -1522,8 +1860,14 @@ def get_transactions(
                         "name": inc.income_name,
                         "amount": float(inc.amount),
                         "created_by": inc.created_by,
-                        "created_at": inc.created_at.isoformat() if inc.created_at else None,
-                        "agent_name": inc.agent.name if inc.agent else None,
+                        "created_at": (
+                            inc.created_at.isoformat()
+                            if inc.created_at
+                            else None
+                        ),
+                        "agent_name": (
+                            inc.agent.name if inc.agent else None
+                        ),
                         "agent_user_id": inc.agent_user_id,
                         "has_attachment": bool(inc.attachment_path),
                         "attachment_filename": inc.attachment_filename,
@@ -1541,11 +1885,17 @@ def get_transactions(
                     joinedload(FinanceExpense.creator)
                 )
                 if start:
-                    expenses_query = expenses_query.filter(FinanceExpense.date >= start)
+                    expenses_query = expenses_query.filter(
+                        FinanceExpense.date >= start
+                    )
                 if end:
-                    expenses_query = expenses_query.filter(FinanceExpense.date <= end)
+                    expenses_query = expenses_query.filter(
+                        FinanceExpense.date <= end
+                    )
                 if category:
-                    expenses_query = expenses_query.filter(FinanceExpense.expense_type == category)
+                    expenses_query = expenses_query.filter(
+                        FinanceExpense.expense_type == category
+                    )
 
                 expenses = expenses_query.all()
                 for exp in expenses:
@@ -1557,8 +1907,14 @@ def get_transactions(
                         "name": exp.expense_name,
                         "amount": float(exp.amount),
                         "created_by": exp.created_by,
-                        "created_at": exp.created_at.isoformat() if exp.created_at else None,
-                        "agent_name": exp.creator.name if exp.creator else None,
+                        "created_at": (
+                            exp.created_at.isoformat()
+                            if exp.created_at
+                            else None
+                        ),
+                        "agent_name": (
+                            exp.creator.name if exp.creator else None
+                        ),
                         "has_attachment": bool(exp.attachment_path),
                         "attachment_filename": exp.attachment_filename,
                         "attachment_size": exp.attachment_size,
@@ -1566,11 +1922,18 @@ def get_transactions(
                     })
 
             # Ordenar por data (mais recente primeiro)
-            transactions.sort(key=lambda x: x["date"] if x["date"] else "", reverse=True)
+            transactions.sort(
+                key=lambda x: x["date"] if x["date"] else "",
+                reverse=True
+            )
 
             # Calcular totais
-            total_receitas = sum([t["amount"] for t in transactions if t["type"] == "receita"])
-            total_despesas = sum([t["amount"] for t in transactions if t["type"] == "despesa"])
+            total_receitas = sum(
+                [t["amount"] for t in transactions if t["type"] == "receita"]
+            )
+            total_despesas = sum(
+                [t["amount"] for t in transactions if t["type"] == "despesa"]
+            )
             saldo = total_receitas - total_despesas
 
             return {
@@ -1586,12 +1949,18 @@ def get_transactions(
     except Exception as e:
         # Log detalhado do erro
         import traceback
-        print(f"[ERRO] Falha ao buscar transações: {str(e)}")
-        print(f"  Parâmetros: start_date={start_date}, end_date={end_date}, type={transaction_type}, category={category}")
+        print(
+            f"[ERRO] Falha ao buscar transações: {str(e)}"
+        )
+        print(
+            f"  Parâmetros: start_date={start_date}, end_date={end_date}, "
+            f"type={transaction_type}, category={category}"
+        )
         print(traceback.format_exc())
         raise HTTPException(500, f"Erro ao buscar transações: {str(e)}")
 
 # Exportação de Relatórios
+
 
 @r.get("/export")
 def export_finance_report(
@@ -1600,7 +1969,7 @@ def export_finance_report(
     transaction_type: str | None = None,
     category: str | None = None,
     full_report: str | None = None,
-    user=Depends(require_roles("admin","supervisor","financeiro"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Gera relatório CSV consolidado de finanças"""
     from ..models import FinanceIncome, FinanceExpense, Simulation
@@ -1618,17 +1987,17 @@ def export_finance_report(
                 try:
                     start_filter = datetime.fromisoformat(start_date)
                 except Exception:
-                    start_filter = datetime.utcnow() - timedelta(days=180)
+                    start_filter = now_brt() - timedelta(days=180)
             else:
-                start_filter = datetime.utcnow() - timedelta(days=180)
+                start_filter = now_brt() - timedelta(days=180)
 
             if end_date:
                 try:
                     end_filter = datetime.fromisoformat(end_date)
                 except Exception:
-                    end_filter = datetime.utcnow()
+                    end_filter = now_brt()
             else:
-                end_filter = datetime.utcnow()
+                end_filter = now_brt()
 
         # Preparar dados para o CSV
         rows = []
@@ -1639,9 +2008,13 @@ def export_finance_report(
         )
 
         if start_filter:
-            simulations_query = simulations_query.filter(Simulation.updated_at >= start_filter)
+            simulations_query = simulations_query.filter(
+                Simulation.updated_at >= start_filter
+            )
         if end_filter:
-            simulations_query = simulations_query.filter(Simulation.updated_at <= end_filter)
+            simulations_query = simulations_query.filter(
+                Simulation.updated_at <= end_filter
+            )
 
         simulations = simulations_query.all()
 
@@ -1649,15 +2022,27 @@ def export_finance_report(
         if not transaction_type or transaction_type == "receita":
             for sim in simulations:
                 rows.append({
-                    "date": sim.updated_at.strftime("%Y-%m-%d") if sim.updated_at else "",
+                    "date": (
+                        sim.updated_at.strftime("%Y-%m-%d")
+                        if sim.updated_at
+                        else ""
+                    ),
                     "type": "consultoria",
-                    "description": f"Consultoria líquida - Caso #{sim.case_id}",
+                    "description": (
+                        f"Consultoria líquida - Caso #{sim.case_id}"
+                    ),
                     "amount": float(sim.custo_consultoria_liquido or 0)
                 })
                 rows.append({
-                    "date": sim.updated_at.strftime("%Y-%m-%d") if sim.updated_at else "",
+                    "date": (
+                        sim.updated_at.strftime("%Y-%m-%d")
+                        if sim.updated_at
+                        else ""
+                    ),
                     "type": "tax",
-                    "description": f"Imposto (14%) - Caso #{sim.case_id}",
+                    "description": (
+                        f"Imposto (14%) - Caso #{sim.case_id}"
+                    ),
                     "amount": float(sim.custo_consultoria or 0) * 0.14
                 })
 
@@ -1666,11 +2051,17 @@ def export_finance_report(
             incomes_query = db.query(FinanceIncome)
 
             if start_filter:
-                incomes_query = incomes_query.filter(FinanceIncome.date >= start_filter)
+                incomes_query = incomes_query.filter(
+                    FinanceIncome.date >= start_filter
+                )
             if end_filter:
-                incomes_query = incomes_query.filter(FinanceIncome.date <= end_filter)
+                incomes_query = incomes_query.filter(
+                    FinanceIncome.date <= end_filter
+                )
             if category:
-                incomes_query = incomes_query.filter(FinanceIncome.income_type == category)
+                incomes_query = incomes_query.filter(
+                    FinanceIncome.income_type == category
+                )
 
             incomes = incomes_query.all()
 
@@ -1678,7 +2069,9 @@ def export_finance_report(
                 rows.append({
                     "date": inc.date.strftime("%Y-%m-%d") if inc.date else "",
                     "type": "manual_income",
-                    "description": inc.description or "Receita manual",
+                    "description": (
+                        inc.income_name or "Receita manual"
+                    ),
                     "amount": float(inc.amount or 0)
                 })
 
@@ -1687,11 +2080,17 @@ def export_finance_report(
             expenses_query = db.query(FinanceExpense)
 
             if start_filter:
-                expenses_query = expenses_query.filter(FinanceExpense.year >= start_filter.year)
+                expenses_query = expenses_query.filter(
+                    FinanceExpense.year >= start_filter.year
+                )
             if end_filter:
-                expenses_query = expenses_query.filter(FinanceExpense.year <= end_filter.year)
+                expenses_query = expenses_query.filter(
+                    FinanceExpense.year <= end_filter.year
+                )
             if category:
-                expenses_query = expenses_query.filter(FinanceExpense.expense_type == category)
+                expenses_query = expenses_query.filter(
+                    FinanceExpense.expense_type == category
+                )
 
             expenses = expenses_query.all()
 
@@ -1699,7 +2098,10 @@ def export_finance_report(
                 rows.append({
                     "date": f"{exp.year}-{exp.month:02d}-01",
                     "type": "expense",
-                    "description": exp.description or f"Despesas {exp.month}/{exp.year}",
+                    "description": (
+                        exp.expense_name
+                        or f"Despesas {exp.month}/{exp.year}"
+                    ),
                     "amount": float(exp.amount or 0)
                 })
 
@@ -1708,7 +2110,9 @@ def export_finance_report(
 
         # Gerar CSV
         output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=["date", "type", "description", "amount"])
+        writer = csv.DictWriter(
+            output, fieldnames=["date", "type", "description", "amount"]
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -1720,21 +2124,28 @@ def export_finance_report(
             content=csv_content,
             media_type="text/csv",
             headers={
-                "Content-Disposition": "attachment; filename=finance_report.csv"
+                "Content-Disposition": (
+                    "attachment; filename=finance_report.csv"
+                )
             }
         )
+
 
 @r.get("/data")
 def get_financial_data(
     from_date: str | None = None,
     to_date: str | None = None,
     month: str | None = None,
-    user=Depends(require_roles("admin","supervisor","financeiro","calculista","fechamento"))
+    user=Depends(
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista", "fechamento"
+        )
+    )
 ):
     """Retorna dados financeiros agregados para cálculo de KPIs"""
     from ..models import FinanceIncome, FinanceExpense
     from datetime import datetime
-    from sqlalchemy import func
+    from sqlalchemy import func  # pyright: ignore[reportMissingImports]
 
     with SessionLocal() as db:
         # Definir período de busca
@@ -1749,7 +2160,7 @@ def get_financial_data(
                     end_date = datetime(int(year), int(month_num) + 1, 1)
             except Exception:
                 # Fallback para mês atual
-                now = datetime.utcnow()
+                now = now_brt()
                 start_date = datetime(now.year, now.month, 1)
                 if now.month == 12:
                     end_date = datetime(now.year + 1, 1, 1)
@@ -1761,7 +2172,7 @@ def get_financial_data(
                 end_date = datetime.fromisoformat(to_date)
             except Exception:
                 # Fallback para mês atual
-                now = datetime.utcnow()
+                now = now_brt()
                 start_date = datetime(now.year, now.month, 1)
                 if now.month == 12:
                     end_date = datetime(now.year + 1, 1, 1)
@@ -1769,7 +2180,7 @@ def get_financial_data(
                     end_date = datetime(now.year, now.month + 1, 1)
         else:
             # Padrão: mês atual
-            now = datetime.utcnow()
+            now = now_brt()
             start_date = datetime(now.year, now.month, 1)
             if now.month == 12:
                 end_date = datetime(now.year + 1, 1, 1)
@@ -1777,13 +2188,17 @@ def get_financial_data(
                 end_date = datetime(now.year, now.month + 1, 1)
 
         # Calcular receita líquida (total de receitas)
-        receita_liquida = db.query(func.coalesce(func.sum(FinanceIncome.amount), 0)).filter(
+        receita_liquida = db.query(
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
+        ).filter(
             FinanceIncome.date >= start_date,
             FinanceIncome.date < end_date
         ).scalar() or 0
 
         # Calcular total de despesas
-        despesas = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
+        despesas = db.query(
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
+        ).filter(
             FinanceExpense.date >= start_date,
             FinanceExpense.date < end_date
         ).scalar() or 0

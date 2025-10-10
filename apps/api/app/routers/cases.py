@@ -9,11 +9,12 @@ import shutil
 from decimal import Decimal
 
 from sqlalchemy import or_  # pyright: ignore[reportMissingImports]
+from sqlalchemy.orm import Session
 from ..rbac import require_roles
 from ..security import get_current_user, verify_csrf
-from ..db import SessionLocal
+from ..db import SessionLocal, get_db
 from ..models import (
-    Case, Client, CaseEvent, Contract, ContractAttachment
+    Case, Client, CaseEvent, Contract, ContractAttachment, now_brt
 )
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
@@ -80,9 +81,15 @@ def get_case(
 ):
     from ..models import Simulation, Attachment
     from app.models import PayrollLine
+    from sqlalchemy.orm import (  # pyright: ignore[reportMissingImports]
+        joinedload
+    )
 
     with SessionLocal() as db:
-        c = db.get(Case, case_id)
+        c = db.query(Case).options(
+            joinedload(Case.client),
+            joinedload(Case.assigned_user)
+        ).filter(Case.id == case_id).first()
         if not c:
             raise HTTPException(404, "Case not found")
 
@@ -131,6 +138,10 @@ def get_case(
                 c.last_update_at.isoformat() if c.last_update_at else None
             ),
             "assigned_to": c.assigned_user.name if c.assigned_user else None,
+            "assigned_user": {
+                "id": c.assigned_user.id,
+                "name": c.assigned_user.name
+            } if c.assigned_user else None,
             "entidade": getattr(c, "entidade", None),
             "referencia_competencia": getattr(
                 c, "referencia_competencia", None
@@ -306,13 +317,13 @@ def assign_case(
         if (
             c.assigned_user_id
             and c.assignment_expires_at
-            and c.assignment_expires_at > datetime.utcnow()
+            and c.assignment_expires_at > now_brt()
         ):
             raise HTTPException(
                 400, "Caso já está atribuído a outro usuário"
             )
 
-        now = datetime.utcnow()
+        now = now_brt()
         c.assigned_user_id = user.id
         c.status = "em_atendimento"
         c.last_update_at = now
@@ -375,7 +386,7 @@ def change_assignee(
             case.assigned_user.name if case.assigned_user else None
         )
 
-        now = datetime.utcnow()
+        now = now_brt()
         case.assigned_user_id = new_user.id
         case.assigned_at = now
         case.assignment_expires_at = now + timedelta(hours=72)
@@ -457,7 +468,7 @@ def patch_case(
         if data.tipo_chave_pix is not None:
             c.client.tipo_chave_pix = data.tipo_chave_pix
 
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
         db.add(
             CaseEvent(
                 case_id=c.id,
@@ -466,7 +477,7 @@ def patch_case(
                 created_by=user.id,
             )
         )
-        
+
         db.commit()
         return {"ok": True}
 
@@ -667,6 +678,57 @@ def download_attachment(
         )
 
 
+@r.get("/status-counts")
+def get_status_counts(
+    mine: bool = False,
+    db: Session = Depends(get_db),
+    user=Depends(
+        require_roles(
+            "admin", "supervisor", "financeiro", "calculista",
+            "atendente", "fechamento"
+        )
+    ),
+):
+    """
+    Retorna contadores de casos agrupados por status.
+
+    - Se mine=true: conta apenas casos atribuídos ao usuário
+    - Se mine=false:
+      * Admin/Supervisor: conta TODOS os casos do sistema
+      * Atendente: conta todos os casos disponíveis (não atribuídos ou expirados)
+    """
+    from sqlalchemy import func
+
+    qry = db.query(
+        Case.status,
+        func.count(Case.id).label("count")
+    )
+
+    if mine:
+        # Contar apenas casos do usuário logado
+        qry = qry.filter(Case.assigned_user_id == user.id)
+    else:
+        # Admin/Supervisor vê todos os casos
+        # Atendente vê apenas casos disponíveis (não atribuídos ou expirados)
+        if user.role == "atendente":
+            now = now_brt()
+            qry = qry.filter(
+                or_(
+                    Case.assigned_user_id.is_(None),
+                    Case.assignment_expires_at < now,
+                )
+            )
+        # Admin, supervisor e outros roles veem todos os casos (sem filtro adicional)
+
+    # Agrupar por status
+    results = qry.group_by(Case.status).all()
+
+    # Formatar resposta
+    counts = {row.status: row.count for row in results}
+
+    return {"counts": counts}
+
+
 @r.get("", response_model=PageOut)
 def list_cases(
     page: int = Query(1, ge=1),
@@ -692,7 +754,7 @@ def list_cases(
                 if mine:
                     qry = qry.filter(Case.assigned_user_id == user.id)
                 elif assigned == 0:
-                    now = datetime.utcnow()
+                    now = now_brt()
                     qry = qry.filter(
                         or_(
                             Case.assigned_user_id.is_(None),
@@ -909,7 +971,7 @@ def release_case(
             {
                 "user_id": user.id,
                 "user_name": user.name,
-                "released_at": datetime.utcnow().isoformat(),
+                "released_at": now_brt().isoformat(),
                 "action": "released",
             }
         )
@@ -918,7 +980,7 @@ def release_case(
         c.status = "disponivel"
         c.assigned_at = None
         c.assignment_expires_at = None
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
 
         db.add(
             CaseEvent(
@@ -943,7 +1005,7 @@ def check_case_expiry(
         if not c:
             raise HTTPException(404)
 
-        now = datetime.utcnow()
+        now = now_brt()
         is_expired = (
             c.assignment_expires_at and c.assignment_expires_at <= now
         )
@@ -1000,7 +1062,7 @@ def update_case_expiry(
         if not c:
             raise HTTPException(404, "Caso não encontrado")
 
-        now = datetime.utcnow()
+        now = now_brt()
         new_expiry = None
 
         if payload.force_expired:
@@ -1081,7 +1143,7 @@ async def to_calculista(
         sim = Simulation(case_id=c.id, status="draft", created_by=user.id)
         db.add(sim)
         c.status = "calculista_pendente"
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
 
         db.add(
             CaseEvent(
@@ -1127,13 +1189,13 @@ async def mark_no_contact(
         )
 
         current_obs = c.client.observacoes or ""
-        timestamp = datetime.utcnow().strftime("%d/%m/%Y %H:%M")
+        timestamp = now_brt().strftime("%d/%m/%Y %H:%M")
         new_obs = (
             f"{current_obs}\n[{timestamp}] Sem contato - {user.name}"
         ).strip()
         c.client.observacoes = new_obs
 
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
         db.commit()
 
     await eventbus.broadcast(
@@ -1161,14 +1223,14 @@ async def to_fechamento(
             )
 
         c.status = "fechamento_pendente"
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
         db.add(
             CaseEvent(
                 case_id=c.id,
                 type="case.to_fechamento",
                 payload={
                     "sent_by": user.name,
-                    "sent_at": datetime.utcnow().isoformat()
+                    "sent_at": now_brt().isoformat()
                 },
                 created_by=user.id,
             )
@@ -1197,7 +1259,7 @@ def run_scheduler_maintenance(
         return {
             "maintenance_completed": True,
             "stats": stats,
-            "executed_at": datetime.utcnow().isoformat(),
+            "executed_at": now_brt().isoformat(),
             "executed_by": user.id,
         }
 
@@ -1410,7 +1472,7 @@ async def create_case_event(
         )
         db.add(event)
 
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         db.commit()
         db.refresh(event)
@@ -1449,7 +1511,7 @@ async def return_to_calculista(
 
         previous_status = case.status
         case.status = "devolvido_financeiro"
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
 
         db.add(
             CaseEvent(
@@ -1500,7 +1562,8 @@ async def change_case_status(
     valid_statuses = [
         "novo", "em_atendimento", "calculista_pendente", "aprovado",
         "retorno_fechamento", "fechamento_aprovado", "financeiro_pendente",
-        "contrato_efetivado", "encerrado", "devolvido_financeiro", "sem_contato"
+        "contrato_efetivado", "encerrado", "devolvido_financeiro",
+        "sem_contato"
     ]
 
     if data.new_status not in valid_statuses:
@@ -1528,7 +1591,25 @@ async def change_case_status(
 
         # Atualizar status
         case.status = data.new_status
-        case.last_update_at = datetime.utcnow()
+        case.last_update_at = now_brt()
+
+        # SYNC: Atualizar status da simulação também (se existir)
+        from ..models import Simulation
+        sim = db.query(Simulation).filter(
+            Simulation.case_id == case_id
+        ).order_by(Simulation.id.desc()).first()
+
+        if sim:
+            # Mapear status do caso para status da simulação
+            status_map = {
+                "calculista_pendente": "draft",
+                "aprovado": "approved",
+                "retorno_fechamento": "approved",
+                "fechamento_aprovado": "approved",
+                "financeiro_pendente": "approved",
+            }
+            if data.new_status in status_map:
+                sim.status = status_map[data.new_status]
 
         # Criar evento de mudança de status
         create_case_event(
@@ -1560,7 +1641,10 @@ async def change_case_status(
 
     return {
         "success": True,
-        "message": f"Status alterado de '{previous_status}' para '{data.new_status}' com sucesso",
+        "message": (
+            f"Status alterado de '{previous_status}' para "
+            f"'{data.new_status}' com sucesso"
+        ),
         "previous_status": previous_status,
         "new_status": data.new_status
     }
