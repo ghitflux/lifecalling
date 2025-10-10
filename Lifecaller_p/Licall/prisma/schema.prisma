@@ -1,0 +1,260 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  atendente
+  calculista
+  gerente_fechamento
+  financeiro
+  superadmin
+}
+
+enum AtendimentoStatus {
+  DISPONIVEL
+  ATRIBUIDO
+  PENDENTE_CALCULO
+  SIMULACAO_APROVADA
+  SIMULACAO_REPROVADA
+  EM_FECHAMENTO
+  CONTRATO_CONFIRMADO
+  ENVIADO_FINANCEIRO
+  CONTRATO_ATIVADO
+  ENCERRADO_REPROVADO
+  ENCERRADO_NAO_APROVADO
+  ENCERRADO_ATIVADO
+}
+
+enum ContratoStatus {
+  AGUARDANDO_COMPROVANTES
+  COMPROVANTES_ANEXADOS
+  EFETIVADO
+  CANCELADO
+}
+
+enum TipoComentario {
+  INTERNO
+  CLIENTE
+  OBSERVACAO
+}
+
+enum StatusKPI {
+  ATIVO
+  INATIVO
+  ARQUIVADO
+}
+
+model User {
+  id           String @id @default(cuid())
+  name         String
+  email        String @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  assignedAtendimentos Atendimento[] @relation("AssignedAtendimentos")
+  lockedAtendimentos   Atendimento[] @relation("LockedAtendimentos")
+  auditLogs           AuditLog[]
+  comentarios         Comentario[]
+  createdContratos    Contrato[] @relation("ContratoCreatedBy")
+  updatedContratos    Contrato[] @relation("ContratoUpdatedBy")
+
+  @@map("users")
+}
+
+model Cliente {
+  id        String   @id @default(cuid())
+  nome      String
+  cpf       String   @unique
+  email     String?
+  telefone  String
+  endereco  String?
+  cidade    String?
+  estado    String?
+  cep       String?
+  renda     Decimal?
+  profissao String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  atendimentos  Atendimento[]
+  clienteBancos ClienteBanco[]
+
+  @@map("clientes")
+}
+
+model Banco {
+  id       String @id @default(cuid())
+  codigo   String @unique
+  nome     String
+  descricao String?
+  ativo    Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  clienteBancos ClienteBanco[]
+
+  @@map("bancos")
+}
+
+model ClienteBanco {
+  id        String @id @default(cuid())
+  clienteId String
+  bancoId   String
+  agencia   String?
+  conta     String?
+  principal Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  banco   Banco   @relation(fields: [bancoId], references: [id])
+
+  @@unique([clienteId, bancoId])
+  @@map("cliente_bancos")
+}
+
+model Atendimento {
+  id        String            @id @default(cuid())
+  status    AtendimentoStatus @default(DISPONIVEL)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  // Assignee (responsável atual)
+  assigneeId String?
+  assignee   User?   @relation("AssignedAtendimentos", fields: [assigneeId], references: [id])
+
+  // Lock system
+  lockActive    Boolean   @default(false)
+  lockOwnerId   String?
+  lockOwner     User?     @relation("LockedAtendimentos", fields: [lockOwnerId], references: [id])
+  lockStartedAt DateTime?
+
+  // Cliente relacionado
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
+  // Cálculo result (JSON)
+  calcResult Json?
+
+  // Timestamps específicos
+  closingApprovedAt   DateTime?
+  financeActivationAt DateTime?
+
+  // Anexos (JSON simples)
+  attachments Json? @default("[]")
+
+  // Relacionamentos
+  auditLogs   AuditLog[]
+  comentarios Comentario[]
+  contrato    Contrato?
+
+  @@map("atendimentos")
+}
+
+model Contrato {
+  id              String        @id @default(cuid())
+  atendimentoId   String        @unique
+  status          ContratoStatus @default(AGUARDANDO_COMPROVANTES)
+  valorAprovado   Decimal
+  parcelaMensal   Decimal
+  prazoMeses      Int
+  taxaJuros       Decimal
+  coeficiente     Decimal
+  dataEfetivacao  DateTime?
+  observacoes     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdById     String
+  updatedById     String?
+
+  // Relacionamentos
+  atendimento     Atendimento @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  createdBy       User        @relation("ContratoCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?       @relation("ContratoUpdatedBy", fields: [updatedById], references: [id])
+  anexos          ContratoAnexo[]
+
+  @@map("contratos")
+}
+
+model ContratoAnexo {
+  id          String   @id @default(cuid())
+  contratoId  String
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  path        String
+  url         String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relacionamentos
+  contrato Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  @@map("contrato_anexos")
+}
+
+model Comentario {
+  id            String         @id @default(cuid())
+  atendimentoId String
+  userId        String
+  tipo          TipoComentario @default(INTERNO)
+  conteudo      String
+  parentId      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relacionamentos
+  atendimento Atendimento  @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  parent      Comentario?  @relation("ComentarioReplies", fields: [parentId], references: [id])
+  replies     Comentario[] @relation("ComentarioReplies")
+
+  @@map("comentarios")
+}
+
+model KPI {
+  id          String    @id @default(cuid())
+  nome        String
+  descricao   String?
+  valor       Decimal
+  periodo     String
+  data        DateTime
+  status      StatusKPI @default(ATIVO)
+  categoria   String
+  meta        Decimal?
+  unidade     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("kpis")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  atendimentoId String
+  actorId       String?
+  event         String
+  payload       Json?
+  createdAt     DateTime @default(now())
+
+  // Relacionamentos
+  atendimento Atendimento @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  actor       User?       @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}

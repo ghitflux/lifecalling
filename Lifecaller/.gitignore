@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+.venv/
+env/
+# Django
+/static/
+media/
+# Node
+node_modules/
+dist/
+.storybook-out/
+# Vite/Storybook
+lifecaller/node_modules/
+lifecaller/dist/
+lifecaller/storybook-static/
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
