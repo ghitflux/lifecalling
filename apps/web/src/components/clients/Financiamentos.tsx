@@ -133,19 +133,20 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
     );
   }
 
-  // Agrupar primeiro por matrícula, depois por referência
-  const financiamentosPorMatricula = financiamentos.reduce((acc, fin) => {
-    if (!acc[fin.matricula]) {
-      acc[fin.matricula] = {};
+  // Agrupar primeiro por código FIN, depois por referência (mês/ano)
+  const financiamentosPorFIN = financiamentos.reduce((acc, fin) => {
+    const finKey = fin.financiamento_code;
+    if (!acc[finKey]) {
+      acc[finKey] = {};
     }
-    if (!acc[fin.matricula][fin.referencia]) {
-      acc[fin.matricula][fin.referencia] = [];
+    if (!acc[finKey][fin.referencia]) {
+      acc[finKey][fin.referencia] = [];
     }
-    acc[fin.matricula][fin.referencia].push(fin);
+    acc[finKey][fin.referencia].push(fin);
     return acc;
   }, {} as Record<string, Record<string, Financiamento[]>>);
 
-  const totalMatriculas = Object.keys(financiamentosPorMatricula).length;
+  const totalFINs = Object.keys(financiamentosPorFIN).length;
 
   return (
     <Card className="p-6">
@@ -155,34 +156,30 @@ export default function Financiamentos({ clientId }: FinanciamentosProps) {
           <h3 className="text-lg font-semibold">Financiamentos</h3>
         </div>
         <div className="flex items-center gap-2">
-          {totalMatriculas > 1 && (
-            <Badge variant="secondary" className="text-xs">
-              {totalMatriculas} matrículas
-            </Badge>
-          )}
+          <Badge variant="secondary" className="text-xs">
+            {totalFINs} {totalFINs === 1 ? 'financiamento' : 'financiamentos'}
+          </Badge>
           <Badge variant="outline" className="text-xs">
-            {financiamentos.length} registros
+            {financiamentos.length} {financiamentos.length === 1 ? 'registro' : 'registros'}
           </Badge>
         </div>
       </div>
 
       <div className="space-y-8">
-        {Object.entries(financiamentosPorMatricula)
-          .sort(([a], [b]) => a.localeCompare(b))  // Ordenar matrículas
-          .map(([matricula, financiamentosPorRef]) => (
-            <div key={matricula} className="space-y-4">
-              {/* Cabeçalho da Matrícula */}
-              {totalMatriculas > 1 && (
-                <div className="flex items-center gap-2 bg-primary/5 p-3 rounded-lg border border-primary/20">
-                  <Hash className="h-5 w-5 text-primary" />
-                  <span className="font-semibold text-primary">Matrícula: {matricula}</span>
-                  <Badge variant="outline" className="text-xs ml-auto">
-                    {Object.values(financiamentosPorRef).flat().length} financiamentos
-                  </Badge>
-                </div>
-              )}
+        {Object.entries(financiamentosPorFIN)
+          .sort(([a], [b]) => a.localeCompare(b))  // Ordenar por código FIN
+          .map(([finCode, financiamentosPorRef]) => (
+            <div key={finCode} className="space-y-4">
+              {/* Cabeçalho do FIN */}
+              <div className="flex items-center gap-2 bg-primary/5 p-3 rounded-lg border border-primary/20">
+                <Hash className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-primary">FIN: {finCode}</span>
+                <Badge variant="outline" className="text-xs ml-auto">
+                  {Object.values(financiamentosPorRef).flat().length} {Object.values(financiamentosPorRef).flat().length === 1 ? 'mês' : 'meses'}
+                </Badge>
+              </div>
 
-              {/* Financiamentos agrupados por referência */}
+              {/* Financiamentos agrupados por referência (mês/ano) */}
               <div className="space-y-6 pl-6">
                 {Object.entries(financiamentosPorRef)
                   .sort(([a], [b]) => b.localeCompare(a)) // Mais recente primeiro

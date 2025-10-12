@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,17 +11,20 @@ import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento } from "@/lib/hooks";
+import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento, useAssignCase } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowLeft } from "lucide-react";
+import CaseChat from "@/components/case/CaseChat";
+import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 
 interface CaseDetail {
   id: number;
   status: string;
   assigned_to?: string;
   assigned_user_id?: number;
+  assignment_expires_at?: string;
   client: {
     id: number;
     name: string;
@@ -95,6 +98,7 @@ interface CaseDetail {
 
 export default function CaseDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const caseId = parseInt(params.id as string);
   const queryClient = useQueryClient();
 
@@ -124,6 +128,9 @@ export default function CaseDetailPage() {
   // Hook para enviar para fechamento
   const sendToFechamento = useSendToFechamento();
 
+  // Hook para pegar caso
+  const assignCase = useAssignCase();
+
   // Hook para listar usuários ativos
   const { data: users } = useUsers();
 
@@ -132,21 +139,60 @@ export default function CaseDetailPage() {
     queryKey: ["case", caseId],
     queryFn: async () => {
       try {
+        console.log(`[CaseDetails] Fetching case ${caseId}...`);
         const response = await api.get(`/cases/${caseId}`);
+        console.log(`[CaseDetails] Successfully fetched case ${caseId}:`, response.data);
         return response.data as CaseDetail;
       } catch (error: any) {
+        console.error(`[CaseDetails] Error fetching case ${caseId}:`, error);
+        
+        // Log detalhado do erro
+        if (error.response) {
+          console.error(`[CaseDetails] Response status: ${error.response.status}`);
+          console.error(`[CaseDetails] Response data:`, error.response.data);
+          console.error(`[CaseDetails] Response headers:`, error.response.headers);
+        } else if (error.request) {
+          console.error(`[CaseDetails] Request error:`, error.request);
+        } else {
+          console.error(`[CaseDetails] General error:`, error.message);
+        }
+        
         if (error.response?.status === 401) {
+          console.error(`[CaseDetails] Authentication error - redirecting to login`);
           toast.error("Você precisa estar logado para ver os detalhes do caso");
           // Redirecionar para login
           window.location.href = '/login';
           throw error;
         }
-        toast.error("Erro ao carregar detalhes do caso");
+        
+        if (error.response?.status === 403) {
+          console.error(`[CaseDetails] Permission denied for case ${caseId}`);
+          toast.error("Você não tem permissão para ver este caso");
+          throw error;
+        }
+        
+        if (error.response?.status === 404) {
+          console.error(`[CaseDetails] Case ${caseId} not found`);
+          toast.error("Caso não encontrado");
+          throw error;
+        }
+        
+        // Erro genérico com mais detalhes
+        const errorMessage = error.response?.data?.detail || error.message || "Erro desconhecido";
+        console.error(`[CaseDetails] Generic error: ${errorMessage}`);
+        toast.error(`Erro ao carregar detalhes do caso: ${errorMessage}`);
         throw error;
       }
     },
     enabled: !!caseId,
-    retry: false, // Não tentar novamente em caso de erro de auth
+    retry: (failureCount, error: any) => {
+      // Não tentar novamente para erros de auth ou permissão
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false;
+      }
+      // Tentar até 2 vezes para outros erros
+      return failureCount < 2;
+    },
   });
 
   // Hook para carregar anexos do caso
@@ -192,6 +238,18 @@ export default function CaseDetailPage() {
       await sendToFechamento.mutateAsync(caseId);
     } catch (error) {
       console.error("Erro ao enviar para fechamento:", error);
+    }
+  };
+
+  const handleAssignCase = async () => {
+    try {
+      await assignCase.mutateAsync(caseId);
+      toast.success("Caso atribuído com sucesso!");
+      // Recarregar dados do caso
+      queryClient.invalidateQueries({ queryKey: ["case", caseId] });
+    } catch (error) {
+      console.error("Erro ao pegar caso:", error);
+      toast.error("Erro ao pegar caso. Tente novamente.");
     }
   };
 
@@ -333,7 +391,37 @@ export default function CaseDetailPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-8">
+          <div className="text-red-500 text-lg font-semibold mb-2">
+            Erro ao carregar detalhes do atendimento
+          </div>
+          <div className="text-gray-600 mb-4">
+            {error?.response?.status === 401 && "Você precisa estar logado para ver os detalhes do caso"}
+            {error?.response?.status === 403 && "Você não tem permissão para ver este caso"}
+            {error?.response?.status === 404 && "Caso não encontrado"}
+            {error?.response?.status === 500 && "Erro interno do servidor"}
+            {!error?.response?.status && "Erro de conexão - verifique sua internet"}
+            {error?.response?.status && error?.response?.status >= 400 && error?.response?.status < 500 && !error?.response?.status.toString().startsWith("4") && 
+              `Erro ${error.response.status}: ${error.response?.data?.detail || "Erro desconhecido"}`}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!caseDetail) {
+    if (isLoading) {
+      return <DetailsSkeleton />;
+    }
     return (
       <div className="p-6">
         <div className="text-center py-8 text-red-500">Atendimento não encontrado</div>
@@ -343,16 +431,85 @@ export default function CaseDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Admin Status Changer (apenas para admin) - Movido para o topo */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
+
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <StatusBadge status={caseDetail.status as Status} />
-            {caseDetail.assigned_to && (
-              <span className="text-sm text-muted-foreground">
-                Atribuído a: <strong>{caseDetail.assigned_to}</strong>
-              </span>
-            )}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => {
+              // Debug: verificar todo o sessionStorage
+              console.log('Todo o sessionStorage:', {
+                'esteira-page': sessionStorage.getItem('esteira-page'),
+                'esteira-tab': sessionStorage.getItem('esteira-tab'),
+                'esteira-filters': sessionStorage.getItem('esteira-filters')
+              });
+
+              // Verificar se há parâmetros de paginação salvos no sessionStorage
+              const savedPage = sessionStorage.getItem('esteira-page');
+              const savedTab = sessionStorage.getItem('esteira-tab');
+              const savedFilters = sessionStorage.getItem('esteira-filters');
+
+              console.log('Dados salvos no sessionStorage:', { savedPage, savedTab, savedFilters });
+
+              if (savedPage && savedTab && savedTab === 'global') {
+                // Construir URL com parâmetros salvos
+                const params = new URLSearchParams();
+                params.set('page', savedPage);
+                params.set('tab', savedTab);
+
+                if (savedFilters) {
+                  try {
+                    const filters = JSON.parse(savedFilters);
+                    if (filters.status && filters.status.length > 0) {
+                      params.set('status', filters.status.join(','));
+                    }
+                    if (filters.search) {
+                      params.set('search', filters.search);
+                    }
+                  } catch (e) {
+                    console.warn('Erro ao parsear filtros salvos:', e);
+                  }
+                }
+
+                console.log('Navegando com parâmetros:', params.toString());
+                router.push(`/esteira?${params.toString()}`);
+              } else {
+                // Fallback para a esteira padrão (global)
+                console.log('Navegando para global (fallback)');
+                router.push('/esteira');
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retornar à Esteira
+          </Button>
+
+          {/* Botão Pegar Caso - aparece apenas em casos novos e não atribuídos */}
+          {caseDetail.status === 'novo' &&
+           !caseDetail.assigned_user_id &&
+           ['atendente', 'admin', 'supervisor'].includes(userRole) && (
+            <Button
+              variant="default"
+              onClick={handleAssignCase}
+              disabled={assignCase.isPending}
+              className="flex items-center gap-2"
+            >
+              {assignCase.isPending ? "Pegando..." : "Pegar Este Caso"}
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <StatusBadge status={caseDetail.status as Status} />
+              {caseDetail.assigned_to && (
+                <span className="text-sm text-muted-foreground">
+                  Atribuído a: <strong>{caseDetail.assigned_to}</strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex gap-3">
@@ -658,24 +815,6 @@ export default function CaseDetailPage() {
                 </Button>
               </div>
             </div>
-
-            <div>
-              <Label>Observações</Label>
-              <Textarea
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                placeholder="Adicione observações sobre o caso..."
-                rows={3}
-              />
-            </div>
-
-            <Button
-              onClick={handleSave}
-              disabled={updateCaseMutation.isPending}
-              className="w-full"
-            >
-              {updateCaseMutation.isPending ? "Salvando..." : "Salvar Alterações"}
-            </Button>
           </div>
 
           {/* Upload de Contracheque e Anexos */}
@@ -853,6 +992,27 @@ export default function CaseDetailPage() {
                   }}
                   isActive={true}
                 />
+
+                {/* Consultoria Líquida - Exibir quando aprovado */}
+                {caseDetail.simulation.status === 'approved' && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-900">Consultoria Líquida (86%)</span>
+                      <span className="text-lg font-bold text-green-700">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        }).format(
+                          caseDetail.simulation.totals.custoConsultoriaLiquido ??
+                          (caseDetail.simulation.totals.custoConsultoria * 0.86)
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">
+                      Valor líquido da consultoria após descontos
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -871,6 +1031,10 @@ export default function CaseDetailPage() {
           </Card>
         )}
       </div>
+
+
+      {/* Chat do Caso */}
+      <CaseChat caseId={caseId} defaultChannel="ATENDIMENTO" />
 
       {/* Histórico do Caso */}
       <Card className="p-6">

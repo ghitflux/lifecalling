@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, distinct
+from fastapi import APIRouter, Depends, HTTPException, Query  # pyright: ignore[reportMissingImports]
+from sqlalchemy.orm import Session  # pyright: ignore[reportMissingImports]
+from sqlalchemy import func, or_, distinct  # pyright: ignore[reportMissingImports]
 from typing import List
 from ..db import SessionLocal
 from ..rbac import require_roles
-from ..models import Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone
-from pydantic import BaseModel
+from ..models import (
+    Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone
+)
+from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
 
 r = APIRouter(prefix="/clients", tags=["clients"])
+
 
 class PageOut(BaseModel):
     items: list[dict]
@@ -16,12 +19,14 @@ class PageOut(BaseModel):
     page: int
     page_size: int
 
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 @r.get("", response_model=PageOut)
 def list_clients(
@@ -33,7 +38,10 @@ def list_clients(
     orgao: str | None = None,
     sem_contratos: bool | None = None,
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
 ):
     """
     Lista clientes do sistema principal com casos e contratos associados.
@@ -43,7 +51,7 @@ def list_clients(
         page: Número da página (começa em 1)
         page_size: Itens por página (padrão 20, máximo 200)
         q: Busca por nome, CPF ou matrícula
-        banco: Filtrar por banco/órgão credor (entidade do caso)
+        banco: Filtrar por banco/entidade importada (entity_name de PayrollLine)
         status: Filtrar por status do caso
         orgao: Filtrar por órgão pagador (orgao do cliente)
         sem_contratos: Se True, filtra apenas clientes sem financiamentos
@@ -71,9 +79,13 @@ def list_clients(
             )
         )
 
-    # Filtrar por banco (entidade do caso)
+    # Filtrar por banco (entidade importada de PayrollLine)
     if banco:
-        clients_query = clients_query.filter(Case.entidade == banco)
+        # Join com PayrollLine para filtrar por entity_name
+        clients_query = clients_query.join(
+            PayrollLine,
+            PayrollLine.cpf == Client.cpf
+        ).filter(PayrollLine.entity_name == banco)
 
     # Filtrar por status do caso
     if status:
@@ -102,7 +114,9 @@ def list_clients(
     total = clients_query.count()
 
     # Aplicar ordenação e paginação
-    clients_query = clients_query.order_by(Client.id.desc()).offset((page-1)*page_size).limit(page_size)
+    clients_query = clients_query.order_by(Client.id.desc()).offset(
+        (page-1)*page_size
+    ).limit(page_size)
 
     results = []
     for client_data in clients_query.all():
@@ -133,15 +147,20 @@ def list_clients(
 @r.get("/filters")
 def get_available_filters(
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
 ):
     """
-    Retorna filtros disponíveis para clientes (bancos credores, órgãos pagadores e status).
-    Bancos = Entidades dos casos (BANCO DO BRASIL, CAIXA, etc)
+    Retorna filtros disponíveis para clientes (bancos credores).
+    Bancos = Entidades importadas dos arquivos TXT (de PayrollLine)
     Órgãos = Órgãos pagadores dos clientes
     """
-    # Listar entidades únicas dos casos (bancos credores)
-    entidades = db.query(Case.entidade).filter(Case.entidade.isnot(None)).distinct().all()
+    # Listar entidades únicas das linhas de folha importadas (entity_name)
+    entidades = db.query(PayrollLine.entity_name).filter(
+        PayrollLine.entity_name.isnot(None)
+    ).distinct().all()
     entidades_list = sorted([e[0] for e in entidades if e[0]])
 
     # Listar status de casos únicos
@@ -151,17 +170,25 @@ def get_available_filters(
     # Contadores por filtro
     bancos_with_count = []
     for entidade in entidades_list:
-        # Contar clientes únicos que têm casos dessa entidade
+        # Contar clientes únicos (por CPF) que têm financiamentos dessa entidade
         count = (
-            db.query(func.count(distinct(Case.client_id)))
-            .filter(Case.entidade == entidade)
+            db.query(func.count(distinct(Client.id)))
+            .join(
+                PayrollLine,
+                PayrollLine.cpf == Client.cpf
+            )
+            .filter(PayrollLine.entity_name == entidade)
             .scalar()
         )
-        bancos_with_count.append({"value": entidade, "label": entidade, "count": count})
+        bancos_with_count.append({
+            "value": entidade, "label": entidade, "count": count
+        })
 
     status_with_count = []
     for status in status_list:
-        count = db.query(func.count(distinct(Case.client_id))).filter(Case.status == status).scalar()
+        count = db.query(func.count(distinct(Case.client_id))).filter(
+            Case.status == status
+        ).scalar()
 
         # Labels amigáveis
         status_labels = {
@@ -183,14 +210,20 @@ def get_available_filters(
         })
 
     # Listar órgãos únicos dos clientes (órgãos pagadores)
-    orgaos = db.query(Client.orgao).filter(Client.orgao.isnot(None)).distinct().all()
+    orgaos = db.query(Client.orgao).filter(
+        Client.orgao.isnot(None)
+    ).distinct().all()
     orgaos_list = sorted([o[0] for o in orgaos if o[0]])
 
     orgaos_with_count = []
     for orgao in orgaos_list:
         # Contar clientes únicos com esse órgão
-        count = db.query(func.count(Client.id)).filter(Client.orgao == orgao).scalar()
-        orgaos_with_count.append({"value": orgao, "label": orgao, "count": count})
+        count = db.query(func.count(Client.id)).filter(
+            Client.orgao == orgao
+        ).scalar()
+        orgaos_with_count.append({
+            "value": orgao, "label": orgao, "count": count
+        })
 
     # Contar clientes sem contratos (sem financiamentos)
     clientes_sem_contratos = (
@@ -217,7 +250,10 @@ def get_available_filters(
 @r.get("/stats")
 def get_clients_stats(
     db: Session = Depends(get_db),
-    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
 ):
     """
     Retorna estatísticas gerais dos clientes (KPIs).
@@ -227,7 +263,7 @@ def get_clients_stats(
     # Total de clientes
     total_clients = db.query(func.count(Client.id)).scalar() or 0
 
-    # Clientes novos (últimos 30 dias) - usando created_at do primeiro caso
+    # Clientes novos (últimos 30 dias)
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     new_clients = (
         db.query(func.count(distinct(Case.client_id)))
@@ -239,8 +275,10 @@ def get_clients_stats(
     total_cases = db.query(func.count(Case.id)).scalar() or 0
 
     # Casos ativos (status abertos)
-    active_statuses = ["novo", "disponivel", "em_atendimento", "calculista",
-                      "calculista_pendente", "financeiro", "fechamento_pendente"]
+    active_statuses = [
+        "novo", "disponivel", "em_atendimento", "calculista",
+        "calculista_pendente", "financeiro", "fechamento_pendente"
+    ]
     active_cases = (
         db.query(func.count(Case.id))
         .filter(Case.status.in_(active_statuses))
@@ -248,7 +286,9 @@ def get_clients_stats(
     )
 
     # Casos finalizados (aprovado, efetivado)
-    completed_statuses = ["aprovado", "efetivado", "calculo_aprovado", "fechamento_aprovado"]
+    completed_statuses = [
+        "aprovado", "efetivado", "calculo_aprovado", "fechamento_aprovado"
+    ]
     completed_cases = (
         db.query(func.count(Case.id))
         .filter(Case.status.in_(completed_statuses))
@@ -259,7 +299,7 @@ def get_clients_stats(
     from app.models import PayrollLine
     total_contracts = db.query(func.count(PayrollLine.id)).scalar() or 0
 
-    # Clientes únicos com contratos (contar registros em clients que têm financiamentos)
+    # Clientes únicos com contratos
     clients_with_contracts = (
         db.query(func.count(Client.id))
         .filter(
@@ -274,7 +314,9 @@ def get_clients_stats(
     )
 
     # Taxa de conversão (casos finalizados / total de casos)
-    conversion_rate = round((completed_cases / total_cases * 100), 1) if total_cases > 0 else 0
+    conversion_rate = round(
+        (completed_cases / total_cases * 100), 1
+    ) if total_cases > 0 else 0
 
     return {
         "total_clients": total_clients,
@@ -289,9 +331,16 @@ def get_clients_stats(
 
 
 @r.get("/{client_id}")
-def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
-    Retorna detalhes de um cliente específico com todos os seus contratos e casos.
+    Retorna detalhes de um cliente específico com contratos e casos.
     """
     # Buscar no sistema principal
     c = db.query(Client).get(client_id)
@@ -299,7 +348,9 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
         raise HTTPException(404, "Cliente não encontrado")
 
     # Buscar casos do cliente
-    cases = db.query(Case).filter_by(client_id=c.id).order_by(Case.id.desc()).all()
+    cases = db.query(Case).filter_by(
+        client_id=c.id
+    ).order_by(Case.id.desc()).all()
 
     # Buscar todas as matrículas do CPF no sistema payroll
     payroll_clients = db.query(PayrollClient).filter(
@@ -309,7 +360,9 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
     contracts = []
     for pc in payroll_clients:
         # Buscar contratos de cada matrícula
-        payroll_contracts = db.query(PayrollContract).filter_by(client_id=pc.id).order_by(
+        payroll_contracts = db.query(PayrollContract).filter_by(
+            client_id=pc.id
+        ).order_by(
             PayrollContract.referencia_year.desc(),
             PayrollContract.referencia_month.desc()
         ).all()
@@ -317,7 +370,7 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
         for ct in payroll_contracts:
             contracts.append({
                 "id": ct.id,
-                "matricula": pc.matricula,  # Identificar de qual matrícula é
+                "matricula": pc.matricula,
                 "entidade_code": ct.entidade_code,
                 "entidade_name": ct.entidade_name,
                 "ref": f"{ct.referencia_month:02d}/{ct.referencia_year}",
@@ -329,7 +382,9 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
                 "fin": ct.fin,
                 "orgao_codigo": ct.orgao_codigo,
                 "lanc": ct.lanc,
-                "created_at": ct.created_at.isoformat() if ct.created_at else None,
+                "created_at": (
+                    ct.created_at.isoformat() if ct.created_at else None
+                ),
             })
 
     return {
@@ -346,17 +401,30 @@ def get_client(client_id: int, db: Session = Depends(get_db), user=Depends(requi
                 "status": case.status,
                 "entidade": case.entidade,
                 "referencia_competencia": case.referencia_competencia,
-                "last_update_at": case.last_update_at.isoformat() if case.last_update_at else None,
-                "assigned_to": case.assigned_user.name if case.assigned_user else None,
+                "last_update_at": (
+                    case.last_update_at.isoformat()
+                    if case.last_update_at else None
+                ),
+                "assigned_to": (
+                    case.assigned_user.name
+                    if case.assigned_user else None
+                ),
             } for case in cases
         ]
     }
 
 
 @r.get("/{client_id}/contracts")
-def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client_contracts(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
-    Retorna todos os contratos de todas as matrículas do CPF do cliente.
+    Retorna todos os contratos de todas as matrículas do CPF.
     """
     # Buscar no sistema principal
     client = db.query(Client).get(client_id)
@@ -374,7 +442,9 @@ def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Dep
     # Buscar contratos de todas as matrículas
     all_contracts = []
     for pc in payroll_clients:
-        contracts = db.query(PayrollContract).filter_by(client_id=pc.id).order_by(
+        contracts = db.query(PayrollContract).filter_by(
+            client_id=pc.id
+        ).order_by(
             PayrollContract.referencia_year.desc(),
             PayrollContract.referencia_month.desc()
         ).all()
@@ -382,7 +452,7 @@ def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Dep
         for ct in contracts:
             all_contracts.append({
                 "id": ct.id,
-                "matricula": pc.matricula,  # Identificar de qual matrícula é
+                "matricula": pc.matricula,
                 "entidade_code": ct.entidade_code,
                 "entidade_name": ct.entidade_name,
                 "ref": f"{ct.referencia_month:02d}/{ct.referencia_year}",
@@ -394,17 +464,26 @@ def get_client_contracts(client_id: int, db: Session = Depends(get_db), user=Dep
                 "fin": ct.fin,
                 "orgao_codigo": ct.orgao_codigo,
                 "lanc": ct.lanc,
-                "created_at": ct.created_at.isoformat() if ct.created_at else None,
+                "created_at": (
+                    ct.created_at.isoformat() if ct.created_at else None
+                ),
             })
 
     return all_contracts
 
 
 @r.get("/{client_id}/cases")
-def get_client_cases(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client_cases(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
     Retorna TODOS os casos de TODAS as matrículas do mesmo CPF.
-    Isso garante que se um CPF tem múltiplas matrículas (registros diferentes em clients),
+    Isso garante que se um CPF tem múltiplas matrículas,
     todos os casos serão exibidos independente de qual registro foi acessado.
     """
     # Buscar no sistema principal
@@ -412,40 +491,69 @@ def get_client_cases(client_id: int, db: Session = Depends(get_db), user=Depends
     if not client:
         raise HTTPException(404, "Cliente não encontrado")
 
-    # Buscar TODOS os client_ids com o mesmo CPF
-    client_ids = db.query(Client.id).filter(Client.cpf == client.cpf).all()
-    client_ids_list = [c_id[0] for c_id in client_ids]
+    # Buscar casos DIRETAMENTE do client_id
+    from sqlalchemy.orm import joinedload
+    cases = db.query(Case).options(
+        joinedload(Case.assigned_user),
+        joinedload(Case.client)
+    ).filter(
+        Case.client_id == client_id
+    ).order_by(Case.id.desc()).all()
 
-    # Buscar casos de TODOS os registros do mesmo CPF (sem duplicados)
-    cases = db.query(Case).filter(Case.client_id.in_(client_ids_list)).distinct().order_by(Case.id.desc()).all()
-
-    # Criar dicionário para remover duplicados por ID (garantia extra)
-    unique_cases = {}
+    # Criar lista de casos sem duplicados
+    items = []
     for case in cases:
-        if case.id not in unique_cases:
-            unique_cases[case.id] = {
+        try:
+            items.append({
                 "id": case.id,
                 "status": case.status or "novo",
                 "entidade": getattr(case, "entidade", None),
-                "referencia_competencia": getattr(case, "referencia_competencia", None),
-                "created_at": case.created_at.isoformat() if case.created_at else None,
-                "last_update_at": case.last_update_at.isoformat() if case.last_update_at else None,
-                "assigned_to": case.assigned_user.name if case.assigned_user else None,
-                "matricula": case.client.matricula if case.client else None,
-            }
-
-    items = list(unique_cases.values())
+                "referencia_competencia": getattr(
+                    case, "referencia_competencia", None
+                ),
+                "ref_month": getattr(case, "ref_month", None),
+                "ref_year": getattr(case, "ref_year", None),
+                "created_at": (
+                    case.created_at.isoformat()
+                    if case.created_at else None
+                ),
+                "last_update_at": (
+                    case.last_update_at.isoformat()
+                    if case.last_update_at else None
+                ),
+                "assigned_to": (
+                    case.assigned_user.name
+                    if hasattr(case, 'assigned_user') and case.assigned_user
+                    else None
+                ),
+                "matricula": (
+                    case.client.matricula
+                    if hasattr(case, 'client') and case.client
+                    else None
+                ),
+            })
+        except Exception as e:
+            print(f"Error processing case {case.id}: {e}")
+            continue
 
     return {
         "items": items,
         "total": len(items)
     }
 
+
 @r.get("/{client_id}/financiamentos")
-def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client_financiamentos(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
     Retorna financiamentos (linhas de folha) de um cliente específico.
-    Busca por TODAS as matrículas do CPF (não apenas a matrícula específica do cliente).
+    Busca por TODAS as matrículas do CPF.
     Mostra dados da referência mais recente por entidade.
     """
     # Buscar no sistema principal
@@ -466,13 +574,16 @@ def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), use
     return [
         {
             "id": line.id,
-            "matricula": line.matricula,  # Matrícula do financiamento
+            "matricula": line.matricula,
             "financiamento_code": line.financiamento_code,
             "total_parcelas": line.total_parcelas,
             "parcelas_pagas": line.parcelas_pagas,
-            "valor_parcela_ref": str(line.valor_parcela_ref) if line.valor_parcela_ref else "0.00",
+            "valor_parcela_ref": (
+                str(line.valor_parcela_ref)
+                if line.valor_parcela_ref else "0.00"
+            ),
             "orgao_pagamento": line.orgao_pagamento,
-            "orgao_pagamento_nome": line.orgao_pagamento_nome,  # Nome completo do órgão
+            "orgao_pagamento_nome": line.orgao_pagamento_nome,
             "ref_month": line.ref_month,
             "ref_year": line.ref_year,
             "referencia": f"{line.ref_month:02d}/{line.ref_year}",
@@ -483,12 +594,22 @@ def get_client_financiamentos(client_id: int, db: Session = Depends(get_db), use
             "cargo": line.cargo,
             "orgao": line.orgao,
             "lanc": line.lanc,
-            "created_at": line.created_at.isoformat() if line.created_at else None
+            "created_at": (
+                line.created_at.isoformat() if line.created_at else None
+            )
         } for line in financiamentos
     ]
 
+
 @r.get("/{client_id}/contratos-efetivados")
-def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client_contratos_efetivados(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
     Retorna contratos efetivados do cliente.
     Busca contratos de casos associados ao CPF do cliente.
@@ -509,7 +630,9 @@ def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db
     case_ids = [c.id for c in cases]
 
     # Buscar contratos destes casos
-    contracts = db.query(Contract).filter(Contract.case_id.in_(case_ids)).order_by(Contract.created_at.desc()).all()
+    contracts = db.query(Contract).filter(
+        Contract.case_id.in_(case_ids)
+    ).order_by(Contract.created_at.desc()).all()
 
     result = []
     for ct in contracts:
@@ -525,16 +648,24 @@ def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db
             "total_amount": float(ct.total_amount or 0),
             "installments": ct.installments,
             "paid_installments": ct.paid_installments,
-            "disbursed_at": ct.disbursed_at.isoformat() if ct.disbursed_at else None,
-            "created_at": ct.created_at.isoformat() if ct.created_at else None,
-            "consultoria_valor_liquido": float(ct.consultoria_valor_liquido or 0),
+            "disbursed_at": (
+                ct.disbursed_at.isoformat() if ct.disbursed_at else None
+            ),
+            "created_at": (
+                ct.created_at.isoformat() if ct.created_at else None
+            ),
+            "consultoria_valor_liquido": (
+                float(ct.consultoria_valor_liquido or 0)
+            ),
             "attachments": [
                 {
                     "id": att.id,
                     "filename": att.filename,
                     "size": att.size,
                     "mime": att.mime,
-                    "created_at": att.created_at.isoformat() if att.created_at else None
+                    "created_at": (
+                        att.created_at.isoformat() if att.created_at else None
+                    )
                 } for att in attachments
             ]
         })
@@ -544,8 +675,16 @@ def get_client_contratos_efetivados(client_id: int, db: Session = Depends(get_db
         "total": len(result)
     }
 
+
 @r.get("/{client_id}/matriculas")
-def get_client_matriculas(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client_matriculas(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
     Retorna todas as matrículas associadas ao CPF do cliente.
     Busca todas as matrículas diferentes do mesmo CPF em payroll_lines.
@@ -584,11 +723,13 @@ def get_client_matriculas(client_id: int, db: Session = Depends(get_db), user=De
             "matricula": matricula,
             "client_id": client_id_ref,
             "total_financiamentos": total_financiamentos,
-            "is_current": is_current  # Se é a matrícula do cliente atual
+            "is_current": is_current
         })
 
     # Ordenar: matrícula atual primeiro, depois por matrícula
-    result.sort(key=lambda x: (not x["is_current"], x["matricula"]))
+    result.sort(
+        key=lambda x: (not x["is_current"], x["matricula"])
+    )
 
     return {
         "cpf": client.cpf,
@@ -596,8 +737,13 @@ def get_client_matriculas(client_id: int, db: Session = Depends(get_db), user=De
         "matriculas": result
     }
 
+
 @r.delete("/{client_id}")
-def delete_client(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin"))):
+def delete_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
     """
     Deleta um cliente (apenas admin).
     Verifica se o cliente tem casos antes de deletar.
@@ -608,11 +754,16 @@ def delete_client(client_id: int, db: Session = Depends(get_db), user=Depends(re
         raise HTTPException(404, "Cliente não encontrado")
 
     # Verificar se tem casos associados
-    cases_count = db.query(Case).filter_by(client_id=client.id).count()
+    cases_count = db.query(Case).filter_by(
+        client_id=client.id
+    ).count()
     if cases_count > 0:
         raise HTTPException(
             400,
-            f"Não é possível excluir o cliente. Existem {cases_count} casos associados."
+            (
+                f"Não é possível excluir o cliente. "
+                f"Existem {cases_count} casos associados."
+            )
         )
 
     # Deletar cliente
@@ -622,16 +773,93 @@ def delete_client(client_id: int, db: Session = Depends(get_db), user=Depends(re
     return {"ok": True, "message": "Cliente excluído com sucesso"}
 
 
+@r.delete("/{client_id}/cascade")
+def delete_client_cascade(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
+    """
+    Deleta um cliente e todos os casos associados (apenas admin).
+    Exclusão em cascata - remove casos, anexos, eventos, simulações.
+    """
+    # Buscar cliente
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar casos associados
+    cases = db.query(Case).filter_by(client_id=client.id).all()
+
+    # Deletar em cascata
+    for case in cases:
+        # Deletar anexos
+        from ..models import Attachment
+        db.query(Attachment).filter_by(case_id=case.id).delete()
+
+        # Deletar eventos
+        from ..models import CaseEvent
+        db.query(CaseEvent).filter_by(case_id=case.id).delete()
+
+        # Deletar simulações
+        from ..models import Simulation
+        db.query(Simulation).filter_by(case_id=case.id).delete()
+
+        # Deletar contrato se existir
+        from ..models import Contract
+        contract = db.query(Contract).filter_by(case_id=case.id).first()
+        if contract:
+            # Deletar anexos do contrato
+            from ..models import ContractAttachment
+            db.query(ContractAttachment).filter_by(
+                contract_id=contract.id
+            ).delete()
+
+            # Deletar pagamentos
+            from ..models import Payment
+            db.query(Payment).filter_by(contract_id=contract.id).delete()
+
+            # Deletar contrato
+            db.delete(contract)
+
+        # Deletar caso
+        db.delete(case)
+
+    # Deletar telefones do cliente
+    db.query(ClientPhone).filter_by(client_id=client.id).delete()
+
+    # Deletar cliente
+    db.delete(client)
+    db.commit()
+
+    return {
+        "ok": True,
+        "message": (
+            f"Cliente e {len(cases)} caso(s) associado(s) "
+            f"excluído(s) com sucesso"
+        ),
+        "deleted_cases": len(cases)
+    }
+
+
 # Rotas de histórico de telefones
 
 class PhoneUpdate(BaseModel):
     phone: str
 
+
 @r.get("/{client_id}/phones")
-def get_client_phones(client_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"))):
+def get_client_phones(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
     """
     Retorna o histórico de telefones de um cliente.
-    Lista todos os telefones já utilizados, ordenados por is_primary e data de criação.
+    Lista todos os telefones já utilizados.
     """
     # Verificar se cliente existe
     client = db.query(Client).get(client_id)
@@ -650,15 +878,25 @@ def get_client_phones(client_id: int, db: Session = Depends(get_db), user=Depend
                 "id": phone.id,
                 "phone": phone.phone,
                 "is_primary": phone.is_primary,
-                "created_at": phone.created_at.isoformat() if phone.created_at else None,
-                "updated_at": phone.updated_at.isoformat() if phone.updated_at else None
+                "created_at": (
+                    phone.created_at.isoformat() if phone.created_at else None
+                ),
+                "updated_at": (
+                    phone.updated_at.isoformat() if phone.updated_at else None
+                )
             } for phone in phones
         ],
         "count": len(phones)
     }
 
+
 @r.post("/{client_id}/phones")
-def add_or_update_client_phone(client_id: int, data: PhoneUpdate, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor", "atendente"))):
+def add_or_update_client_phone(
+    client_id: int,
+    data: PhoneUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
     """
     Adiciona ou atualiza o telefone principal de um cliente.
     - Remove is_primary de todos os telefones anteriores
@@ -677,10 +915,14 @@ def add_or_update_client_phone(client_id: int, data: PhoneUpdate, db: Session = 
         raise HTTPException(400, "Telefone inválido")
 
     # Desmarcar todos os telefones anteriores como não primários
-    db.query(ClientPhone).filter_by(client_id=client_id, is_primary=True).update({"is_primary": False})
+    db.query(ClientPhone).filter_by(
+        client_id=client_id, is_primary=True
+    ).update({"is_primary": False})
 
     # Verificar se o telefone já existe
-    existing_phone = db.query(ClientPhone).filter_by(client_id=client_id, phone=phone_normalized).first()
+    existing_phone = db.query(ClientPhone).filter_by(
+        client_id=client_id, phone=phone_normalized
+    ).first()
 
     if existing_phone:
         # Atualizar telefone existente como primário
@@ -706,24 +948,42 @@ def add_or_update_client_phone(client_id: int, data: PhoneUpdate, db: Session = 
         "id": phone_record.id,
         "phone": phone_record.phone,
         "is_primary": phone_record.is_primary,
-        "created_at": phone_record.created_at.isoformat() if phone_record.created_at else None,
-        "updated_at": phone_record.updated_at.isoformat() if phone_record.updated_at else None
+        "created_at": (
+            phone_record.created_at.isoformat()
+            if phone_record.created_at else None
+        ),
+        "updated_at": (
+            phone_record.updated_at.isoformat()
+            if phone_record.updated_at else None
+        )
     }
 
+
 @r.delete("/{client_id}/phones/{phone_id}")
-def delete_client_phone(client_id: int, phone_id: int, db: Session = Depends(get_db), user=Depends(require_roles("admin", "supervisor"))):
+def delete_client_phone(
+    client_id: int,
+    phone_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
     """
-    Remove um telefone do histórico do cliente (apenas admin/supervisor).
+    Remove um telefone do histórico do cliente (admin/supervisor/atendente).
     Não permite remover o telefone primário.
     """
     # Buscar telefone
-    phone = db.query(ClientPhone).filter_by(id=phone_id, client_id=client_id).first()
+    phone = db.query(ClientPhone).filter_by(
+        id=phone_id, client_id=client_id
+    ).first()
     if not phone:
         raise HTTPException(404, "Telefone não encontrado")
 
     # Não permitir remover telefone primário
     if phone.is_primary:
-        raise HTTPException(400, "Não é possível remover o telefone principal. Defina outro telefone como principal primeiro.")
+        raise HTTPException(
+            400,
+            "Não é possível remover o telefone principal. "
+            "Defina outro telefone como principal primeiro."
+        )
 
     # Deletar telefone
     db.delete(phone)
@@ -731,8 +991,10 @@ def delete_client_phone(client_id: int, phone_id: int, db: Session = Depends(get
 
     return {"ok": True, "message": "Telefone removido do histórico"}
 
+
 class BulkDeleteRequest(BaseModel):
     ids: List[int]
+
 
 @r.post("/bulk-delete")
 def bulk_delete_clients(
@@ -767,17 +1029,23 @@ def bulk_delete_clients(
                 continue
 
             # Verificar se tem casos associados
-            cases_count = db.query(Case).filter_by(client_id=client.id).count()
+            cases_count = db.query(Case).filter_by(
+                client_id=client.id
+            ).count()
             if cases_count > 0:
                 results["failed"].append({
                     "id": client_id,
-                    "reason": f"Cliente possui {cases_count} caso(s) associado(s)"
+                    "reason": (
+                        f"Cliente possui {cases_count} caso(s) associado(s)"
+                    )
                 })
                 continue
 
             # Excluir telefones (CASCADE já faz isso automaticamente)
             # Mas vamos garantir explicitamente
-            db.query(ClientPhone).filter_by(client_id=client_id).delete()
+            db.query(ClientPhone).filter_by(
+                client_id=client_id
+            ).delete()
 
             # Excluir cliente
             db.delete(client)

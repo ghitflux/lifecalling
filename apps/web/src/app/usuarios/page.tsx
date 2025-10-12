@@ -20,6 +20,7 @@ import {
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/error-handler";
 
 
 
@@ -83,17 +84,22 @@ const toUiUser = (u: AppUser) => ({
 });
 
 // (Opcional) mapeia dados vindos do form do UI -> AppUser parcial para API
-const fromUiUser = (u: any): Partial<AppUser> => ({
-  id: u.id,
-  name: u.name,
-  email: u.email,
-  role: u.role,
-  status: u.status,
-  // mantém coerência entre status e active
-  active: typeof u.active === "boolean" ? u.active : String(u.status).toLowerCase() === "active",
-  department: u.department || undefined,
-  phone: u.phone || undefined,
-});
+const fromUiUser = (u: any) => {
+  const payload: any = {
+    name: String(u.name || '').trim(),
+    email: String(u.email || '').trim(),
+    role: String(u.role || 'atendente'),
+    // mapeia status string para active boolean para a API
+    active: Boolean(u.status === "active"),
+  };
+  
+  // Para novos usuários, sempre incluir password
+  if (u.password && u.password.trim()) {
+    payload.password = String(u.password).trim();
+  }
+  
+  return payload;
+};
 
 export default function UsuariosPage() {
   const { user } = useAuth();
@@ -137,6 +143,7 @@ export default function UsuariosPage() {
   // Mutations
   const createUserMutation = useMutation({
     mutationFn: async (userData: Partial<AppUser>) => {
+      console.log('Sending to API:', userData);
       const response = await api.post("/users", userData);
       return response.data;
     },
@@ -147,7 +154,7 @@ export default function UsuariosPage() {
       setShowForm(false);
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || "Erro ao criar usuário");
+      toast.error(getErrorMessage(error) || "Erro ao criar usuário");
     },
   });
 
@@ -164,7 +171,7 @@ export default function UsuariosPage() {
       setShowForm(false);
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || "Erro ao atualizar usuário");
+      toast.error(getErrorMessage(error) || "Erro ao atualizar usuário");
     },
   });
 
@@ -178,7 +185,7 @@ export default function UsuariosPage() {
       toast.success("Usuário removido com sucesso!");
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || "Erro ao remover usuário");
+      toast.error(getErrorMessage(error) || "Erro ao remover usuário");
     },
   });
 
@@ -330,6 +337,8 @@ export default function UsuariosPage() {
           user={editingUser ? (toUiUser(editingUser) as any) : undefined}
           onSubmit={(formData: any) => {
             const payload = fromUiUser(formData);
+            console.log('Form data:', formData);
+            console.log('Payload after mapping:', payload);
             editingUser ? handleUpdateUser(payload) : handleCreateUser(payload);
           }}
           onCancel={() => {

@@ -33,6 +33,7 @@ interface SimulationHistoryEntry {
   rejected_by?: number;
   rejected_by_name?: string;
   reason?: string;
+  observacao_calculista?: string;
   totals: {
     valorParcelaTotal: number;
     saldoTotal: number;
@@ -296,6 +297,20 @@ export function SimulationHistoryModal({
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Observações do Calculista */}
+                    {entry.observacao_calculista && (
+                      <div className="border-t pt-3">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">
+                          Observações do Calculista:
+                        </p>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                          <p className="text-sm text-blue-800">
+                            {entry.observacao_calculista}
+                          </p>
                         </div>
                       </div>
                     )}

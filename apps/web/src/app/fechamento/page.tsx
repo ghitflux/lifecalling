@@ -13,23 +13,40 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  TabsContent
+  TabsContent,
+  Pagination
 } from "@lifecalling/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo } from "react";
+import { Input } from "@/components/ui/input";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, Target, FileCheck, Eye } from "lucide-react";
+import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, Target, FileCheck, Eye, Search } from "lucide-react";
 
 function FechamentoContent() {
   useLiveCaseEvents();
   const router = useRouter();
-  const { data: items = [], isLoading, error, refetch } = useClosingQueue();
+  
+  // Estados para busca e paginação
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [activeTab, setActiveTab] = useState("pendentes");
+
+  // Hook para buscar dados com filtros
+  const { data: queueData, isLoading, error, refetch } = useClosingQueue({
+    search: searchTerm || undefined,
+    page: currentPage,
+    pageSize: pageSize
+  });
+
   const approve = useClosingApprove();
   const reject = useClosingReject();
   const { data: efetivadosCases = [], isLoading: isLoadingEfetivados } = useCasosEfetivados();
 
-  // Estado para controle da tab ativa
-  const [activeTab, setActiveTab] = useState("pendentes");
+  // Extrair dados da resposta
+  const items = queueData?.items || [];
+  const totalCount = queueData?.totalCount || 0;
+  const totalPages = queueData?.totalPages || 1;
 
 
 
@@ -132,9 +149,8 @@ function FechamentoContent() {
 
   // Separar casos por status
   const casosPendentes = useMemo(() => {
-    return items.filter((item: any) =>
-      item.status === 'calculo_aprovado' || item.status === 'fechamento_pendente'
-    );
+    // Apenas casos com status "fechamento_pendente" (Aguardando Fechamento)
+    return items.filter((item: any) => item.status === 'fechamento_pendente');
   }, [items]);
 
   const casosAprovados = useMemo(() => {
@@ -168,7 +184,8 @@ function FechamentoContent() {
   const handleApprove = (caseId: number) => {
     approve.mutate(caseId, {
       onSuccess: () => {
-        // Após aprovação, manter na tab pendentes para ver a atualização
+        // Após aprovação, resetar para primeira página e recarregar
+        setCurrentPage(1);
         refetch();
       }
     });
@@ -177,6 +194,8 @@ function FechamentoContent() {
   const handleReject = (caseId: number) => {
     reject.mutate(caseId, {
       onSuccess: () => {
+        // Após rejeição, resetar para primeira página e recarregar
+        setCurrentPage(1);
         refetch();
       }
     });
@@ -198,7 +217,7 @@ function FechamentoContent() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary">
-            {filteredItems.length} caso{filteredItems.length !== 1 ? 's' : ''}
+            {totalCount} caso{totalCount !== 1 ? 's' : ''}
           </Badge>
           <Button
             variant="outline"
@@ -217,13 +236,13 @@ function FechamentoContent() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <KPICard
           title="Casos Pendentes"
-          value={combinedKpis.casos_pendentes}
-          subtitle="Aguardando análise"
-          trend={combinedKpis.trends?.casos_pendentes || 0}
+          value={casosPendentes.length}
+          subtitle="Aguardando fechamento"
+          trend={0}
           icon={Clock}
           color="warning"
           gradientVariant="amber"
-          isLoading={isLoadingKpis && !kpis}
+          isLoading={isLoading}
           miniChart={<MiniAreaChart data={getTrendChartData.casos_pendentes} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
         />
 
@@ -321,6 +340,23 @@ function FechamentoContent() {
 
 
 
+      {/* Busca */}
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Buscar por nome, CPF ou matrícula..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+          />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {totalCount} caso{totalCount !== 1 ? 's' : ''}
+        </div>
+      </div>
+
       {/* Tabs para casos por status */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
@@ -362,18 +398,38 @@ function FechamentoContent() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {casosPendentes.map((item: any) => (
-                <CardFechamento
-                  key={item.id}
-                  case={item}
-                  onApprove={() => handleApprove(item.id)}
-                  onReject={() => handleReject(item.id)}
-                  onViewDetails={() => router.push(`/fechamento/${item.id}`)}
-                  isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {casosPendentes.map((item: any) => (
+                  <CardFechamento
+                    key={item.id}
+                    case={item}
+                    onApprove={() => handleApprove(item.id)}
+                    onReject={() => handleReject(item.id)}
+                    onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+                    isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
+                  />
+                ))}
+              </div>
+              
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalCount}
+                    itemsPerPage={pageSize}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={(size) => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    itemsPerPageOptions={[20, 50, 100]}
+                  />
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -401,19 +457,39 @@ function FechamentoContent() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {casosAprovados.map((item: any) => (
-                <CardFechamento
-                  key={item.id}
-                  case={item}
-                  onApprove={() => handleApprove(item.id)}
-                  onReject={() => handleReject(item.id)}
-                  onViewDetails={() => router.push(`/fechamento/${item.id}`)}
-                  isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-                  hideActions={true}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {casosAprovados.map((item: any) => (
+                  <CardFechamento
+                    key={item.id}
+                    case={item}
+                    onApprove={() => handleApprove(item.id)}
+                    onReject={() => handleReject(item.id)}
+                    onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+                    isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
+                    hideActions={true}
+                  />
+                ))}
+              </div>
+              
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalCount}
+                    itemsPerPage={pageSize}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={(size) => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    itemsPerPageOptions={[20, 50, 100]}
+                  />
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -441,19 +517,39 @@ function FechamentoContent() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {casosRejeitados.map((item: any) => (
-                <CardFechamento
-                  key={item.id}
-                  case={item}
-                  onApprove={() => handleApprove(item.id)}
-                  onReject={() => handleReject(item.id)}
-                  onViewDetails={() => router.push(`/fechamento/${item.id}`)}
-                  isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
-                  // hideActions prop removed – CardFechamento no longer accepts it
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {casosRejeitados.map((item: any) => (
+                  <CardFechamento
+                    key={item.id}
+                    case={item}
+                    onApprove={() => handleApprove(item.id)}
+                    onReject={() => handleReject(item.id)}
+                    onViewDetails={() => router.push(`/fechamento/${item.id}`)}
+                    isLoading={approve.isPending && approve.variables === item.id || reject.isPending && reject.variables === item.id}
+                    // hideActions prop removed – CardFechamento no longer accepts it
+                  />
+                ))}
+              </div>
+              
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalCount}
+                    itemsPerPage={pageSize}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={(size) => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    itemsPerPageOptions={[20, 50, 100]}
+                  />
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 

@@ -120,7 +120,11 @@ export function UserForm({ user, onSubmit, onCancel, loading, className }: UserF
       status: formData.status
     };
 
-    if (formData.password.trim()) {
+    // Para novos usuários, sempre incluir senha
+    if (!user) {
+      submitData.password = formData.password;
+    } else if (formData.password.trim()) {
+      // Para edição, só incluir senha se foi alterada
       submitData.password = formData.password;
     }
 

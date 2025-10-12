@@ -19,6 +19,7 @@ export type Status =
   | "calculista_pendente" | "calculo_aprovado" | "calculo_rejeitado"
   | "fechamento_aprovado" | "fechamento_reprovado"
   | "financeiro_pendente" | "contrato_efetivado" | "encerrado"
+  | "draft" | "approved" | "rejected"  // Status de simulações
   // Status legados (manter para compatibilidade)
   | "aguardando_aprovacao" | "aprovado" | "reprovado"
   | "fechamento_pendente" | "atribuido" | "pendente" | "ativo";
@@ -83,6 +84,23 @@ const statusConfig: Record<Status, {
     color: "bg-muted/20 text-muted-foreground border-muted/30",
     icon: Archive,
     label: "Encerrado"
+  },
+
+  // Status de simulações
+  draft: {
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    icon: Clock,
+    label: "Rascunho"
+  },
+  approved: {
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: CheckCircle2,
+    label: "Aprovado"
+  },
+  rejected: {
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: XCircle,
+    label: "Rejeitado"
   },
 
   // Status legados (compatibilidade)

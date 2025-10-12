@@ -3,7 +3,7 @@
 import React from "react";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
-import { Calculator, TrendingUp, DollarSign, Wallet } from "lucide-react";
+import { Calculator, TrendingUp, DollarSign, Wallet, User } from "lucide-react";
 
 // Tipos para simulação
 interface SimulationBankInput {
@@ -38,13 +38,15 @@ interface SimulationResultCardProps {
   simulation?: SimulationInput | null;
   isActive?: boolean;
   className?: string;
+  atendente?: string | null;
 }
 
 export function SimulationResultCard({
   totals,
   simulation,
   isActive = false,
-  className = ""
+  className = "",
+  atendente
 }: SimulationResultCardProps) {
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -114,6 +116,19 @@ export function SimulationResultCard({
             Calculado ✓
           </Badge>
         </div>
+
+        {/* Atendente responsável */}
+        {atendente && (
+          <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">
+                Atribuído a:
+              </span>
+              <span className="text-sm font-semibold">{atendente}</span>
+            </div>
+          </div>
+        )}
 
         {/* Resumo dos Bancos */}
         {simulation && (

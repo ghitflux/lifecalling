@@ -155,19 +155,6 @@ export function PodiumCard({
               </div>
             </div>
           </div>
-
-          {/* Consultoria Líq. por Contrato */}
-          <div className="bg-card/30 backdrop-blur-sm rounded-lg p-3 border border-border/30">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-muted-foreground font-medium">Consultoria Líq. por Contrato</div>
-              <div className="font-semibold text-sm">
-                {(consultoriaLiq / contracts).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL"
-                })}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

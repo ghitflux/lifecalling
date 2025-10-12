@@ -46,8 +46,8 @@ def ranking_agents(
 
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
-    # Primeiro, buscar TODOS os usuários do sistema
-    all_users_q = db.query(User)
+    # Buscar apenas usuários com role "atendente"
+    all_users_q = db.query(User).filter(User.role == "atendente")
     if agent_id:
         all_users_q = all_users_q.filter(User.id == agent_id)
 
@@ -175,8 +175,8 @@ def get_targets(
     Se não existir, retornar vazio (frontend trata como 0).
     """
 
-    # Exemplo lendo de User.settings (JSONB). Adapte o nome do campo:
-    rows = db.query(User).all()
+    # Buscar apenas atendentes
+    rows = db.query(User).filter(User.role == "atendente").all()
     items = []
     for u in rows:
         meta = {}
@@ -306,9 +306,9 @@ def export_csv(
             "meta_contratos","meta_consultoria","atingimento_contratos","atingimento_consultoria"
         ])
 
-        # metas por usuário (opcional via User.settings)
+        # metas por usuário - apenas atendentes
         user_targets: dict[int, dict] = {}
-        for u in db.query(User).all():
+        for u in db.query(User).filter(User.role == "atendente").all():
             meta = {}
             if hasattr(u, "settings") and isinstance(getattr(u, "settings"), dict):
                 meta = (u.settings or {}).get("targets", {})
@@ -385,14 +385,16 @@ def get_podium(
         else_=Case.assigned_user_id
     )
 
-    # Query para ranking por consultoria líquida
+    # Query para ranking por consultoria líquida - apenas atendentes
     ranking_query = (db.query(
                 owner_user_id.label("user_id"),
                 func.count(Contract.id).label("contracts"),
                 func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("consultoria_liq")
             )
             .join(Case, Case.id == Contract.case_id, isouter=True)
-            .filter(Contract.status == "ativo"))
+            .join(User, User.id == owner_user_id)
+            .filter(Contract.status == "ativo")
+            .filter(User.role == "atendente"))  # Filtrar apenas atendentes ANTES do limit
 
     if from_ and to:
         ranking_query = ranking_query.filter(
@@ -408,13 +410,14 @@ def get_podium(
     for idx, row in enumerate(ranking_data):
         if row.user_id:
             user_obj = db.get(User, row.user_id)
-            podium.append({
-                "position": idx + 1,
-                "user_id": row.user_id,
-                "name": user_obj.name if user_obj else "Desconhecido",
-                "contracts": int(row.contracts or 0),
-                "consultoria_liq": float(row.consultoria_liq or 0)
-            })
+            if user_obj:
+                podium.append({
+                    "position": idx + 1,
+                    "user_id": row.user_id,
+                    "name": user_obj.name,
+                    "contracts": int(row.contracts or 0),
+                    "consultoria_liq": float(row.consultoria_liq or 0)
+                })
 
     return {
         "period": {"from": str(start), "to": str(end)},
@@ -559,9 +562,9 @@ def get_rankings_kpis(
     top_performer = None
     max_consultoria = 0
 
-    # Buscar metas personalizadas dos usuários
+    # Buscar metas personalizadas dos usuários - apenas atendentes
     user_targets = {}
-    for u in db.query(User).all():
+    for u in db.query(User).filter(User.role == "atendente").all():
         meta = {}
         if hasattr(u, "settings") and isinstance(u.settings, dict):
             meta = (u.settings or {}).get("targets", {})

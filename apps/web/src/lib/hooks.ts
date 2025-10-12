@@ -295,8 +295,29 @@ export function useSimReject() {
 }
 
 /** Fechamento */
-export function useClosingQueue() {
-  return useQuery({ queryKey:["closing","queue"], queryFn: async ()=> (await api.get("/closing/queue")).data.items ?? [] });
+export function useClosingQueue(params?: { search?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: ["closing", "queue", params],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      if (params?.search) searchParams.append("search", params.search);
+      if (params?.page) searchParams.append("page", params.page.toString());
+      if (params?.pageSize) searchParams.append("page_size", params.pageSize.toString());
+
+      const response = await api.get(`/closing/queue?${searchParams.toString()}`);
+      return {
+        items: response.data.items ?? [],
+        totalCount: response.data.total_count ?? 0,
+        page: response.data.page ?? 1,
+        pageSize: response.data.page_size ?? 20,
+        totalPages: response.data.total_pages ?? 1
+      };
+    },
+    staleTime: 5000, // Considerar dados obsoletos após 5 segundos
+    refetchInterval: 10000, // Refetch a cada 10 segundos
+    refetchOnWindowFocus: true,
+    retry: 2,
+  });
 }
 export function useClosingApprove() {
   const qc = useQueryClient();

@@ -1,12 +1,25 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, cases, imports, ws as wsmod, clients, users
+from fastapi.responses import JSONResponse
+import json
+from .routers import auth, cases, imports, ws as wsmod, clients, users, comments
+
 from .routers import closing, finance, dashboard, contract_attachments, analytics, rankings, campanhas, campaigns
 from .db import Base, engine
 from .routers import simulations
 from .routers.simulations import calculation_router
 from .config import settings
 import os
+
+class UTF8JSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
 
 # Configurar timezone para Brasil (America/Sao_Paulo)
 os.environ['TZ'] = 'America/Sao_Paulo'
@@ -17,7 +30,10 @@ except AttributeError:
     # tzset não está disponível no Windows, mas a variável de ambiente ainda funciona
     pass
 
-app = FastAPI(title="Lifecalling API")
+app = FastAPI(
+    title="Lifecalling API",
+    default_response_class=UTF8JSONResponse
+)
 
 # Parse FRONTEND_URL para suportar múltiplas URLs separadas por vírgula
 frontend_urls = [url.strip() for url in settings.frontend_url.split(",")]
@@ -26,8 +42,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=frontend_urls,
     allow_credentials=True,  # CRÍTICO: necessário para cookies HttpOnly
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-CSRF-Token"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-CSRF-Token", "x-csrf-token"],
     expose_headers=["Set-Cookie"],  # Expõe cookies para o frontend
 )
 
@@ -48,6 +64,7 @@ app.include_router(analytics.r)
 
 app.include_router(imports.r)
 app.include_router(clients.r)
+app.include_router(comments.r)
 app.include_router(wsmod.ws_router)
 
 # Health check endpoint
@@ -81,6 +98,59 @@ def debug_cases():
             }
 
         return result
+
+# Debug endpoint para testar filtros
+@app.get("/debug/filters")
+def debug_filters():
+    from .db import SessionLocal
+    from .models import Case, Client, PayrollLine
+    from sqlalchemy import func, distinct
+    
+    with SessionLocal() as db:
+        # Total de casos
+        total_cases = db.query(Case).count()
+        
+        # Casos não atribuídos
+        unassigned_cases = db.query(Case).filter(Case.assigned_user_id.is_(None)).count()
+        
+        # Entidades disponíveis
+        entities = db.query(PayrollLine.entity_name).filter(
+            PayrollLine.entity_name.isnot(None)
+        ).distinct().all()
+        entity_list = [e[0] for e in entities if e[0]]
+        
+        # Casos por entidade
+        cases_by_entity = {}
+        for entity in entity_list[:5]:  # Primeiras 5 entidades
+            count = (
+                db.query(func.count(distinct(Case.id)))
+                .join(Client, Client.id == Case.client_id)
+                .join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                .filter(PayrollLine.entity_name == entity)
+                .scalar()
+            )
+            cases_by_entity[entity] = count
+        
+        # Casos não atribuídos por entidade
+        unassigned_by_entity = {}
+        for entity in entity_list[:5]:  # Primeiras 5 entidades
+            count = (
+                db.query(func.count(distinct(Case.id)))
+                .join(Client, Client.id == Case.client_id)
+                .join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                .filter(Case.assigned_user_id.is_(None))
+                .filter(PayrollLine.entity_name == entity)
+                .scalar()
+            )
+            unassigned_by_entity[entity] = count
+        
+        return {
+            "total_cases": total_cases,
+            "unassigned_cases": unassigned_cases,
+            "entities": entity_list[:10],  # Primeiras 10 entidades
+            "cases_by_entity": cases_by_entity,
+            "unassigned_by_entity": unassigned_by_entity
+        }
 
 # Endpoint para limpar e recriar dados de teste
 @app.post("/debug/reset-data")
@@ -219,52 +289,52 @@ def clear_data_keep_users():
             # 1. Eventos e anexos de casos
             db.query(CaseEvent).delete()
             db.query(Attachment).delete()
-            
+
             # 2. Simulações
             db.query(Simulation).delete()
-            
+
             # 3. Pagamentos (dependem de contratos)
             db.query(Payment).delete()
-            
+
             # 4. Anexos de contratos
             db.query(ContractAttachment).delete()
-            
+
             # 5. Contratos (dependem de casos)
             db.query(Contract).delete()
-            
+
             # 6. Casos (dependem de clientes)
             db.query(Case).delete()
-            
+
             # 7. Telefones de clientes
             db.query(ClientPhone).delete()
-            
+
             # 8. Clientes
             db.query(Client).delete()
-            
+
             # 9. Dados de importação de folha
             db.query(PayrollImportItem).delete()
             db.query(PayrollImportBatch).delete()
             db.query(PayrollLine).delete()
             db.query(ImportBatch).delete()
             db.query(Import).delete()
-            
+
             # 10. Clientes e contratos de folha
             db.query(PayrollContract).delete()
             db.query(PayrollClient).delete()
-            
+
             # 11. Dados financeiros
             db.query(FinanceExpense).delete()
             db.query(FinanceIncome).delete()
-            
+
             # 12. Campanhas
             db.query(Campaign).delete()
 
             db.commit()
-            
+
             # Contar usuários restantes
             from .models import User
             user_count = db.query(User).count()
-            
+
             return {
                 "message": f"Dados limpos com sucesso! {user_count} usuários mantidos.",
                 "users_kept": user_count

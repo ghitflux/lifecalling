@@ -43,16 +43,40 @@ def get_db():
 
 def calculate_status_summary(lines: list) -> dict:
     """
-    Calcula resumo dos status para um cliente.
+    Calcula resumo dos status para um cliente, agrupando por código FIN.
+
+    Estrutura de retorno:
+    {
+        "total_lines": 5,
+        "financiamentos": {
+            "6490": {  # Código FIN
+                "07/2025": {
+                    "valor_parcela": 458.04,
+                    "status": "1",
+                    "status_description": "Lançado e Efetivado",
+                    "parcelas_pagas": 24,
+                    "total_parcelas": 88,
+                    "entity_name": "BANCO SANTANDER S.A"
+                },
+                "08/2025": {...}
+            },
+            "7821": {...}
+        },
+        "status_counts": {...},
+        "has_problems": False,
+        "has_success": True,
+        "priority_score": 5
+    }
 
     Args:
         lines: Lista de linhas do cliente
 
     Returns:
-        Dict com contadores e resumo dos status
+        Dict com contadores e resumo dos status agrupados por FIN
     """
     summary = {
         "total_lines": len(lines),
+        "financiamentos": {},  # Agrupado por FIN
         "status_counts": {},
         "has_problems": False,
         "has_success": False,
@@ -64,6 +88,27 @@ def calculate_status_summary(lines: list) -> dict:
 
     for line in lines:
         status = line["status_code"]
+        fin_code = line.get("financiamento_code", "")
+        ref_key = f"{line.get('ref_month', 0):02d}/{line.get('ref_year', 0)}"
+
+        # Agrupar por código FIN
+        if fin_code not in summary["financiamentos"]:
+            summary["financiamentos"][fin_code] = {}
+
+        # Adicionar dados deste mês/ano
+        summary["financiamentos"][fin_code][ref_key] = {
+            "valor_parcela": float(line.get("valor_parcela_ref", 0)),
+            "status": status,
+            "status_description": line.get("status_description", ""),
+            "parcelas_pagas": int(line.get("parcelas_pagas", 0)),
+            "total_parcelas": int(line.get("total_parcelas", 0)),
+            "entity_name": line.get("entity_name", ""),
+            "orgao": line.get("orgao", ""),
+            "orgao_pagamento": line.get("orgao_pagamento", ""),
+            "orgao_pagamento_nome": line.get("orgao_pagamento_nome", "")
+        }
+
+        # Contar status globais
         if status not in summary["status_counts"]:
             summary["status_counts"][status] = {
                 "count": 0,
@@ -333,6 +378,7 @@ async def import_payroll_file(
             "lines_created": 0,
             "cases_created": 0,
             "cases_updated": 0,
+            "cases_reopened": 0,
             "errors": 0
         }
 
@@ -381,11 +427,17 @@ async def import_payroll_file(
                 # Calcular resumo de status para este cliente
                 status_summary = calculate_status_summary(client_line_group)
 
-                # Criar/atualizar caso na esteira (1 caso aberto por cliente, idempotente)
+                # Criar/atualizar caso na esteira (1 caso por CPF - REGRA ABSOLUTA)
                 try:
+                    from ..models import CaseEvent, now_brt
+
                     # Status considerados "abertos" (não criar novos casos se já houver um aberto)
                     OPEN_STATUSES = ["novo", "disponivel", "em_atendimento", "calculista",
-                                     "calculista_pendente", "financeiro", "fechamento_pendente"]
+                                     "calculista_pendente", "financeiro", "fechamento_pendente",
+                                     "calculo_aprovado", "fechamento_aprovado"]
+
+                    # Status que devem ser reabertos
+                    CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado", "cancelado"]
 
                     # Verificar se caso aberto já existe para este cliente
                     existing_case = db.query(Case).filter(
@@ -393,21 +445,61 @@ async def import_payroll_file(
                         Case.status.in_(OPEN_STATUSES)
                     ).order_by(Case.id.desc()).first()
 
-                    is_new_case = existing_case is None
-
                     if existing_case:
                         # Reaproveitar caso existente: apenas atualizar
                         existing_case.payroll_status_summary = status_summary
                         existing_case.import_batch_id_new = batch.id
+                        existing_case.ref_month = batch.ref_month
+                        existing_case.ref_year = batch.ref_year
                         existing_case.last_update_at = datetime.utcnow()
                         case = existing_case
                         counters["cases_updated"] += 1
-                        logger.info(f"Caso {case.id} reaproveitado para cliente {client.id}")
+                        logger.info(f"Caso {case.id} atualizado para cliente {client.id}")
                     else:
-                        # Criar novo caso
-                        case = create_case_for_client(db, client, batch, status_summary)
-                        counters["cases_created"] += 1
-                        logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
+                        # Verificar se existe caso encerrado/sem_contato para REABRIR
+                        closed_case = db.query(Case).filter(
+                            Case.client_id == client.id,
+                            Case.status.in_(CLOSED_STATUSES)
+                        ).order_by(Case.id.desc()).first()
+
+                        if closed_case:
+                            # REABRIR caso fechado (mantém histórico)
+                            old_status = closed_case.status
+                            closed_case.status = "novo"
+                            closed_case.payroll_status_summary = status_summary
+                            closed_case.import_batch_id_new = batch.id
+                            closed_case.ref_month = batch.ref_month
+                            closed_case.ref_year = batch.ref_year
+                            closed_case.last_update_at = datetime.utcnow()
+                            # Limpar atribuição antiga
+                            closed_case.assigned_user_id = None
+                            closed_case.assigned_at = None
+                            closed_case.assignment_expires_at = None
+
+                            # Criar evento de reabertura
+                            reopen_event = CaseEvent(
+                                case_id=closed_case.id,
+                                type="case.reopened",
+                                payload={
+                                    "previous_status": old_status,
+                                    "new_status": "novo",
+                                    "reason": "Nova importação de dados",
+                                    "batch_id": batch.id,
+                                    "ref_month": batch.ref_month,
+                                    "ref_year": batch.ref_year
+                                },
+                                created_at=now_brt()
+                            )
+                            db.add(reopen_event)
+
+                            case = closed_case
+                            counters["cases_reopened"] += 1
+                            logger.info(f"Caso {case.id} REABERTO (era {old_status}) para cliente {client.id}")
+                        else:
+                            # Criar novo caso
+                            case = create_case_for_client(db, client, batch, status_summary)
+                            counters["cases_created"] += 1
+                            logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
 
                 except Exception as case_error:
                     logger.error(f"Erro ao criar/atualizar caso para cliente {client.id}: {case_error}")
@@ -552,6 +644,9 @@ async def import_payroll_file(
 
         if counters["cases_created"] > 0:
             messages.append(f"✓ {counters['cases_created']} novos casos criados na esteira")
+
+        if counters["cases_reopened"] > 0:
+            messages.append(f"🔄 {counters['cases_reopened']} casos reabertos (estavam encerrados/sem contato)")
 
         if messages:
             response["info"] = " • ".join(messages)

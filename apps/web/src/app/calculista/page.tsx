@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense, useCallback } from "react";
 import {
   Card,
   Button,
@@ -18,6 +18,7 @@ import {
   KPICard,
   MiniAreaChart,
   ProgressBar,
+  Pagination,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
@@ -40,6 +41,12 @@ import {
   DollarSign,
   Target,
   RefreshCw,
+  Clock,
+  FileText,
+  Archive,
+  AlertCircle,
+  Search,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -51,6 +58,14 @@ function CalculistaPageContent() {
 
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset página quando busca muda
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // Função para atualizar todos os dados
   const handleRefresh = () => {
@@ -106,8 +121,25 @@ function CalculistaPageContent() {
     }
   }, [searchParams]);
 
-  // Dados
-  const { data: allSims, isLoading: simsLoading } = useAllSimulations(true);
+  // Resetar página ao trocar de aba
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  // Dados - busca em tempo real
+  // Determinar caseStatus baseado na aba ativa
+  const caseStatusFilter = activeTab === "pendentes" ? "calculista_pendente" : undefined;
+
+  const { data: allSimsData, isLoading: simsLoading } = useAllSimulations(true, {
+    search: searchTerm || undefined,
+    page: currentPage,
+    pageSize: pageSize,
+    caseStatus: caseStatusFilter
+  });
+  
+  const allSims = allSimsData?.items || [];
+  const totalCount = allSimsData?.totalCount || 0;
+  const totalPages = allSimsData?.totalPages || 1;
   const { data: stats } = useCalculistaStats();
   // KPIs do mês atual (dados reais)
   const currentMonth = useMemo(() => {
@@ -122,6 +154,28 @@ function CalculistaPageContent() {
     useCasosEfetivados();
   const { data: casosCancelados, isLoading: canceladosLoading } =
     useCasosCancelados();
+
+  // Query para casos encerrados
+  const { data: casosEncerrados = [], isLoading: encerradosLoading } = useQuery({
+    queryKey: ["/cases", "encerrado"],
+    queryFn: async () => {
+      const res = await api.get("/cases?status=encerrado&page_size=50");
+      return res.data.items || [];
+    },
+    enabled: activeTab === "encerrados",
+  });
+
+  // Query para todas as simulações (para a nova tab)
+  const { data: allSimulationsQuery = [], isLoading: allSimulationsLoading } = useQuery({
+    queryKey: ["allSimulations"],
+    queryFn: async () => {
+      const response = await api.get("/simulations", {
+        params: { all: true, limit: 100 }
+      });
+      return response.data || [];
+    },
+    enabled: activeTab === "todas_simulacoes"
+  });
 
   // KPIs combinados (usando dados do fechamento para meta_mensal e consultoria_liquida)
   const combinedKpis = useMemo(() => {
@@ -197,11 +251,14 @@ function CalculistaPageContent() {
       enabled: activeTab === "enviado_financeiro",
     });
 
-  // Filtragem
-  const allSimulations = allSims || [];
+  // Filtragem (busca já é feita no backend via API)
+  const allSimulations = useMemo(() => allSims || [], [allSims]);
 
   // Separar por status para as abas
-  const pendingSims = allSimulations.filter((s: any) => s.status === "draft");
+  // Para tab Pendentes, o backend já filtra por case.status === "calculista_pendente"
+  const pendingSims = activeTab === "pendentes"
+    ? allSimulations
+    : allSimulations.filter((s: any) => s.status === "draft" && s.case?.status === "calculista_pendente");
   const completedSims = allSimulations.filter(
     (s: any) => s.status === "approved" || s.status === "rejected"
   );
@@ -322,9 +379,39 @@ function CalculistaPageContent() {
         </Card>
       </div>
 
-      {/* Abas */}
+      {/* Campo de Busca */}
+      <div className="space-y-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Buscar por CPF ou nome do cliente..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-10 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent border border-input bg-muted text-foreground placeholder:text-muted-foreground"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setCurrentPage(1);
+              }}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        {totalCount} simulação{totalCount !== 1 ? 'ões' : ''}
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
@@ -337,8 +424,14 @@ function CalculistaPageContent() {
           <TabsTrigger value="concluidas">
             Concluídas Hoje ({completedSims.length})
           </TabsTrigger>
+          <TabsTrigger value="todas_simulacoes">
+            Todas Simulações
+          </TabsTrigger>
           <TabsTrigger value="efetivados">
             Casos Efetivados ({casosEfetivados?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="encerrados">
+            Encerrados ({casosEncerrados?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="cancelados">
             Casos Cancelados ({casosCancelados?.length || 0})
@@ -368,7 +461,7 @@ function CalculistaPageContent() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{sim.case_id}</Badge>
-                      <StatusBadge status="draft" size="sm" />
+                      <StatusBadge status={sim.case?.status || "calculista_pendente"} size="sm" />
                     </div>
 
                     <div>
@@ -544,7 +637,7 @@ function CalculistaPageContent() {
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{sim.case_id}</Badge>
                       <StatusBadge
-                        status={sim.status === "approved" ? "aprovado" : "reprovado"}
+                        status={sim.case?.status || (sim.status === "approved" ? "calculo_aprovado" : "calculo_rejeitado")}
                         size="sm"
                       />
                     </div>
@@ -580,6 +673,109 @@ function CalculistaPageContent() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Todas Simulações */}
+        <TabsContent value="todas_simulacoes" className="mt-6">
+          <div className="space-y-4">
+            {/* Lista de todas as simulações */}
+            {allSims.length === 0 ? (
+              <div className="text-center py-12">
+                <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="font-medium text-muted-foreground mb-1">
+                  Nenhuma simulação encontrada
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {searchTerm ? "Tente ajustar os termos de busca." : "Não há simulações registradas."}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {allSims.map((sim: any) => (
+                    <Card
+                      key={sim?.id || Math.random()}
+                      className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => handleSimulationClick(sim?.case_id || 0)}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <StatusBadge status={sim?.case?.status || sim?.status || 'draft'} size="sm" />
+                          <span className="text-xs text-muted-foreground">
+                            {sim?.updated_at || sim?.created_at
+                              ? new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")
+                              : 'Data não disponível'
+                            }
+                          </span>
+                        </div>
+
+                        <div>
+                          <h3 className="font-medium">Caso #{sim?.case_id || '---'}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {sim?.client?.name || "Cliente não identificado"}
+                          </p>
+                          {sim?.client?.cpf && (
+                            <p className="text-xs text-muted-foreground">
+                              CPF: {sim.client.cpf}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Informações adicionais da simulação */}
+                        {(sim?.prazo || sim?.banks_json) && (
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            {sim.prazo && (
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium">Prazo:</span>
+                                <span>{sim.prazo} meses</span>
+                              </div>
+                            )}
+                            {sim.banks_json && Array.isArray(sim.banks_json) && sim.banks_json.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium">Bancos:</span>
+                                <span>{sim.banks_json.length}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="text-xs text-muted-foreground">
+                          {sim?.observacao_calculista && (
+                            <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+                              <strong>Obs:</strong> {sim.observacao_calculista}
+                            </div>
+                          )}
+                        </div>
+
+                        <Button variant="outline" className="w-full" size="sm">
+                          <Calculator className="h-4 w-4 mr-2" />
+                          Ver Detalhes
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Paginação */}
+                {totalPages > 1 && (
+                  <div className="mt-6">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      totalItems={totalCount}
+                      itemsPerPage={pageSize}
+                      onPageChange={setCurrentPage}
+                      onItemsPerPageChange={(size) => {
+                        setPageSize(size);
+                        setCurrentPage(1);
+                      }}
+                      itemsPerPageOptions={[20, 50, 100]}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </TabsContent>
 
         {/* Efetivados */}
@@ -633,6 +829,66 @@ function CalculistaPageContent() {
 
                     <Button variant="outline" className="w-full" size="sm">
                       <CheckCircle className="h-4 w-4 mr-2" />
+                      Ver Detalhes
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Encerrados */}
+        <TabsContent value="encerrados" className="mt-6">
+          {encerradosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CaseSkeleton key={i} />
+              ))}
+            </div>
+          ) : casosEncerrados?.length === 0 ? (
+            <div className="text-center py-12">
+              <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Nenhum caso encerrado encontrado
+              </h3>
+              <p className="text-muted-foreground">
+                Não há casos encerrados no momento.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {casosEncerrados?.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 space-y-3 hover:shadow-md transition-shadow"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <StatusBadge status="encerrado" size="sm" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">Caso #{caso.id}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </p>
+                      {caso.client?.cpf && (
+                        <p className="text-xs text-muted-foreground">
+                          CPF: {caso.client.cpf}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Encerrado em:{" "}
+                      {new Date(
+                        caso.updated_at || caso.created_at
+                      ).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <Button variant="outline" className="w-full" size="sm">
+                      <Archive className="h-4 w-4 mr-2" />
                       Ver Detalhes
                     </Button>
                   </div>

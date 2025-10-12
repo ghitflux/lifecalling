@@ -58,6 +58,7 @@ export function SimulationFormMultiBank({
     percentualConsultoria: 12
   });
 
+
   const [inputValues, setInputValues] = useState<{
     [key: string]: {
       parcela: string;
@@ -465,7 +466,6 @@ export function SimulationFormMultiBank({
               </Card>
             ))}
           </div>
-
 
           {/* Submit Button */}
           <div className="border-t pt-4">

@@ -6,7 +6,7 @@ import { Button, CollapseIcon } from "@lifecalling/ui";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
-  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon, Trophy
+  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon, Trophy, HelpCircle
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -29,6 +29,7 @@ const NAV: Item[] = [
   { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
   { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin"] },
   { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin"] },
+  { label: "FAQ",          href: "/faq",        icon: HelpCircle, roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
 ];
 
 export default function Sidebar() {
