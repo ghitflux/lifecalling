@@ -19,7 +19,6 @@ import {
   MiniAreaChart,
   ProgressBar,
   Pagination,
-  QuickFilters,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
@@ -46,6 +45,8 @@ import {
   FileText,
   Archive,
   AlertCircle,
+  Search,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -58,18 +59,12 @@ function CalculistaPageContent() {
   // Estados
   const [activeTab, setActiveTab] = useState("pendentes");
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
-  // Debounce apenas para a query, não para o input
+  // Reset página quando busca muda
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setCurrentPage(1);
-    }, 600);
-    return () => clearTimeout(timer);
+    setCurrentPage(1);
   }, [searchTerm]);
 
   // Função para atualizar todos os dados
@@ -131,12 +126,12 @@ function CalculistaPageContent() {
     setCurrentPage(1);
   }, [activeTab]);
 
-  // Dados - usando debouncedSearch para evitar requisições enquanto digita
+  // Dados - busca em tempo real
   // Determinar caseStatus baseado na aba ativa
   const caseStatusFilter = activeTab === "pendentes" ? "calculista_pendente" : undefined;
 
   const { data: allSimsData, isLoading: simsLoading } = useAllSimulations(true, {
-    search: debouncedSearch || undefined,
+    search: searchTerm || undefined,
     page: currentPage,
     pageSize: pageSize,
     caseStatus: caseStatusFilter
@@ -384,35 +379,33 @@ function CalculistaPageContent() {
         </Card>
       </div>
 
-      {/* Filtros Rápidos */}
-      <QuickFilters
-        searchTerm={searchTerm}
-        onSearchChange={(value) => {
-          setSearchTerm(value);
-          setCurrentPage(1);
-        }}
-        activeFilters={statusFilter}
-        onFilterToggle={(filterId) => {
-          setStatusFilter((prev) =>
-            prev.includes(filterId) ? prev.filter((id) => id !== filterId) : [filterId]
-          );
-          setCurrentPage(1);
-        }}
-        availableFilters={[
-          { id: "calculista_pendente", label: "Pendente Análise", value: "calculista_pendente", icon: Clock, color: "warning" as const },
-          { id: "calculo_aprovado", label: "Cálculo Aprovado", value: "calculo_aprovado", icon: CheckCircle, color: "success" as const },
-          { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", icon: Target, color: "success" as const },
-          { id: "financeiro_pendente", label: "Enviado Financeiro", value: "financeiro_pendente", icon: DollarSign, color: "secondary" as const },
-          { id: "contrato_efetivado", label: "Efetivados", value: "contrato_efetivado", icon: CheckCircle, color: "success" as const },
-          { id: "contrato_cancelado", label: "Cancelados", value: "contrato_cancelado", icon: XCircle, color: "danger" as const },
-        ]}
-        onClearAll={() => {
-          setStatusFilter([]);
-          setSearchTerm("");
-          setCurrentPage(1);
-        }}
-        placeholder="Buscar por CPF ou nome do cliente..."
-      />
+      {/* Campo de Busca */}
+      <div className="space-y-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Buscar por CPF ou nome do cliente..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-10 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent border border-input bg-muted text-foreground placeholder:text-muted-foreground"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setCurrentPage(1);
+              }}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
       <div className="text-sm text-muted-foreground">
         {totalCount} simulação{totalCount !== 1 ? 'ões' : ''}
       </div>

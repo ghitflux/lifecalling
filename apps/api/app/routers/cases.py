@@ -695,7 +695,8 @@ def get_status_counts(
     - Se mine=true: conta apenas casos atribuídos ao usuário
     - Se mine=false:
       * Admin/Supervisor: conta TODOS os casos do sistema
-      * Atendente: conta todos os casos disponíveis (não atribuídos ou expirados)
+      * Atendente: conta todos os casos disponíveis
+      (não atribuídos ou expirados)
     """
     from sqlalchemy import func
 
@@ -718,7 +719,8 @@ def get_status_counts(
                     Case.assignment_expires_at < now,
                 )
             )
-        # Admin, supervisor e outros roles veem todos os casos (sem filtro adicional)
+        # Admin, supervisor e outros roles veem todos os casos
+        # (sem filtro adicional)
 
     # Agrupar por status
     results = qry.group_by(Case.status).all()
@@ -735,8 +737,10 @@ def list_cases(
     page_size: int = Query(20, ge=1, le=200),
     q: str | None = None,
     status: str | None = None,
-    assigned: int | None = None,
-    mine: bool = Query(False),
+    entidade: str | None = None,  # Filtro por entidade/banco
+    entity: str | None = None,  # Alias legado
+    assigned: str | None = None,  # '0' = não atribuídos, '1' = atribuídos
+    mine: str | bool = Query(False),
     order: str = Query("id_desc"),
     created_after: str | None = None,
     created_before: str | None = None,
@@ -749,11 +753,27 @@ def list_cases(
 ):
     with SessionLocal() as db:
         try:
+            # Normalizar mine para boolean
+            mine_bool = mine if isinstance(mine, bool) else str(mine).lower() in ('true', '1', 'yes')
+
+            # Usar entidade ou entity (alias legado)
+            entity_filter = entidade or entity
+
             qry = db.query(Case)
+
+            # Controle de joins para evitar duplicação
+            client_joined = False
+            payroll_joined = False
+
+            # Apply RBAC/assignment visibility rules FIRST
             if user.role == "atendente":
-                if mine:
+                if mine_bool:
+                    # Apenas casos atribuídos a mim
                     qry = qry.filter(Case.assigned_user_id == user.id)
-                elif assigned == 0:
+                else:
+                    # Atendente sempre vê apenas casos disponíveis
+                    # (não atribuídos ou expirados) na visualização global,
+                    # independente de filtros
                     now = now_brt()
                     qry = qry.filter(
                         or_(
@@ -761,29 +781,68 @@ def list_cases(
                             Case.assignment_expires_at < now,
                         )
                     )
-                else:
-                    if assigned and assigned != user.id:
-                        raise HTTPException(
-                            403,
-                            "Você não tem permissão para ver casos de outros "
-                            "atendentes"
-                        )
-                    qry = qry.filter(Case.assigned_user_id == user.id)
             else:
-                if mine:
+                # Admin/Supervisor/outros: aplicar filtro de assignment
+                # se especificado
+                if mine_bool:
                     qry = qry.filter(Case.assigned_user_id == user.id)
                 elif assigned is not None:
-                    if assigned == 0:
+                    if assigned == "0":
+                        # Mostrar apenas casos não atribuídos
                         qry = qry.filter(Case.assigned_user_id.is_(None))
+                    elif assigned == "1":
+                        # Mostrar apenas casos atribuídos
+                        qry = qry.filter(Case.assigned_user_id.isnot(None))
                     else:
-                        qry = qry.filter(Case.assigned_user_id == assigned)
+                        # Se for número, mostrar casos de um usuário específico
+                        try:
+                            user_id = int(assigned)
+                            qry = qry.filter(Case.assigned_user_id == user_id)
+                        except ValueError:
+                            pass
+                # Se assigned is None, admin vê todos os casos
+                # (sem filtro de assignment)
 
             if status:
-                status_list = [s.strip() for s in status.split(",")]
+                status_list = [s.strip() for s in status.split(",") if s.strip()]
                 if len(status_list) == 1:
                     qry = qry.filter(Case.status == status_list[0])
-                else:
+                elif len(status_list) > 1:
                     qry = qry.filter(Case.status.in_(status_list))
+
+            # Filtro por entidade (banco)
+            if entity_filter:
+                from app.models import PayrollLine
+                if not client_joined:
+                    qry = qry.join(Client, Client.id == Case.client_id)
+                    client_joined = True
+                if not payroll_joined:
+                    qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                    payroll_joined = True
+                qry = qry.filter(PayrollLine.entity_name == entity_filter).distinct()
+
+            # Busca por nome, CPF OU entidade
+            if q and q.strip():
+                from app.models import PayrollLine
+                like = f"%{q.strip()}%"
+
+                if not client_joined:
+                    qry = qry.join(Client, Client.id == Case.client_id)
+                    client_joined = True
+                if not payroll_joined:
+                    qry = qry.outerjoin(
+                        PayrollLine, PayrollLine.cpf == Client.cpf
+                    )
+                    payroll_joined = True
+
+                qry = qry.filter(
+                    or_(
+                        Client.name.ilike(like),
+                        Client.cpf.ilike(like),
+                        PayrollLine.entity_name.ilike(like)
+                    )
+                ).distinct()
+
             if created_after:
                 try:
                     date_after = datetime.fromisoformat(
@@ -802,14 +861,14 @@ def list_cases(
                 except ValueError:
                     pass
 
-            if q:
-                qry = qry.join(Client, Client.id == Case.client_id)
-                like = f"%{q}%"
-                qry = qry.filter(
-                    or_(Client.name.ilike(like), Client.cpf.ilike(like))
-                )
-
-            total = qry.count()
+            # Usar count com Case.id para evitar erro com campos JSON do PostgreSQL
+            # quando há DISTINCT
+            if payroll_joined or client_joined:
+                from sqlalchemy import func
+                # Contar apenas IDs distintos de Case
+                total = qry.with_entities(func.count(func.distinct(Case.id))).scalar() or 0
+            else:
+                total = qry.count()
 
             if order == "id_asc":
                 qry = qry.order_by(Case.id.asc())
@@ -818,17 +877,40 @@ def list_cases(
                     Case.last_update_at.desc().nullslast(), Case.id.desc()
                 )
             elif order == "financiamentos_desc":
-                pass
+                # Ordenar por número de financiamentos (decrescente)
+                # Isso será implementado mais tarde, por enquanto usar
+                # ordem padrão
+                qry = qry.order_by(Case.id.desc())
             else:
                 qry = qry.order_by(Case.id.desc())
 
-            from sqlalchemy.orm import joinedload  # pyright: ignore
+            # Quando há DISTINCT (por causa de joins), precisamos buscar apenas IDs
+            # primeiro para evitar erro do PostgreSQL com campos JSON
+            if payroll_joined or client_joined:
+                # Buscar apenas IDs com distinct
+                case_ids = [row[0] for row in qry.with_entities(Case.id).offset((page - 1) * page_size).limit(page_size).all()]
 
-            qry = qry.options(
-                joinedload(Case.client), joinedload(Case.assigned_user)
-            )
+                # Agora buscar os casos completos pelos IDs
+                if case_ids:
+                    from sqlalchemy.orm import joinedload
+                    rows = (
+                        db.query(Case)
+                        .options(joinedload(Case.client), joinedload(Case.assigned_user))
+                        .filter(Case.id.in_(case_ids))
+                        .all()
+                    )
+                else:
+                    rows = []
+            else:
+                # Sem joins, query normal
+                from sqlalchemy.orm import joinedload  # pyright: ignore
 
-            rows = qry.offset((page - 1) * page_size).limit(page_size).all()
+                qry = qry.options(
+                    joinedload(Case.client), joinedload(Case.assigned_user)
+                )
+
+                rows = qry.offset((page - 1) * page_size).limit(page_size).all()
+
             items = []
 
             for c in rows:

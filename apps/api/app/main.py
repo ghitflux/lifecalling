@@ -99,6 +99,59 @@ def debug_cases():
 
         return result
 
+# Debug endpoint para testar filtros
+@app.get("/debug/filters")
+def debug_filters():
+    from .db import SessionLocal
+    from .models import Case, Client, PayrollLine
+    from sqlalchemy import func, distinct
+    
+    with SessionLocal() as db:
+        # Total de casos
+        total_cases = db.query(Case).count()
+        
+        # Casos não atribuídos
+        unassigned_cases = db.query(Case).filter(Case.assigned_user_id.is_(None)).count()
+        
+        # Entidades disponíveis
+        entities = db.query(PayrollLine.entity_name).filter(
+            PayrollLine.entity_name.isnot(None)
+        ).distinct().all()
+        entity_list = [e[0] for e in entities if e[0]]
+        
+        # Casos por entidade
+        cases_by_entity = {}
+        for entity in entity_list[:5]:  # Primeiras 5 entidades
+            count = (
+                db.query(func.count(distinct(Case.id)))
+                .join(Client, Client.id == Case.client_id)
+                .join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                .filter(PayrollLine.entity_name == entity)
+                .scalar()
+            )
+            cases_by_entity[entity] = count
+        
+        # Casos não atribuídos por entidade
+        unassigned_by_entity = {}
+        for entity in entity_list[:5]:  # Primeiras 5 entidades
+            count = (
+                db.query(func.count(distinct(Case.id)))
+                .join(Client, Client.id == Case.client_id)
+                .join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                .filter(Case.assigned_user_id.is_(None))
+                .filter(PayrollLine.entity_name == entity)
+                .scalar()
+            )
+            unassigned_by_entity[entity] = count
+        
+        return {
+            "total_cases": total_cases,
+            "unassigned_cases": unassigned_cases,
+            "entities": entity_list[:10],  # Primeiras 10 entidades
+            "cases_by_entity": cases_by_entity,
+            "unassigned_by_entity": unassigned_by_entity
+        }
+
 # Endpoint para limpar e recriar dados de teste
 @app.post("/debug/reset-data")
 def reset_test_data():

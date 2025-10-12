@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useClosingApprove, useClosingReject, useCaseEvents, useClosingCaseDetails, useAttachments } from "@/lib/hooks";
-import { Button, Card, CaseDetails, SimulationResultCard, SimulationHistoryModal, Tabs, TabsList, TabsTrigger, TabsContent, CaseHistory, Dialog, DialogContent, DialogHeader, DialogTitle } from "@lifecalling/ui";
+import { Button, Card, CaseDetails, SimulationResultCard, SimulationHistoryModal, Tabs, TabsList, TabsTrigger, TabsContent, CaseHistory, Dialog, DialogContent, DialogHeader, DialogTitle, Badge } from "@lifecalling/ui";
 import { ArrowLeft, History, CheckCircle, XCircle, Eye, User, DollarSign, Calendar, FileText, Download, FileImage, File, Printer, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -289,11 +289,6 @@ export default function FechamentoDetalhesPage() {
         </div>
       </div>
 
-      {/* Controle de Status no Topo */}
-      <div className="mb-6">
-        <AdminStatusChanger caseId={caseId} currentStatus={caseData?.status || ''} />
-      </div>
-
       {/* Botões de Aprovação/Rejeição - Só aparece se status for fechamento_pendente */}
       {caseData.status === "fechamento_pendente" && (
         <div className="flex items-center gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
@@ -384,7 +379,7 @@ export default function FechamentoDetalhesPage() {
               <div>
                 <h3 className="text-lg font-semibold mb-2">Informações Financeiras</h3>
                 <p className="text-sm text-muted-foreground">
-                  Visualize todos os financiamentos do cliente
+                  Detalhes da última simulação aprovada
                 </p>
               </div>
               <Button
@@ -393,48 +388,91 @@ export default function FechamentoDetalhesPage() {
                 className="flex items-center gap-2"
               >
                 <DollarSign className="h-4 w-4" />
-                Ver Financiamentos
+                Ver Todos os Financiamentos
               </Button>
             </div>
 
-            {/* Resumo dos Financiamentos */}
-            {caseData.client?.financiamentos && caseData.client.financiamentos.length > 0 ? (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-foreground">Resumo dos Financiamentos Ativos</h4>
-                <div className="max-h-80 overflow-y-auto pr-2 space-y-3">
-                  {caseData.client.financiamentos.map((fin: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-foreground">
-                            {fin.entity_name || fin.orgao_pagamento_nome || 'Financiamento'}
-                          </span>
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            fin.status_code === '1' 
-                              ? 'bg-green-100 text-green-800' 
-                              : fin.status_code === '2'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {fin.status_description || 'Status'}
-                          </span>
+            {/* Detalhes dos Bancos da Simulação */}
+            {caseData.simulation && caseData.simulation.banks && caseData.simulation.banks.length > 0 ? (
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-foreground border-b pb-2">
+                  Bancos Usados na Simulação ({caseData.simulation.banks.length})
+                </h4>
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                  {caseData.simulation.banks.map((bank: any, index: number) => (
+                    <div key={index} className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
+                      {/* Nome do Banco */}
+                      <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                        <h5 className="text-sm font-semibold text-foreground">{bank.bank || bank.banco || `Banco ${index + 1}`}</h5>
+                        <Badge variant="outline" className="text-xs">
+                          Banco {index + 1} de {caseData.simulation.banks.length}
+                        </Badge>
+                      </div>
+
+                      {/* Grid de Informações */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Saldo Devedor</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {formatCurrency(bank.saldoDevedor || bank.saldo || 0)}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>Matrícula: {fin.matricula}</span>
-                          <span>Parcelas: {fin.parcelas_pagas}/{fin.total_parcelas}</span>
-                          <span>Valor: R$ {fin.valor_parcela_ref}</span>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Valor da Parcela</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {formatCurrency(bank.parcela || bank.valor_parcela || 0)}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Valor Liberado</p>
+                          <p className="text-sm font-semibold text-success">
+                            {formatCurrency(bank.valorLiberado || bank.valor_liberado || 0)}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Quantidade de Parcelas</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {bank.parcelas || caseData.simulation.prazo || 0} meses
+                          </p>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Totais da Simulação */}
+                {caseData.simulation.totals && (
+                  <div className="mt-4 pt-4 border-t">
+                    <h4 className="text-sm font-medium text-foreground mb-3">Resumo Total da Simulação</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="p-3 bg-success-subtle border border-success/40 rounded-lg">
+                        <p className="text-xs text-success font-medium">Total Liberado</p>
+                        <p className="text-lg font-bold text-success">
+                          {formatCurrency(caseData.simulation.totals.liberadoTotal)}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-info-subtle border border-info/40 rounded-lg">
+                        <p className="text-xs text-info font-medium">Liberado Cliente</p>
+                        <p className="text-lg font-bold text-info">
+                          {formatCurrency(caseData.simulation.totals.liberadoCliente)}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-accent-subtle border border-accent/40 rounded-lg">
+                        <p className="text-xs text-accent font-medium">Consultoria Líquida</p>
+                        <p className="text-lg font-bold text-accent">
+                          {formatCurrency(caseData.simulation.totals.custoConsultoriaLiquido || (caseData.simulation.totals.custoConsultoria * 0.86))}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-6">
                 <DollarSign className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
-                <p className="text-sm text-muted-foreground mb-2">Nenhum financiamento encontrado</p>
+                <p className="text-sm text-muted-foreground mb-2">Nenhuma simulação aprovada encontrada</p>
                 <p className="text-xs text-muted-foreground">
-                  Clique em &quot;Ver Financiamentos&quot; para verificar se há dados disponíveis
+                  Os detalhes da simulação aparecerão aqui quando disponíveis
                 </p>
               </div>
             )}

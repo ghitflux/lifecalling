@@ -49,6 +49,18 @@ export default function ClienteDetalhe() {
 
   const contratos = contratosData?.items || [];
 
+  // Buscar casos associados ao cliente
+  const { data: casosData, isLoading: casosLoading, error: casosError } = useQuery({
+    queryKey: ["clientCases", id],
+    queryFn: async () => {
+      const response = await api.get(`/clients/${id}/cases`);
+      return response.data;
+    },
+    enabled: !!id
+  });
+
+  const casos = casosData?.items || [];
+
   const formatCPF = (cpf: string) => {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
@@ -261,7 +273,82 @@ export default function ClienteDetalhe() {
       {/* Contratos */}
       <Financiamentos clientId={parseInt(id)} />
 
+      {/* Casos Associados ao Cliente */}
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Casos Associados ao Cliente ({casos.length})
+        </h2>
 
+        {casosLoading ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <div className="animate-pulse">Carregando casos...</div>
+          </div>
+        ) : casosError ? (
+          <div className="text-center py-8 text-red-500">
+            <p>Erro ao carregar casos</p>
+            <p className="text-sm">{(casosError as any).message}</p>
+          </div>
+        ) : casos.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">ID</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Entidade/Banco</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Mês/Ano Ref.</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Criado em</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Última Atualização</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Atendente</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {casos.map((caso: any) => (
+                  <tr key={caso.id} className="border-b hover:bg-muted/50 transition-colors">
+                    <td className="py-3 px-4 text-sm font-mono">#{caso.id}</td>
+                    <td className="py-3 px-4">
+                      <StatusBadge status={caso.status} />
+                    </td>
+                    <td className="py-3 px-4 text-sm">{caso.entidade || '—'}</td>
+                    <td className="py-3 px-4 text-sm">
+                      {caso.ref_month && caso.ref_year
+                        ? `${String(caso.ref_month).padStart(2, '0')}/${caso.ref_year}`
+                        : caso.referencia_competencia || '—'
+                      }
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {caso.created_at ? new Date(caso.created_at).toLocaleDateString('pt-BR') : '—'}
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {caso.last_update_at ? new Date(caso.last_update_at).toLocaleDateString('pt-BR') : '—'}
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {caso.assigned_to || <span className="text-muted-foreground italic">Não atribuído</span>}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/casos/${caso.id}`)}
+                      >
+                        Ver Caso
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Nenhum caso associado a este cliente</p>
+            <p className="text-sm mt-1">Os casos aparecerão aqui quando forem criados</p>
+          </div>
+        )}
+      </Card>
 
       {/* Contratos Efetivados */}
       {contratos && contratos.length > 0 && (

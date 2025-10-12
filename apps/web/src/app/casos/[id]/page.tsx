@@ -11,7 +11,7 @@ import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento } from "@/lib/hooks";
+import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento, useAssignCase } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
@@ -24,6 +24,7 @@ interface CaseDetail {
   status: string;
   assigned_to?: string;
   assigned_user_id?: number;
+  assignment_expires_at?: string;
   client: {
     id: number;
     name: string;
@@ -126,6 +127,9 @@ export default function CaseDetailPage() {
 
   // Hook para enviar para fechamento
   const sendToFechamento = useSendToFechamento();
+
+  // Hook para pegar caso
+  const assignCase = useAssignCase();
 
   // Hook para listar usuários ativos
   const { data: users } = useUsers();
@@ -234,6 +238,18 @@ export default function CaseDetailPage() {
       await sendToFechamento.mutateAsync(caseId);
     } catch (error) {
       console.error("Erro ao enviar para fechamento:", error);
+    }
+  };
+
+  const handleAssignCase = async () => {
+    try {
+      await assignCase.mutateAsync(caseId);
+      toast.success("Caso atribuído com sucesso!");
+      // Recarregar dados do caso
+      queryClient.invalidateQueries({ queryKey: ["case", caseId] });
+    } catch (error) {
+      console.error("Erro ao pegar caso:", error);
+      toast.error("Erro ao pegar caso. Tente novamente.");
     }
   };
 
@@ -420,8 +436,8 @@ export default function CaseDetailPage() {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               // Debug: verificar todo o sessionStorage
               console.log('Todo o sessionStorage:', {
@@ -429,20 +445,20 @@ export default function CaseDetailPage() {
                 'esteira-tab': sessionStorage.getItem('esteira-tab'),
                 'esteira-filters': sessionStorage.getItem('esteira-filters')
               });
-              
+
               // Verificar se há parâmetros de paginação salvos no sessionStorage
               const savedPage = sessionStorage.getItem('esteira-page');
               const savedTab = sessionStorage.getItem('esteira-tab');
               const savedFilters = sessionStorage.getItem('esteira-filters');
-              
+
               console.log('Dados salvos no sessionStorage:', { savedPage, savedTab, savedFilters });
-              
+
               if (savedPage && savedTab && savedTab === 'global') {
                 // Construir URL com parâmetros salvos
                 const params = new URLSearchParams();
                 params.set('page', savedPage);
                 params.set('tab', savedTab);
-                
+
                 if (savedFilters) {
                   try {
                     const filters = JSON.parse(savedFilters);
@@ -456,7 +472,7 @@ export default function CaseDetailPage() {
                     console.warn('Erro ao parsear filtros salvos:', e);
                   }
                 }
-                
+
                 console.log('Navegando com parâmetros:', params.toString());
                 router.push(`/esteira?${params.toString()}`);
               } else {
@@ -470,6 +486,20 @@ export default function CaseDetailPage() {
             <ArrowLeft className="h-4 w-4" />
             Retornar à Esteira
           </Button>
+
+          {/* Botão Pegar Caso - aparece apenas em casos novos e não atribuídos */}
+          {caseDetail.status === 'novo' &&
+           !caseDetail.assigned_user_id &&
+           ['atendente', 'admin', 'supervisor'].includes(userRole) && (
+            <Button
+              variant="default"
+              onClick={handleAssignCase}
+              disabled={assignCase.isPending}
+              className="flex items-center gap-2"
+            >
+              {assignCase.isPending ? "Pegando..." : "Pegar Este Caso"}
+            </Button>
+          )}
           <div>
             <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
             <div className="flex items-center gap-2 mt-1">

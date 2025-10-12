@@ -51,7 +51,7 @@ def list_clients(
         page: Número da página (começa em 1)
         page_size: Itens por página (padrão 20, máximo 200)
         q: Busca por nome, CPF ou matrícula
-        banco: Filtrar por banco/órgão credor (entidade do caso)
+        banco: Filtrar por banco/entidade importada (entity_name de PayrollLine)
         status: Filtrar por status do caso
         orgao: Filtrar por órgão pagador (orgao do cliente)
         sem_contratos: Se True, filtra apenas clientes sem financiamentos
@@ -79,9 +79,13 @@ def list_clients(
             )
         )
 
-    # Filtrar por banco (entidade do caso)
+    # Filtrar por banco (entidade importada de PayrollLine)
     if banco:
-        clients_query = clients_query.filter(Case.entidade == banco)
+        # Join com PayrollLine para filtrar por entity_name
+        clients_query = clients_query.join(
+            PayrollLine,
+            PayrollLine.cpf == Client.cpf
+        ).filter(PayrollLine.entity_name == banco)
 
     # Filtrar por status do caso
     if status:
@@ -150,12 +154,12 @@ def get_available_filters(
 ):
     """
     Retorna filtros disponíveis para clientes (bancos credores).
-    Bancos = Entidades dos casos (BANCO DO BRASIL, CAIXA, etc)
+    Bancos = Entidades importadas dos arquivos TXT (de PayrollLine)
     Órgãos = Órgãos pagadores dos clientes
     """
-    # Listar entidades únicas dos casos (bancos credores)
-    entidades = db.query(Case.entidade).filter(
-        Case.entidade.isnot(None)
+    # Listar entidades únicas das linhas de folha importadas (entity_name)
+    entidades = db.query(PayrollLine.entity_name).filter(
+        PayrollLine.entity_name.isnot(None)
     ).distinct().all()
     entidades_list = sorted([e[0] for e in entidades if e[0]])
 
@@ -166,10 +170,14 @@ def get_available_filters(
     # Contadores por filtro
     bancos_with_count = []
     for entidade in entidades_list:
-        # Contar clientes únicos que têm casos dessa entidade
+        # Contar clientes únicos (por CPF) que têm financiamentos dessa entidade
         count = (
-            db.query(func.count(distinct(Case.client_id)))
-            .filter(Case.entidade == entidade)
+            db.query(func.count(distinct(Client.id)))
+            .join(
+                PayrollLine,
+                PayrollLine.cpf == Client.cpf
+            )
+            .filter(PayrollLine.entity_name == entidade)
             .scalar()
         )
         bancos_with_count.append({
@@ -483,26 +491,28 @@ def get_client_cases(
     if not client:
         raise HTTPException(404, "Cliente não encontrado")
 
-    # Buscar TODOS os client_ids com o mesmo CPF
-    client_ids = db.query(Client.id).filter(Client.cpf == client.cpf).all()
-    client_ids_list = [c_id[0] for c_id in client_ids]
+    # Buscar casos DIRETAMENTE do client_id
+    from sqlalchemy.orm import joinedload
+    cases = db.query(Case).options(
+        joinedload(Case.assigned_user),
+        joinedload(Case.client)
+    ).filter(
+        Case.client_id == client_id
+    ).order_by(Case.id.desc()).all()
 
-    # Buscar casos de TODOS os registros do mesmo CPF
-    cases = db.query(Case).filter(
-        Case.client_id.in_(client_ids_list)
-    ).distinct().order_by(Case.id.desc()).all()
-
-    # Criar dicionário para remover duplicados por ID (garantia extra)
-    unique_cases = {}
+    # Criar lista de casos sem duplicados
+    items = []
     for case in cases:
-        if case.id not in unique_cases:
-            unique_cases[case.id] = {
+        try:
+            items.append({
                 "id": case.id,
                 "status": case.status or "novo",
                 "entidade": getattr(case, "entidade", None),
                 "referencia_competencia": getattr(
                     case, "referencia_competencia", None
                 ),
+                "ref_month": getattr(case, "ref_month", None),
+                "ref_year": getattr(case, "ref_year", None),
                 "created_at": (
                     case.created_at.isoformat()
                     if case.created_at else None
@@ -513,15 +523,18 @@ def get_client_cases(
                 ),
                 "assigned_to": (
                     case.assigned_user.name
-                    if case.assigned_user else None
+                    if hasattr(case, 'assigned_user') and case.assigned_user
+                    else None
                 ),
                 "matricula": (
                     case.client.matricula
-                    if case.client else None
+                    if hasattr(case, 'client') and case.client
+                    else None
                 ),
-            }
-
-    items = list(unique_cases.values())
+            })
+        except Exception as e:
+            print(f"Error processing case {case.id}: {e}")
+            continue
 
     return {
         "items": items,
