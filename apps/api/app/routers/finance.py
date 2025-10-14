@@ -334,7 +334,7 @@ def finance_metrics(
     end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    from ..models import Contract, FinanceIncome, FinanceExpense
+    from ..models import Contract, FinanceIncome, FinanceExpense, ExternalClientIncome
     from sqlalchemy import func  # pyright: ignore[reportMissingImports]
     from datetime import datetime, timedelta
 
@@ -373,7 +373,15 @@ def finance_metrics(
             contract_stats.total_consultoria_liq or 0
         )
 
-        # Receitas e despesas em queries agregadas
+        # Receitas externas (clientes externos)
+        total_external_income = float(db.query(
+            func.coalesce(func.sum(ExternalClientIncome.custo_consultoria_liquido), 0)
+        ).filter(
+            ExternalClientIncome.date >= start_filter,
+            ExternalClientIncome.date <= end_filter
+        ).scalar() or 0)
+
+        # Receitas manuais
         total_manual_income = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
@@ -381,6 +389,7 @@ def finance_metrics(
             FinanceIncome.date <= end_filter
         ).scalar() or 0)
 
+        # Despesas
         total_expenses = float(db.query(
             func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
@@ -388,16 +397,22 @@ def finance_metrics(
             FinanceExpense.date <= end_filter
         ).scalar() or 0)
 
-        # Receita total = consultoria líquida (já é 86%) + receitas manuais
-        total_revenue = total_consultoria_liquida + total_manual_income
+        # Receita total = consultoria líquida + receitas externas + receitas manuais
+        total_revenue = total_consultoria_liquida + total_external_income + total_manual_income
 
-        # Impostos: 14% sobre consultoria bruta
-        # (consultoria_liq / 0.86 * 0.14)
-        total_tax = (
+        # Impostos: 14% sobre consultoria bruta (contratos + externos)
+        # (consultoria_liq / 0.86 * 0.14) para ambos
+        total_tax_contracts = (
             (total_consultoria_liquida / 0.86 * 0.14)
             if total_consultoria_liquida > 0
             else 0
         )
+        total_tax_external = (
+            (total_external_income / 0.86 * 0.14)
+            if total_external_income > 0
+            else 0
+        )
+        total_tax = total_tax_contracts + total_tax_external
 
         # Lucro líquido = Receitas - Despesas - Impostos
         net_profit = total_revenue - total_expenses - total_tax
@@ -409,7 +424,8 @@ def finance_metrics(
             "totalContracts": int(total_contracts),
             "totalTax": round(total_tax, 2),
             "totalManualIncome": round(total_manual_income, 2),
-            "totalConsultoriaLiq": round(total_consultoria_liquida, 2)
+            "totalConsultoriaLiq": round(total_consultoria_liquida, 2),
+            "totalExternalIncome": round(total_external_income, 2)
         }
 
 
@@ -1774,7 +1790,7 @@ def get_transactions(
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Retorna receitas e despesas unificadas com filtros opcionais"""
-    from ..models import FinanceIncome, FinanceExpense
+    from ..models import FinanceIncome, FinanceExpense, ExternalClientIncome
     from datetime import datetime
 
     try:
@@ -1797,6 +1813,7 @@ def get_transactions(
 
             # Buscar receitas
             if not transaction_type or transaction_type == "receita":
+                # Receitas manuais
                 incomes_query = db.query(FinanceIncome).options(
                     joinedload(FinanceIncome.agent),
                     joinedload(FinanceIncome.creator)
@@ -1877,6 +1894,47 @@ def get_transactions(
                         "contract_id": contract_id,
                         "client_name": client_name,
                         "client_cpf": client_cpf
+                    })
+
+                # Receitas de clientes externos
+                external_incomes_query = db.query(ExternalClientIncome).options(
+                    joinedload(ExternalClientIncome.owner),
+                    joinedload(ExternalClientIncome.creator)
+                )
+                if start:
+                    external_incomes_query = external_incomes_query.filter(
+                        ExternalClientIncome.date >= start
+                    )
+                if end:
+                    external_incomes_query = external_incomes_query.filter(
+                        ExternalClientIncome.date <= end
+                    )
+
+                external_incomes = external_incomes_query.all()
+                for ext_inc in external_incomes:
+                    transactions.append({
+                        "id": f"external-{ext_inc.id}",
+                        "type": "receita",
+                        "date": ext_inc.date.isoformat() if ext_inc.date else None,
+                        "category": "Cliente Externo",
+                        "name": f"{ext_inc.nome_cliente} ({ext_inc.cpf_cliente})",
+                        "amount": float(ext_inc.custo_consultoria_liquido),
+                        "created_by": ext_inc.created_by,
+                        "created_at": (
+                            ext_inc.created_at.isoformat()
+                            if ext_inc.created_at
+                            else None
+                        ),
+                        "agent_name": (
+                            ext_inc.owner.name if ext_inc.owner else None
+                        ),
+                        "agent_user_id": ext_inc.owner_user_id,
+                        "has_attachment": bool(ext_inc.attachment_path),
+                        "attachment_filename": ext_inc.attachment_filename,
+                        "attachment_size": ext_inc.attachment_size,
+                        "attachment_mime": ext_inc.attachment_mime,
+                        "client_name": ext_inc.nome_cliente,
+                        "client_cpf": ext_inc.cpf_cliente
                     })
 
             # Buscar despesas
@@ -2212,3 +2270,357 @@ def get_financial_data(
                 "fim": end_date.isoformat()
             }
         }
+
+
+# Gestão de Receitas de Clientes Externos
+
+@r.post("/external-incomes")
+def create_external_income(
+    data: dict,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Cria uma nova receita de cliente externo"""
+    from ..models import ExternalClientIncome, User
+    from ..schemas import ExternalClientIncomeCreate
+    import uuid
+
+    try:
+        # Validar dados com schema
+        income_data = ExternalClientIncomeCreate(**data)
+    except Exception as e:
+        raise HTTPException(400, f"Dados inválidos: {str(e)}")
+
+    with SessionLocal() as db:
+        # Verificar se owner_user_id existe
+        owner = db.get(User, income_data.owner_user_id)
+        if not owner:
+            raise HTTPException(404, "Usuário proprietário não encontrado")
+
+        # Calcular totais
+        banks = income_data.banks_json
+        saldo_total = sum([b.saldo_devedor for b in banks])
+        liberado_total = sum([b.liberado for b in banks])
+        valor_parcela_total = sum([b.valor_parcela for b in banks])
+
+        total_financiado = saldo_total + income_data.seguro
+        custo_consultoria = liberado_total * (income_data.percentual_consultoria / 100)
+        custo_consultoria_liquido = custo_consultoria * 0.86
+        liberado_cliente = liberado_total - custo_consultoria
+        valor_liquido = liberado_cliente
+
+        # Converter banks_json para dict
+        banks_dict = [b.model_dump() for b in banks]
+
+        # Criar receita externa
+        external_income = ExternalClientIncome(
+            date=income_data.date,
+            cpf_cliente=income_data.cpf_cliente,
+            nome_cliente=income_data.nome_cliente,
+            banks_json=banks_dict,
+            prazo=income_data.prazo,
+            coeficiente=income_data.coeficiente,
+            seguro=income_data.seguro,
+            percentual_consultoria=income_data.percentual_consultoria,
+            valor_parcela_total=valor_parcela_total,
+            saldo_total=saldo_total,
+            liberado_total=liberado_total,
+            total_financiado=total_financiado,
+            valor_liquido=valor_liquido,
+            custo_consultoria=custo_consultoria,
+            custo_consultoria_liquido=custo_consultoria_liquido,
+            liberado_cliente=liberado_cliente,
+            owner_user_id=income_data.owner_user_id,
+            created_by=user.id
+        )
+
+        db.add(external_income)
+        db.commit()
+        db.refresh(external_income)
+
+        return {
+            "id": external_income.id,
+            "message": "Receita de cliente externo criada com sucesso"
+        }
+
+
+@r.get("/external-incomes")
+def list_external_incomes(
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Lista todas as receitas de clientes externos"""
+    from ..models import ExternalClientIncome
+    from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
+
+    with SessionLocal() as db:
+        incomes = db.query(ExternalClientIncome).options(
+            joinedload(ExternalClientIncome.owner),
+            joinedload(ExternalClientIncome.creator)
+        ).order_by(ExternalClientIncome.date.desc()).all()
+
+        return {
+            "items": [
+                {
+                    "id": inc.id,
+                    "date": inc.date.isoformat() if inc.date else None,
+                    "cpf_cliente": inc.cpf_cliente,
+                    "nome_cliente": inc.nome_cliente,
+                    "custo_consultoria_liquido": float(inc.custo_consultoria_liquido),
+                    "owner_name": inc.owner.name if inc.owner else None,
+                    "created_by_name": inc.creator.name if inc.creator else None,
+                    "has_attachment": bool(inc.attachment_path),
+                    "created_at": inc.created_at.isoformat() if inc.created_at else None
+                }
+                for inc in incomes
+            ]
+        }
+
+
+@r.get("/external-incomes/{income_id}")
+def get_external_income(
+    income_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Busca uma receita de cliente externo por ID"""
+    from ..models import ExternalClientIncome
+    from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
+
+    with SessionLocal() as db:
+        income = db.query(ExternalClientIncome).options(
+            joinedload(ExternalClientIncome.owner),
+            joinedload(ExternalClientIncome.creator)
+        ).filter(ExternalClientIncome.id == income_id).first()
+
+        if not income:
+            raise HTTPException(404, "Receita de cliente externo não encontrada")
+
+        return {
+            "id": income.id,
+            "date": income.date.isoformat() if income.date else None,
+            "cpf_cliente": income.cpf_cliente,
+            "nome_cliente": income.nome_cliente,
+            "banks_json": income.banks_json,
+            "prazo": income.prazo,
+            "coeficiente": income.coeficiente,
+            "seguro": float(income.seguro),
+            "percentual_consultoria": float(income.percentual_consultoria),
+            "valor_parcela_total": float(income.valor_parcela_total),
+            "saldo_total": float(income.saldo_total),
+            "liberado_total": float(income.liberado_total),
+            "total_financiado": float(income.total_financiado),
+            "valor_liquido": float(income.valor_liquido),
+            "custo_consultoria": float(income.custo_consultoria),
+            "custo_consultoria_liquido": float(income.custo_consultoria_liquido),
+            "liberado_cliente": float(income.liberado_cliente),
+            "owner_user_id": income.owner_user_id,
+            "owner_name": income.owner.name if income.owner else None,
+            "attachment_path": income.attachment_path,
+            "attachment_filename": income.attachment_filename,
+            "attachment_size": income.attachment_size,
+            "attachment_mime": income.attachment_mime,
+            "has_attachment": bool(income.attachment_path),
+            "created_by": income.created_by,
+            "created_by_name": income.creator.name if income.creator else None,
+            "created_at": income.created_at.isoformat() if income.created_at else None,
+            "updated_at": income.updated_at.isoformat() if income.updated_at else None
+        }
+
+
+@r.put("/external-incomes/{income_id}")
+def update_external_income(
+    income_id: int,
+    data: dict,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Atualiza uma receita de cliente externo"""
+    from ..models import ExternalClientIncome, User
+    from ..schemas import ExternalClientIncomeUpdate
+
+    try:
+        # Validar dados com schema
+        update_data = ExternalClientIncomeUpdate(**data)
+    except Exception as e:
+        raise HTTPException(400, f"Dados inválidos: {str(e)}")
+
+    with SessionLocal() as db:
+        income = db.get(ExternalClientIncome, income_id)
+        if not income:
+            raise HTTPException(404, "Receita de cliente externo não encontrada")
+
+        # Atualizar campos fornecidos
+        if update_data.date is not None:
+            income.date = update_data.date
+        if update_data.cpf_cliente is not None:
+            income.cpf_cliente = update_data.cpf_cliente
+        if update_data.nome_cliente is not None:
+            income.nome_cliente = update_data.nome_cliente
+        if update_data.banks_json is not None:
+            banks_dict = [b.model_dump() for b in update_data.banks_json]
+            income.banks_json = banks_dict
+        if update_data.prazo is not None:
+            income.prazo = update_data.prazo
+        if update_data.coeficiente is not None:
+            income.coeficiente = update_data.coeficiente
+        if update_data.seguro is not None:
+            income.seguro = update_data.seguro
+        if update_data.percentual_consultoria is not None:
+            income.percentual_consultoria = update_data.percentual_consultoria
+        if update_data.owner_user_id is not None:
+            owner = db.get(User, update_data.owner_user_id)
+            if not owner:
+                raise HTTPException(404, "Usuário proprietário não encontrado")
+            income.owner_user_id = update_data.owner_user_id
+
+        # Recalcular totais se houver mudança em banks_json ou outros parâmetros
+        if (update_data.banks_json is not None or update_data.seguro is not None
+            or update_data.percentual_consultoria is not None):
+            banks = income.banks_json
+            saldo_total = sum([b['saldo_devedor'] for b in banks])
+            liberado_total = sum([b['liberado'] for b in banks])
+            valor_parcela_total = sum([b['valor_parcela'] for b in banks])
+
+            income.saldo_total = saldo_total
+            income.liberado_total = liberado_total
+            income.valor_parcela_total = valor_parcela_total
+            income.total_financiado = saldo_total + income.seguro
+            income.custo_consultoria = liberado_total * (income.percentual_consultoria / 100)
+            income.custo_consultoria_liquido = income.custo_consultoria * 0.86
+            income.liberado_cliente = liberado_total - income.custo_consultoria
+            income.valor_liquido = income.liberado_cliente
+
+        income.updated_at = now_brt()
+
+        db.commit()
+        db.refresh(income)
+
+        return {
+            "id": income.id,
+            "message": "Receita de cliente externo atualizada com sucesso"
+        }
+
+
+@r.delete("/external-incomes/{income_id}")
+def delete_external_income(
+    income_id: int,
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """Remove uma receita de cliente externo"""
+    from ..models import ExternalClientIncome
+
+    with SessionLocal() as db:
+        income = db.get(ExternalClientIncome, income_id)
+        if not income:
+            raise HTTPException(404, "Receita de cliente externo não encontrada")
+
+        # Remover anexo se existir
+        if income.attachment_path and os.path.exists(income.attachment_path):
+            os.remove(income.attachment_path)
+
+        db.delete(income)
+        db.commit()
+
+        return {"message": "Receita de cliente externo removida com sucesso"}
+
+
+@r.post("/external-incomes/{income_id}/attachment")
+def upload_external_income_attachment(
+    income_id: int,
+    file: UploadFile = File(...),
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Upload de anexo para uma receita de cliente externo"""
+    from ..models import ExternalClientIncome
+    import uuid
+
+    with SessionLocal() as db:
+        income = db.get(ExternalClientIncome, income_id)
+        if not income:
+            raise HTTPException(404, "Receita de cliente externo não encontrada")
+
+    # Criar diretório se não existir
+    os.makedirs(settings.upload_dir, exist_ok=True)
+
+    # Gerar nome único para o arquivo
+    file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
+    unique_filename = f"external_income_{income_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+    dest = os.path.join(settings.upload_dir, unique_filename)
+
+    # Salvar arquivo
+    try:
+        with open(dest, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao salvar arquivo: {str(e)}")
+
+    # Atualizar registro
+    with SessionLocal() as db:
+        income = db.get(ExternalClientIncome, income_id)
+        income.attachment_path = dest
+        income.attachment_filename = file.filename or unique_filename
+        income.attachment_size = os.path.getsize(dest)
+        income.attachment_mime = file.content_type
+        income.updated_at = now_brt()
+
+        db.commit()
+        db.refresh(income)
+
+        return {
+            "id": income.id,
+            "attachment_filename": income.attachment_filename,
+            "attachment_size": income.attachment_size,
+            "message": "Anexo enviado com sucesso"
+        }
+
+
+@r.get("/external-incomes/{income_id}/attachment")
+def download_external_income_attachment(
+    income_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Download do anexo de uma receita de cliente externo"""
+    from fastapi.responses import FileResponse  # pyright: ignore[reportMissingImports]
+    from ..models import ExternalClientIncome
+
+    with SessionLocal() as db:
+        income = db.get(ExternalClientIncome, income_id)
+
+        if not income:
+            raise HTTPException(404, "Receita de cliente externo não encontrada")
+
+        if not income.attachment_path or not os.path.exists(income.attachment_path):
+            raise HTTPException(404, "Anexo não encontrado")
+
+        filename = income.attachment_filename or os.path.basename(income.attachment_path)
+
+        return FileResponse(
+            path=income.attachment_path,
+            media_type=income.attachment_mime or "application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+
+@r.delete("/external-incomes/{income_id}/attachment")
+def delete_external_income_attachment(
+    income_id: int,
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """Remove o anexo de uma receita de cliente externo"""
+    from ..models import ExternalClientIncome
+
+    with SessionLocal() as db:
+        income = db.get(ExternalClientIncome, income_id)
+
+        if not income:
+            raise HTTPException(404, "Receita de cliente externo não encontrada")
+
+        if income.attachment_path and os.path.exists(income.attachment_path):
+            os.remove(income.attachment_path)
+
+        income.attachment_path = None
+        income.attachment_filename = None
+        income.attachment_size = None
+        income.attachment_mime = None
+        income.updated_at = now_brt()
+
+        db.commit()
+
+        return {"message": "Anexo removido com sucesso"}

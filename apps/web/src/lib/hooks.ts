@@ -999,3 +999,121 @@ export function useCasosCancelados() {
     staleTime: 15000, // Considerar dados obsoletos após 15 segundos
   });
 }
+
+/** Receitas de Clientes Externos */
+export function useExternalIncomes() {
+  return useQuery({
+    queryKey: ["finance", "external-incomes"],
+    queryFn: async () => (await api.get("/finance/external-incomes")).data.items ?? [],
+    refetchInterval: 60000
+  });
+}
+
+export function useExternalIncome(id: number) {
+  return useQuery({
+    queryKey: ["finance", "external-incomes", id],
+    queryFn: async () => (await api.get(`/finance/external-incomes/${id}`)).data,
+    enabled: !!id
+  });
+}
+
+export function useCreateExternalIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) =>
+      (await api.post("/finance/external-incomes", data)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance", "external-incomes"] });
+      qc.invalidateQueries({ queryKey: ["finance", "metrics"] });
+      qc.invalidateQueries({ queryKey: ["finance", "timeseries"] });
+      toast.success("Receita de cliente externo criada com sucesso");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao criar receita de cliente externo");
+    }
+  });
+}
+
+export function useUpdateExternalIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) =>
+      (await api.put(`/finance/external-incomes/${id}`, data)).data,
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["finance", "external-incomes"] });
+      qc.invalidateQueries({ queryKey: ["finance", "external-incomes", id] });
+      qc.invalidateQueries({ queryKey: ["finance", "metrics"] });
+      qc.invalidateQueries({ queryKey: ["finance", "timeseries"] });
+      toast.success("Receita de cliente externo atualizada com sucesso");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao atualizar receita de cliente externo");
+    }
+  });
+}
+
+export function useDeleteExternalIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) =>
+      (await api.delete(`/finance/external-incomes/${id}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance", "external-incomes"] });
+      qc.invalidateQueries({ queryKey: ["finance", "metrics"] });
+      qc.invalidateQueries({ queryKey: ["finance", "timeseries"] });
+      toast.success("Receita de cliente externo removida com sucesso");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao remover receita de cliente externo");
+    }
+  });
+}
+
+/** Upload de anexo para receita externa */
+export function useUploadExternalIncomeAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ incomeId, file }: { incomeId: number; file: File }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return (await api.post(`/finance/external-incomes/${incomeId}/attachment`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance", "external-incomes"] });
+      toast.success("Anexo enviado com sucesso");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao enviar anexo");
+    }
+  });
+}
+
+/** Download de anexo de receita externa */
+export function useDownloadExternalIncomeAttachment() {
+  return useMutation({
+    mutationFn: async (incomeId: number) => {
+      const response = await api.get(`/finance/external-incomes/${incomeId}/attachment`, {
+        responseType: 'blob'
+      });
+      return response;
+    }
+  });
+}
+
+/** Delete de anexo de receita externa */
+export function useDeleteExternalIncomeAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (incomeId: number) =>
+      (await api.delete(`/finance/external-incomes/${incomeId}/attachment`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance", "external-incomes"] });
+      toast.success("Anexo removido com sucesso");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao remover anexo");
+    }
+  });
+}

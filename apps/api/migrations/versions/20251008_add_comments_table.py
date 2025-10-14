@@ -1,7 +1,7 @@
 """add_comments_table
 
 Revision ID: 20251008_comments
-Revises: 20250110_add_observacao_calculista
+Revises: 20250110_add_obs
 Create Date: 2025-10-08 23:15:00.000000
 
 Migração APENAS ADITIVA - cria tabela comments para sistema unificado de comentários.
@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 # revision identifiers, used by Alembic.
 revision: str = '20251008_comments'
-down_revision: Union[str, None] = '20250110_add_observacao_calculista'
+down_revision: Union[str, None] = '20250110_add_obs'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -477,3 +477,60 @@ class Comment(Base):
     __table_args__ = (
         Index('ix_comments_case_channel_created', 'case_id', 'channel', 'created_at'),
     )
+
+class ExternalClientIncome(Base):
+    """
+    Receitas de clientes externos com simulação multi-banco.
+    Permite registrar receitas oriundas de clientes externos com todos os
+    detalhes da simulação, calcular consultoria líquida/impostos e atribuir
+    a receita a um usuário para contabilização no ranking.
+    """
+    __tablename__ = "external_client_incomes"
+
+    id = Column(Integer, primary_key=True)
+
+    # Dados básicos
+    date = Column(DateTime, nullable=False, default=now_brt)
+    cpf_cliente = Column(String(11), nullable=False)  # somente dígitos
+    nome_cliente = Column(String(180), nullable=True)
+
+    # Simulação multi-banco
+    banks_json = Column(JSON, default=[])  # Array de até 6 bancos
+    prazo = Column(Integer, nullable=False)  # Prazo em meses
+    coeficiente = Column(Text, nullable=False)  # Coeficiente como string
+    seguro = Column(Numeric(14,2), nullable=False)  # Seguro obrigatório
+    percentual_consultoria = Column(Numeric(5,2), nullable=False)  # % consultoria
+
+    # Totais calculados
+    valor_parcela_total = Column(Numeric(14,2), nullable=False)
+    saldo_total = Column(Numeric(14,2), nullable=False)
+    liberado_total = Column(Numeric(14,2), nullable=False)
+    total_financiado = Column(Numeric(14,2), nullable=False)
+    valor_liquido = Column(Numeric(14,2), nullable=False)
+    custo_consultoria = Column(Numeric(14,2), nullable=False)
+    custo_consultoria_liquido = Column(Numeric(14,2), nullable=False)
+    liberado_cliente = Column(Numeric(14,2), nullable=False)
+
+    # Atribuição
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Proprietário da receita
+
+    # Anexos
+    attachment_path = Column(String(500), nullable=True)
+    attachment_filename = Column(String(255), nullable=True)
+    attachment_size = Column(Integer, nullable=True)
+    attachment_mime = Column(String(100), nullable=True)
+
+    # Auditoria
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
+
+    # Relacionamentos
+    owner = relationship("User", foreign_keys=[owner_user_id])
+    creator = relationship("User", foreign_keys=[created_by])
+
+    # Índices
+    __table_args__ = (
+        Index('ix_external_income_owner', 'owner_user_id'),
+        Index('ix_external_income_date', 'date'),
+    )
