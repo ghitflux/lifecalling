@@ -22,6 +22,7 @@ import {
   ExpenseModal,
   IncomeModal,
   AttachmentsModal,
+  ExternalIncomeModal,
   FinanceCard,
   Button,
   Tabs,
@@ -35,7 +36,6 @@ import {
   MiniAreaChart,
   DateRangeFilter
 } from "@lifecalling/ui";
-import { ExternalIncomeModal } from "../../../../../../packages/ui/src/ExternalIncomeModal";
 import React, { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
