@@ -45,6 +45,6 @@ class Settings(BaseModel):
             postgres_port = os.getenv('POSTGRES_PORT', '5432')
             postgres_db = os.getenv('POSTGRES_DB', 'lifecalling')
 
-            self.db_uri = f"postgresql+psycopg2://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
+            self.db_uri = f"postgresql+psycopg2://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}?client_encoding=utf8"
 
 settings = Settings()

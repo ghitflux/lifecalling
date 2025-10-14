@@ -48,6 +48,7 @@ import {
   TrendingDown,
   Receipt,
   Target,
+  RefreshCw,
   FileText,
   Calendar,
   User,
@@ -63,6 +64,13 @@ export default function Page() {
   useLiveCaseEvents();
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  // Função para atualizar tabela de receitas e despesas
+  const handleRefreshTransactions = () => {
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
+    toast.success("Tabela atualizada com sucesso!");
+  };
 
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
   const disb = useFinanceDisburseSimple();
@@ -920,6 +928,10 @@ export default function Page() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Receitas e Despesas</h3>
             <div className="flex items-center gap-3">
+              <Button size="sm" variant="outline" onClick={handleRefreshTransactions} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Atualizar
+              </Button>
               <Button size="sm" variant="outline" onClick={exportToCSV} className="gap-2">
                 <Download className="h-4 w-4" />
                 Exportar CSV

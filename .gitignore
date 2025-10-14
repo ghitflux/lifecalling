@@ -81,3 +81,8 @@ __pycache__/
 *.so
 .Python
 .pytest_cache/
+
+# Credentials and sensitive documentation
+DEPLOY_VPS_CREDENTIALS.md
+*credentials*.md
+*CREDENTIALS*.md

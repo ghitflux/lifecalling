@@ -1,13 +1,16 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor, KPICard, CasesTable, QuickFilters, Pagination } from "@lifecalling/ui";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useMyStats } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { buildCasesQuery } from "@/lib/query";
 import { toast } from "sonner";
-import { Clock, CheckCircle, AlertCircle, TrendingUp, DollarSign, Target, Eye, FileText, Archive } from "lucide-react";
+import { Search, X, Building2, Activity, CheckCircle, AlertCircle, TrendingUp, DollarSign, Target } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 interface Case {
   id: number;
@@ -24,58 +27,141 @@ interface Case {
   banco?: string;
 }
 
-export default function EsteiraPage() {
+function EsteiraPageContent() {
   useLiveCaseEvents();
-  const [activeTab, setActiveTab] = useState("mine");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();  // Adicionar hook de autenticação
+  const [activeTab, setActiveTab] = useState("global");
   const [editingCase, setEditingCase] = useState<Case | null>(null);
 
-  // Estados de paginaÃ§Ã£o e filtro
+  // Verificar se é admin ou supervisor
+  const isAdminOrSupervisor = user?.role === 'admin' || user?.role === 'supervisor';
+
+  // Estados de paginação e filtro (simplificados)
   const [globalPage, setGlobalPage] = useState(1);
   const [globalPageSize, setGlobalPageSize] = useState(20);
-  const [globalStatusFilter, setGlobalStatusFilter] = useState<string[]>([]);
   const [globalSearchTerm, setGlobalSearchTerm] = useState("");
+  const [globalSelectedStatus, setGlobalSelectedStatus] = useState<string[]>([]);
+  const [globalEntityFilter, setGlobalEntityFilter] = useState("");
 
   const [myPage, setMyPage] = useState(1);
   const [myPageSize, setMyPageSize] = useState(20);
-  const [myStatusFilter, setMyStatusFilter] = useState<string[]>([]);
   const [mySearchTerm, setMySearchTerm] = useState("");
+  const [mySelectedStatus, setMySelectedStatus] = useState<string[]>([]);
+  const [myEntityFilter, setMyEntityFilter] = useState("");
+
+  // Busca em tempo real (como módulo Clientes)
 
   const queryClient = useQueryClient();
-  const router = useRouter();
+
+  // Reset página quando filtros mudam
+  useEffect(() => {
+    setGlobalPage(1);
+  }, [globalSelectedStatus, globalSearchTerm]);
+  
+
+  useEffect(() => {
+    setMyPage(1);
+  }, [mySelectedStatus, mySearchTerm]);
+
+  useEffect(() => {
+    setGlobalPage(1);
+  }, [globalPageSize]);
+
+  useEffect(() => {
+    setMyPage(1);
+  }, [myPageSize]);
+
+  // Restaurar estado da esteira quando a página carregar
+  useEffect(() => {
+    const savedPage = searchParams.get('page');
+    const savedTab = searchParams.get('tab');
+    const savedStatus = searchParams.get('status');
+    const savedSearch = searchParams.get('search');
+
+    console.log('Parâmetros da URL:', { savedPage, savedTab, savedStatus, savedSearch });
+
+    // Só alterar a aba se houver parâmetro explícito na URL
+    if (savedTab && (savedTab === 'mine' || savedTab === 'global')) {
+      setActiveTab(savedTab);
+    }
+    // Se não houver parâmetro de aba, manter o padrão (global)
+
+    if (savedPage) {
+      const pageNum = parseInt(savedPage);
+      const tabToUse = savedTab || 'global'; // Usar global como padrão se não houver tab
+      console.log('Restaurando página:', { pageNum, tabToUse });
+      
+      if (tabToUse === 'mine') {
+        setMyPage(pageNum);
+      } else {
+        setGlobalPage(pageNum);
+      }
+    }
+
+    if (savedStatus) {
+      const tabToUse = savedTab || 'global';
+      if (tabToUse === 'mine') {
+        setMySelectedStatus(savedStatus);
+      } else {
+        setGlobalSelectedStatus(savedStatus);
+      }
+    }
+
+    if (savedSearch) {
+      const tabToUse = savedTab || 'global';
+      if (tabToUse === 'mine') {
+        setMySearchTerm(savedSearch);
+      } else {
+        setGlobalSearchTerm(savedSearch);
+      }
+    }
+  }, [searchParams]);
 
   // Query para mÃ©tricas do usuÃ¡rio
   const { data: myStats, isLoading: loadingStats } = useMyStats();
 
   // Query para listar atendimentos globais
   const { data: globalData, isLoading: loadingGlobal, error: errorGlobal } = useQuery({
-    queryKey: ["cases", "global", globalPage, globalPageSize, globalStatusFilter, globalSearchTerm],
+    queryKey: [
+      "cases",
+      "global",
+      globalPage,
+      globalPageSize,
+      globalSelectedStatus,
+      globalSearchTerm,
+      globalEntityFilter
+    ],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: globalPage.toString(),
-        page_size: globalPageSize.toString(),
-        order: "financiamentos_desc", // Ordenar por nÃºmero de financiamentos (decrescente)
-      });
+      const isManager = ["admin", "supervisor"].includes(user?.role ?? "");
 
-      // Admin e supervisor veem TODOS os casos quando aplicam filtros
-      // Atendentes veem apenas casos disponÃ­veis (assigned=0)
-      if (globalStatusFilter.length > 0) {
-        params.append("status", globalStatusFilter[0]);
-        // NÃ£o adicionar filtro de assigned quando houver filtro de status
-        // Isso permite que admin/supervisor vejam todos os casos naquele status
-      } else {
-        // Sem filtro de status, mostrar apenas casos nÃ£o atribuÃ­dos
-        params.append("assigned", "0");
-      }
-
-      if (globalSearchTerm) {
-        params.append("q", globalSearchTerm);
-      }
+      const params = buildCasesQuery(
+        isManager
+          ? {
+              page: globalPage,
+              page_size: globalPageSize,
+              order: "financiamentos_desc",
+              q: globalSearchTerm,
+              entidade: globalEntityFilter || undefined,
+              status: globalSelectedStatus.length ? globalSelectedStatus : undefined,
+            }
+          : {
+              page: globalPage,
+              page_size: globalPageSize,
+              order: "financiamentos_desc",
+              q: globalSearchTerm,
+              entidade: globalEntityFilter || undefined,
+              status: ["novo"],     // atendente só vê novos
+              // REMOVIDO assigned=0 para permitir ver casos expirados também
+            }
+      );
 
       const response = await api.get(`/cases?${params.toString()}`);
       return response.data;
     },
-    staleTime: 5000, // 5 segundos - reduzido para resposta mais rÃ¡pida
-    refetchInterval: 10000, // Revalidar a cada 10s como fallback
+    staleTime: 5000,
+    refetchInterval: 10000,
     refetchOnWindowFocus: true,
     retry: 2,
   });
@@ -86,27 +172,22 @@ export default function EsteiraPage() {
 
   // Query para listar meus atendimentos
   const { data: myData, isLoading: loadingMine, error: errorMine } = useQuery({
-    queryKey: ["cases", "mine", myPage, myPageSize, myStatusFilter, mySearchTerm],
+    queryKey: ["cases", "mine", myPage, myPageSize, mySelectedStatus, mySearchTerm, myEntityFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        mine: "true",
-        page: myPage.toString(),
-        page_size: myPageSize.toString(),
+      const params = buildCasesQuery({
+        page: myPage,
+        page_size: myPageSize,
+        q: mySearchTerm,
+        entidade: myEntityFilter || undefined,
+        status: mySelectedStatus.length ? mySelectedStatus : undefined,
+        mine: true,
       });
-
-      if (myStatusFilter.length > 0) {
-        params.append("status", myStatusFilter[0]);
-      }
-
-      if (mySearchTerm) {
-        params.append("q", mySearchTerm);
-      }
 
       const response = await api.get(`/cases?${params.toString()}`);
       return response.data;
     },
-    staleTime: 5000, // 5 segundos - reduzido para resposta mais rÃ¡pida
-    refetchInterval: 10000, // Revalidar a cada 10s como fallback
+    staleTime: 5000,
+    refetchInterval: 10000,
     refetchOnWindowFocus: true,
     retry: 2,
   });
@@ -163,6 +244,34 @@ export default function EsteiraPage() {
   };
 
   const handleViewCase = (caseId: number) => {
+    // Salvar estado atual da esteira no sessionStorage
+    const currentPage = activeTab === 'mine' ? myPage : globalPage;
+    const currentStatusFilter = activeTab === 'mine' ? mySelectedStatus : globalSelectedStatus;
+    const currentSearchTerm = activeTab === 'mine' ? mySearchTerm : globalSearchTerm;
+
+    // Forçar aba global se não estiver explicitamente em 'mine'
+    const tabToSave = activeTab === 'mine' ? 'mine' : 'global';
+
+    console.log('Salvando estado antes de navegar:', {
+      currentPage,
+      tabToSave,
+      activeTab,
+      globalPage,
+      myPage
+    });
+
+    sessionStorage.setItem('esteira-page', currentPage.toString());
+    sessionStorage.setItem('esteira-tab', tabToSave);
+    sessionStorage.setItem('esteira-filters', JSON.stringify({
+      status: currentStatusFilter,
+      search: currentSearchTerm
+    }));
+
+    // Verificar se foi salvo corretamente
+    const savedPage = sessionStorage.getItem('esteira-page');
+    const savedTab = sessionStorage.getItem('esteira-tab');
+    console.log('Verificação após salvar:', { savedPage, savedTab });
+
     router.push(`/casos/${caseId}`);
   };
 
@@ -175,56 +284,17 @@ export default function EsteiraPage() {
     }
   };
 
-  // Calcular contadores por status
-  const allCases = activeTab === "global" ? globalCases : myCases;
-  const getStatusCount = (status: string) => {
-    return allCases.filter((c: Case) => c.status === status).length;
-  };
-
-  // Definir filtros disponÃ­veis por status com contadores
-  const statusFilters = [
-    { id: "novo", label: "Novo", value: "novo", icon: FileText, color: "primary" as const, count: getStatusCount("novo") },
-    { id: "em_atendimento", label: "Em Atendimento", value: "em_atendimento", icon: AlertCircle, color: "warning" as const, count: getStatusCount("em_atendimento") },
-    { id: "calculista_pendente", label: "Calculista", value: "calculista_pendente", icon: Clock, color: "secondary" as const, count: getStatusCount("calculista_pendente") },
-    { id: "calculo_aprovado", label: "Aprovado", value: "calculo_aprovado", icon: CheckCircle, color: "success" as const, count: getStatusCount("calculo_aprovado") },
-    { id: "fechamento_aprovado", label: "Fechamento Aprovado", value: "fechamento_aprovado", icon: Target, color: "success" as const, count: getStatusCount("fechamento_aprovado") },
-    { id: "efetivado", label: "Efetivados", value: "efetivado", icon: DollarSign, color: "success" as const, count: getStatusCount("efetivado") },
-    { id: "cancelado", label: "Cancelados", value: "cancelado", icon: AlertCircle, color: "destructive" as const, count: getStatusCount("cancelado") },
-    { id: "devolvido", label: "Devolvidos", value: "devolvido", icon: TrendingUp, color: "warning" as const, count: getStatusCount("devolvido") },
-    { id: "arquivado", label: "Arquivado", value: "arquivado", icon: Archive, color: "default" as const, count: getStatusCount("arquivado") },
-  ];
-
-  // Handlers de filtro para aba global
-  const handleGlobalFilterToggle = (filterId: string) => {
-    setGlobalStatusFilter((prev) =>
-      prev.includes(filterId) ? prev.filter((id) => id !== filterId) : [filterId]
-    );
-    setGlobalPage(1); // Reset para primeira pÃ¡gina ao filtrar
-  };
-
-  const handleGlobalClearFilters = () => {
-    setGlobalStatusFilter([]);
-    setGlobalSearchTerm("");
-    setGlobalPage(1);
-  };
-
-  // Handlers de filtro para meus atendimentos
-  const handleMyFilterToggle = (filterId: string) => {
-    setMyStatusFilter((prev) =>
-      prev.includes(filterId) ? prev.filter((id) => id !== filterId) : [filterId]
-    );
-    setMyPage(1);
-  };
-
-  const handleMyClearFilters = () => {
-    setMyStatusFilter([]);
-    setMySearchTerm("");
-    setMyPage(1);
-  };
+  // Query para buscar filtros disponíveis (bancos e status)
+  const { data: filtersData } = useQuery({
+    queryKey: ["client-filters"],
+    queryFn: async () => {
+      const response = await api.get("/clients/filters");
+      return response.data;
+    },
+    staleTime: 60000, // Cache por 1 minuto
+  });
 
   const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
-    // Debug logging
-    console.log('renderCaseList:', { cases, isLoading, error, count: cases?.length });
 
     if (isLoading) {
       return (
@@ -258,7 +328,7 @@ export default function EsteiraPage() {
           <EsteiraCard
             key={caso.id}
             caso={caso}
-            onView={(id) => router.push(`/casos/${id}`)}
+            onView={handleViewCase}
             onAssign={showPegarButton ? handlePegarAtendimento : undefined}
             onEdit={handleEditCase}
           />
@@ -286,26 +356,82 @@ export default function EsteiraPage() {
 
         <TabsContent value="global" className="mt-6">
           <div className="space-y-6">
-            {/* Filtros RÃ¡pidos */}
-            <QuickFilters
-              searchTerm={globalSearchTerm}
-              onSearchChange={(value) => {
-                setGlobalSearchTerm(value);
-                setGlobalPage(1);
-              }}
-              activeFilters={globalStatusFilter}
-              onFilterToggle={handleGlobalFilterToggle}
-              availableFilters={statusFilters as any}
-              onClearAll={handleGlobalClearFilters}
-              placeholder="Buscar por CPF ou nome do cliente..."
-            />
+            {/* Filtros - Sistema Clientes */}
+            <Card className="p-4 space-y-4">
+              {/* Busca */}
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome, CPF ou banco..."
+                    value={globalSearchTerm}
+                    onChange={(e) => {
+                      setGlobalSearchTerm(e.target.value);
+                    }}
+                    className="w-full pl-10 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent border border-input bg-muted text-foreground placeholder:text-muted-foreground"
+                  />
+                  {globalSearchTerm && (
+                    <button
+                      onClick={() => {
+                        setGlobalSearchTerm("");
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {globalTotal} {globalTotal === 1 ? 'disponível' : 'disponíveis'}
+                </div>
+              </div>
 
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Atendimentos Disponí­veis</h2>
-              <Badge variant="secondary">
-                {globalTotal} {globalTotal === 1 ? 'disponí­vel' : 'disponí­veis'}
-              </Badge>
-            </div>
+              {/* Filtros Rápidos */}
+              <div className="space-y-3">
+
+                {/* Filtro por Status - APENAS ADMIN */}
+                {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Activity className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Status:</span>
+                      {globalSelectedStatus.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setGlobalSelectedStatus([]);
+                          }}
+                          className="h-6 text-xs"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {filtersData.status.map((status: any) => (
+                        <Badge
+                          key={status.value}
+                          variant={globalSelectedStatus.includes(status.value) ? "default" : "outline"}
+                          className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                          onClick={() => {
+                            setGlobalSelectedStatus(prev =>
+                              prev.includes(status.value)
+                                ? prev.filter(s => s !== status.value)
+                                : [...prev, status.value]
+                            );
+                          }}
+                        >
+                          {status.label} ({status.count})
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
 
             {renderCaseList(globalCases, true, loadingGlobal, errorGlobal)}
 
@@ -319,7 +445,6 @@ export default function EsteiraPage() {
                 onPageChange={setGlobalPage}
                 onItemsPerPageChange={(size) => {
                   setGlobalPageSize(size);
-                  setGlobalPage(1);
                 }}
                 itemsPerPageOptions={[20, 50, 100]}
               />
@@ -358,19 +483,79 @@ export default function EsteiraPage() {
               />
             </div>
 
-            {/* Filtros RÃ¡pidos */}
-            <QuickFilters
-              searchTerm={mySearchTerm}
-              onSearchChange={(value) => {
-                setMySearchTerm(value);
-                setMyPage(1);
-              }}
-              activeFilters={myStatusFilter}
-              onFilterToggle={handleMyFilterToggle}
-              availableFilters={statusFilters as any}
-              onClearAll={handleMyClearFilters}
-              placeholder="Buscar nos meus atendimentos..."
-            />
+            {/* Filtros - Sistema Clientes */}
+            <Card className="p-4 space-y-4">
+              {/* Busca */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                    placeholder="Buscar por nome, CPF ou banco..."
+                  value={mySearchTerm}
+                  onChange={(e) => {
+                    setMySearchTerm(e.target.value);
+                  }}
+                  className="w-full pl-10 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent border border-input bg-muted text-foreground placeholder:text-muted-foreground"
+                />
+                {mySearchTerm && (
+                  <button
+                    onClick={() => {
+                      setMySearchTerm("");
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filtros Rápidos por Status */}
+              {filtersData?.status && filtersData.status.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Status:</span>
+                    {mySelectedStatus.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setMySelectedStatus([]);
+                        }}
+                        className="h-6 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {filtersData.status.map((status: any) => (
+                      <Badge
+                        key={status.value}
+                        variant={mySelectedStatus.includes(status.value) ? "default" : "outline"}
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => {
+                          setMySelectedStatus(prev =>
+                            prev.includes(status.value)
+                              ? prev.filter(s => s !== status.value)
+                              : [...prev, status.value]
+                          );
+                        }}
+                      >
+                        {status.label} ({status.count})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Contador de Casos */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Activity className="h-4 w-4" />
+                <span>Total de casos atribuídos: <strong>{myTotal}</strong></span>
+              </div>
+            </Card>
 
             {/* <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium">Meus Atendimentos</h2>
@@ -398,7 +583,6 @@ export default function EsteiraPage() {
                 onPageChange={setMyPage}
                 onItemsPerPageChange={(size) => {
                   setMyPageSize(size);
-                  setMyPage(1);
                 }}
                 itemsPerPageOptions={[20, 50, 100]}
               />
@@ -418,6 +602,14 @@ export default function EsteiraPage() {
         isLoading={updateCaseMutation.isPending}
       />
     </div>
+  );
+}
+
+export default function EsteiraPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <EsteiraPageContent />
+    </Suspense>
   );
 }
 

@@ -40,12 +40,14 @@ interface SimulationFormMultiBankProps {
   onCalculate?: (data: SimulationInput) => void;
   loading?: boolean;
   className?: string;
+  initialData?: SimulationInput;
 }
 
 export function SimulationFormMultiBank({
   onCalculate,
   loading = false,
-  className
+  className,
+  initialData
 }: SimulationFormMultiBankProps) {
   const [banks, setBanks] = useState<SimulationBankInput[]>([
     { bank: "SANTANDER", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
@@ -57,6 +59,7 @@ export function SimulationFormMultiBank({
     seguro: 0,
     percentualConsultoria: 12
   });
+
 
   const [inputValues, setInputValues] = useState<{
     [key: string]: {
@@ -71,6 +74,38 @@ export function SimulationFormMultiBank({
   });
 
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Preencher formulário quando initialData mudar (edição de histórico)
+  useEffect(() => {
+    if (initialData) {
+      // Atualizar bancos
+      setBanks(initialData.banks);
+
+      // Atualizar formData global
+      setFormData({
+        prazo: initialData.prazo,
+        coeficiente: initialData.coeficiente,
+        seguro: initialData.seguro,
+        percentualConsultoria: initialData.percentualConsultoria
+      });
+
+      // Atualizar inputs formatados para cada banco
+      const newInputValues: { [key: string]: { parcela: string; saldoDevedor: string } } = {};
+      initialData.banks.forEach((bank, index) => {
+        newInputValues[index] = {
+          parcela: formatCurrency(bank.parcela),
+          saldoDevedor: formatCurrency(bank.saldoDevedor)
+        };
+      });
+      setInputValues(newInputValues);
+
+      // Atualizar inputs globais formatados
+      setGlobalInputs({
+        seguro: formatCurrency(initialData.seguro),
+        percentualConsultoria: initialData.percentualConsultoria.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      });
+    }
+  }, [initialData]);
 
   const addBank = () => {
     if (banks.length < 6) {
@@ -465,7 +500,6 @@ export function SimulationFormMultiBank({
               </Card>
             ))}
           </div>
-
 
           {/* Submit Button */}
           <div className="border-t pt-4">

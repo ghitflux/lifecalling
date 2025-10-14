@@ -16,6 +16,7 @@ class SimulationInput(BaseModel):
     coeficiente: str                  # texto livre
     seguro: float                     # R$
     percentualConsultoria: float      # 0-100%
+    observacaoCalculista: str = ""    # Observações do calculista (opcional)
 
 
 class SimulationTotals(BaseModel):

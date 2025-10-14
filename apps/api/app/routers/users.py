@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Query  # pyright: ignore
+from sqlalchemy import or_  # pyright: ignore
+from pydantic import BaseModel, EmailStr  # pyright: ignore
 from typing import Optional, List
 from datetime import datetime
 
@@ -35,7 +35,6 @@ class UserResponse(BaseModel):
     role: str
     active: bool
     created_at: datetime
-    last_login: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -129,7 +128,8 @@ def create_user(
         if user_data.role == "admin" and current_user.role != "admin":
             raise HTTPException(
                 status_code=403,
-                detail="Apenas administradores podem criar outros administradores"
+                detail="Apenas administradores podem criar outros "
+                       "administradores"
             )
 
         # Criar usuário
@@ -189,7 +189,8 @@ def update_user(
                     current_user.role != "admin"):
                 raise HTTPException(
                     status_code=403,
-                    detail="Apenas administradores podem alterar role para admin"
+                    detail="Apenas administradores podem alterar role para "
+                           "admin"
                 )
 
         # Atualizar campos
@@ -266,10 +267,10 @@ def users_stats(
 def users_performance(
     current_user: User = Depends(require_roles("admin", "supervisor"))
 ):
-    """Dados de performance dos usuários (contratos efetivados e produção total)"""
+    """Dados de performance dos usuários (contratos efetivados e produção)"""
     with SessionLocal() as db:
         from ..models import Case, Contract
-        from sqlalchemy import func
+        from sqlalchemy import func  # pyright: ignore[reportMissingImports]
         from datetime import datetime, timedelta
 
         # Buscar dados dos últimos 30 dias
@@ -337,4 +338,6 @@ def bulk_delete_users(
         )
         db.commit()
 
-        return {"message": f"{len(payload.ids)} usuários removidos com sucesso"}
+        return {
+            "message": f"{len(payload.ids)} usuários removidos com sucesso"
+        }

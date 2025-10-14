@@ -14,10 +14,13 @@ import {
   SimulationHistoryCard,
   SimulationHistoryModal
 } from "@lifecalling/ui";
-import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw, DollarSign } from "lucide-react";
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
 import { SimulationResultCard } from "@lifecalling/ui";
 import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
+import CaseChat from "@/components/case/CaseChat";
+import AdminStatusChanger from "@/components/case/AdminStatusChanger";
+import { FinancialInfoModal } from "@/components/calculista/FinancialInfoModal";
 
 export default function CalculistaSimulationPage() {
   const params = useParams();
@@ -30,6 +33,8 @@ export default function CalculistaSimulationPage() {
   const [currentTotals, setCurrentTotals] = useState<SimulationTotals | null>(null);
   const [simulationId, setSimulationId] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showFinancialModal, setShowFinancialModal] = useState(false);
+  const [editingSimulation, setEditingSimulation] = useState<SimulationInput | null>(null);
 
   // Helper para extrair mensagem de erro
   const getErrorMessage = (error: any): string => {
@@ -131,7 +136,6 @@ export default function CalculistaSimulationPage() {
 
   // Flags de status do caso
   const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
-  const isRetornoFechamento = caseDetail?.status === "retorno_fechamento";
 
   // Mutation para aprovar simulação
   const approveSimulationMutation = useMutation({
@@ -141,14 +145,8 @@ export default function CalculistaSimulationPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
-      if (isRetornoFechamento) {
-        toast.success("Simulação aprovada! Enviando para financeiro...");
-        // Após aprovar, enviar ao financeiro automaticamente
-        sendToFinanceMutation.mutate(caseId);
-      } else {
-        toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
-        router.push("/calculista");
-      }
+      toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
+      router.push("/calculista");
     },
     onError: (error: any) => {
       console.error("Erro ao aprovar:", error);
@@ -206,7 +204,7 @@ export default function CalculistaSimulationPage() {
       // Invalidar todas as queries relacionadas
       queryClient.invalidateQueries({ queryKey: ["cases"] });
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
-      queryClient.invalidateQueries({ queryKey: ["/cases", "retorno_fechamento_and_fechamento_aprovado"] });
+      queryClient.invalidateQueries({ queryKey: ["/cases", "fechamento_aprovado"] });
       queryClient.invalidateQueries({ queryKey: ["/cases", "financeiro_pendente"] });
       queryClient.invalidateQueries({ queryKey: ["calculation", "kpis"] });
       toast.success("Caso enviado para financeiro!");
@@ -262,10 +260,6 @@ export default function CalculistaSimulationPage() {
     window.print();
   };
 
-  // Verificar se é retorno de fechamento aprovado (mantém apenas fechamento_aprovado para UI)
-  // Para casos em retorno_fechamento, a aprovação dispara envio automático ao financeiro
-  // A flag isFechamentoAprovado acima já foi definida.
-
   if (caseLoading) {
     return <CaseSkeleton />;
   }
@@ -286,6 +280,9 @@ export default function CalculistaSimulationPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto print-container">
+      {/* Admin Status Changer (apenas para admin) - Movido para o topo */}
+      <AdminStatusChanger caseId={caseId} currentStatus={caseDetail?.status || ''} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -409,6 +406,20 @@ export default function CalculistaSimulationPage() {
                 </div>
               ))}
             </div>
+
+            {/* Botão Informações Financeiras */}
+            {caseDetail?.client?.financiamentos && caseDetail.client.financiamentos.length > 0 && (
+              <div className="mt-4 pt-3 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFinancialModal(true)}
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  Ver Informações Financeiras ({caseDetail.client.financiamentos.length})
+                </Button>
+              </div>
+            )}
           </Card>
         )}
       </div>
@@ -420,6 +431,7 @@ export default function CalculistaSimulationPage() {
           <SimulationFormMultiBank
             onCalculate={handleCalculate}
             loading={saveSimulationMutation.isPending}
+            initialData={editingSimulation || undefined}
           />
         </div>
 
@@ -431,6 +443,7 @@ export default function CalculistaSimulationPage() {
                 totals={currentTotals}
                 simulation={currentSimulation}
                 isActive={true}
+                atendente={caseDetail?.assigned_user?.name}
               />
 
               {/* Ações */}
@@ -565,13 +578,16 @@ export default function CalculistaSimulationPage() {
             valorLiberado: b.valorLiberado
           }));
 
-          setCurrentSimulation({
+          const simulationData = {
             banks: banksConverted,
             prazo: entry.prazo,
-            coeficiente: "",
+            coeficiente: entry.coeficiente || "",
             seguro: entry.totals.seguroObrigatorio || 0,
             percentualConsultoria: entry.percentualConsultoria
-          });
+          };
+
+          setCurrentSimulation(simulationData);
+          setEditingSimulation(simulationData);
 
           // Garantir que custoConsultoriaLiquido seja sempre number
           const totals = {
@@ -583,6 +599,22 @@ export default function CalculistaSimulationPage() {
           setShowHistoryModal(false);
         }}
       />
+
+      {/* Modal Informações Financeiras */}
+      {caseDetail?.client?.financiamentos && caseDetail.client.financiamentos.length > 0 && (
+        <FinancialInfoModal
+          isOpen={showFinancialModal}
+          onClose={() => setShowFinancialModal(false)}
+          financiamentos={caseDetail.client.financiamentos}
+          clientMatricula={caseDetail.client.matricula}
+          clientName={caseDetail.client.name}
+          simulationTotals={currentTotals || undefined}
+        />
+      )}
+
+
+      {/* Chat do Calculista */}
+      <CaseChat caseId={caseId} defaultChannel="SIMULACAO" />
     </div>
   );
 }

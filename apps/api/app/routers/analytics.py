@@ -22,6 +22,7 @@ from ..models import (
     FinanceExpense,
     FinanceIncome,
     ImportBatch,
+    now_brt,
     PayrollImportBatch,
     Simulation,
     User,
@@ -90,7 +91,7 @@ def _resolve_period(
     from_str: Optional[str],
     to_str: Optional[str],
 ) -> Tuple[datetime, datetime]:
-    now = datetime.utcnow().replace(microsecond=0)
+    now = now_brt().replace(microsecond=0)
     end = _parse_datetime(to_str) or now
     start = _parse_datetime(from_str) or (end - timedelta(days=DEFAULT_LOOKBACK_DAYS))
     if start > end:
@@ -106,7 +107,7 @@ def _resolve_period_with_previous(
     Resolve período atual e anterior para cálculo de trends.
     Retorna: (start, end, prev_start, prev_end)
     """
-    now = datetime.utcnow().replace(microsecond=0)
+    now = now_brt().replace(microsecond=0)
     
     if from_str and to_str:
         start = _parse_datetime(from_str)
@@ -943,7 +944,7 @@ def _get_modules_cached(start_key: str, end_key: str, bucket: str) -> Dict[str, 
 
 @ttl_cache(30)
 def _get_health_cached() -> Dict[str, Any]:
-    now = datetime.utcnow().replace(microsecond=0)
+    now = now_brt().replace(microsecond=0)
     horizon = now + timedelta(hours=2)
     with SessionLocal() as db:
         available = (

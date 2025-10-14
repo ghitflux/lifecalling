@@ -79,9 +79,9 @@ async function doRefreshOnce() {
     refreshPromise = (async () => {
       try {
         // Usar uma instância separada para evitar interceptor recursivo
-        const refreshResponse = await axios.post('/api/auth/refresh', null, {
+        const refreshResponse = await axios.post('/auth/refresh', null, {
           withCredentials: true,
-          baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '/api'
+          baseURL: BASE_URL
         });
         if (process.env.NODE_ENV === 'development') {
           console.log('✅ Token refresh successful');

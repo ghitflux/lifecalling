@@ -16,11 +16,14 @@ import {
 
 export type Status =
   | "novo" | "em_atendimento" | "disponivel"
-  | "calculista_pendente" | "calculo_aprovado" | "calculo_rejeitado"
+  | "calculista_pendente" | "calculo_aprovado"
   | "fechamento_aprovado" | "fechamento_reprovado"
   | "financeiro_pendente" | "contrato_efetivado" | "encerrado"
+  | "sem_contato" | "devolvido_financeiro"
+  | "draft" | "approved" | "rejected"  // Status de simulações
   // Status legados (manter para compatibilidade)
-  | "aguardando_aprovacao" | "aprovado" | "reprovado"
+  | "aprovado" | "calculo_rejeitado"
+  | "aguardando_aprovacao" | "reprovado"
   | "fechamento_pendente" | "atribuido" | "pendente" | "ativo";
 
 const statusConfig: Record<Status, {
@@ -54,11 +57,6 @@ const statusConfig: Record<Status, {
     icon: CheckCircle2,
     label: "Cálculo Aprovado"
   },
-  calculo_rejeitado: {
-    color: "bg-danger-subtle text-danger-foreground border-danger/30",
-    icon: XCircle,
-    label: "Cálculo Rejeitado"
-  },
   fechamento_aprovado: {
     color: "bg-success-subtle text-success-foreground border-success/30",
     icon: FileCheck,
@@ -85,16 +83,38 @@ const statusConfig: Record<Status, {
     label: "Encerrado"
   },
 
+  // Status de simulações
+  draft: {
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    icon: Clock,
+    label: "Rascunho"
+  },
+  approved: {
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: CheckCircle2,
+    label: "Aprovado"
+  },
+  rejected: {
+    color: "bg-red-100 text-red-800 border-red-200",
+    icon: XCircle,
+    label: "Rejeitado"
+  },
+
   // Status legados (compatibilidade)
+  aprovado: {
+    color: "bg-success-subtle text-success-foreground border-success/30",
+    icon: CheckCircle2,
+    label: "Aprovado (Legado)"
+  },
+  calculo_rejeitado: {
+    color: "bg-danger-subtle text-danger-foreground border-danger/30",
+    icon: XCircle,
+    label: "Cálculo Rejeitado"
+  },
   aguardando_aprovacao: {
     color: "bg-warning-subtle text-warning-foreground border-warning/30 shadow-[0_0_12px_hsl(var(--warning)/0.2)]",
     icon: Clock,
     label: "Aguardando Aprovação"
-  },
-  aprovado: {
-    color: "bg-success-subtle text-success-foreground border-success/30",
-    icon: CheckCircle2,
-    label: "Aprovado"
   },
   reprovado: {
     color: "bg-danger-subtle text-danger-foreground border-danger/30",
@@ -120,6 +140,18 @@ const statusConfig: Record<Status, {
     color: "bg-green-100 text-green-800 border-green-200",
     icon: CheckCircle2,
     label: "Ativo"
+  },
+
+  // Status adicionais
+  sem_contato: {
+    color: "bg-muted/30 text-muted-foreground border-muted/40",
+    icon: XCircle,
+    label: "Sem Contato"
+  },
+  devolvido_financeiro: {
+    color: "bg-warning-subtle text-warning-foreground border-warning/30",
+    icon: AlertCircle,
+    label: "Devolvido Financeiro"
   },
 };
 

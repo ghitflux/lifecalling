@@ -1,25 +1,56 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from datetime import datetime
-from sqlalchemy.orm import joinedload
+from fastapi import (  # pyright: ignore[reportMissingImports]
+    APIRouter, Depends, HTTPException
+)
+from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
+from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
 from ..db import SessionLocal
-from ..models import Case, CaseEvent
+from ..models import Case, CaseEvent, now_brt
 from ..rbac import require_roles
 from ..events import eventbus
 
 r = APIRouter(prefix="/closing", tags=["closing"])
 
+
 @r.get("/queue")
-def queue(user=Depends(require_roles("admin","supervisor","atendente"))):
+def queue(
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
     from ..models import Simulation
     with SessionLocal() as db:
-        # Query com JOIN para carregar dados completos
-        # Incluir apenas status que já foram enviados para fechamento pelo atendente
-        # "calculo_aprovado" fica com o atendente até ele enviar manualmente
-        rows = db.query(Case).options(
+        # Query base com JOIN para carregar dados completos
+        # Status enviados para fechamento pelo atendente
+        query = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status.in_(["fechamento_pendente", "fechamento_aprovado", "fechamento_reprovado"])).order_by(Case.id.desc()).all()
+        ).filter(Case.status.in_([
+            "fechamento_pendente", "fechamento_aprovado",
+            "fechamento_reprovado"
+        ]))
+
+        # Aplicar filtro de busca se fornecido
+        if search:
+            from sqlalchemy import or_  # pyright: ignore[reportMissingImports]
+            from ..models import Client
+            search_term = f"%{search}%"
+            query = query.join(Client).filter(
+                or_(
+                    Client.name.ilike(search_term),
+                    Client.cpf.ilike(search_term),
+                    Client.matricula.ilike(search_term)
+                )
+            )
+
+        # Contar total de resultados
+        total_count = query.count()
+
+        # Aplicar paginação
+        offset = (page - 1) * page_size
+        rows = query.order_by(Case.id.desc()).offset(offset).limit(
+            page_size
+        ).all()
 
         items = []
         for c in rows:
@@ -33,18 +64,32 @@ def queue(user=Depends(require_roles("admin","supervisor","atendente"))):
                             "id": sim.id,
                             "status": sim.status,
                             "totals": {
-                                "valorParcelaTotal": float(sim.valor_parcela_total or 0),
-                                "saldoTotal": float(sim.saldo_total or 0),
-                                "liberadoTotal": float(sim.liberado_total or 0),
-                    "seguroObrigatorio": float(sim.seguro or 0),  # NOVO
-                                "totalFinanciado": float(sim.total_financiado or 0),
+                                "valorParcelaTotal": float(
+                                    sim.valor_parcela_total or 0
+                                ),
+                                "saldoTotal": float(
+                                    sim.saldo_total or 0
+                                ),
+                                "liberadoTotal": float(
+                                    sim.liberado_total or 0
+                                ),
+                                "seguroObrigatorio": float(sim.seguro or 0),
+                                "totalFinanciado": float(
+                                    sim.total_financiado or 0
+                                ),
                                 "valorLiquido": float(sim.valor_liquido or 0),
-                                "custoConsultoria": float(sim.custo_consultoria or 0),
-                                "liberadoCliente": float(sim.liberado_cliente or 0)
+                                "custoConsultoria": float(
+                                    sim.custo_consultoria or 0
+                                ),
+                                "liberadoCliente": float(
+                                    sim.liberado_cliente or 0
+                                )
                             },
                             "banks": sim.banks_json,
                             "prazo": sim.prazo,
-                            "percentualConsultoria": float(sim.percentual_consultoria or 0)
+                            "percentualConsultoria": float(
+                                sim.percentual_consultoria or 0
+                            )
                         }
 
                 # Estrutura compatível com CardFechamento
@@ -52,13 +97,29 @@ def queue(user=Depends(require_roles("admin","supervisor","atendente"))):
                     "id": c.id,
                     "status": c.status,
                     "client": {
-                        "name": c.client.name if c.client else "Cliente não encontrado",
+                        "name": (
+                            c.client.name
+                            if c.client
+                            else "Cliente não encontrado"
+                        ),
                         "cpf": c.client.cpf if c.client else "",
                         "matricula": c.client.matricula if c.client else "",
-                        "orgao": getattr(c.client, 'orgao', None) if c.client else None
+                        "orgao": (
+                            getattr(c.client, 'orgao', None)
+                            if c.client
+                            else None
+                        )
                     },
-                    "created_at": c.last_update_at.isoformat() if c.last_update_at else datetime.utcnow().isoformat(),
-                    "last_update_at": c.last_update_at.isoformat() if c.last_update_at else None,
+                    "created_at": (
+                        c.last_update_at.isoformat()
+                        if c.last_update_at
+                        else now_brt().isoformat()
+                    ),
+                    "last_update_at": (
+                        c.last_update_at.isoformat()
+                        if c.last_update_at
+                        else None
+                    ),
                     "banco": getattr(c, 'banco', None),
                     "simulation": simulation_data,
                     "contract": None  # TODO: adicionar se necessário
@@ -66,7 +127,9 @@ def queue(user=Depends(require_roles("admin","supervisor","atendente"))):
                 items.append(item)
             except Exception as e:
                 # Log do erro mas continua processando outros casos
-                print(f"Erro ao processar caso {c.id} para fechamento: {e}")
+                print(
+                    f"Erro ao processar caso {c.id} para fechamento: {e}"
+                )
                 # Adicionar item mínimo para não perder o caso
                 items.append({
                     "id": c.id,
@@ -77,21 +140,32 @@ def queue(user=Depends(require_roles("admin","supervisor","atendente"))):
                         "matricula": "",
                         "orgao": None
                     },
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": now_brt().isoformat(),
                     "last_update_at": None,
                     "banco": None,
                     "simulation": None,
                     "contract": None
                 })
 
-        return {"items": items}
+        return {
+            "items": items,
+            "total_count": total_count,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total_count + page_size - 1) // page_size
+        }
+
 
 class CloseIn(BaseModel):
     case_id: int
     notes: str | None = None
 
+
 @r.post("/approve")
-async def approve(data: CloseIn, user=Depends(require_roles("admin","supervisor","atendente"))):
+async def approve(
+    data: CloseIn,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
 
     pass
 
@@ -102,17 +176,27 @@ async def approve(data: CloseIn, user=Depends(require_roles("admin","supervisor"
         # Fechamento aprovado: marca caso como 'fechamento_aprovado'
         # Casos neste status aparecem para revisão final do calculista
         c.status = "fechamento_aprovado"
-        c.last_update_at = datetime.utcnow()
-        db.add(CaseEvent(case_id=c.id, type="closing.approved", payload={"notes": data.notes}, created_by=user.id))
+        c.last_update_at = now_brt()
+        db.add(CaseEvent(
+            case_id=c.id,
+            type="closing.approved",
+            payload={"notes": data.notes},
+            created_by=user.id
+        ))
         db.commit()
 
-
-
-    await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"fechamento_aprovado"})
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": data.case_id, "status": "fechamento_aprovado"}
+    )
     return {"ok": True}
 
+
 @r.post("/reject")
-async def reject(data: CloseIn, user=Depends(require_roles("admin","supervisor","atendente"))):
+async def reject(
+    data: CloseIn,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
 
     pass
 
@@ -121,18 +205,29 @@ async def reject(data: CloseIn, user=Depends(require_roles("admin","supervisor",
         if not c:
             raise HTTPException(404, "case not found")
         c.status = "fechamento_reprovado"
-        c.last_update_at = datetime.utcnow()
-        db.add(CaseEvent(case_id=c.id, type="closing.rejected", payload={"notes": data.notes}, created_by=user.id))
+        c.last_update_at = now_brt()
+        db.add(CaseEvent(
+            case_id=c.id,
+            type="closing.rejected",
+            payload={"notes": data.notes},
+            created_by=user.id
+        ))
         db.commit()
 
-
-
-    await eventbus.broadcast("case.updated", {"case_id": data.case_id, "status":"fechamento_reprovado"})
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": data.case_id, "status": "fechamento_reprovado"}
+    )
     return {"ok": True}
 
+
 @r.get("/case/{case_id}")
-def get_case_details(case_id: int, user=Depends(require_roles("admin","supervisor","atendente"))):
-    """Retorna detalhes completos de um caso para exibição no modal de fechamento"""
+def get_case_details(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """Retorna detalhes completos de um caso para exibição no modal de
+    fechamento"""
     from ..models import Simulation, Attachment, Contract, ContractAttachment
     import os
 
@@ -174,23 +269,31 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
                     "prazo": sim.prazo,
                     "coeficiente": sim.coeficiente,
                     "seguro": float(sim.seguro or 0),
-                    "percentual_consultoria": float(sim.percentual_consultoria or 0),
+                    "percentual_consultoria": float(
+                        sim.percentual_consultoria or 0
+                    ),
                     "banks_json": sim.banks_json,
                     "totals": {
-                        "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                        "valorParcelaTotal": float(
+                            sim.valor_parcela_total or 0
+                        ),
                         "saldoTotal": float(sim.saldo_total or 0),
                         "liberadoTotal": float(sim.liberado_total or 0),
                         "totalFinanciado": float(sim.total_financiado or 0),
                         "valorLiquido": float(sim.valor_liquido or 0),
                         "custoConsultoria": float(sim.custo_consultoria or 0),
-                        "custoConsultoriaLiquido": float(sim.custo_consultoria_liquido or 0),
+                        "custoConsultoriaLiquido": float(
+                            sim.custo_consultoria_liquido or 0
+                        ),
                         "liberadoCliente": float(sim.liberado_cliente or 0)
                     }
                 }
 
         # Contrato efetivado (se existir)
         contract_data = None
-        contract = db.query(Contract).filter(Contract.case_id == case.id).first()
+        contract = db.query(Contract).filter(
+            Contract.case_id == case.id
+        ).first()
         if contract:
             attachments = db.query(ContractAttachment).filter(
                 ContractAttachment.contract_id == contract.id
@@ -199,7 +302,11 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
                 "id": contract.id,
                 "total_amount": float(contract.total_amount or 0),
                 "installments": contract.installments,
-                "disbursed_at": contract.disbursed_at.isoformat() if contract.disbursed_at else None,
+                "disbursed_at": (
+                    contract.disbursed_at.isoformat()
+                    if contract.disbursed_at
+                    else None
+                ),
                 "status": contract.status,
                 "attachments": [
                     {
@@ -207,7 +314,11 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
                         "filename": a.filename,
                         "size": a.size,
                         "mime": a.mime,
-                        "created_at": a.created_at.isoformat() if a.created_at else None
+                        "created_at": (
+                            a.created_at.isoformat()
+                            if a.created_at
+                            else None
+                        )
                     } for a in attachments
                 ]
             }
@@ -221,7 +332,9 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
             {
                 "id": e.id,
                 "type": e.type,
-                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "created_at": (
+                    e.created_at.isoformat() if e.created_at else None
+                ),
                 "payload": e.payload,
                 "created_by": e.created_by
             } for e in events
@@ -236,17 +349,23 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
             {
                 "id": a.id,
                 "path": a.path,
-                "filename": os.path.basename(a.path) if a.path else None,
+                "filename": (
+                    os.path.basename(a.path) if a.path else None
+                ),
                 "mime": a.mime,
                 "size": a.size,
-                "created_at": a.created_at.isoformat() if a.created_at else None
+                "created_at": (
+                    a.created_at.isoformat() if a.created_at else None
+                )
             } for a in attachments
         ]
 
         return {
             "id": case.id,
             "status": case.status,
-            "created_at": case.created_at.isoformat() if case.created_at else None,
+            "created_at": (
+                case.created_at.isoformat() if case.created_at else None
+            ),
             "client": client_data,
             "simulation": simulation_data,
             "contract": contract_data,
@@ -254,17 +373,21 @@ def get_case_details(case_id: int, user=Depends(require_roles("admin","superviso
             "attachments": attachments_data
         }
 
+
 @r.get("/kpis")
 def closing_kpis(
     from_date: str | None = None,
     to_date: str | None = None,
     month: str | None = None,
-    user=Depends(require_roles("admin","supervisor","fechamento","atendente"))
+    user=Depends(require_roles(
+        "admin", "supervisor", "fechamento", "atendente"
+    ))
 ):
-    """Retorna KPIs do módulo de fechamento com dados reais e porcentagens calculadas"""
+    """Retorna KPIs do módulo de fechamento com dados reais e
+    porcentagens calculadas"""
     from ..models import Contract
     from datetime import datetime, timedelta
-    from sqlalchemy import func, and_
+    from sqlalchemy import func, and_  # pyright: ignore[reportMissingImports]
 
     def _parse_period(from_date, to_date, month):
         """Parse período atual e anterior para comparação"""
@@ -317,10 +440,14 @@ def closing_kpis(
         """Calcula a porcentagem de mudança entre períodos"""
         if previous_value == 0:
             return 100.0 if current_value > 0 else 0.0
-        return round(((current_value - previous_value) / previous_value) * 100, 1)
+        return round(
+            ((current_value - previous_value) / previous_value) * 100, 1
+        )
 
     with SessionLocal() as db:
-        start_date, end_date, prev_start_date, prev_end_date = _parse_period(from_date, to_date, month)
+        start_date, end_date, prev_start_date, prev_end_date = _parse_period(
+            from_date, to_date, month
+        )
 
         # Casos pendentes de fechamento (sempre atual, não depende de período)
         casos_pendentes = db.query(func.count(Case.id)).filter(
@@ -350,10 +477,16 @@ def closing_kpis(
         total_processados = casos_aprovados + casos_reprovados
 
         # Taxa de aprovação atual
-        taxa_aprovacao = (casos_aprovados / total_processados * 100) if total_processados > 0 else 0
+        taxa_aprovacao = (
+            (casos_aprovados / total_processados * 100)
+            if total_processados > 0
+            else 0
+        )
 
         # Volume financeiro dos contratos efetivados no período atual
-        volume_financeiro = db.query(func.coalesce(func.sum(Contract.total_amount), 0)).filter(
+        volume_financeiro = db.query(
+            func.coalesce(func.sum(Contract.total_amount), 0)
+        ).filter(
             and_(
                 Contract.status == "ativo",
                 Contract.signed_at >= start_date,
@@ -362,7 +495,9 @@ def closing_kpis(
         ).scalar() or 0
 
         # Consultoria líquida no período atual
-        consultoria_liquida = db.query(func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)).filter(
+        consultoria_liquida = db.query(
+            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+        ).filter(
             and_(
                 Contract.status == "ativo",
                 Contract.signed_at >= start_date,
@@ -393,10 +528,16 @@ def closing_kpis(
         total_processados_prev = casos_aprovados_prev + casos_reprovados_prev
 
         # Taxa de aprovação anterior
-        taxa_aprovacao_prev = (casos_aprovados_prev / total_processados_prev * 100) if total_processados_prev > 0 else 0
+        taxa_aprovacao_prev = (
+            (casos_aprovados_prev / total_processados_prev * 100)
+            if total_processados_prev > 0
+            else 0
+        )
 
         # Volume financeiro no período anterior
-        volume_financeiro_prev = db.query(func.coalesce(func.sum(Contract.total_amount), 0)).filter(
+        volume_financeiro_prev = db.query(
+            func.coalesce(func.sum(Contract.total_amount), 0)
+        ).filter(
             and_(
                 Contract.status == "ativo",
                 Contract.signed_at >= prev_start_date,
@@ -405,7 +546,9 @@ def closing_kpis(
         ).scalar() or 0
 
         # Consultoria líquida no período anterior
-        consultoria_liquida_prev = db.query(func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)).filter(
+        consultoria_liquida_prev = db.query(
+            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+        ).filter(
             and_(
                 Contract.status == "ativo",
                 Contract.signed_at >= prev_start_date,
@@ -424,7 +567,9 @@ def closing_kpis(
 
         # Calcular despesas do período
         from ..models import FinanceExpense
-        despesas = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
+        despesas = db.query(
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
+        ).filter(
             and_(
                 FinanceExpense.date >= start_date,
                 FinanceExpense.date < end_date
@@ -432,7 +577,9 @@ def closing_kpis(
         ).scalar() or 0
 
         # Calcular despesas do período anterior
-        despesas_prev = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
+        despesas_prev = db.query(
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
+        ).filter(
             and_(
                 FinanceExpense.date >= prev_start_date,
                 FinanceExpense.date < prev_end_date
@@ -441,7 +588,9 @@ def closing_kpis(
 
         # Calcular Meta Mensal: (Consultoria Líquida - Despesas) * 10%
         meta_mensal = (float(consultoria_liquida) - float(despesas)) * 0.1
-        meta_mensal_prev = (float(consultoria_liquida_prev) - float(despesas_prev)) * 0.1
+        meta_mensal_prev = (
+            (float(consultoria_liquida_prev) - float(despesas_prev)) * 0.1
+        )
 
         return {
             "casos_pendentes": casos_pendentes,
@@ -456,13 +605,25 @@ def closing_kpis(
             "contratos_efetivados_hoje": contratos_hoje,
             # Trends calculados automaticamente
             "trends": {
-                "casos_pendentes": 0,  # Casos pendentes não têm trend (sempre atual)
-                "casos_aprovados": _calculate_trend(casos_aprovados, casos_aprovados_prev),
-                "taxa_aprovacao": _calculate_trend(taxa_aprovacao, taxa_aprovacao_prev),
-                "volume_financeiro": _calculate_trend(volume_financeiro, volume_financeiro_prev),
-                "consultoria_liquida": _calculate_trend(consultoria_liquida, consultoria_liquida_prev),
-                "despesas": _calculate_trend(despesas, despesas_prev),
-                "meta_mensal": _calculate_trend(meta_mensal, meta_mensal_prev)
+                "casos_pendentes": 0,  # Casos pendentes não têm trend
+                "casos_aprovados": _calculate_trend(
+                    casos_aprovados, casos_aprovados_prev
+                ),
+                "taxa_aprovacao": _calculate_trend(
+                    taxa_aprovacao, taxa_aprovacao_prev
+                ),
+                "volume_financeiro": _calculate_trend(
+                    volume_financeiro, volume_financeiro_prev
+                ),
+                "consultoria_liquida": _calculate_trend(
+                    consultoria_liquida, consultoria_liquida_prev
+                ),
+                "despesas": _calculate_trend(
+                    despesas, despesas_prev
+                ),
+                "meta_mensal": _calculate_trend(
+                    meta_mensal, meta_mensal_prev
+                )
             },
             "periodo": {
                 "inicio": start_date.isoformat(),
