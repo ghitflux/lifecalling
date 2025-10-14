@@ -217,10 +217,10 @@ function CalculistaPageContent() {
 
   // Query para contador da tab Retorno Fechamento (sempre ativa)
   const { data: retornoFechamentoCount = 0 } = useQuery({
-    queryKey: ["/cases", "retorno_fechamento_count"],
+    queryKey: ["/cases", "fechamento_aprovado_count"],
     queryFn: async () => {
       const res = await api.get(
-        "/cases?status=retorno_fechamento,fechamento_aprovado&page_size=1"
+        "/cases?status=fechamento_aprovado&page_size=1"
       );
       return res.data.total || 0;
     },
@@ -229,10 +229,10 @@ function CalculistaPageContent() {
 
   // Casos para outras abas
   const { data: retornoFechamento = [], isLoading: retornoLoading } = useQuery({
-    queryKey: ["/cases", "retorno_fechamento_and_fechamento_aprovado"],
+    queryKey: ["/cases", "fechamento_aprovado"],
     queryFn: async () => {
       const res = await api.get(
-        "/cases?status=retorno_fechamento,fechamento_aprovado&page_size=50"
+        "/cases?status=fechamento_aprovado&page_size=50"
       );
       return res.data.items || [];
     },
@@ -519,7 +519,7 @@ function CalculistaPageContent() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{caso.id}</Badge>
-                      <StatusBadge status="fechamento_aprovado" size="sm" />
+                      <StatusBadge status={caso.status} size="sm" />
                     </div>
 
                     <div>
@@ -578,7 +578,7 @@ function CalculistaPageContent() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">Caso #{caso.id}</Badge>
-                      <StatusBadge status="financeiro_pendente" size="sm" />
+                      <StatusBadge status={caso.status} size="sm" />
                     </div>
 
                     <div>
@@ -805,7 +805,7 @@ function CalculistaPageContent() {
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <StatusBadge status="contrato_efetivado" size="sm" />
+                      <StatusBadge status={caso.status} size="sm" />
                     </div>
 
                     <div>
@@ -865,7 +865,7 @@ function CalculistaPageContent() {
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <StatusBadge status="encerrado" size="sm" />
+                      <StatusBadge status={caso.status} size="sm" />
                     </div>
 
                     <div>
@@ -925,7 +925,7 @@ function CalculistaPageContent() {
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <StatusBadge status="encerrado" size="sm" />
+                      <StatusBadge status={caso.status} size="sm" />
                     </div>
 
                     <div>

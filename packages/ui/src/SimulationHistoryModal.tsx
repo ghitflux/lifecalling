@@ -53,6 +53,7 @@ interface SimulationHistoryEntry {
     valorLiberado: number;
   }>;
   prazo: number;
+  coeficiente?: string;
   percentualConsultoria: number;
 }
 

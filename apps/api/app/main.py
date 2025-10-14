@@ -200,7 +200,7 @@ def reset_test_data():
 
                 case = Case(
                     client_id=client.id,
-                    status=random.choice(["novo", "em_atendimento", "calculista_pendente", "aprovado"]),
+                    status=random.choice(["novo", "em_atendimento", "calculista_pendente", "calculo_aprovado"]),
                     assigned_user_id=assigned_user.id if assigned_user else None,
                     banco=random.choice(BANCOS),
                     created_at=datetime.utcnow() - timedelta(days=random.randint(1, 30)),

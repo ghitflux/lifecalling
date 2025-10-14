@@ -34,6 +34,7 @@ export default function CalculistaSimulationPage() {
   const [simulationId, setSimulationId] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
+  const [editingSimulation, setEditingSimulation] = useState<SimulationInput | null>(null);
 
   // Helper para extrair mensagem de erro
   const getErrorMessage = (error: any): string => {
@@ -135,7 +136,6 @@ export default function CalculistaSimulationPage() {
 
   // Flags de status do caso
   const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
-  const isRetornoFechamento = caseDetail?.status === "retorno_fechamento";
 
   // Mutation para aprovar simulação
   const approveSimulationMutation = useMutation({
@@ -145,14 +145,8 @@ export default function CalculistaSimulationPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
-      if (isRetornoFechamento) {
-        toast.success("Simulação aprovada! Enviando para financeiro...");
-        // Após aprovar, enviar ao financeiro automaticamente
-        sendToFinanceMutation.mutate(caseId);
-      } else {
-        toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
-        router.push("/calculista");
-      }
+      toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
+      router.push("/calculista");
     },
     onError: (error: any) => {
       console.error("Erro ao aprovar:", error);
@@ -210,7 +204,7 @@ export default function CalculistaSimulationPage() {
       // Invalidar todas as queries relacionadas
       queryClient.invalidateQueries({ queryKey: ["cases"] });
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
-      queryClient.invalidateQueries({ queryKey: ["/cases", "retorno_fechamento_and_fechamento_aprovado"] });
+      queryClient.invalidateQueries({ queryKey: ["/cases", "fechamento_aprovado"] });
       queryClient.invalidateQueries({ queryKey: ["/cases", "financeiro_pendente"] });
       queryClient.invalidateQueries({ queryKey: ["calculation", "kpis"] });
       toast.success("Caso enviado para financeiro!");
@@ -265,10 +259,6 @@ export default function CalculistaSimulationPage() {
   const handlePrint = () => {
     window.print();
   };
-
-  // Verificar se é retorno de fechamento aprovado (mantém apenas fechamento_aprovado para UI)
-  // Para casos em retorno_fechamento, a aprovação dispara envio automático ao financeiro
-  // A flag isFechamentoAprovado acima já foi definida.
 
   if (caseLoading) {
     return <CaseSkeleton />;
@@ -441,6 +431,7 @@ export default function CalculistaSimulationPage() {
           <SimulationFormMultiBank
             onCalculate={handleCalculate}
             loading={saveSimulationMutation.isPending}
+            initialData={editingSimulation || undefined}
           />
         </div>
 
@@ -587,13 +578,16 @@ export default function CalculistaSimulationPage() {
             valorLiberado: b.valorLiberado
           }));
 
-          setCurrentSimulation({
+          const simulationData = {
             banks: banksConverted,
             prazo: entry.prazo,
-            coeficiente: "",
+            coeficiente: entry.coeficiente || "",
             seguro: entry.totals.seguroObrigatorio || 0,
             percentualConsultoria: entry.percentualConsultoria
-          });
+          };
+
+          setCurrentSimulation(simulationData);
+          setEditingSimulation(simulationData);
 
           // Garantir que custoConsultoriaLiquido seja sempre number
           const totals = {

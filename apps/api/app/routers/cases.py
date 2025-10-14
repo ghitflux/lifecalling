@@ -1642,8 +1642,8 @@ async def change_case_status(
 
     # Status válidos (todos os estados possíveis do sistema)
     valid_statuses = [
-        "novo", "em_atendimento", "calculista_pendente", "aprovado",
-        "retorno_fechamento", "fechamento_aprovado", "financeiro_pendente",
+        "novo", "em_atendimento", "calculista_pendente", "calculo_aprovado",
+        "fechamento_aprovado", "financeiro_pendente",
         "contrato_efetivado", "encerrado", "devolvido_financeiro",
         "sem_contato"
     ]
@@ -1685,8 +1685,7 @@ async def change_case_status(
             # Mapear status do caso para status da simulação
             status_map = {
                 "calculista_pendente": "draft",
-                "aprovado": "approved",
-                "retorno_fechamento": "approved",
+                "calculo_aprovado": "approved",
                 "fechamento_aprovado": "approved",
                 "financeiro_pendente": "approved",
             }

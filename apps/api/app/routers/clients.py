@@ -197,9 +197,10 @@ def get_available_filters(
             "em_atendimento": "Em Atendimento",
             "calculista": "Calculista",
             "calculista_pendente": "Calculista Pendente",
+            "calculo_aprovado": "Cálculo Aprovado",
             "financeiro": "Financeiro",
             "fechamento_pendente": "Fechamento Pendente",
-            "aprovado": "Aprovado",
+            "fechamento_aprovado": "Fechamento Aprovado",
             "cancelado": "Cancelado",
         }
 
@@ -285,9 +286,9 @@ def get_clients_stats(
         .scalar() or 0
     )
 
-    # Casos finalizados (aprovado, efetivado)
+    # Casos finalizados (cálculo aprovado, fechamento aprovado, contrato efetivado)
     completed_statuses = [
-        "aprovado", "efetivado", "calculo_aprovado", "fechamento_aprovado"
+        "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"
     ]
     completed_cases = (
         db.query(func.count(Case.id))

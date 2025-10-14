@@ -129,8 +129,8 @@ def create_demo_cases():
             elif i < 18:  # 6 casos aguardando calculista
                 status = "calculista_pendente"
                 assigned_user = random.choice(atendentes) if atendentes else None
-            elif i < 22:  # 4 casos aprovados para fechamento
-                status = "aprovado"
+            elif i < 22:  # 4 casos com cálculo aprovado para fechamento
+                status = "calculo_aprovado"
                 assigned_user = random.choice(atendentes) if atendentes else None
             elif i < 26:  # 4 casos atribuídos (em processamento)
                 status = "atribuido"
@@ -157,7 +157,7 @@ def create_demo_cases():
 
         # Relatório dos casos criados
         print("\n📊 Distribuição dos casos:")
-        for status in ["novo", "em_atendimento", "calculista_pendente", "aprovado", "atribuido", "pendente", "finalizado"]:
+        for status in ["novo", "em_atendimento", "calculista_pendente", "calculo_aprovado", "atribuido", "pendente", "finalizado"]:
             count = db.query(Case).filter(Case.status == status).count()
             print(f"  - {status}: {count} casos")
 

@@ -174,13 +174,17 @@ def list_retorno_fechamento(
         "admin", "supervisor", "calculista", "fechamento"
     ))
 ):
+    """
+    Endpoint para listar casos aprovados pelo fechamento.
+    Retorna casos com status 'fechamento_aprovado' para revisão do calculista.
+    """
     from sqlalchemy.orm import joinedload
 
     with SessionLocal() as db:
         cases = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
-        ).filter(Case.status == "retorno_fechamento").order_by(
+        ).filter(Case.status == "fechamento_aprovado").order_by(
             Case.last_update_at.desc()
         ).all()
 
@@ -366,6 +370,7 @@ async def approve(
             },
             "banks": enrich_banks_with_names(sim.banks_json or []),
             "prazo": sim.prazo,
+            "coeficiente": sim.coeficiente or "",
             "percentualConsultoria": float(
                 sim.percentual_consultoria or 0
             )
@@ -447,6 +452,7 @@ async def reject(
             },
             "banks": enrich_banks_with_names(sim.banks_json or []),
             "prazo": sim.prazo,
+            "coeficiente": sim.coeficiente or "",
             "percentualConsultoria": float(
                 sim.percentual_consultoria or 0
             )
@@ -584,13 +590,11 @@ async def send_to_finance(
         if not case:
             raise HTTPException(404, "Caso não encontrado")
 
-        # Permitir envio ao financeiro tanto para casos marcados como
-        # 'retorno_fechamento' quanto para casos já aprovados no fechamento
-        # ('fechamento_aprovado')
-        if case.status not in ("retorno_fechamento", "fechamento_aprovado"):
+        # Permitir envio ao financeiro apenas para casos aprovados no fechamento
+        if case.status != "fechamento_aprovado":
             raise HTTPException(
                 400,
-                "Apenas casos de retorno de fechamento ou fechamento aprovado "
+                "Apenas casos com fechamento aprovado "
                 "podem ser enviados para financeiro"
             )
 
