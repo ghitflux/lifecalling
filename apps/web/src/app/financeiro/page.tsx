@@ -15,14 +15,12 @@ import {
   useExpenseAttachments,
   useUploadIncomeAttachment,
   useUploadExpenseAttachment,
-  useCreateExternalIncome,
   useUsers
 } from "@/lib/hooks";
 import {
   ExpenseModal,
   IncomeModal,
   AttachmentsModal,
-  ExternalIncomeModal,
   FinanceCard,
   Button,
   Tabs,
@@ -93,14 +91,9 @@ export default function Page() {
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [showExternalIncomeModal, setShowExternalIncomeModal] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [editingIncome, setEditingIncome] = useState<any>(null);
-
-  // Hooks para receitas externas
-  const createExternalIncome = useCreateExternalIncome();
-  const { data: users = [] } = useUsers();
 
   // Filtros transações
   const [transactionType, setTransactionType] = useState<string>("");
@@ -543,12 +536,6 @@ export default function Page() {
     }
   };
 
-  // Handler para criar receita externa
-  const handleCreateExternalIncome = async (data: any) => {
-    await createExternalIncome.mutateAsync(data);
-    setShowExternalIncomeModal(false);
-  };
-
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
 
@@ -972,14 +959,6 @@ export default function Page() {
                 <Plus className="h-4 w-4" />
                 Despesa
               </Button>
-              <Button
-                onClick={() => setShowExternalIncomeModal(true)}
-                variant="outline"
-                className="flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 border-purple-300"
-              >
-                <Plus className="h-4 w-4" />
-                Cliente Externo
-              </Button>
             </div>
           </div>
 
@@ -1275,14 +1254,6 @@ export default function Page() {
         }}
         initialData={editingIncome}
         loading={saveIncomeMutation.isPending}
-      />
-
-      {/* Modal Receitas Externas */}
-      <ExternalIncomeModal
-        isOpen={showExternalIncomeModal}
-        onClose={() => setShowExternalIncomeModal(false)}
-        onSubmit={handleCreateExternalIncome}
-        users={users}
       />
 
       {/* Modal Detalhes do Contrato/Atendimento */}

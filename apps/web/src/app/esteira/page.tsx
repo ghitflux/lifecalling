@@ -103,9 +103,9 @@ function EsteiraPageContent() {
     if (savedStatus) {
       const tabToUse = savedTab || 'global';
       if (tabToUse === 'mine') {
-        setMySelectedStatus(savedStatus);
+        setMySelectedStatus([savedStatus]);
       } else {
-        setGlobalSelectedStatus(savedStatus);
+        setGlobalSelectedStatus([savedStatus]);
       }
     }
 

@@ -42,7 +42,6 @@ export * from "./src/FinanceMetrics";
 export * from "./src/ExpenseModal";
 export * from "./src/IncomeModal";
 export * from "./src/AttachmentsModal";
-export * from "./src/ExternalIncomeModal";
 export * from "./src/FinanceChart";
 export * from "./src/ContractCard";
 export * from "./src/ContractSummary";
