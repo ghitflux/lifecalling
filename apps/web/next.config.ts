@@ -11,16 +11,16 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../../.."), // Point to the workspace root to avoid multiple lockfiles warning
   },
   async rewrites() {
-    // Em produção você aponta NEXT_PUBLIC_API_BASE_URL para o domínio real da API
-    if (process.env.NODE_ENV === 'development') {
-      return [
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:8000/:path*',
-        },
-      ];
-    }
-    return [];
+    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+    if (!API) return [];
+
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${API}/:path*`,
+      },
+    ];
   },
 };
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "./api";
+import { api, logAxiosError } from "./api";
 import type { Case, CaseDetail } from "@/types";
 import { toast } from "sonner";
 
@@ -1020,17 +1020,21 @@ export function useExternalIncome(id: number) {
 export function useCreateExternalIncome() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: any) =>
-      (await api.post("/finance/external-incomes", data)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["finance", "external-incomes"] });
-      qc.invalidateQueries({ queryKey: ["finance", "metrics"] });
-      qc.invalidateQueries({ queryKey: ["finance", "timeseries"] });
-      toast.success("Receita de cliente externo criada com sucesso");
+    mutationFn: async (data: any) => {
+      const res = await api.post('/finance/external-incomes', data);
+      return res.data;
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Erro ao criar receita de cliente externo");
-    }
+    onSuccess: () => {
+      toast.success('Receita externa salva');
+      qc.invalidateQueries({ queryKey: ['finance', 'external-incomes'] });
+      qc.invalidateQueries({ queryKey: ['finance', 'metrics'] });
+    },
+    onError: (error: unknown) => {
+      logAxiosError('FINANCE/EXTERNAL-INCOMES', error);
+      const e = error as any;
+      const msg = e?.response?.data?.detail || e?.message || 'Erro ao criar receita externa';
+      toast.error(String(msg));
+    },
   });
 }
 
@@ -1115,5 +1119,27 @@ export function useDeleteExternalIncomeAttachment() {
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Erro ao remover anexo");
     }
+  });
+}
+
+/** Criar Cliente Manual */
+export function useCreateManualClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await api.post('/clients/manual', data);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Cliente criado com sucesso');
+      qc.invalidateQueries({ queryKey: ['/clients'] });
+      qc.invalidateQueries({ queryKey: ['cases'] });
+    },
+    onError: (error: unknown) => {
+      logAxiosError('CLIENTS/MANUAL', error);
+      const e = error as any;
+      const msg = e?.response?.data?.detail || e?.message || 'Erro ao criar cliente';
+      toast.error(String(msg));
+    },
   });
 }
