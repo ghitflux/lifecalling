@@ -334,7 +334,13 @@ def finance_metrics(
     end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    from ..models import Contract, FinanceIncome, FinanceExpense, ExternalClientIncome, CommissionPayout
+    from ..models import (  # noqa: E501
+        Contract,
+        FinanceIncome,
+        FinanceExpense,
+        ExternalClientIncome,
+        CommissionPayout
+    )
     from sqlalchemy import func  # pyright: ignore[reportMissingImports]
     from datetime import datetime, timedelta
 
@@ -375,7 +381,9 @@ def finance_metrics(
 
         # Receitas externas (clientes externos)
         total_external_income = float(db.query(
-            func.coalesce(func.sum(ExternalClientIncome.custo_consultoria_liquido), 0)
+            func.coalesce(
+                func.sum(ExternalClientIncome.custo_consultoria_liquido), 0
+            )
         ).filter(
             ExternalClientIncome.date >= start_filter,
             ExternalClientIncome.date <= end_filter
@@ -406,13 +414,16 @@ def finance_metrics(
             FinanceExpense.expense_type == "Impostos"
         ).scalar() or 0)
 
-        # Receita total = consultoria líquida + receitas externas + receitas manuais
+        # Receita total = consultoria líquida + receitas externas
+        # + receitas manuais
         total_revenue = (
-            total_consultoria_liquida + total_external_income + total_manual_income
+            total_consultoria_liquida +
+            total_external_income +
+            total_manual_income
         )
 
-        # Impostos: 14% sobre consultoria bruta (contratos + externos) + impostos manuais
-        # (consultoria_liq / 0.86 * 0.14) para ambos
+        # Impostos: 14% sobre consultoria bruta (contratos + externos)
+        # + impostos manuais (consultoria_liq / 0.86 * 0.14) para ambos
         total_tax_contracts = (
             (total_consultoria_liquida / 0.86 * 0.14)
             if total_consultoria_liquida > 0
@@ -435,8 +446,10 @@ def finance_metrics(
             CommissionPayout.created_at <= end_filter
         ).scalar() or 0)
 
-        # Lucro líquido = (Receita Total - Despesas) - Consultoria Líquida
-        # (subtraindo a consultoria líquida que já está incluída na receita total)
+        # Lucro líquido = (Receita Total - Despesas)
+        # - Consultoria Líquida
+        # (subtraindo a consultoria líquida que já está incluída
+        # na receita total)
         net_profit = (
             (total_revenue - total_expenses) - total_consultoria_liquida
         )
@@ -624,9 +637,14 @@ async def disburse_simple(
                 client_name = (
                     c.client.name if c.client else f"Cliente {c.id}"
                 )
-                # Se admin escolheu usuário para comissão, atribuir receita a ele
+                # Se admin escolheu usuário para comissão,
+                # atribuir receita a ele
                 # Caso contrário, atribuir ao atendente original do caso
-                receita_user_id = data.commission_user_id if data.commission_user_id else c.assigned_user_id
+                receita_user_id = (
+                    data.commission_user_id
+                    if data.commission_user_id
+                    else c.assigned_user_id
+                )
 
                 income = FinanceIncome(
                     date=data.disbursed_at or now_brt(),
@@ -634,31 +652,44 @@ async def disburse_simple(
                     income_name=f"Contrato #{ct.id} - {client_name}",
                     amount=consultoria_liquida,
                     created_by=user.id,
-                    agent_user_id=receita_user_id  # Usuário escolhido ou atendente original
+                    # Usuário escolhido ou atendente original
+                    agent_user_id=receita_user_id
                 )
                 db.add(income)
 
             # Criar comissão se especificada
-            if (data.commission_user_id and data.commission_percentage
-                and consultoria_liquida > 0):
-                from ..models import FinanceExpense, CommissionPayout, User
+            if (data.commission_user_id and
+                data.commission_percentage and
+                    consultoria_liquida > 0):
+                from ..models import (
+                    FinanceExpense,
+                    CommissionPayout,
+                    User
+                )
                 from decimal import Decimal
 
                 # Validar usuário beneficiário
                 beneficiary = db.get(User, data.commission_user_id)
                 if not beneficiary:
-                    raise HTTPException(400, "Usuário beneficiário não encontrado")
+                    raise HTTPException(
+                        400,
+                        "Usuário beneficiário não encontrado"
+                    )
 
                 # Validar porcentagem (10, 20, 30, 40, 50, 60, 70)
                 valid_percentages = [10, 20, 30, 40, 50, 60, 70]
                 if data.commission_percentage not in valid_percentages:
                     raise HTTPException(
                         400,
-                        f"Porcentagem de comissão inválida. Valores permitidos: {valid_percentages}"
+                        f"Porcentagem de comissão inválida. "
+                        f"Valores permitidos: {valid_percentages}"
                     )
 
                 # Calcular valor da comissão
-                commission_amount = Decimal(str(consultoria_liquida)) * (Decimal(str(data.commission_percentage)) / 100)
+                commission_amount = (
+                    Decimal(str(consultoria_liquida)) *
+                    (Decimal(str(data.commission_percentage)) / 100)
+                )
 
                 # Criar despesa de comissão
                 expense = FinanceExpense(
@@ -666,7 +697,10 @@ async def disburse_simple(
                     month=(data.disbursed_at or now_brt()).month,
                     year=(data.disbursed_at or now_brt()).year,
                     expense_type="Comissão",
-                    expense_name=f"Comissão {data.commission_percentage}% - {beneficiary.name} - Contrato #{ct.id}",
+                    expense_name=(
+                        f"Comissão {data.commission_percentage}% - "
+                        f"{beneficiary.name} - Contrato #{ct.id}"
+                    ),
                     amount=commission_amount,
                     created_by=user.id
                 )
@@ -678,8 +712,12 @@ async def disburse_simple(
                     contract_id=ct.id,
                     case_id=c.id,
                     beneficiary_user_id=data.commission_user_id,
-                    consultoria_liquida=Decimal(str(consultoria_liquida)),
-                    commission_percentage=Decimal(str(data.commission_percentage)),
+                    consultoria_liquida=Decimal(
+                        str(consultoria_liquida)
+                    ),
+                    commission_percentage=Decimal(
+                        str(data.commission_percentage)
+                    ),
                     commission_amount=commission_amount,
                     expense_id=expense.id,
                     created_by=user.id
@@ -732,9 +770,8 @@ def get_commissions(
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Lista todas as comissões com filtros opcionais"""
-    from ..models import CommissionPayout, User, Contract as ContractModel
-    from sqlalchemy import func
-    from datetime import datetime, timedelta
+    from ..models import CommissionPayout
+    from datetime import datetime
 
     with SessionLocal() as db:
         query = db.query(CommissionPayout).options(
@@ -747,22 +784,30 @@ def get_commissions(
         if start_date:
             try:
                 start_filter = datetime.fromisoformat(start_date)
-                query = query.filter(CommissionPayout.created_at >= start_filter)
+                query = query.filter(
+                    CommissionPayout.created_at >= start_filter
+                )
             except Exception:
                 pass
 
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
-                query = query.filter(CommissionPayout.created_at <= end_filter)
+                query = query.filter(
+                    CommissionPayout.created_at <= end_filter
+                )
             except Exception:
                 pass
 
         # Filtro por usuário beneficiário
         if user_id:
-            query = query.filter(CommissionPayout.beneficiary_user_id == user_id)
+            query = query.filter(
+                CommissionPayout.beneficiary_user_id == user_id
+            )
 
-        commissions = query.order_by(CommissionPayout.created_at.desc()).all()
+        commissions = query.order_by(
+            CommissionPayout.created_at.desc()
+        ).all()
 
         items = []
         for comm in commissions:
@@ -775,10 +820,20 @@ def get_commissions(
                     "name": comm.beneficiary.name,
                     "email": comm.beneficiary.email
                 },
-                "consultoria_liquida": float(comm.consultoria_liquida),
-                "commission_percentage": float(comm.commission_percentage),
-                "commission_amount": float(comm.commission_amount),
-                "created_at": comm.created_at.isoformat() if comm.created_at else None,
+                "consultoria_liquida": float(
+                    comm.consultoria_liquida
+                ),
+                "commission_percentage": float(
+                    comm.commission_percentage
+                ),
+                "commission_amount": float(
+                    comm.commission_amount
+                ),
+                "created_at": (
+                    comm.created_at.isoformat()
+                    if comm.created_at
+                    else None
+                ),
                 "created_by": {
                     "id": comm.creator.id,
                     "name": comm.creator.name
@@ -786,7 +841,9 @@ def get_commissions(
             })
 
         # Totais
-        total_commissions = sum(float(c.commission_amount) for c in commissions)
+        total_commissions = sum(
+            float(c.commission_amount) for c in commissions
+        )
 
         return {
             "items": items,
