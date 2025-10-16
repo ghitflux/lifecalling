@@ -46,8 +46,8 @@ def ranking_agents(
 
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
-    # Buscar apenas usuários com role "atendente"
-    all_users_q = db.query(User).filter(User.role == "atendente")
+    # Buscar TODOS os usuários do sistema (não só atendentes)
+    all_users_q = db.query(User)
     if agent_id:
         all_users_q = all_users_q.filter(User.id == agent_id)
 
