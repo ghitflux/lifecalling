@@ -624,13 +624,17 @@ async def disburse_simple(
                 client_name = (
                     c.client.name if c.client else f"Cliente {c.id}"
                 )
+                # Se admin escolheu usuário para comissão, atribuir receita a ele
+                # Caso contrário, atribuir ao atendente original do caso
+                receita_user_id = data.commission_user_id if data.commission_user_id else c.assigned_user_id
+
                 income = FinanceIncome(
                     date=data.disbursed_at or now_brt(),
                     income_type="Consultoria Líquida",
                     income_name=f"Contrato #{ct.id} - {client_name}",
                     amount=consultoria_liquida,
                     created_by=user.id,
-                    agent_user_id=c.assigned_user_id  # Atendente
+                    agent_user_id=receita_user_id  # Usuário escolhido ou atendente original
                 )
                 db.add(income)
 
