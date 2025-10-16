@@ -361,20 +361,46 @@ export function useFinanceDisburse() {
 export function useFinanceDisburseSimple() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (caseId: number) => {
-      const response = await api.post('/finance/disburse-simple', { case_id: caseId });
+    mutationFn: async (payload: {
+      case_id: number;
+      commission_user_id?: number;
+      commission_percentage?: number;
+    }) => {
+      const response = await api.post('/finance/disburse-simple', payload);
       return response.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['finance'] });
       qc.invalidateQueries({ queryKey: ['financeQueue'] });
+      qc.invalidateQueries({ queryKey: ['financeMetrics'] });
       qc.invalidateQueries({ queryKey: ['contracts'] });
       qc.invalidateQueries({ queryKey: ['cases'] });
+      qc.invalidateQueries({ queryKey: ['commissions'] });
     },
     onError: (error: any) => {
       console.error('Erro ao efetivar liberação:', error);
       toast.error(error.response?.data?.detail || "Erro ao efetivar liberação");
     }
+  });
+}
+
+export function useCommissions(filters?: {
+  start_date?: string;
+  end_date?: string;
+  user_id?: number;
+}) {
+  const sp = new URLSearchParams();
+  if (filters?.start_date) sp.set("start_date", filters.start_date);
+  if (filters?.end_date) sp.set("end_date", filters.end_date);
+  if (filters?.user_id) sp.set("user_id", filters.user_id.toString());
+
+  return useQuery({
+    queryKey: ["finance", "commissions", filters],
+    queryFn: async () => {
+      const response = await api.get(`/finance/commissions?${sp.toString()}`);
+      return response.data;
+    },
+    refetchInterval: 60000
   });
 }
 

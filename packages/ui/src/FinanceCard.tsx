@@ -59,8 +59,11 @@ export interface FinanceCardProps {
   /** callbacks como opcionais para evitar TS2774 */
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
-  onDisburse?: (id: number) => void;
+  onDisburse?: (id: number, commissionUserId?: number, commissionPercentage?: number) => void;
   onCancel?: (id: number) => void;
+
+  /** usuários disponíveis para seleção de comissão */
+  availableUsers?: Array<{id: number; name: string; email: string}>;
 
   className?: string;
 
@@ -198,6 +201,7 @@ export function FinanceCard({
   caseDetails,
   fullCaseDetails,
   onLoadFullDetails,
+  availableUsers = [],
 }: FinanceCardProps) {
   // usar simulação quando disponível
   const finalTotalAmount = simulationResult?.valorLiberado || totalAmount || 0;
@@ -209,6 +213,10 @@ export function FinanceCard({
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const [showDisburseConfirm, setShowDisburseConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
+
+  // Estados para comissão
+  const [commissionUserId, setCommissionUserId] = React.useState<number | undefined>();
+  const [commissionPercentage, setCommissionPercentage] = React.useState<number | undefined>();
 
   React.useEffect(() => {
     if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
@@ -926,7 +934,7 @@ export function FinanceCard({
 
       {/* Confirmação Liberação */}
       <Dialog open={showDisburseConfirm} onOpenChange={setShowDisburseConfirm}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Confirmar Liberação</DialogTitle>
           </DialogHeader>
@@ -938,21 +946,106 @@ export function FinanceCard({
                   <p className="text-sm font-medium text-warning">Confirme a liberação</p>
                   <p className="mt-1 text-sm text-warning-foreground">
                     Tem certeza que deseja efetivar a liberação para{" "}
-                    <strong>{clientName}</strong>? Esta ação irá processar o
-                    pagamento e não poderá ser desfeita.
+                    <strong>{clientName}</strong>?
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowDisburseConfirm(false)}>
+
+            {/* Valores da Simulação */}
+            {simulationResult && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Liberado Cliente:</span>
+                  <span className="font-medium">{formatCurrency(simulationResult.liberadoCliente || 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Consultoria Líquida:</span>
+                  <span className="font-medium text-info">{formatCurrency(simulationResult.custoConsultoriaLiquido || 0)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Comissão (opcional) */}
+            {availableUsers.length > 0 && (
+              <div className="space-y-3 pt-2 border-t">
+                <h4 className="text-sm font-semibold">Comissão (Opcional)</h4>
+
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Beneficiário
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={commissionUserId || ""}
+                    onChange={(e) => setCommissionUserId(e.target.value ? Number(e.target.value) : undefined)}
+                  >
+                    <option value="">Nenhum (sem comissão)</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {commissionUserId && (
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">
+                      Porcentagem de Comissão
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={commissionPercentage || ""}
+                      onChange={(e) => setCommissionPercentage(e.target.value ? Number(e.target.value) : undefined)}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="10">10%</option>
+                      <option value="20">20%</option>
+                      <option value="30">30%</option>
+                      <option value="40">40%</option>
+                      <option value="50">50%</option>
+                      <option value="60">60%</option>
+                      <option value="70">70%</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Preview da Comissão */}
+                {commissionUserId && commissionPercentage && simulationResult?.custoConsultoriaLiquido && (
+                  <div className="rounded-lg border border-accent/40 bg-accent/10 p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-accent font-medium">
+                        Comissão ({commissionPercentage}%):
+                      </span>
+                      <span className="text-lg font-bold text-accent">
+                        {formatCurrency((simulationResult.custoConsultoriaLiquido * commissionPercentage) / 100)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Será criada como despesa automática
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => {
+                setShowDisburseConfirm(false);
+                setCommissionUserId(undefined);
+                setCommissionPercentage(undefined);
+              }}>
                 Cancelar
               </Button>
               <Button
                 onClick={() => {
-                  onDisburse?.(id);
+                  onDisburse?.(id, commissionUserId, commissionPercentage);
                   setShowDisburseConfirm(false);
+                  setCommissionUserId(undefined);
+                  setCommissionPercentage(undefined);
                 }}
+                disabled={commissionUserId && !commissionPercentage}
               >
                 <CreditCard className="h-4 w-4 mr-1" />
                 Confirmar Liberação

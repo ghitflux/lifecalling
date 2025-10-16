@@ -74,6 +74,7 @@ export default function Page() {
   };
 
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
+  const { data: users = [] } = useUsers();
   const disb = useFinanceDisburseSimple();
   const cancelContract = useCancelContract();
   const deleteContract = useDeleteContract();
@@ -439,9 +440,13 @@ export default function Page() {
   });
 
   // Ações casos/contratos
-  const handleDisburse = async (id: number) => {
+  const handleDisburse = async (id: number, commissionUserId?: number, commissionPercentage?: number) => {
     try {
-      await disb.mutateAsync(id);
+      await disb.mutateAsync({
+        case_id: id,
+        commission_user_id: commissionUserId,
+        commission_percentage: commissionPercentage
+      });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
       console.error("Erro efetivar:", error);
@@ -770,7 +775,7 @@ export default function Page() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <KPICard
           title="Receita Total"
           value={`R$ ${(metrics.totalManualIncome || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -815,6 +820,15 @@ export default function Page() {
           gradientVariant="amber"
           trend={trends.imposto}
           miniChart={<MiniAreaChart data={getTrendChartData.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
+        />
+        <KPICard
+          title="Comissões Geradas"
+          value={`R$ ${(metrics.totalCommissions || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Comissões pagas no período"
+          isLoading={metricsLoading}
+          gradientVariant="orange"
+          trend={0}
+          miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f97316" height={60} valueType="currency" />}
         />
       </div>
 
@@ -905,7 +919,7 @@ export default function Page() {
                     onDownloadAttachment={(attachmentId: number, filename?: string) => {
                       const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
                       const downloadUrl = `${baseUrl}/cases/${item.id}/attachments/${attachmentId}/download`;
-                      
+
                       const link = document.createElement('a');
                       link.href = downloadUrl;
                       link.download = filename || 'anexo';
@@ -921,6 +935,7 @@ export default function Page() {
                     }}
                     fullCaseDetails={selectedCaseId === item.id ? fullCaseDetails : undefined}
                     onLoadFullDetails={handleLoadFullDetails}
+                    availableUsers={users}
                   />
                 );
               })}
@@ -1371,6 +1386,7 @@ export default function Page() {
                 created_at: financeCardDetails.created_at
               }}
               fullCaseDetails={financeCardDetails}
+              availableUsers={users}
             />
           </div>
         </div>

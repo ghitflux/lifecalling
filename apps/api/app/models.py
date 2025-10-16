@@ -478,6 +478,46 @@ class Comment(Base):
         Index('ix_comments_case_channel_created', 'case_id', 'channel', 'created_at'),
     )
 
+class CommissionPayout(Base):
+    """
+    Sistema de comissões para usuários.
+    Permite atribuir comissões sobre a consultoria líquida de contratos efetivados.
+    A comissão é registrada como despesa automática no sistema financeiro.
+    """
+    __tablename__ = "commission_payouts"
+
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, unique=True)
+    case_id = Column(Integer, ForeignKey("cases.id"), nullable=False)
+
+    # Beneficiário da comissão
+    beneficiary_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Valores
+    consultoria_liquida = Column(Numeric(14,2), nullable=False)  # Valor base
+    commission_percentage = Column(Numeric(5,2), nullable=False)  # 10.00, 20.00, etc
+    commission_amount = Column(Numeric(14,2), nullable=False)     # Valor calculado
+
+    # Referência à despesa criada automaticamente
+    expense_id = Column(Integer, ForeignKey("finance_expenses.id"), nullable=True)
+
+    # Auditoria
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=now_brt)
+
+    # Relacionamentos
+    contract = relationship("Contract")
+    case = relationship("Case")
+    beneficiary = relationship("User", foreign_keys=[beneficiary_user_id])
+    creator = relationship("User", foreign_keys=[created_by])
+    expense = relationship("FinanceExpense", foreign_keys=[expense_id])
+
+    # Índices
+    __table_args__ = (
+        Index('ix_commission_beneficiary', 'beneficiary_user_id'),
+        Index('ix_commission_date', 'created_at'),
+    )
+
 class ExternalClientIncome(Base):
     """
     Receitas de clientes externos com simulação multi-banco.
