@@ -239,10 +239,10 @@ export default function Page() {
   };
 
   const trends = {
-    receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
-    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
-    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    receita: calculateTrend(metrics.totalManualIncome || 0, previousMetrics.totalManualIncome || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
+    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
     imposto: calculateTrend((metrics.totalConsultoriaLiq || 0) * 0.14, (previousMetrics.totalConsultoriaLiq || 0) * 0.14)
   };
 
@@ -447,6 +447,23 @@ export default function Page() {
       console.error("Erro efetivar:", error);
       toast.error("Erro ao efetivar liberação. Tente novamente.");
     }
+  };
+
+  // Função para download de anexos do caso
+  const handleDownloadCaseAttachment = (attachmentId: number, filename?: string) => {
+    if (!financeCardCaseId) return;
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const downloadUrl = `${baseUrl}/cases/${financeCardCaseId}/attachments/${attachmentId}/download`;
+    
+    // Criar link temporário para download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename || 'anexo';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleCancel = async (contractId: number) => {
@@ -756,33 +773,15 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
           title="Receita Total"
-          value={`R$ ${(metrics.totalRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Período selecionado"
+          value={`R$ ${(metrics.totalManualIncome || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Receitas da tabela somente"
           isLoading={metricsLoading}
           gradientVariant="emerald"
           trend={trends.receita}
           miniChart={<MiniAreaChart data={getTrendChartData.receita} dataKey="value" xKey="day" stroke="#10b981" height={60} valueType="currency" />}
         />
         <KPICard
-          title="Despesas"
-          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Período selecionado"
-          isLoading={metricsLoading}
-          gradientVariant="rose"
-          trend={trends.despesas}
-          miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
-        />
-        <KPICard
-          title="Lucro Líquido"
-          value={`R$ ${(metrics.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Receitas - Despesas - Impostos"
-          isLoading={metricsLoading}
-          gradientVariant="violet"
-          trend={trends.lucro}
-          miniChart={<MiniAreaChart data={getTrendChartData.lucro} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
-        />
-        <KPICard
-          title="Receita Consultoria"
+          title="Receita Consultoria Líquida"
           value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           subtitle="Consultorias líquidas"
           isLoading={metricsLoading}
@@ -791,9 +790,27 @@ export default function Page() {
           miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#0ea5e9" height={60} valueType="currency" />}
         />
         <KPICard
+          title="Lucro Líquido"
+          value={`R$ ${(metrics.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Receita - Despesas"
+          isLoading={metricsLoading}
+          gradientVariant="violet"
+          trend={trends.lucro}
+          miniChart={<MiniAreaChart data={getTrendChartData.lucro} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
+        />
+        <KPICard
+          title="Despesas"
+          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Gastos do período"
+          isLoading={metricsLoading}
+          gradientVariant="rose"
+          trend={trends.despesas}
+          miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
+        />
+        <KPICard
           title="Imposto"
-          value={`R$ ${(((metrics.totalConsultoriaLiq || 0) * 0.14) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="14% sobre Consultoria Líquida"
+          value={`R$ ${(((metrics.totalConsultoriaLiq || 0) * 0.14) + (metrics.totalManualTaxes || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subtitle="14% Receita Líquida"
           isLoading={metricsLoading}
           gradientVariant="amber"
           trend={trends.imposto}
@@ -885,6 +902,18 @@ export default function Page() {
                     attachments={item.contract?.attachments || item.attachments || []}
                     onUploadAttachment={createUploadHandler(contractId, item.id)}
                     isUploadingAttachment={uploadingContractId === contractId}
+                    onDownloadAttachment={(attachmentId: number, filename?: string) => {
+                      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+                      const downloadUrl = `${baseUrl}/cases/${item.id}/attachments/${attachmentId}/download`;
+                      
+                      const link = document.createElement('a');
+                      link.href = downloadUrl;
+                      link.download = filename || 'anexo';
+                      link.target = '_blank';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
                     caseDetails={{
                       cpf: item.client?.cpf,
                       matricula: item.client?.matricula,
@@ -1335,6 +1364,7 @@ export default function Page() {
               }
               attachments={financeCardDetails.contract?.attachments || financeCardDetails.attachments || []}
               onDisburse={handleDisburse}
+              onDownloadAttachment={handleDownloadCaseAttachment}
               caseDetails={{
                 cpf: financeCardDetails.client?.cpf,
                 matricula: financeCardDetails.client?.matricula,

@@ -87,6 +87,9 @@ export interface FinanceCardProps {
   onUploadAttachment?: (file: File) => void;
   isUploadingAttachment?: boolean;
 
+  /** download de anexos do caso */
+  onDownloadAttachment?: (attachmentId: number, filename?: string) => void;
+
   /** dados básicos do caso para header rápido */
   caseDetails?: {
     cpf?: string;
@@ -191,6 +194,7 @@ export function FinanceCard({
   attachments = [],
   onUploadAttachment,
   isUploadingAttachment = false,
+  onDownloadAttachment,
   caseDetails,
   fullCaseDetails,
   onLoadFullDetails,
@@ -863,7 +867,11 @@ export function FinanceCard({
                           </p>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => onDownloadAttachment?.(att.id, att.filename || att.path.split("/").pop())}
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>

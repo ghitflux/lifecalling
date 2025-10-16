@@ -397,10 +397,21 @@ def finance_metrics(
             FinanceExpense.date <= end_filter
         ).scalar() or 0)
 
-        # Receita total = consultoria líquida + receitas externas + receitas manuais
-        total_revenue = total_consultoria_liquida + total_external_income + total_manual_income
+        # Impostos manuais (despesas com categoria "Impostos")
+        total_manual_taxes = float(db.query(
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
+        ).filter(
+            FinanceExpense.date >= start_filter,
+            FinanceExpense.date <= end_filter,
+            FinanceExpense.expense_type == "Impostos"
+        ).scalar() or 0)
 
-        # Impostos: 14% sobre consultoria bruta (contratos + externos)
+        # Receita total = consultoria líquida + receitas externas + receitas manuais
+        total_revenue = (
+            total_consultoria_liquida + total_external_income + total_manual_income
+        )
+
+        # Impostos: 14% sobre consultoria bruta (contratos + externos) + impostos manuais
         # (consultoria_liq / 0.86 * 0.14) para ambos
         total_tax_contracts = (
             (total_consultoria_liquida / 0.86 * 0.14)
@@ -412,10 +423,15 @@ def finance_metrics(
             if total_external_income > 0
             else 0
         )
-        total_tax = total_tax_contracts + total_tax_external
+        total_tax = (
+            total_tax_contracts + total_tax_external + total_manual_taxes
+        )
 
-        # Lucro líquido = Receitas - Despesas - Impostos
-        net_profit = total_revenue - total_expenses - total_tax
+        # Lucro líquido = (Receita Total - Despesas) - Consultoria Líquida
+        # (subtraindo a consultoria líquida que já está incluída na receita total)
+        net_profit = (
+            (total_revenue - total_expenses) - total_consultoria_liquida
+        )
 
         return {
             "totalRevenue": round(total_revenue, 2),
@@ -423,6 +439,7 @@ def finance_metrics(
             "netProfit": round(net_profit, 2),
             "totalContracts": int(total_contracts),
             "totalTax": round(total_tax, 2),
+            "totalManualTaxes": round(total_manual_taxes, 2),
             "totalManualIncome": round(total_manual_income, 2),
             "totalConsultoriaLiq": round(total_consultoria_liquida, 2),
             "totalExternalIncome": round(total_external_income, 2)

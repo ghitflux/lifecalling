@@ -298,10 +298,10 @@ export default function DashboardPage() {
 
   // Calcular tendências reais para métricas financeiras
   const financeTrends = {
-    receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
-    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
-    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    receita: calculateTrend(metrics.totalManualIncome || 0, previousMetrics.totalManualIncome || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
+    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
     imposto: calculateTrend(
       (metrics.totalConsultoriaLiq || 0) * 0.14,
       (previousMetrics.totalConsultoriaLiq || 0) * 0.14
@@ -522,8 +522,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
             title="Receita Total"
-            value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"receita do período"}
+            value={`R$ ${(metrics.totalManualIncome ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"receitas da tabela somente"}
             gradientVariant="emerald"
             trend={financeTrends.receita}
             icon={DollarSign}
@@ -536,6 +536,48 @@ export default function DashboardPage() {
                 stroke="#10b981"
                 height={80}
                 valueType="currency"
+              />
+            }
+          />
+          <KPICard
+            title="Receita Consultoria Líquida"
+            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"consultorias líquidas"}
+            gradientVariant="sky"
+            trend={financeTrends.consultoria}
+            icon={Briefcase}
+            isLoading={metricsLoading}
+            miniChart={
+              <MiniAreaChart
+                data={realTrendData.consultoria}
+                dataKey="value"
+                xKey="day"
+                stroke="#38bdf8"
+                height={80}
+                tooltipFormatter={(value) =>
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                }
+              />
+            }
+          />
+          <KPICard
+            title="Lucro Líquido"
+            value={`R$ ${(metrics.netProfit ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"Receita - Despesas"}
+            gradientVariant="violet"
+            trend={financeTrends.lucro}
+            icon={TrendingUp}
+            isLoading={metricsLoading}
+            miniChart={
+              <MiniAreaChart
+                data={realTrendData.lucro}
+                dataKey="value"
+                xKey="day"
+                stroke="#8b5cf6"
+                height={80}
+                tooltipFormatter={(value) =>
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                }
               />
             }
           />
@@ -559,51 +601,9 @@ export default function DashboardPage() {
             }
           />
           <KPICard
-            title="Lucro Líquido"
-            value={`R$ ${(metrics.netProfit ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"lucro do período"}
-            gradientVariant="violet"
-            trend={financeTrends.lucro}
-            icon={TrendingUp}
-            isLoading={metricsLoading}
-            miniChart={
-              <MiniAreaChart
-                data={realTrendData.lucro}
-                dataKey="value"
-                xKey="day"
-                stroke="#8b5cf6"
-                height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
-              />
-            }
-          />
-          <KPICard
-            title="Receita Consultoria"
-            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"consultoria líquida"}
-            gradientVariant="sky"
-            trend={financeTrends.consultoria}
-            icon={Briefcase}
-            isLoading={metricsLoading}
-            miniChart={
-              <MiniAreaChart
-                data={realTrendData.consultoria}
-                dataKey="value"
-                xKey="day"
-                stroke="#38bdf8"
-                height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
-              />
-            }
-          />
-          <KPICard
             title="Imposto"
-            value={`R$ ${((metrics.totalConsultoriaLiq ?? 0) * 0.14).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"14% sobre consultoria"}
+            value={`R$ ${(((metrics.totalConsultoriaLiq ?? 0) * 0.14) + (metrics.totalManualTaxes ?? 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            subtitle={"14% Receita Líquida"}
             gradientVariant="amber"
             trend={financeTrends.imposto}
             icon={Receipt}
@@ -616,7 +616,7 @@ export default function DashboardPage() {
                 stroke="#f59e0b"
                 height={80}
                 tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 }
               />
             }
