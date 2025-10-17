@@ -298,14 +298,15 @@ export default function DashboardPage() {
 
   // Calcular tendências reais para métricas financeiras
   const financeTrends = {
-    receita: calculateTrend(metrics.totalManualIncome || 0, previousMetrics.totalManualIncome || 0),
+    receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
     lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
     despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
     imposto: calculateTrend(
       (metrics.totalConsultoriaLiq || 0) * 0.14,
       (previousMetrics.totalConsultoriaLiq || 0) * 0.14
-    )
+    ),
+    comissoes: calculateTrend(metrics.totalCommissions || 0, previousMetrics.totalCommissions || 0)
   };
 
   const exportToCSV = () => {
@@ -519,11 +520,11 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Receita, despesas e resultado líquido</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <KPICard
             title="Receita Total"
-            value={`R$ ${(metrics.totalManualIncome ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"receitas da tabela somente"}
+            value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"Consultoria + Receitas Manuais + Externas"}
             gradientVariant="emerald"
             trend={financeTrends.receita}
             icon={DollarSign}
@@ -618,6 +619,25 @@ export default function DashboardPage() {
                 tooltipFormatter={(value) =>
                   `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 }
+              />
+            }
+          />
+          <KPICard
+            title="Comissões Geradas"
+            value={`R$ ${(metrics.totalCommissions || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle="Comissões pagas no período"
+            isLoading={metricsLoading}
+            gradientVariant="amber"
+            trend={financeTrends.comissoes}
+            icon={Wallet}
+            miniChart={
+              <MiniAreaChart
+                data={realTrendData.despesas}
+                dataKey="value"
+                xKey="day"
+                stroke="#f97316"
+                height={80}
+                valueType="currency"
               />
             }
           />
