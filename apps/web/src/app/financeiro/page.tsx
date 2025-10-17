@@ -240,7 +240,7 @@ export default function Page() {
   };
 
   const trends = {
-    receita: calculateTrend(metrics.totalManualIncome || 0, previousMetrics.totalManualIncome || 0),
+    receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
     lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
     despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
@@ -778,8 +778,8 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <KPICard
           title="Receita Total"
-          value={`R$ ${(metrics.totalManualIncome || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Receitas da tabela somente"
+          value={`R$ ${(metrics.totalRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Consultoria + Receitas Manuais + Externas"
           isLoading={metricsLoading}
           gradientVariant="emerald"
           trend={trends.receita}

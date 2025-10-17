@@ -389,12 +389,14 @@ def finance_metrics(
             ExternalClientIncome.date <= end_filter
         ).scalar() or 0)
 
-        # Receitas manuais
+        # Receitas manuais (EXCLUINDO consultoria líquida automática)
+        # Consultoria líquida já está sendo contada em total_consultoria_liquida
         total_manual_income = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
             FinanceIncome.date >= start_filter,
-            FinanceIncome.date <= end_filter
+            FinanceIncome.date <= end_filter,
+            FinanceIncome.income_type != "Consultoria Líquida"
         ).scalar() or 0)
 
         # Despesas
@@ -446,13 +448,9 @@ def finance_metrics(
             CommissionPayout.created_at <= end_filter
         ).scalar() or 0)
 
-        # Lucro líquido = (Receita Total - Despesas)
-        # - Consultoria Líquida
-        # (subtraindo a consultoria líquida que já está incluída
-        # na receita total)
-        net_profit = (
-            (total_revenue - total_expenses) - total_consultoria_liquida
-        )
+        # Lucro líquido = Receita Total - Despesas
+        # Receita total já inclui tudo corretamente
+        net_profit = total_revenue - total_expenses
 
         return {
             "totalRevenue": round(total_revenue, 2),

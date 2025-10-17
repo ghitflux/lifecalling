@@ -87,9 +87,9 @@ export function PieChart({
   return (
     <ChartContainer title={title} subtitle={subtitle}>
       {hasData ? (
-        <div className="grid grid-cols-12 gap-4 h-full">
+        <div className="flex flex-col gap-6 h-full">
           {/* Donut Chart Area */}
-          <div className="col-span-8 relative">
+          <div className="flex-1 relative min-h-[300px]">
             <div className="relative w-full h-full">
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPie>
@@ -124,20 +124,20 @@ export function PieChart({
             </div>
           </div>
 
-          {/* Legend Area */}
-          <div className="col-span-4 flex flex-col justify-center gap-3">
+          {/* Legend Area - Below Chart */}
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 pb-2">
             {data.map((entry, index) => (
               <div key={`legend-${index}`} className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "inline-block h-2 w-2 rounded-full",
+                    "inline-block h-3 w-3 rounded-full",
                     COLOR_CLASSES[index % COLOR_CLASSES.length]
                   )}
                 />
-                <span className="text-sm text-muted-foreground flex-1 truncate">
+                <span className="text-sm text-muted-foreground">
                   {String(entry?.[nameKey] ?? "")}
                 </span>
-                <span className="text-sm text-foreground">
+                <span className="text-sm font-medium text-foreground">
                   {formatValueForChart(Number(entry?.[dataKey] ?? 0), valueType)}
                 </span>
               </div>
