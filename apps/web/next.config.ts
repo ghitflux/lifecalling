@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../../.."), // Point to the workspace root to avoid multiple lockfiles warning
   },
   async rewrites() {
-    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
     if (!API) return [];
 
