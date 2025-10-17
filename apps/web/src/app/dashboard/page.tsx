@@ -413,42 +413,21 @@ export default function DashboardPage() {
   }, [seriesData]);
 
   const financePie = useMemo(() => {
-    if (!seriesData.length) return [] as { name: string; value: number }[];
-    const receita = seriesData.reduce(
-      (acc: number, item: any) => acc + ((item.finance_receita ?? 0) as number),
-      0
-    );
-    const despesas = seriesData.reduce(
-      (acc: number, item: any) =>
-        acc + ((item.finance_despesas ?? 0) as number),
-      0
-    );
-    const resultado = seriesData.reduce(
-      (acc: number, item: any) =>
-        acc + ((item.finance_resultado ?? 0) as number),
-      0
-    );
+    const receita = metrics.totalRevenue || 0;
+    const despesas = metrics.totalExpenses || 0;
+    const resultado = receita - despesas;
+
     return [
       { name: "Receita", value: receita },
       { name: "Despesas", value: despesas },
-      { name: "Resultado", value: resultado !== 0 ? resultado : receita - despesas },
+      { name: "Resultado", value: resultado }
     ];
-  }, [seriesData]);
+  }, [metrics]);
 
   // Calcular saldo disponível (Receita - Despesas)
   const saldoDisponivel = useMemo(() => {
-    if (!seriesData.length) return 0;
-    const receita = seriesData.reduce(
-      (acc: number, item: any) => acc + ((item.finance_receita ?? 0) as number),
-      0
-    );
-    const despesas = seriesData.reduce(
-      (acc: number, item: any) =>
-        acc + ((item.finance_despesas ?? 0) as number),
-      0
-    );
-    return receita - despesas;
-  }, [seriesData]);
+    return metrics.netProfit || 0;
+  }, [metrics]);
 
   return (
     <div className="p-6 space-y-6">
