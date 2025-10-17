@@ -81,27 +81,9 @@ def ranking_agents(
     contracts_data = contracts_q.group_by(owner_user_id).all()
     contracts_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in contracts_data}
 
-    # NOVO: Buscar receitas manuais (FinanceIncome) atribuídas via agent_user_id
-    # Isso inclui comissões onde admin escolheu outro usuário como beneficiário
-    from ..models import FinanceIncome
-    income_q = (db.query(
-                FinanceIncome.agent_user_id.label("user_id"),
-                func.coalesce(func.sum(FinanceIncome.amount), 0).label("income_sum")
-            )
-            .filter(FinanceIncome.agent_user_id.isnot(None))
-    )
-
-    if from_ and to:
-        income_q = income_q.filter(FinanceIncome.date.between(start, end))
-
-    income_data = income_q.group_by(FinanceIncome.agent_user_id).all()
-
-    # Somar receitas manuais ao mapa de contratos
-    for r in income_data:
-        if r.user_id in contracts_map:
-            contracts_map[r.user_id]["consult_sum"] += float(r.income_sum or 0)
-        else:
-            contracts_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.income_sum or 0)}
+    # REMOVIDO: Não somar FinanceIncome, pois causava duplicação
+    # Contract.consultoria_valor_liquido já contém o valor da receita
+    # FinanceIncome é apenas um registro separado para o módulo financeiro
 
     # período anterior para trend
     prev_q = (db.query(
@@ -120,22 +102,7 @@ def ranking_agents(
     prev = prev_q.all()
     prev_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in prev}
 
-    # Receitas manuais do período anterior
-    prev_income_q = (db.query(
-                FinanceIncome.agent_user_id.label("user_id"),
-                func.coalesce(func.sum(FinanceIncome.amount), 0).label("income_sum")
-            )
-            .filter(FinanceIncome.agent_user_id.isnot(None))
-    )
-    if from_ and to:
-        prev_income_q = prev_income_q.filter(FinanceIncome.date.between(prev_start, prev_end))
-
-    prev_income_data = prev_income_q.group_by(FinanceIncome.agent_user_id).all()
-    for r in prev_income_data:
-        if r.user_id in prev_map:
-            prev_map[r.user_id]["consult_sum"] += float(r.income_sum or 0)
-        else:
-            prev_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.income_sum or 0)}
+    # REMOVIDO: Não somar FinanceIncome do período anterior também
 
     # buscar metas (se existir campo User.settings)
     targets_map = {}
@@ -445,24 +412,7 @@ def get_podium(
     # Criar mapa de pontuação dos contratos
     podium_map = {r.user_id: {"contracts": int(r.contracts or 0), "consultoria_liq": float(r.consultoria_liq or 0)} for r in ranking_data}
 
-    # NOVO: Adicionar receitas manuais atribuídas (FinanceIncome)
-    from ..models import FinanceIncome
-    income_q = (db.query(
-                FinanceIncome.agent_user_id.label("user_id"),
-                func.coalesce(func.sum(FinanceIncome.amount), 0).label("income_sum")
-            )
-            .filter(FinanceIncome.agent_user_id.isnot(None))
-    )
-    if from_ and to:
-        income_q = income_q.filter(FinanceIncome.date.between(start, end))
-
-    income_data = income_q.group_by(FinanceIncome.agent_user_id).all()
-    for r in income_data:
-        if r.user_id in podium_map:
-            podium_map[r.user_id]["consultoria_liq"] += float(r.income_sum or 0)
-        else:
-            # Usuário só tem receitas manuais, sem contratos
-            podium_map[r.user_id] = {"contracts": 0, "consultoria_liq": float(r.income_sum or 0)}
+    # REMOVIDO: Não somar FinanceIncome, pois causava duplicação
 
     # Ordenar por consultoria líquida e pegar Top 3
     sorted_users = sorted(podium_map.items(), key=lambda x: x[1]["consultoria_liq"], reverse=True)[:3]
@@ -534,20 +484,7 @@ def get_rankings_kpis(
             func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
         ).scalar() or 0)
 
-        # NOVO: Adicionar receitas manuais do usuário (FinanceIncome)
-        from ..models import FinanceIncome
-        user_income_query = db.query(FinanceIncome).filter(
-            FinanceIncome.agent_user_id == user_id
-        )
-        if from_ and to:
-            user_income_query = user_income_query.filter(FinanceIncome.date.between(start, end))
-
-        user_income = float(user_income_query.with_entities(
-            func.coalesce(func.sum(FinanceIncome.amount), 0)
-        ).scalar() or 0)
-
-        # Somar receitas manuais à consultoria
-        user_consultoria += user_income
+        # REMOVIDO: Não somar FinanceIncome, pois causava duplicação
 
         # Buscar meta do usuário
         meta = {}

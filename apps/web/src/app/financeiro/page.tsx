@@ -826,7 +826,7 @@ export default function Page() {
           value={`R$ ${(metrics.totalCommissions || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           subtitle="Comissões pagas no período"
           isLoading={metricsLoading}
-          gradientVariant="orange"
+          gradientVariant="amber"
           trend={0}
           miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f97316" height={60} valueType="currency" />}
         />

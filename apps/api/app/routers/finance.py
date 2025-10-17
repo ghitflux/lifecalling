@@ -626,7 +626,13 @@ async def disburse_simple(
             ct.consultoria_valor_liquido = consultoria_liquida
             ct.signed_at = data.disbursed_at or now_brt()
             ct.created_by = user.id
-            ct.agent_user_id = c.assigned_user_id  # Atendente do caso
+            # Se admin escolheu usuário para comissão, atribuir a ele
+            # Caso contrário, atribuir ao atendente original do caso
+            ct.agent_user_id = (
+                data.commission_user_id
+                if data.commission_user_id
+                else c.assigned_user_id
+            )
 
             db.add(ct)
             db.flush()

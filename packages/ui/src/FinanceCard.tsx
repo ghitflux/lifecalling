@@ -1045,7 +1045,7 @@ export function FinanceCard({
                   setCommissionUserId(undefined);
                   setCommissionPercentage(undefined);
                 }}
-                disabled={commissionUserId && !commissionPercentage}
+                disabled={Boolean(commissionUserId && !commissionPercentage)}
               >
                 <CreditCard className="h-4 w-4 mr-1" />
                 Confirmar Liberação
