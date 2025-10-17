@@ -243,7 +243,10 @@ export default function Page() {
     receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
     lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
-    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
+    despesas: calculateTrend(
+      (metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0),
+      (previousMetrics.totalExpenses || 0) + (previousMetrics.totalTax || 0) - (previousMetrics.totalManualTaxes || 0)
+    ),
     imposto: calculateTrend((metrics.totalConsultoriaLiq || 0) * 0.14, (previousMetrics.totalConsultoriaLiq || 0) * 0.14)
   };
 
@@ -805,8 +808,8 @@ export default function Page() {
         />
         <KPICard
           title="Despesas"
-          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Gastos do período"
+          value={`R$ ${((metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Gastos + Impostos do período"
           isLoading={metricsLoading}
           gradientVariant="rose"
           trend={trends.despesas}
