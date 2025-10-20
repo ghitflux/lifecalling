@@ -436,8 +436,9 @@ async def import_payroll_file(
                                      "calculista_pendente", "financeiro", "fechamento_pendente",
                                      "calculo_aprovado", "fechamento_aprovado"]
 
-                    # Status que devem ser reabertos
-                    CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado", "cancelado"]
+                    # Status que podem ser reabertos (EXCLUÍDO: caso_cancelado)
+                    # Casos cancelados deliberadamente NÃO devem ser reabertos
+                    CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado"]
 
                     # Verificar se caso aberto já existe para este cliente
                     existing_case = db.query(Case).filter(

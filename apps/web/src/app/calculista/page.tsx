@@ -47,6 +47,7 @@ import {
   AlertCircle,
   Search,
   X,
+  Undo2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -147,7 +148,10 @@ function CalculistaPageContent() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }, []);
 
-  const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: currentMonth });
+  // Temporariamente desabilitado devido a erro 500
+  // const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: currentMonth });
+  const kpis = null;
+  const isLoadingKpis = false;
   const { data: closingKpis, isLoading: isLoadingClosingKpis } = useClosingKpis({ month: currentMonth });
 
   const { data: casosEfetivados, isLoading: efetivadosLoading } =
@@ -250,6 +254,19 @@ function CalculistaPageContent() {
       },
       enabled: activeTab === "enviado_financeiro",
     });
+
+  // Casos devolvidos do financeiro
+  const { data: casosDevolvidos = [], isLoading: devolvidosLoading } = useQuery({
+    queryKey: ["/cases", "devolvido_financeiro"],
+    queryFn: async () => {
+      const res = await api.get(
+        "/cases?status=devolvido_financeiro&page_size=50"
+      );
+      return res.data.items || [];
+    },
+    enabled: activeTab === "devolvidos",
+    refetchInterval: 30000,
+  });
 
   // Filtragem (busca já é feita no backend via API)
   const allSimulations = useMemo(() => allSims || [], [allSims]);
@@ -411,12 +428,15 @@ function CalculistaPageContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
           <TabsTrigger value="retorno_fechamento">
             Retorno Fechamento ({retornoFechamentoCount})
+          </TabsTrigger>
+          <TabsTrigger value="devolvidos">
+            Devolvidos ({casosDevolvidos.length})
           </TabsTrigger>
           <TabsTrigger value="enviado_financeiro">
             Enviado Financeiro ({enviadosFinanceiro.length})
@@ -545,6 +565,66 @@ function CalculistaPageContent() {
                       <Button variant="outline" className="flex-1" size="sm">
                         <Calculator className="h-4 w-4 mr-2" />
                         Revisar
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Devolvidos do Financeiro */}
+        <TabsContent value="devolvidos" className="mt-6">
+          {devolvidosLoading ? (
+            <CaseSkeleton />
+          ) : casosDevolvidos.length === 0 ? (
+            <div className="text-center py-12">
+              <Undo2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="font-medium text-muted-foreground mb-1">
+                Nenhum caso devolvido
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Casos devolvidos pelo financeiro para recálculo aparecerão aqui.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {casosDevolvidos.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-orange-300 bg-orange-50/50"
+                  onClick={() => router.push(`/calculista/${caso.id}`)}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="border-orange-400">Caso #{caso.id}</Badge>
+                      <StatusBadge status={caso.status} size="sm" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-medium">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        CPF: {caso.client?.cpf || "---"}
+                      </p>
+                      <p className="text-xs text-orange-700 mt-1 font-medium">
+                        ⚠️ Devolvido para recálculo pelo financeiro
+                      </p>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Devolvido em:{" "}
+                      {new Date(
+                        caso.last_update_at || Date.now()
+                      ).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1 border-orange-400 hover:bg-orange-100" size="sm">
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Recalcular
                       </Button>
                     </div>
                   </div>

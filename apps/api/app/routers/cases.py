@@ -1729,3 +1729,41 @@ async def change_case_status(
         "previous_status": previous_status,
         "new_status": data.new_status
     }
+
+
+@r.post("/{case_id}/cancel")
+async def cancel_case(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Cancela um caso (muda status para 'caso_cancelado')"""
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        previous_status = case.status
+        case.status = "caso_cancelado"
+        case.last_update_at = now_brt()
+
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="case.cancelled",
+            payload={
+                "cancelled_by": user.id,
+                "cancelled_by_name": user.name,
+                "previous_status": previous_status
+            },
+            created_by=user.id
+        ))
+        db.commit()
+
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": case_id, "status": "caso_cancelado"}
+    )
+
+    return {
+        "success": True,
+        "message": "Caso cancelado com sucesso"
+    }

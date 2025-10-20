@@ -27,13 +27,18 @@ interface SimulationHistoryEntry {
   simulation_id: number;
   action: string;
   status: string;
-  timestamp: string;
+  timestamp?: string;
+  created_at?: string;
   approved_by?: number;
   approved_by_name?: string;
   rejected_by?: number;
   rejected_by_name?: string;
+  created_by?: number;
+  created_by_name?: string;
   reason?: string;
   observacao_calculista?: string;
+  is_current?: boolean;
+  version_number?: number;
   totals: {
     valorParcelaTotal: number;
     saldoTotal: number;
@@ -62,9 +67,12 @@ interface SimulationHistoryModalProps {
   onClose: () => void;
   history: SimulationHistoryEntry[];
   onEditSimulation?: (entry: SimulationHistoryEntry) => void;
+  onSetAsFinal?: (simulationId: number) => void;
   caseId?: number;
   clientName?: string;
   showEditButton?: boolean;
+  showSetAsFinalButton?: boolean;
+  currentSimulationId?: number | null;
 }
 
 export function SimulationHistoryModal({
@@ -72,9 +80,12 @@ export function SimulationHistoryModal({
   onClose,
   history = [],
   onEditSimulation,
+  onSetAsFinal,
   caseId,
   clientName,
   showEditButton = true,
+  showSetAsFinalButton = false,
+  currentSimulationId = null,
 }: SimulationHistoryModalProps) {
   const [selectedEntry, setSelectedEntry] = useState<SimulationHistoryEntry | null>(null);
 
@@ -101,7 +112,7 @@ export function SimulationHistoryModal({
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, isCurrent: boolean = false) => {
     if (status === "approved") {
       return (
         <Badge className="bg-green-100 text-green-700 border-green-200">
@@ -118,6 +129,22 @@ export function SimulationHistoryModal({
         </Badge>
       );
     }
+    if (status === "draft") {
+      return (
+        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+          <Clock className="h-3 w-3 mr-1" />
+          Rascunho
+        </Badge>
+      );
+    }
+    if (status === "superseded") {
+      return (
+        <Badge className="bg-gray-100 text-gray-600 border-gray-200">
+          <History className="h-3 w-3 mr-1" />
+          Antiga
+        </Badge>
+      );
+    }
     return (
       <Badge variant="outline">
         <Clock className="h-3 w-3 mr-1" />
@@ -130,6 +157,12 @@ export function SimulationHistoryModal({
     setSelectedEntry(entry);
     if (onEditSimulation) {
       onEditSimulation(entry);
+    }
+  };
+
+  const handleSetAsFinal = (entry: SimulationHistoryEntry) => {
+    if (onSetAsFinal && entry.status === "approved") {
+      onSetAsFinal(entry.simulation_id);
     }
   };
 
@@ -159,30 +192,40 @@ export function SimulationHistoryModal({
               </p>
             </div>
           ) : (
-            history.map((entry, index) => (
-              <Card
-                key={entry.simulation_id}
-                className={cn(
-                  "transition-all",
-                  selectedEntry?.simulation_id === entry.simulation_id &&
-                    "ring-2 ring-primary"
-                )}
-              >
+            history.map((entry, index) => {
+              const isCurrent = entry.is_current || entry.simulation_id === currentSimulationId;
+
+              return (
+                <Card
+                  key={`simulation-${entry.simulation_id}-${index}`}
+                  className={cn(
+                    "transition-all",
+                    isCurrent && "ring-2 ring-green-500 border-green-300",
+                    selectedEntry?.simulation_id === entry.simulation_id && !isCurrent &&
+                      "ring-2 ring-primary"
+                  )}
+                >
                 <CardContent className="p-4">
                   <div className="space-y-4">
                     {/* Header */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <Badge variant="outline" className="font-mono">
                           #{entry.simulation_id}
                         </Badge>
-                        {getStatusBadge(entry.status)}
+                        {getStatusBadge(entry.status, isCurrent)}
+                        {isCurrent && (
+                          <Badge className="bg-green-600 text-white border-green-700">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            ATUAL
+                          </Badge>
+                        )}
                         <span className="text-sm text-muted-foreground">
-                          {index === 0 ? "Mais recente" : `Versão ${history.length - index}`}
+                          {entry.version_number ? `Versão ${entry.version_number}` : index === 0 ? "Mais recente" : `Versão ${history.length - index}`}
                         </span>
                       </div>
-                      {showEditButton && (
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        {showEditButton && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -191,8 +234,19 @@ export function SimulationHistoryModal({
                             <Edit className="h-4 w-4 mr-1" />
                             Editar
                           </Button>
-                        </div>
-                      )}
+                        )}
+                        {showSetAsFinalButton && entry.status === "approved" && !isCurrent && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSetAsFinal(entry)}
+                            className="border-green-500 text-green-700 hover:bg-green-50"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Selecionar como Final
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Metadata */}
@@ -200,13 +254,13 @@ export function SimulationHistoryModal({
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">
-                          {formatDate(entry.timestamp)}
+                          {formatDate(entry.timestamp || entry.created_at || "")}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">
-                          {entry.approved_by_name || entry.rejected_by_name || "Sistema"}
+                          {entry.approved_by_name || entry.rejected_by_name || entry.created_by_name || "Sistema"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -317,8 +371,9 @@ export function SimulationHistoryModal({
                     )}
                   </div>
                 </CardContent>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </div>
 

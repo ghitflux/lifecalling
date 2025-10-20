@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CaseDetails, Button } from "@lifecalling/ui";
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface PageProps {
@@ -66,6 +66,22 @@ function FinanceiroDetailsContent({ caseId }: { caseId: number }) {
             event.type?.includes("fechamento") ? "Fechamento" : "Sistema"
   }));
 
+  // Mutation para devolver caso ao calculista
+  const returnToCalculistaMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post(`/cases/${caseId}/return-to-calculista`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Caso devolvido ao calculista para recálculo");
+      router.push("/financeiro");
+    },
+    onError: (error: any) => {
+      console.error("Erro ao devolver caso:", error);
+      toast.error("Erro ao devolver caso ao calculista");
+    }
+  });
+
   const handleDisburse = (id: number) => {
     // Implementar liberação financeira
     console.log("Efetivar liberação:", id);
@@ -79,6 +95,12 @@ function FinanceiroDetailsContent({ caseId }: { caseId: number }) {
   const handleDownloadAttachment = (attachmentId: string) => {
     // Implementar download de anexo
     console.log("Download anexo financeiro:", attachmentId);
+  };
+
+  const handleReturnToCalculista = () => {
+    if (confirm("Tem certeza que deseja devolver este caso ao calculista para recálculo?")) {
+      returnToCalculistaMutation.mutate();
+    }
   };
 
   if (isLoading) {
@@ -127,6 +149,26 @@ function FinanceiroDetailsContent({ caseId }: { caseId: number }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReturnToCalculista}
+            disabled={returnToCalculistaMutation.isPending}
+            className="text-orange-600 border-orange-300 hover:bg-orange-50"
+            title="Devolver para o calculista recalcular"
+          >
+            {returnToCalculistaMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Devolvendo...
+              </>
+            ) : (
+              <>
+                <Undo2 className="h-4 w-4 mr-2" />
+                Devolver para Recálculo
+              </>
+            )}
+          </Button>
           <Button
             variant="outline"
             size="sm"

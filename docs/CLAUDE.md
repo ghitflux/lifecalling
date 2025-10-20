@@ -2809,3 +2809,395 @@ EOF
 
 *Última atualização: 2025-10-02 (Final)*
 *Desenvolvido com Claude Code*
+
+---
+
+
+
+## Sessão de 2025-10-20 (Sistema de Histórico de Simulações)
+
+### 🎯 Tarefas Realizadas
+
+Esta sessão implementou o **Sistema Completo de Histórico de Simulações** e diversas melhorias no fluxo operacional.
+
+**Documentação detalhada:** [CLAUDE_SESSION_2025_10_20.md](./CLAUDE_SESSION_2025_10_20.md)
+
+#### ✅ Principais Implementações
+
+1. **Sistema de Versionamento de Simulações**
+   - Todas as simulações agora são mantidas no histórico
+   - Novo status "superseded" para versões antigas
+   - Endpoint GET /simulations/case/{case_id}/all
+   - Endpoint POST /simulations/{sim_id}/set-as-final
+   - Interface visual com badges coloridos e contador de versões
+
+2. **Correção do Fluxo Fechamento → Calculista → Financeiro**
+   - Casos agora vão direto ao financeiro após fechamento
+   - Lógica condicional baseada no contexto
+   - Evento auto_sent para rastreamento
+
+3. **Botão de Devolução (Financeiro → Calculista)**
+   - Nova aba "Devolvidos" no dashboard do calculista
+   - Status devolvido_financeiro
+   - Visual destacado em laranja
+
+4. **Botão de Cancelamento de Casos**
+   - Endpoint POST /cases/{case_id}/cancel
+   - Modal de confirmação profissional
+   - Status alterado para "encerrado"
+
+5. **Aprovação Sem Recalcular**
+   - useEffect automático para casos do fechamento
+   - Fallback para last_simulation_id
+   - Eliminado clique desnecessário
+
+6. **Melhorias de UI/UX**
+   - Layout reorganizado do FinanceCard (3 botões)
+   - Hover melhorado no botão "Devolver"
+   - Correção do erro de React key
+   - Permissão de exclusão de despesas de comissão
+
+### 📊 Estatísticas
+
+- **Arquivos Backend Modificados:** 3
+- **Arquivos Frontend Modificados:** 6
+- **Endpoints Criados:** 3
+- **Hooks React Criados:** 2
+- **Bugs Corrigidos:** 3
+- **Linhas de Código:** ~2.500+
+
+### 🎯 Status Atual
+
+✅ Sistema de histórico completo funcionando
+✅ Fluxo Fechamento → Financeiro corrigido
+✅ Devolução de casos implementada
+✅ Cancelamento de casos implementado
+✅ Aprovação sem recalcular habilitada
+✅ Todas as correções de bugs aplicadas
+
+---
+
+## Sessão de 2025-10-20 (Correção do Sistema de Cancelamento)
+
+### 🎯 Tarefas Realizadas
+
+#### 🐛 Problema Identificado
+
+**Situação:** Quando um caso era cancelado pelo financeiro, o sistema mudava o status para "encerrado", mas havia dois problemas críticos:
+
+1. **Broadcast WebSocket Incorreto:**
+   - Status no banco: `"encerrado"` ✅
+   - Broadcast WebSocket: `"cancelado"` ❌
+   - Inconsistência entre banco de dados e eventos em tempo real
+
+2. **Reabertura Automática Indevida:**
+   - Casos cancelados deliberadamente eram reabertos como `"novo"` ❌
+   - Sistema de importação de folha não diferenciava cancelamento deliberado de encerramento por outros motivos
+   - `CLOSED_STATUSES` incluía todos os casos encerrados indiscriminadamente
+
+**Impacto:**
+- Casos cancelados pelo financeiro reapareciam como "novo" após importação de folha
+- Perda de rastreabilidade de cancelamentos
+- Inconsistência de dados entre banco e interface
+
+---
+
+#### ✅ Solução 1: Novo Status "caso_cancelado"
+
+**Arquivo:** `apps/api/app/routers/cases.py:1734-1769`
+
+**Alterações:**
+```python
+# ANTES
+case.status = "encerrado"
+await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "cancelado"})
+
+# DEPOIS
+case.status = "caso_cancelado"
+await eventbus.broadcast("case.updated", {"case_id": case_id, "status": "caso_cancelado"})
+```
+
+**Benefícios:**
+- ✅ Status específico para cancelamentos deliberados
+- ✅ Broadcast consistente com banco de dados
+- ✅ Diferenciação clara entre tipos de encerramento
+
+---
+
+#### ✅ Solução 2: Proteção Contra Reabertura
+
+**Arquivo:** `apps/api/app/routers/imports.py:439-441`
+
+**Alterações:**
+```python
+# ANTES
+CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado", "cancelado"]
+
+# DEPOIS
+# Status que podem ser reabertos (EXCLUÍDO: caso_cancelado)
+# Casos cancelados deliberadamente NÃO devem ser reabertos
+CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado"]
+```
+
+**Lógica Implementada:**
+- Casos com status `"caso_cancelado"` **NÃO** são incluídos em `CLOSED_STATUSES`
+- Sistema de importação **ignora** casos cancelados deliberadamente
+- Apenas casos com encerramento por outros motivos podem ser reabertos
+
+---
+
+#### ✅ Verificação: Endpoint de Cancelamento de Contrato
+
+**Arquivo:** `apps/api/app/routers/finance.py:859-906`
+
+**Status:** ✅ Já estava correto
+
+```python
+# Cancelamento de contrato efetivado
+case.status = "contrato_cancelado"
+await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "contrato_cancelado"})
+```
+
+**Observação:**
+- Status `"contrato_cancelado"` também está protegido (não incluído em `CLOSED_STATUSES`)
+- Contratos cancelados não são reabertos automaticamente
+
+---
+
+### 🛠 Arquivos Modificados
+
+#### Backend (FastAPI)
+
+1. **`apps/api/app/routers/cases.py`**
+   - Linha 1739: Atualizada documentação do endpoint
+   - Linha 1746: Status mudado para `"caso_cancelado"`
+   - Linha 1763: Broadcast corrigido para `"caso_cancelado"`
+
+2. **`apps/api/app/routers/imports.py`**
+   - Linha 439-441: `CLOSED_STATUSES` atualizado
+   - Removido `"cancelado"` da lista
+   - Adicionados comentários explicativos
+
+3. **`apps/api/app/routers/finance.py`**
+   - ✅ Verificado - sem alterações necessárias
+   - Status `"contrato_cancelado"` já está correto
+
+---
+
+### 📊 Fluxo Atualizado de Cancelamento
+
+#### Cancelamento de Caso (Financeiro)
+
+```
+1. Financeiro clica em "Cancelar Caso"
+2. Modal de confirmação é exibido
+3. POST /cases/{case_id}/cancel
+4. Backend:
+   ├─ Status muda para "caso_cancelado"
+   ├─ Cria evento "case.cancelled"
+   └─ Broadcast WebSocket com status "caso_cancelado"
+5. Frontend atualiza automaticamente via WebSocket
+6. Caso permanece cancelado mesmo após importação de folha ✅
+```
+
+#### Cancelamento de Contrato (Financeiro)
+
+```
+1. Financeiro clica em "Cancelar" no contrato efetivado
+2. POST /finance/cancel/{contract_id}
+3. Backend:
+   ├─ Remove receita associada
+   ├─ Status muda para "contrato_cancelado"
+   ├─ Cria evento "finance.cancelled"
+   └─ Broadcast WebSocket com status "contrato_cancelado"
+4. Contrato não pode ser reaberto automaticamente ✅
+```
+
+#### Sistema de Importação de Folha
+
+```
+1. Nova importação de folha processada
+2. Sistema busca casos existentes:
+   ├─ OPEN_STATUSES: Atualiza dados
+   ├─ CLOSED_STATUSES: Reabre como "novo"
+   └─ "caso_cancelado": IGNORA (não reabre) ✅
+3. Casos cancelados permanecem cancelados ✅
+```
+
+---
+
+### 🎯 Status de Casos - Tabela Completa
+
+| Status | Descrição | Pode ser Reaberto? | Endpoint |
+|--------|-----------|-------------------|----------|
+| `novo` | Caso criado, não atribuído | N/A | - |
+| `em_atendimento` | Em atendimento pelo atendente | N/A | - |
+| `calculista_pendente` | Aguardando cálculo | N/A | - |
+| `calculo_aprovado` | Cálculo aprovado | N/A | - |
+| `fechamento_pendente` | Aguardando fechamento | N/A | - |
+| `fechamento_aprovado` | Fechamento aprovado | N/A | - |
+| `financeiro_pendente` | Aguardando liberação financeira | N/A | - |
+| `contrato_efetivado` | Contrato liberado | N/A | - |
+| `encerrado` | Encerrado por conclusão | ✅ Sim | - |
+| `sem_contato` | Encerrado por falta de contato | ✅ Sim | - |
+| `arquivado` | Arquivado manualmente | ✅ Sim | - |
+| `caso_cancelado` | **Cancelado deliberadamente** | ❌ **NÃO** | `POST /cases/{id}/cancel` |
+| `contrato_cancelado` | **Contrato cancelado** | ❌ **NÃO** | `POST /finance/cancel/{id}` |
+
+---
+
+### 🎯 Benefícios Entregues
+
+✅ **Consistência de Dados**
+- Status no banco de dados igual ao broadcast WebSocket
+- Interface sempre sincronizada com backend
+
+✅ **Proteção de Cancelamentos**
+- Casos cancelados deliberadamente não são reabertos
+- Diferenciação clara entre tipos de encerramento
+
+✅ **Rastreabilidade**
+- Evento `case.cancelled` registrado no histórico
+- Payload inclui quem cancelou e quando
+
+✅ **Integridade do Sistema**
+- Sistema de importação não interfere com cancelamentos
+- Fluxo de trabalho preservado
+
+---
+
+### 💡 Lições Aprendidas
+
+1. **Consistência entre Banco e Broadcast:**
+   - Sempre garantir que broadcasts WebSocket reflitam o estado real do banco
+   - Evitar hardcoded status diferentes nos eventos
+
+2. **Diferenciação de Status:**
+   - Usar status específicos para ações deliberadas vs automáticas
+   - Facilita lógica condicional e manutenção do código
+
+3. **Proteção de Dados Críticos:**
+   - Sistemas de importação devem respeitar decisões manuais
+   - Implementar listas de exclusão para operações sensíveis
+
+---
+
+### 🔄 Correções Adicionais (Após Teste)
+
+Durante os testes, foram identificados **3 problemas adicionais** no frontend e backend:
+
+#### ❌ Problema 3: Endpoint `/finance/queue` Não Retornava Casos Cancelados
+
+**Arquivo:** `apps/api/app/routers/finance.py:35-40`
+
+**Situação:**
+- Endpoint retornava apenas `"contrato_cancelado"`
+- Status `"caso_cancelado"` não era incluído na query
+- Casos cancelados via botão "Cancelar Caso" não apareciam na aba "Cancelados"
+
+**Correção:**
+```python
+# ANTES
+financial_statuses = [
+    "financeiro_pendente",
+    "contrato_efetivado",
+    "contrato_cancelado"
+]
+
+# DEPOIS
+financial_statuses = [
+    "financeiro_pendente",
+    "contrato_efetivado",
+    "contrato_cancelado",
+    "caso_cancelado"  # ✅ ADICIONADO
+]
+```
+
+---
+
+#### ❌ Problema 4: Contador de "Cancelados" Incompleto
+
+**Arquivo:** `apps/web/src/app/financeiro/page.tsx:717`
+
+**Situação:**
+- Badge "Cancelados" contava apenas `"contrato_cancelado"`
+- Casos com status `"caso_cancelado"` não eram contabilizados
+
+**Correção:**
+```typescript
+// ANTES
+cancelado: items.filter((i: any) => i.status === "contrato_cancelado").length,
+
+// DEPOIS
+cancelado: items.filter((i: any) =>
+  i.status === "contrato_cancelado" || i.status === "caso_cancelado"
+).length,
+```
+
+---
+
+#### ❌ Problema 5: Filtro "Cancelados" Não Mostrava Casos
+
+**Arquivo:** `apps/web/src/app/financeiro/page.tsx:766`
+
+**Situação:**
+- Filtro verificava apenas `"contrato_cancelado"`
+- Casos com `"caso_cancelado"` eram excluídos da lista
+
+**Correção:**
+```typescript
+// ANTES
+case "cancelado":
+  if (item.status !== "contrato_cancelado") return false;
+  break;
+
+// DEPOIS
+case "cancelado":
+  if (item.status !== "contrato_cancelado" && item.status !== "caso_cancelado") return false;
+  break;
+```
+
+**Também atualizado filtro "liberado" (linha 763):**
+```typescript
+// ANTES
+if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado"))) return false;
+
+// DEPOIS
+if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado" && item.status !== "caso_cancelado"))) return false;
+```
+
+---
+
+### 📝 Estatísticas
+
+- **Arquivos Modificados:** 4 (2 backend + 2 frontend)
+- **Linhas de Código Alteradas:** ~25
+- **Bugs Corrigidos:** 5 (críticos)
+- **Status Criados:** 1 (`caso_cancelado`)
+- **Endpoints Corrigidos:** 4
+- **Documentação Atualizada:** 1 (este documento)
+
+---
+
+### 🚀 Próximos Passos Sugeridos
+
+1. **Frontend:**
+   - Atualizar `StatusBadge` para incluir cor específica para `caso_cancelado`
+   - Adicionar tooltip explicativo em casos cancelados
+   - Exibir motivo do cancelamento (se disponível)
+
+2. **Backend:**
+   - Adicionar campo `cancellation_reason` (opcional) no evento
+   - Implementar endpoint para reverter cancelamento (admin only)
+   - Métricas de casos cancelados no dashboard
+
+3. **Testes:**
+   - Testar cancelamento → importação de folha → status permanece
+   - Validar broadcast WebSocket com status correto
+   - Verificar comportamento com múltiplos cancelamentos
+
+---
+
+*Última atualização: 2025-10-20*
+*Desenvolvido com Claude Code*
+

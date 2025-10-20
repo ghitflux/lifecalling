@@ -273,19 +273,23 @@ async def create_or_update_simulation(
 
         totals = compute_simulation_totals(data)
 
-        # Verificar se já existe simulação draft para este caso
-        existing_sim = db.query(Simulation).filter(
+        # NOVA LÓGICA: Marcar todas as simulações draft antigas como "superseded"
+        old_drafts = db.query(Simulation).filter(
             Simulation.case_id == case_id,
             Simulation.status == "draft"
-        ).first()
+        ).all()
 
-        if existing_sim:
-            sim = existing_sim
-        else:
-            sim = Simulation(
-                case_id=case_id, status="draft", created_by=user.id
-            )
-            db.add(sim)
+        for old_sim in old_drafts:
+            old_sim.status = "superseded"
+            old_sim.updated_at = now_brt()
+
+        # SEMPRE criar uma nova simulação
+        sim = Simulation(
+            case_id=case_id,
+            status="draft",
+            created_by=user.id
+        )
+        db.add(sim)
 
         sim.banks_json = [bank.dict() for bank in data.banks]
         sim.prazo = data.prazo
@@ -314,10 +318,69 @@ async def create_or_update_simulation(
         db.commit()
         db.refresh(sim)
 
+        # Atualizar last_simulation_id para apontar sempre para a mais recente
+        case.last_simulation_id = sim.id
+        case.last_update_at = now_brt()
+
+        # Adicionar entrada no histórico para draft
+        if not case.simulation_history:
+            case.simulation_history = []
+
+        # Contar versões para identificação
+        version_number = len([
+            h for h in case.simulation_history
+            if h.get("action") in ["draft", "approved", "rejected"]
+        ]) + 1
+
+        history_entry = {
+            "simulation_id": sim.id,
+            "action": "draft",
+            "status": "draft",
+            "timestamp": now_brt().isoformat(),
+            "created_by": user.id,
+            "created_by_name": user.name,
+            "version_number": version_number,
+            "totals": {
+                "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                "saldoTotal": float(sim.saldo_total or 0),
+                "liberadoTotal": float(sim.liberado_total or 0),
+                "seguroObrigatorio": float(sim.seguro or 0),
+                "totalFinanciado": float(sim.total_financiado or 0),
+                "valorLiquido": float(sim.valor_liquido or 0),
+                "custoConsultoria": float(sim.custo_consultoria or 0),
+                "custoConsultoriaLiquido": float(
+                    sim.custo_consultoria_liquido or 0
+                ),
+                "liberadoCliente": float(sim.liberado_cliente or 0)
+            },
+            "banks": enrich_banks_with_names(sim.banks_json or []),
+            "prazo": sim.prazo,
+            "coeficiente": sim.coeficiente or "",
+            "percentualConsultoria": float(
+                sim.percentual_consultoria or 0
+            ),
+            "observacao_calculista": sim.observacao_calculista
+        }
+
+        case.simulation_history.append(history_entry)
+
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="simulation.draft_saved",
+            payload={
+                "simulation_id": sim.id,
+                "version_number": version_number
+            },
+            created_by=user.id
+        ))
+
+        db.commit()
+
         return {
             "id": sim.id,
             "status": sim.status,
-            "totals": totals.dict()
+            "totals": totals.dict(),
+            "version_number": version_number
         }
 
 
@@ -341,7 +404,15 @@ async def approve(
         sim.updated_at = now_brt()
 
         case = db.get(Case, sim.case_id)
-        case.status = "calculo_aprovado"
+
+        # Determinar próximo status baseado no contexto
+        # Se já passou pelo fechamento, vai direto para financeiro
+        if case.status == "fechamento_aprovado":
+            case.status = "financeiro_pendente"
+        else:
+            # Primeira aprovação, vai para fechamento
+            case.status = "calculo_aprovado"
+
         case.last_simulation_id = sim.id
         case.last_update_at = now_brt()
 
@@ -389,15 +460,34 @@ async def approve(
             created_by=user.id
         ))
 
+        # Se vai direto para financeiro, registrar evento adicional
+        if case.status == "financeiro_pendente":
+            db.add(CaseEvent(
+                case_id=case.id,
+                type="case.sent_to_finance",
+                payload={
+                    "simulation_id": sim.id,
+                    "sent_by": user.id,
+                    "auto_sent": True,
+                    "reason": "Aprovado após retorno do fechamento"
+                },
+                created_by=user.id
+            ))
+
         db.commit()
+
+    # Obter status final do caso após aprovação
+    with SessionLocal() as db:
+        case = db.get(Case, sim.case_id)
+        final_status = case.status
 
     await eventbus.broadcast(
         "simulation.updated", {"simulation_id": sim_id, "status": "approved"}
     )
     await eventbus.broadcast(
-        "case.updated", {"case_id": sim.case_id, "status": "calculo_aprovado"}
+        "case.updated", {"case_id": sim.case_id, "status": final_status}
     )
-    return {"ok": True}
+    return {"ok": True, "case_status": final_status}
 
 
 class RejectInput(BaseModel):
@@ -479,6 +569,67 @@ async def reject(
         "case.updated", {"case_id": sim.case_id, "status": "calculo_rejeitado"}
     )
     return {"ok": True}
+
+
+@r.get("/case/{case_id}/all")
+def get_all_case_simulations(
+    case_id: int,
+    user=Depends(require_roles(
+        "calculista", "admin", "supervisor", "atendente", "fechamento"
+    ))
+):
+    """
+    Retorna TODAS as simulações de um caso (draft, superseded, approved, rejected).
+    Ordenadas por created_at DESC (mais recente primeiro).
+    Inclui flag is_current para destacar a simulação atual.
+    """
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Buscar todas as simulações do caso
+        simulations = db.query(Simulation).filter(
+            Simulation.case_id == case_id
+        ).order_by(Simulation.created_at.desc()).all()
+
+        items = []
+        for sim in simulations:
+            # Verificar se é a simulação atual
+            is_current = (case.last_simulation_id == sim.id)
+
+            items.append({
+                "id": sim.id,
+                "status": sim.status,
+                "is_current": is_current,
+                "created_at": sim.created_at.isoformat() if sim.created_at else None,
+                "updated_at": sim.updated_at.isoformat() if sim.updated_at else None,
+                "created_by": sim.created_by,
+                "totals": {
+                    "valorParcelaTotal": float(sim.valor_parcela_total or 0),
+                    "saldoTotal": float(sim.saldo_total or 0),
+                    "liberadoTotal": float(sim.liberado_total or 0),
+                    "seguroObrigatorio": float(sim.seguro or 0),
+                    "totalFinanciado": float(sim.total_financiado or 0),
+                    "valorLiquido": float(sim.valor_liquido or 0),
+                    "custoConsultoria": float(sim.custo_consultoria or 0),
+                    "custoConsultoriaLiquido": float(
+                        sim.custo_consultoria_liquido or 0
+                    ),
+                    "liberadoCliente": float(sim.liberado_cliente or 0)
+                } if sim.status not in ["pending"] else None,
+                "banks": enrich_banks_with_names(sim.banks_json or []),
+                "prazo": sim.prazo,
+                "coeficiente": sim.coeficiente or "",
+                "percentualConsultoria": float(sim.percentual_consultoria or 0),
+                "observacao_calculista": sim.observacao_calculista
+            })
+
+        return {
+            "items": items,
+            "count": len(items),
+            "current_simulation_id": case.last_simulation_id
+        }
 
 
 @r.get("/{case_id}/history")
@@ -577,6 +728,66 @@ async def reopen_simulation(
     )
 
     return {"ok": True, "message": "Simulação reaberta para edição"}
+
+
+@r.post("/{sim_id}/set-as-final")
+async def set_simulation_as_final(
+    sim_id: int,
+    user=Depends(require_roles("calculista", "admin", "supervisor"))
+):
+    """
+    Define uma simulação aprovada como a simulação final do caso.
+    Atualiza o campo Case.last_simulation_id.
+    Permite escolher qual simulação aprovada será enviada ao financeiro.
+    """
+    with SessionLocal() as db:
+        sim = db.get(Simulation, sim_id)
+        if not sim:
+            raise HTTPException(404, "Simulação não encontrada")
+
+        if sim.status != "approved":
+            raise HTTPException(
+                400,
+                "Apenas simulações aprovadas podem ser definidas como final"
+            )
+
+        case = db.get(Case, sim.case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Atualizar last_simulation_id
+        previous_final_id = case.last_simulation_id
+        case.last_simulation_id = sim.id
+        case.last_update_at = now_brt()
+
+        # Registrar evento
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="simulation.set_as_final",
+            payload={
+                "simulation_id": sim.id,
+                "previous_final_id": previous_final_id,
+                "set_by": user.id
+            },
+            created_by=user.id
+        ))
+
+        db.commit()
+
+    await eventbus.broadcast(
+        "simulation.updated",
+        {"simulation_id": sim_id, "is_final": True}
+    )
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": sim.case_id, "last_simulation_id": sim_id}
+    )
+
+    return {
+        "ok": True,
+        "message": "Simulação definida como final",
+        "simulation_id": sim_id
+    }
 
 
 @r.post("/{case_id}/send-to-finance")

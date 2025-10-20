@@ -23,6 +23,7 @@ import {
   FileImage,
   File,
   ArrowLeft,
+  Undo2,
 } from "lucide-react";
 
 interface SimulationResult {
@@ -61,6 +62,8 @@ export interface FinanceCardProps {
   onReject?: (id: number) => void;
   onDisburse?: (id: number, commissionUserId?: number, commissionPercentage?: number) => void;
   onCancel?: (id: number) => void;
+  onReturnToCalculista?: (id: number) => void;
+  onCancelCase?: (id: number) => void;
 
   /** usuários disponíveis para seleção de comissão */
   availableUsers?: Array<{id: number; name: string; email: string}>;
@@ -192,6 +195,8 @@ export function FinanceCard({
   onReject,
   onDisburse,
   onCancel,
+  onReturnToCalculista,
+  onCancelCase,
   className,
   clientBankInfo,
   attachments = [],
@@ -562,6 +567,61 @@ export function FinanceCard({
           <div className="flex items-center gap-2 text-danger text-sm">
             <AlertCircle className="h-4 w-4" />
             <span>Necessita atenção - Pagamento em atraso</span>
+          </div>
+        )}
+
+        {/* Ações para status financeiro_pendente */}
+        {status === "financeiro_pendente" && (
+          <div className="w-full space-y-2">
+            {/* Linha 1: Ver Detalhes + Devolver */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowDetailsModal(true)}
+                className="flex-1"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Ver Detalhes
+              </Button>
+
+              {onReturnToCalculista && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onReturnToCalculista(id)}
+                  className="flex-1 text-orange-600 border-orange-400 hover:bg-orange-600 hover:text-white hover:border-orange-600 transition-colors"
+                >
+                  <Undo2 className="h-4 w-4 mr-1" />
+                  Devolver
+                </Button>
+              )}
+            </div>
+
+            {/* Linha 2: Efetivar Liberação (botão principal) */}
+            {onDisburse && (
+              <Button
+                size="sm"
+                onClick={() => setShowDisburseConfirm(true)}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <CreditCard className="h-4 w-4 mr-1" />
+                Efetivar Liberação
+              </Button>
+            )}
+
+            {/* Linha 3: Cancelar Caso (opcional, destrutivo) */}
+            {onCancelCase && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setShowCancelConfirm(true)}
+                className="w-full"
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Cancelar Caso
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1055,6 +1115,46 @@ export function FinanceCard({
         </DialogContent>
       </Dialog>
 
+      {/* Confirmação Cancelamento de Caso */}
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Caso</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
+                <div>
+                  <p className="text-sm font-medium text-warning">Atenção</p>
+                  <p className="mt-1 text-sm text-warning-foreground">
+                    Tem certeza que deseja cancelar o caso de{" "}
+                    <strong>{clientName}</strong>?
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Esta ação pode ser irreversível dependendo do status atual.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>
+                Voltar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  onCancelCase?.(id);
+                  setShowCancelConfirm(false);
+                }}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Cancelar Caso
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </Card>
   );

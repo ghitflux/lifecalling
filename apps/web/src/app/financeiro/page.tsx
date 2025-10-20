@@ -494,6 +494,49 @@ export default function Page() {
     }
   };
 
+  // Mutation para devolver caso ao calculista
+  const returnToCalculistaMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/cases/${caseId}/return-to-calculista`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+      toast.success("Caso devolvido ao calculista para recálculo");
+    },
+    onError: (error: any) => {
+      console.error("Erro ao devolver caso:", error);
+      toast.error("Erro ao devolver caso ao calculista");
+    }
+  });
+
+  const handleReturnToCalculista = async (caseId: number) => {
+    if (confirm("Tem certeza que deseja devolver este caso ao calculista para recálculo?")) {
+      await returnToCalculistaMutation.mutateAsync(caseId);
+    }
+  };
+
+  // Mutation para cancelar caso
+  const cancelCaseMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/cases/${caseId}/cancel`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+      toast.success("Caso cancelado com sucesso");
+    },
+    onError: (error: any) => {
+      console.error("Erro ao cancelar caso:", error);
+      const errorMessage = error?.response?.data?.detail || "Erro ao cancelar caso";
+      toast.error(errorMessage);
+    }
+  });
+
+  const handleCancelCase = async (caseId: number) => {
+    await cancelCaseMutation.mutateAsync(caseId);
+  };
+
   const handleDeleteCase = async (caseId: number) => {
     try {
       await api.post("/cases/bulk-delete", { ids: [caseId] });
@@ -670,8 +713,8 @@ export default function Page() {
   // Contadores/filters
   const statusCounts = {
     aprovado: items.filter((i: any) => i.status === "financeiro_pendente" && !i.contract).length,
-    liberado: items.filter((i: any) => i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado")).length,
-    cancelado: items.filter((i: any) => i.status === "contrato_cancelado").length,
+    liberado: items.filter((i: any) => i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado" && i.status !== "caso_cancelado")).length,
+    cancelado: items.filter((i: any) => i.status === "contrato_cancelado" || i.status === "caso_cancelado").length,
     todos: items.length
   };
 
@@ -717,10 +760,10 @@ export default function Page() {
           if (!(item.status === "financeiro_pendente" && !item.contract)) return false;
           break;
         case "liberado":
-          if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado"))) return false;
+          if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado" && item.status !== "caso_cancelado"))) return false;
           break;
         case "cancelado":
-          if (item.status !== "contrato_cancelado") return false;
+          if (item.status !== "contrato_cancelado" && item.status !== "caso_cancelado") return false;
           break;
         default:
           break;
@@ -900,8 +943,10 @@ export default function Page() {
                 const cardStatus = (() => {
                   if (item.status === "contrato_cancelado") return "disbursed";
                   if (item.status === "contrato_efetivado" || item.contract) return "disbursed";
+                  if (item.status === "financeiro_pendente") return "financeiro_pendente";
+                  if (item.status === "fechamento_aprovado") return "fechamento_aprovado";
                   return "approved";
-                })();
+                })() as "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado";
 
                 return (
                   <FinanceCard
@@ -915,6 +960,8 @@ export default function Page() {
                     simulationResult={simulationResult}
                     onDisburse={handleDisburse}
                     onCancel={contractId ? () => handleCancel(contractId) : undefined}
+                    onReturnToCalculista={handleReturnToCalculista}
+                    onCancelCase={handleCancelCase}
                     clientBankInfo={clientBankInfo}
                     attachments={item.contract?.attachments || item.attachments || []}
                     onUploadAttachment={createUploadHandler(contractId, item.id)}

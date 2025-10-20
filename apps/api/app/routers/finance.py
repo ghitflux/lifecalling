@@ -35,7 +35,8 @@ def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
         financial_statuses = [
             "financeiro_pendente",
             "contrato_efetivado",
-            "contrato_cancelado"
+            "contrato_cancelado",
+            "caso_cancelado"
         ]
         rows = db.query(Case).options(
             joinedload(Case.client),
@@ -1171,9 +1172,9 @@ def update_expense(
 @r.delete("/expenses/{expense_id}")
 def delete_expense(
     expense_id: int,
-    user=Depends(require_roles("admin", "supervisor"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Remove uma despesa"""
+    """Remove uma despesa (incluindo despesas geradas por comissão)"""
     with SessionLocal() as db:
         from ..models import FinanceExpense
         expense = db.get(FinanceExpense, expense_id)
