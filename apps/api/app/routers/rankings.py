@@ -80,13 +80,13 @@ def ranking_agents(
     contracts_data = contracts_q.group_by(owner_user_id).all()
     contracts_map = {r.user_id: {"qtd": r.qtd} for r in contracts_data}
 
-    # Buscar soma de receitas "Consultoria - Atendente" por atendente
+    # Buscar soma de TODAS as receitas por atendente (ambos os fluxos)
     from ..models import FinanceIncome
     income_q = (db.query(
                 FinanceIncome.agent_user_id.label("user_id"),
                 func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
             )
-            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+            .filter(FinanceIncome.agent_user_id.isnot(None))
     )
 
     # Aplicar filtro de data nas receitas
@@ -116,12 +116,12 @@ def ranking_agents(
     prev = prev_q.all()
     prev_map = {r.user_id: {"qtd": r.qtd} for r in prev}
 
-    # Buscar soma de receitas "Consultoria - Atendente" do período anterior
+    # Buscar soma de TODAS as receitas do período anterior (ambos os fluxos)
     prev_income_q = (db.query(
                 FinanceIncome.agent_user_id.label("user_id"),
                 func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
             )
-            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+            .filter(FinanceIncome.agent_user_id.isnot(None))
     )
 
     if from_ and to:
@@ -321,14 +321,14 @@ def export_csv(
                 .group_by(owner_user_id)
                ).all()
 
-        # Somar receitas "Consultoria - Atendente" por atendente
+        # Somar TODAS as receitas por atendente (ambos os fluxos)
         from ..models import FinanceIncome
         income_rows = (db.query(
                     FinanceIncome.agent_user_id.label("user_id"),
                     func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
                 )
                 .filter(
-                    FinanceIncome.income_type == "Consultoria - Atendente",
+                    FinanceIncome.agent_user_id.isnot(None),
                     func.date(FinanceIncome.date).between(start, end)
                 )
                 .group_by(FinanceIncome.agent_user_id)
@@ -370,13 +370,13 @@ def export_csv(
                 .group_by(owner_user_id)
                ).all()
 
-        # Período anterior - receitas
+        # Período anterior - receitas (todas as receitas de atendentes)
         prev_income = (db.query(
                     FinanceIncome.agent_user_id.label("user_id"),
                     func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
                 )
                 .filter(
-                    FinanceIncome.income_type == "Consultoria - Atendente",
+                    FinanceIncome.agent_user_id.isnot(None),
                     func.date(FinanceIncome.date).between(prev_start, prev_end)
                 )
                 .group_by(FinanceIncome.agent_user_id)
@@ -494,14 +494,14 @@ def get_podium(
 
     contracts_data = contracts_query.group_by(owner_user_id).all()
 
-    # Query para somar receitas "Consultoria - Atendente" por atendente
+    # Query para somar TODAS as receitas por atendente (ambos os fluxos)
     from ..models import FinanceIncome
     income_query = (db.query(
                 FinanceIncome.agent_user_id.label("user_id"),
                 func.coalesce(func.sum(FinanceIncome.amount), 0).label("consultoria_liq")
             )
             .join(User, User.id == FinanceIncome.agent_user_id)
-            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+            .filter(FinanceIncome.agent_user_id.isnot(None))
             .filter(User.role == "atendente"))
 
     if from_ and to:
@@ -587,12 +587,11 @@ def get_rankings_kpis(
         # Calcular métricas do usuário - quantidade de contratos
         user_contracts = user_contracts_query.count()
 
-        # Buscar soma de receitas "Consultoria - Atendente" do usuário
+        # Buscar soma de TODAS as receitas do usuário (ambos os fluxos)
         from ..models import FinanceIncome
         user_income_query = (db.query(
                     func.coalesce(func.sum(FinanceIncome.amount), 0)
                 )
-                .filter(FinanceIncome.income_type == "Consultoria - Atendente")
                 .filter(FinanceIncome.agent_user_id == user_id)
         )
 
@@ -649,12 +648,12 @@ def get_rankings_kpis(
     # Total de contratos no período
     total_contracts = base_q.count()
 
-    # Consultoria líquida total - somar receitas "Consultoria - Atendente"
+    # Consultoria líquida total - somar TODAS as receitas de atendentes (ambos os fluxos)
     from ..models import FinanceIncome
     total_income_q = (db.query(
                 func.coalesce(func.sum(FinanceIncome.amount), 0)
             )
-            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+            .filter(FinanceIncome.agent_user_id.isnot(None))
     )
 
     if from_ and to:
@@ -691,12 +690,12 @@ def get_rankings_kpis(
 
     contracts_perf_results = contracts_perf_query.all()
 
-    # Performance por atendente - consultoria líquida
+    # Performance por atendente - consultoria líquida (todas as receitas)
     income_perf_query = (db.query(
         FinanceIncome.agent_user_id.label("user_id"),
         func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
     )
-    .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+    .filter(FinanceIncome.agent_user_id.isnot(None))
     .group_by(FinanceIncome.agent_user_id))
 
     if from_ and to:
@@ -774,11 +773,11 @@ def get_rankings_kpis(
 
     prev_total_contracts = prev_query.count()
 
-    # Período anterior - consultoria líquida
+    # Período anterior - consultoria líquida (todas as receitas de atendentes)
     prev_income_q = (db.query(
                 func.coalesce(func.sum(FinanceIncome.amount), 0)
             )
-            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+            .filter(FinanceIncome.agent_user_id.isnot(None))
     )
 
     if from_ and to:
