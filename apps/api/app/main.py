@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import json
-from .routers import auth, cases, imports, ws as wsmod, clients, users, comments
+from .routers import auth, cases, imports, ws as wsmod, clients, users, comments, admin
 
 from .routers import closing, finance, dashboard, contract_attachments, analytics, rankings, campanhas, campaigns
 from .db import Base, engine
@@ -49,6 +49,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth.r)
+app.include_router(admin.r)
 app.include_router(rankings.r)
 app.include_router(campanhas.r)
 app.include_router(campaigns.r)
