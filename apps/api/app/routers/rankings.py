@@ -62,11 +62,10 @@ def ranking_agents(
         else_=Case.assigned_user_id
     )
 
-    # Buscar dados de contratos para o período atual
+    # Buscar quantidade de contratos para o período atual
     contracts_q = (db.query(
                 owner_user_id.label("user_id"),
-                func.count(Contract.id).label("qtd"),
-                func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
+                func.count(Contract.id).label("qtd")
             )
             .join(Case, Case.id == Contract.case_id, isouter=True)
             .filter(Contract.status == "ativo")
@@ -79,17 +78,32 @@ def ranking_agents(
         )
 
     contracts_data = contracts_q.group_by(owner_user_id).all()
-    contracts_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in contracts_data}
+    contracts_map = {r.user_id: {"qtd": r.qtd} for r in contracts_data}
 
-    # REMOVIDO: Não somar FinanceIncome, pois causava duplicação
-    # Contract.consultoria_valor_liquido já contém o valor da receita
-    # FinanceIncome é apenas um registro separado para o módulo financeiro
+    # Buscar soma de receitas "Consultoria - Atendente" por atendente
+    from ..models import FinanceIncome
+    income_q = (db.query(
+                FinanceIncome.agent_user_id.label("user_id"),
+                func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
+            )
+            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+    )
 
-    # período anterior para trend
+    # Aplicar filtro de data nas receitas
+    if from_ and to:
+        income_q = income_q.filter(FinanceIncome.date.between(start, end))
+
+    income_data = income_q.group_by(FinanceIncome.agent_user_id).all()
+    income_map = {r.user_id: float(r.consult_sum or 0) for r in income_data}
+
+    # Mesclar dados de contratos e receitas
+    for user_id in contracts_map:
+        contracts_map[user_id]["consult_sum"] = income_map.get(user_id, 0)
+
+    # Período anterior para trend - quantidade de contratos
     prev_q = (db.query(
                 owner_user_id.label("user_id"),
-                func.count(Contract.id).label("qtd"),
-                func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
+                func.count(Contract.id).label("qtd")
             )
             .join(Case, Case.id == Contract.case_id, isouter=True)
             .filter(Contract.status == "ativo")
@@ -100,9 +114,25 @@ def ranking_agents(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(prev_start, prev_end)
         )
     prev = prev_q.all()
-    prev_map = {r.user_id: {"qtd": r.qtd, "consult_sum": float(r.consult_sum or 0)} for r in prev}
+    prev_map = {r.user_id: {"qtd": r.qtd} for r in prev}
 
-    # REMOVIDO: Não somar FinanceIncome do período anterior também
+    # Buscar soma de receitas "Consultoria - Atendente" do período anterior
+    prev_income_q = (db.query(
+                FinanceIncome.agent_user_id.label("user_id"),
+                func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
+            )
+            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+    )
+
+    if from_ and to:
+        prev_income_q = prev_income_q.filter(FinanceIncome.date.between(prev_start, prev_end))
+
+    prev_income_data = prev_income_q.group_by(FinanceIncome.agent_user_id).all()
+    prev_income_map = {r.user_id: float(r.consult_sum or 0) for r in prev_income_data}
+
+    # Mesclar dados de contratos e receitas do período anterior
+    for user_id in prev_map:
+        prev_map[user_id]["consult_sum"] = prev_income_map.get(user_id, 0)
 
     # buscar metas (se existir campo User.settings)
     targets_map = {}
@@ -278,10 +308,10 @@ def export_csv(
             (Contract.created_by.isnot(None), Contract.created_by),
             else_=Case.assigned_user_id
         )
-        rows = (db.query(
+        # Contar contratos por atendente
+        contracts_rows = (db.query(
                     owner_user_id.label("user_id"),
-                    func.count(Contract.id).label("qtd"),
-                    func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
+                    func.count(Contract.id).label("qtd")
                 )
                 .join(Case, Case.id == Contract.case_id)
                 .filter(
@@ -289,13 +319,48 @@ def export_csv(
                     func.date(Contract.signed_at).between(start, end)
                 )
                 .group_by(owner_user_id)
-                .order_by(func.sum(Contract.consultoria_valor_liquido).desc())
                ).all()
 
-        prev = (db.query(
+        # Somar receitas "Consultoria - Atendente" por atendente
+        from ..models import FinanceIncome
+        income_rows = (db.query(
+                    FinanceIncome.agent_user_id.label("user_id"),
+                    func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
+                )
+                .filter(
+                    FinanceIncome.income_type == "Consultoria - Atendente",
+                    func.date(FinanceIncome.date).between(start, end)
+                )
+                .group_by(FinanceIncome.agent_user_id)
+               ).all()
+
+        # Mesclar dados
+        rows_map = {}
+        for r in contracts_rows:
+            rows_map[r.user_id] = {"qtd": int(r.qtd or 0), "consult_sum": 0}
+
+        for r in income_rows:
+            if r.user_id in rows_map:
+                rows_map[r.user_id]["consult_sum"] = float(r.consult_sum or 0)
+            else:
+                rows_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.consult_sum or 0)}
+
+        # Ordenar por consultoria líquida
+        sorted_users = sorted(rows_map.items(), key=lambda x: x[1]["consult_sum"], reverse=True)
+
+        # Criar objetos compatíveis com o código original
+        class RowResult:
+            def __init__(self, user_id, qtd, consult_sum):
+                self.user_id = user_id
+                self.qtd = qtd
+                self.consult_sum = consult_sum
+
+        rows = [RowResult(uid, data["qtd"], data["consult_sum"]) for uid, data in sorted_users]
+
+        # Período anterior - contratos
+        prev_contracts = (db.query(
                     owner_user_id.label("user_id"),
-                    func.count(Contract.id).label("qtd"),
-                    func.coalesce(func.sum(Contract.consultoria_valor_liquido),0).label("consult_sum")
+                    func.count(Contract.id).label("qtd")
                 )
                 .join(Case, Case.id == Contract.case_id)
                 .filter(
@@ -304,7 +369,28 @@ def export_csv(
                 )
                 .group_by(owner_user_id)
                ).all()
-        prev_map = {r.user_id: {"qtd": int(r.qtd or 0), "consult_sum": float(r.consult_sum or 0)} for r in prev}
+
+        # Período anterior - receitas
+        prev_income = (db.query(
+                    FinanceIncome.agent_user_id.label("user_id"),
+                    func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
+                )
+                .filter(
+                    FinanceIncome.income_type == "Consultoria - Atendente",
+                    func.date(FinanceIncome.date).between(prev_start, prev_end)
+                )
+                .group_by(FinanceIncome.agent_user_id)
+               ).all()
+
+        prev_map = {}
+        for r in prev_contracts:
+            prev_map[r.user_id] = {"qtd": int(r.qtd or 0), "consult_sum": 0}
+
+        for r in prev_income:
+            if r.user_id in prev_map:
+                prev_map[r.user_id]["consult_sum"] = float(r.consult_sum or 0)
+            else:
+                prev_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.consult_sum or 0)}
 
         # cabeçalho
         writer.writerow([
@@ -391,11 +477,10 @@ def get_podium(
         else_=Case.assigned_user_id
     )
 
-    # Query para ranking por consultoria líquida - apenas atendentes
-    ranking_query = (db.query(
+    # Query para contar contratos por atendente
+    contracts_query = (db.query(
                 owner_user_id.label("user_id"),
-                func.count(Contract.id).label("contracts"),
-                func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("consultoria_liq")
+                func.count(Contract.id).label("contracts")
             )
             .join(Case, Case.id == Contract.case_id, isouter=True)
             .join(User, User.id == owner_user_id)
@@ -403,16 +488,37 @@ def get_podium(
             .filter(User.role == "atendente"))  # Filtrar apenas atendentes ANTES do limit
 
     if from_ and to:
-        ranking_query = ranking_query.filter(
+        contracts_query = contracts_query.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
         )
 
-    ranking_data = ranking_query.group_by(owner_user_id).all()
+    contracts_data = contracts_query.group_by(owner_user_id).all()
 
-    # Criar mapa de pontuação dos contratos
-    podium_map = {r.user_id: {"contracts": int(r.contracts or 0), "consultoria_liq": float(r.consultoria_liq or 0)} for r in ranking_data}
+    # Query para somar receitas "Consultoria - Atendente" por atendente
+    from ..models import FinanceIncome
+    income_query = (db.query(
+                FinanceIncome.agent_user_id.label("user_id"),
+                func.coalesce(func.sum(FinanceIncome.amount), 0).label("consultoria_liq")
+            )
+            .join(User, User.id == FinanceIncome.agent_user_id)
+            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+            .filter(User.role == "atendente"))
 
-    # REMOVIDO: Não somar FinanceIncome, pois causava duplicação
+    if from_ and to:
+        income_query = income_query.filter(FinanceIncome.date.between(start, end))
+
+    income_data = income_query.group_by(FinanceIncome.agent_user_id).all()
+
+    # Criar mapa mesclando contratos e receitas
+    podium_map = {}
+    for r in contracts_data:
+        podium_map[r.user_id] = {"contracts": int(r.contracts or 0), "consultoria_liq": 0}
+
+    for r in income_data:
+        if r.user_id in podium_map:
+            podium_map[r.user_id]["consultoria_liq"] = float(r.consultoria_liq or 0)
+        else:
+            podium_map[r.user_id] = {"contracts": 0, "consultoria_liq": float(r.consultoria_liq or 0)}
 
     # Ordenar por consultoria líquida e pegar Top 3
     sorted_users = sorted(podium_map.items(), key=lambda x: x[1]["consultoria_liq"], reverse=True)[:3]
@@ -478,13 +584,22 @@ def get_rankings_kpis(
                 func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
             )
 
-        # Calcular métricas do usuário
+        # Calcular métricas do usuário - quantidade de contratos
         user_contracts = user_contracts_query.count()
-        user_consultoria = float(user_contracts_query.with_entities(
-            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
-        ).scalar() or 0)
 
-        # REMOVIDO: Não somar FinanceIncome, pois causava duplicação
+        # Buscar soma de receitas "Consultoria - Atendente" do usuário
+        from ..models import FinanceIncome
+        user_income_query = (db.query(
+                    func.coalesce(func.sum(FinanceIncome.amount), 0)
+                )
+                .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+                .filter(FinanceIncome.agent_user_id == user_id)
+        )
+
+        if from_ and to:
+            user_income_query = user_income_query.filter(FinanceIncome.date.between(start, end))
+
+        user_consultoria = float(user_income_query.scalar() or 0)
 
         # Buscar meta do usuário
         meta = {}
@@ -534,10 +649,18 @@ def get_rankings_kpis(
     # Total de contratos no período
     total_contracts = base_q.count()
 
-    # Consultoria líquida total
-    total_consultoria = float(base_q.with_entities(
-        func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
-    ).scalar() or 0)
+    # Consultoria líquida total - somar receitas "Consultoria - Atendente"
+    from ..models import FinanceIncome
+    total_income_q = (db.query(
+                func.coalesce(func.sum(FinanceIncome.amount), 0)
+            )
+            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+    )
+
+    if from_ and to:
+        total_income_q = total_income_q.filter(FinanceIncome.date.between(start, end))
+
+    total_consultoria = float(total_income_q.scalar() or 0)
 
     # Ticket médio geral
     ticket_medio_geral = (total_consultoria / total_contracts) if total_contracts > 0 else 0
@@ -553,21 +676,53 @@ def get_rankings_kpis(
 
     total_atendentes = atendentes_query.count()
 
-    # Performance por atendente para calcular metas atingidas e top performer
-    performance_query = (db.query(
+    # Performance por atendente - quantidade de contratos
+    contracts_perf_query = (db.query(
         owner_user_id.label("user_id"),
-        func.count(Contract.id).label("qtd"),
-        func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("consult_sum")
+        func.count(Contract.id).label("qtd")
     )
     .join(Case, Case.id == Contract.case_id, isouter=True)
     .group_by(owner_user_id))
 
     if from_ and to:
-        performance_query = performance_query.filter(
+        contracts_perf_query = contracts_perf_query.filter(
             func.coalesce(Contract.signed_at, Contract.disbursed_at, Contract.created_at).between(start, end)
         )
 
-    performance_results = performance_query.all()
+    contracts_perf_results = contracts_perf_query.all()
+
+    # Performance por atendente - consultoria líquida
+    income_perf_query = (db.query(
+        FinanceIncome.agent_user_id.label("user_id"),
+        func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
+    )
+    .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+    .group_by(FinanceIncome.agent_user_id))
+
+    if from_ and to:
+        income_perf_query = income_perf_query.filter(FinanceIncome.date.between(start, end))
+
+    income_perf_results = income_perf_query.all()
+
+    # Mesclar resultados de contratos e receitas
+    performance_map = {}
+    for r in contracts_perf_results:
+        performance_map[r.user_id] = {"qtd": int(r.qtd or 0), "consult_sum": 0}
+
+    for r in income_perf_results:
+        if r.user_id in performance_map:
+            performance_map[r.user_id]["consult_sum"] = float(r.consult_sum or 0)
+        else:
+            performance_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.consult_sum or 0)}
+
+    # Criar lista de tuplas compatível com o código original
+    class PerfResult:
+        def __init__(self, user_id, qtd, consult_sum):
+            self.user_id = user_id
+            self.qtd = qtd
+            self.consult_sum = consult_sum
+
+    performance_results = [PerfResult(uid, data["qtd"], data["consult_sum"]) for uid, data in performance_map.items()]
 
     # Calcular atendentes que atingiram meta (R$ 10.000 padrão)
     meta_default = 10000.0
@@ -608,7 +763,7 @@ def get_rankings_kpis(
                 "contracts": int(perf.qtd or 0)
             }
 
-    # Período anterior para comparação
+    # Período anterior para comparação - quantidade de contratos
     prev_query = (db.query(Contract)
                   .join(Case, Case.id == Contract.case_id, isouter=True))
 
@@ -618,9 +773,18 @@ def get_rankings_kpis(
         )
 
     prev_total_contracts = prev_query.count()
-    prev_total_consultoria = float(prev_query.with_entities(
-        func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
-    ).scalar() or 0)
+
+    # Período anterior - consultoria líquida
+    prev_income_q = (db.query(
+                func.coalesce(func.sum(FinanceIncome.amount), 0)
+            )
+            .filter(FinanceIncome.income_type == "Consultoria - Atendente")
+    )
+
+    if from_ and to:
+        prev_income_q = prev_income_q.filter(FinanceIncome.date.between(prev_start, prev_end))
+
+    prev_total_consultoria = float(prev_income_q.scalar() or 0)
 
     # Calcular trends
     trend_contracts = total_contracts - prev_total_contracts

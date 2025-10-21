@@ -88,6 +88,7 @@ def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
                 "id": c.id,
                 "client_id": c.client_id,
                 "status": c.status,
+                "assigned_user_id": c.assigned_user_id,
                 "client": {
                     "id": c.client.id,
                     "name": c.client.name,
@@ -552,6 +553,7 @@ class DisburseSimpleIn(BaseModel):
     disbursed_at: datetime | None = None
     consultoria_liquida_ajustada: float | None = None  # Valor editado manualmente
     percentual_atendente: float | None = None  # Percentual para atendente (padrão 70%)
+    atendente_user_id: int | None = None  # ID do atendente que receberá a consultoria (padrão: atendente do caso)
 
 
 @r.post("/disburse-simple")
@@ -630,7 +632,8 @@ async def disburse_simple(
             ct.consultoria_valor_liquido = consultoria_liquida
             ct.signed_at = data.disbursed_at or now_brt()
             ct.created_by = user.id
-            ct.agent_user_id = c.assigned_user_id  # Atendente do caso
+            # Usar atendente fornecido ou atendente do caso como fallback
+            ct.agent_user_id = data.atendente_user_id or c.assigned_user_id
 
             db.add(ct)
             db.flush()
@@ -650,6 +653,9 @@ async def disburse_simple(
                 valor_atendente = consultoria_liquida * (percentual_atendente / 100)
                 valor_balcao = consultoria_liquida * (percentual_balcao / 100)
 
+                # Usar atendente fornecido ou atendente do caso como fallback
+                atendente_id = data.atendente_user_id or c.assigned_user_id
+
                 # Receita 1: Consultoria - Atendente
                 if valor_atendente > 0:
                     income_atendente = FinanceIncome(
@@ -658,7 +664,7 @@ async def disburse_simple(
                         income_name=f"Consultoria {percentual_atendente:.0f}% - {client_name} (Contrato #{ct.id})",
                         amount=valor_atendente,
                         created_by=user.id,
-                        agent_user_id=c.assigned_user_id  # Atendente do caso
+                        agent_user_id=atendente_id  # Atendente selecionado ou do caso
                     )
                     db.add(income_atendente)
 

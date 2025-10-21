@@ -60,13 +60,16 @@ export interface FinanceCardProps {
   /** callbacks como opcionais para evitar TS2774 */
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
-  onDisburse?: (id: number, percentualAtendente?: number, consultoriaAjustada?: number) => void;
+  onDisburse?: (id: number, percentualAtendente?: number, consultoriaAjustada?: number, atendenteUserId?: number) => void;
   onCancel?: (id: number) => void;
   onReturnToCalculista?: (id: number) => void;
   onCancelCase?: (id: number) => void;
 
   /** usuários disponíveis para seleção de comissão */
   availableUsers?: Array<{id: number; name: string; email: string}>;
+
+  /** ID do atendente atribuído ao caso (usado como padrão no modal) */
+  assignedUserId?: number;
 
   className?: string;
 
@@ -207,6 +210,7 @@ export function FinanceCard({
   fullCaseDetails,
   onLoadFullDetails,
   availableUsers = [],
+  assignedUserId,
 }: FinanceCardProps) {
   // usar simulação quando disponível
   const finalTotalAmount = simulationResult?.valorLiberado || totalAmount || 0;
@@ -222,6 +226,7 @@ export function FinanceCard({
   // Estados para consultoria editável e distribuição
   const [consultoriaLiquidaEditavel, setConsultoriaLiquidaEditavel] = React.useState<string>("");
   const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
+  const [selectedAtendenteId, setSelectedAtendenteId] = React.useState<number | null>(null);
 
   // Inicializar consultoria editável com valor da simulação
   React.useEffect(() => {
@@ -231,6 +236,13 @@ export function FinanceCard({
       );
     }
   }, [simulationResult]);
+
+  // Inicializar atendente selecionado com o atendente do caso ao abrir modal
+  React.useEffect(() => {
+    if (showDisburseConfirm && assignedUserId) {
+      setSelectedAtendenteId(assignedUserId);
+    }
+  }, [showDisburseConfirm, assignedUserId]);
 
   React.useEffect(() => {
     if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
@@ -1066,6 +1078,25 @@ export function FinanceCard({
             <div className="space-y-3 pt-2 border-t">
               <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
 
+              {/* Seleção de Atendente */}
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">
+                  Atendente
+                </label>
+                <select
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                  value={selectedAtendenteId || ""}
+                  onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
+                >
+                  <option value="">Selecione um atendente</option>
+                  {availableUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">
                   Percentual para Atendente
@@ -1075,6 +1106,10 @@ export function FinanceCard({
                   value={percentualAtendente}
                   onChange={(e) => setPercentualAtendente(Number(e.target.value))}
                 >
+                  <option value="10">10% (Atendente) + 90% (Balcão)</option>
+                  <option value="20">20% (Atendente) + 80% (Balcão)</option>
+                  <option value="30">30% (Atendente) + 70% (Balcão)</option>
+                  <option value="40">40% (Atendente) + 60% (Balcão)</option>
                   <option value="50">50% (Atendente) + 50% (Balcão)</option>
                   <option value="60">60% (Atendente) + 40% (Balcão)</option>
                   <option value="70">70% (Atendente) + 30% (Balcão)</option>
@@ -1120,7 +1155,7 @@ export function FinanceCard({
               <Button
                 onClick={() => {
                   const consultoriaAjustada = parseCurrencyToNumber(consultoriaLiquidaEditavel);
-                  onDisburse?.(id, percentualAtendente, consultoriaAjustada);
+                  onDisburse?.(id, percentualAtendente, consultoriaAjustada, selectedAtendenteId || undefined);
                   setShowDisburseConfirm(false);
                 }}
               >

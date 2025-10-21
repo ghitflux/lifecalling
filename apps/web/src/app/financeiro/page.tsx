@@ -450,12 +450,13 @@ export default function Page() {
   });
 
   // Ações casos/contratos
-  const handleDisburse = async (id: number, percentualAtendente?: number, consultoriaAjustada?: number) => {
+  const handleDisburse = async (id: number, percentualAtendente?: number, consultoriaAjustada?: number, atendenteUserId?: number) => {
     try {
       await disb.mutateAsync({
         case_id: id,
         percentual_atendente: percentualAtendente,
-        consultoria_liquida_ajustada: consultoriaAjustada
+        consultoria_liquida_ajustada: consultoriaAjustada,
+        atendente_user_id: atendenteUserId
       });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
@@ -1005,6 +1006,7 @@ export default function Page() {
                     fullCaseDetails={selectedCaseId === item.id ? fullCaseDetails : undefined}
                     onLoadFullDetails={handleLoadFullDetails}
                     availableUsers={users}
+                    assignedUserId={item.assigned_user_id}
                   />
                 );
               })}
@@ -1456,6 +1458,7 @@ export default function Page() {
               }}
               fullCaseDetails={financeCardDetails}
               availableUsers={users}
+              assignedUserId={financeCardDetails.assigned_user_id}
             />
           </div>
         </div>
