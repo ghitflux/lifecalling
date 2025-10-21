@@ -550,8 +550,8 @@ async def disburse(
 class DisburseSimpleIn(BaseModel):
     case_id: int
     disbursed_at: datetime | None = None
-    commission_user_id: int | None = None
-    commission_percentage: float | None = None
+    consultoria_liquida_ajustada: float | None = None  # Valor editado manualmente
+    percentual_atendente: float | None = None  # Percentual para atendente (padrão 70%)
 
 
 @r.post("/disburse-simple")
@@ -604,7 +604,12 @@ async def disburse_simple(
                 )
 
             # Validar consultoria líquida
-            consultoria_liquida = simulation.custo_consultoria_liquido or 0
+            # Usar valor ajustado se fornecido, senão usar da simulação
+            consultoria_liquida = (
+                data.consultoria_liquida_ajustada
+                if data.consultoria_liquida_ajustada is not None
+                else (simulation.custo_consultoria_liquido or 0)
+            )
             if consultoria_liquida <= 0:
                 print(
                     f"[AVISO] Consultoria líquida é zero para caso {c.id}, "
@@ -625,109 +630,49 @@ async def disburse_simple(
             ct.consultoria_valor_liquido = consultoria_liquida
             ct.signed_at = data.disbursed_at or now_brt()
             ct.created_by = user.id
-            # Se admin escolheu usuário para comissão, atribuir a ele
-            # Caso contrário, atribuir ao atendente original do caso
-            ct.agent_user_id = (
-                data.commission_user_id
-                if data.commission_user_id
-                else c.assigned_user_id
-            )
+            ct.agent_user_id = c.assigned_user_id  # Atendente do caso
 
             db.add(ct)
             db.flush()
 
-            # Criar receita automática (Consultoria Líquida 86%)
+            # Criar 2 receitas: Atendente + Balcão (distribuição da Consultoria Líquida)
             if consultoria_liquida and consultoria_liquida > 0:
                 from ..models import FinanceIncome
                 client_name = (
                     c.client.name if c.client else f"Cliente {c.id}"
                 )
-                # Se admin escolheu usuário para comissão,
-                # atribuir receita a ele
-                # Caso contrário, atribuir ao atendente original do caso
-                receita_user_id = (
-                    data.commission_user_id
-                    if data.commission_user_id
-                    else c.assigned_user_id
-                )
 
-                income = FinanceIncome(
-                    date=data.disbursed_at or now_brt(),
-                    income_type="Consultoria Líquida",
-                    income_name=f"Contrato #{ct.id} - {client_name}",
-                    amount=consultoria_liquida,
-                    created_by=user.id,
-                    # Usuário escolhido ou atendente original
-                    agent_user_id=receita_user_id
-                )
-                db.add(income)
+                # Percentual padrão: 70% atendente, 30% balcão
+                percentual_atendente = data.percentual_atendente or 70.0
+                percentual_balcao = 100.0 - percentual_atendente
 
-            # Criar comissão se especificada
-            if (data.commission_user_id and
-                data.commission_percentage and
-                    consultoria_liquida > 0):
-                from ..models import (
-                    FinanceExpense,
-                    CommissionPayout,
-                    User
-                )
-                from decimal import Decimal
+                # Calcular valores
+                valor_atendente = consultoria_liquida * (percentual_atendente / 100)
+                valor_balcao = consultoria_liquida * (percentual_balcao / 100)
 
-                # Validar usuário beneficiário
-                beneficiary = db.get(User, data.commission_user_id)
-                if not beneficiary:
-                    raise HTTPException(
-                        400,
-                        "Usuário beneficiário não encontrado"
+                # Receita 1: Consultoria - Atendente
+                if valor_atendente > 0:
+                    income_atendente = FinanceIncome(
+                        date=data.disbursed_at or now_brt(),
+                        income_type="Consultoria - Atendente",
+                        income_name=f"Consultoria {percentual_atendente:.0f}% - {client_name} (Contrato #{ct.id})",
+                        amount=valor_atendente,
+                        created_by=user.id,
+                        agent_user_id=c.assigned_user_id  # Atendente do caso
                     )
+                    db.add(income_atendente)
 
-                # Validar porcentagem (10, 20, 30, 40, 50, 60, 70)
-                valid_percentages = [10, 20, 30, 40, 50, 60, 70]
-                if data.commission_percentage not in valid_percentages:
-                    raise HTTPException(
-                        400,
-                        f"Porcentagem de comissão inválida. "
-                        f"Valores permitidos: {valid_percentages}"
+                # Receita 2: Consultoria - Balcão
+                if valor_balcao > 0:
+                    income_balcao = FinanceIncome(
+                        date=data.disbursed_at or now_brt(),
+                        income_type="Consultoria - Balcão",
+                        income_name=f"Consultoria {percentual_balcao:.0f}% - {client_name} (Contrato #{ct.id})",
+                        amount=valor_balcao,
+                        created_by=user.id,
+                        agent_user_id=None  # Sem usuário específico (receita do balcão)
                     )
-
-                # Calcular valor da comissão
-                commission_amount = (
-                    Decimal(str(consultoria_liquida)) *
-                    (Decimal(str(data.commission_percentage)) / 100)
-                )
-
-                # Criar despesa de comissão
-                expense = FinanceExpense(
-                    date=data.disbursed_at or now_brt(),
-                    month=(data.disbursed_at or now_brt()).month,
-                    year=(data.disbursed_at or now_brt()).year,
-                    expense_type="Comissão",
-                    expense_name=(
-                        f"Comissão {data.commission_percentage}% - "
-                        f"{beneficiary.name} - Contrato #{ct.id}"
-                    ),
-                    amount=commission_amount,
-                    created_by=user.id
-                )
-                db.add(expense)
-                db.flush()
-
-                # Criar registro de comissão
-                payout = CommissionPayout(
-                    contract_id=ct.id,
-                    case_id=c.id,
-                    beneficiary_user_id=data.commission_user_id,
-                    consultoria_liquida=Decimal(
-                        str(consultoria_liquida)
-                    ),
-                    commission_percentage=Decimal(
-                        str(data.commission_percentage)
-                    ),
-                    commission_amount=commission_amount,
-                    expense_id=expense.id,
-                    created_by=user.id
-                )
-                db.add(payout)
+                    db.add(income_balcao)
 
             c.status = "contrato_efetivado"
             c.last_update_at = now_brt()

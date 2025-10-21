@@ -60,7 +60,7 @@ export interface FinanceCardProps {
   /** callbacks como opcionais para evitar TS2774 */
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
-  onDisburse?: (id: number, commissionUserId?: number, commissionPercentage?: number) => void;
+  onDisburse?: (id: number, percentualAtendente?: number, consultoriaAjustada?: number) => void;
   onCancel?: (id: number) => void;
   onReturnToCalculista?: (id: number) => void;
   onCancelCase?: (id: number) => void;
@@ -219,9 +219,18 @@ export function FinanceCard({
   const [showDisburseConfirm, setShowDisburseConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
-  // Estados para comissão
-  const [commissionUserId, setCommissionUserId] = React.useState<number | undefined>();
-  const [commissionPercentage, setCommissionPercentage] = React.useState<number | undefined>();
+  // Estados para consultoria editável e distribuição
+  const [consultoriaLiquidaEditavel, setConsultoriaLiquidaEditavel] = React.useState<string>("");
+  const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
+
+  // Inicializar consultoria editável com valor da simulação
+  React.useEffect(() => {
+    if (simulationResult?.custoConsultoriaLiquido) {
+      setConsultoriaLiquidaEditavel(
+        formatCurrency(simulationResult.custoConsultoriaLiquido)
+      );
+    }
+  }, [simulationResult]);
 
   React.useEffect(() => {
     if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
@@ -319,6 +328,12 @@ export function FinanceCard({
       style: "currency",
       currency: "BRL",
     }).format(value);
+  };
+
+  const parseCurrencyToNumber = (value: string): number => {
+    // Remove R$, pontos e substitui vírgula por ponto
+    const cleaned = value.replace(/[R$\s.]/g, "").replace(",", ".");
+    return parseFloat(cleaned) || 0;
   };
 
   const formatDate = (dateString?: string) => {
@@ -1018,98 +1033,96 @@ export function FinanceCard({
 
             {/* Valores da Simulação */}
             {simulationResult && (
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Liberado Cliente:</span>
                   <span className="font-medium">{formatCurrency(simulationResult.liberadoCliente || 0)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Consultoria Líquida:</span>
-                  <span className="font-medium text-info">{formatCurrency(simulationResult.custoConsultoriaLiquido || 0)}</span>
-                </div>
-              </div>
-            )}
 
-            {/* Comissão (opcional) */}
-            {availableUsers.length > 0 && (
-              <div className="space-y-3 pt-2 border-t">
-                <h4 className="text-sm font-semibold">Comissão (Opcional)</h4>
-
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">
-                    Beneficiário
+                {/* Campo Editável: Consultoria Líquida */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Consultoria Líquida (editável):
                   </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={commissionUserId || ""}
-                    onChange={(e) => setCommissionUserId(e.target.value ? Number(e.target.value) : undefined)}
-                  >
-                    <option value="">Nenhum (sem comissão)</option>
-                    {availableUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm font-medium text-info focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={consultoriaLiquidaEditavel}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      const numValue = Number(value) / 100;
+                      setConsultoriaLiquidaEditavel(formatCurrency(numValue));
+                    }}
+                    placeholder="R$ 0,00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Valor original da simulação: {formatCurrency(simulationResult.custoConsultoriaLiquido || 0)}
+                  </p>
                 </div>
-
-                {commissionUserId && (
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1 block">
-                      Porcentagem de Comissão
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                      value={commissionPercentage || ""}
-                      onChange={(e) => setCommissionPercentage(e.target.value ? Number(e.target.value) : undefined)}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="10">10%</option>
-                      <option value="20">20%</option>
-                      <option value="30">30%</option>
-                      <option value="40">40%</option>
-                      <option value="50">50%</option>
-                      <option value="60">60%</option>
-                      <option value="70">70%</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* Preview da Comissão */}
-                {commissionUserId && commissionPercentage && simulationResult?.custoConsultoriaLiquido && (
-                  <div className="rounded-lg border border-accent/40 bg-accent/10 p-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-accent font-medium">
-                        Comissão ({commissionPercentage}%):
-                      </span>
-                      <span className="text-lg font-bold text-accent">
-                        {formatCurrency((simulationResult.custoConsultoriaLiquido * commissionPercentage) / 100)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Será criada como despesa automática
-                    </p>
-                  </div>
-                )}
               </div>
             )}
+
+            {/* Distribuição da Consultoria Líquida */}
+            <div className="space-y-3 pt-2 border-t">
+              <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
+
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">
+                  Percentual para Atendente
+                </label>
+                <select
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                  value={percentualAtendente}
+                  onChange={(e) => setPercentualAtendente(Number(e.target.value))}
+                >
+                  <option value="50">50% (Atendente) + 50% (Balcão)</option>
+                  <option value="60">60% (Atendente) + 40% (Balcão)</option>
+                  <option value="70">70% (Atendente) + 30% (Balcão)</option>
+                  <option value="80">80% (Atendente) + 20% (Balcão)</option>
+                  <option value="90">90% (Atendente) + 10% (Balcão)</option>
+                  <option value="100">100% (Atendente) + 0% (Balcão)</option>
+                </select>
+              </div>
+
+              {/* Preview da Distribuição */}
+              {consultoriaLiquidaEditavel && (
+                <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
+                    <span className="font-medium text-success">
+                      {formatCurrency(
+                        (parseCurrencyToNumber(consultoriaLiquidaEditavel) * percentualAtendente) / 100
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
+                    <span className="font-medium text-info">
+                      {formatCurrency(
+                        (parseCurrencyToNumber(consultoriaLiquidaEditavel) * (100 - percentualAtendente)) / 100
+                      )}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t flex justify-between font-semibold">
+                    <span>Total:</span>
+                    <span>{consultoriaLiquidaEditavel}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" onClick={() => {
                 setShowDisburseConfirm(false);
-                setCommissionUserId(undefined);
-                setCommissionPercentage(undefined);
               }}>
                 Cancelar
               </Button>
               <Button
                 onClick={() => {
-                  onDisburse?.(id, commissionUserId, commissionPercentage);
+                  const consultoriaAjustada = parseCurrencyToNumber(consultoriaLiquidaEditavel);
+                  onDisburse?.(id, percentualAtendente, consultoriaAjustada);
                   setShowDisburseConfirm(false);
-                  setCommissionUserId(undefined);
-                  setCommissionPercentage(undefined);
                 }}
-                disabled={Boolean(commissionUserId && !commissionPercentage)}
               >
                 <CreditCard className="h-4 w-4 mr-1" />
                 Confirmar Liberação

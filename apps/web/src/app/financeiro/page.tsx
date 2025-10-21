@@ -450,12 +450,12 @@ export default function Page() {
   });
 
   // Ações casos/contratos
-  const handleDisburse = async (id: number, commissionUserId?: number, commissionPercentage?: number) => {
+  const handleDisburse = async (id: number, percentualAtendente?: number, consultoriaAjustada?: number) => {
     try {
       await disb.mutateAsync({
         case_id: id,
-        commission_user_id: commissionUserId,
-        commission_percentage: commissionPercentage
+        percentual_atendente: percentualAtendente,
+        consultoria_liquida_ajustada: consultoriaAjustada
       });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
