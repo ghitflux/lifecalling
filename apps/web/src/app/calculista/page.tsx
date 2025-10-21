@@ -70,7 +70,9 @@ function CalculistaPageContent() {
 
   // Função para atualizar todos os dados
   const handleRefresh = () => {
-    queryClient.refetchQueries();
+    queryClient.invalidateQueries({ queryKey: ["calculista-queue"] });
+    queryClient.invalidateQueries({ queryKey: ["calculistaSeries"] });
+    queryClient.invalidateQueries({ queryKey: ["my-stats"] });
     toast.success("Dados atualizados com sucesso!");
   };
 
@@ -593,36 +595,44 @@ function CalculistaPageContent() {
               {casosDevolvidos.map((caso: any) => (
                 <Card
                   key={caso.id}
-                  className="p-4 cursor-pointer hover:shadow-md transition-shadow border-orange-300 bg-orange-50/50"
+                  className="p-6 cursor-pointer hover:shadow-lg transition-all duration-200 border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 hover:border-orange-300 hover:scale-[1.02]"
                   onClick={() => router.push(`/calculista/${caso.id}`)}
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="border-orange-400">Caso #{caso.id}</Badge>
+                      <Badge variant="outline" className="border-2 border-orange-400 text-orange-700 bg-orange-50 font-semibold">Caso #{caso.id}</Badge>
                       <StatusBadge status={caso.status} size="sm" />
                     </div>
 
-                    <div>
-                      <h3 className="font-medium">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-lg text-gray-900">
                         {caso.client?.name || "Cliente não identificado"}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-gray-600 font-medium">
                         CPF: {caso.client?.cpf || "---"}
                       </p>
-                      <p className="text-xs text-orange-700 mt-1 font-medium">
-                        ⚠️ Devolvido para recálculo pelo financeiro
-                      </p>
+                      <div className="flex items-center gap-2 mt-2 p-2 bg-orange-100 border border-orange-200 rounded-lg">
+                        <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                        <p className="text-sm text-orange-800 font-medium">
+                          Devolvido para recálculo pelo financeiro
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-sm text-gray-500 font-medium bg-gray-50 px-3 py-2 rounded-lg border">
+                      <Clock className="h-4 w-4 inline mr-2" />
                       Devolvido em:{" "}
                       {new Date(
                         caso.last_update_at || Date.now()
                       ).toLocaleDateString("pt-BR")}
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 border-orange-400 hover:bg-orange-100" size="sm">
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 border-2 border-orange-400 text-orange-700 hover:bg-orange-500 hover:text-white hover:border-orange-500 font-medium transition-all duration-200 shadow-sm hover:shadow-md" 
+                        size="sm"
+                      >
                         <Calculator className="h-4 w-4 mr-2" />
                         Recalcular
                       </Button>

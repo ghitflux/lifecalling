@@ -73,6 +73,13 @@ export default function Page() {
     toast.success("Tabela atualizada com sucesso!");
   };
 
+  // Função para atualizar lista de casos para liberação
+  const handleRefreshCases = () => {
+    queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
+    queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+    toast.success("Lista de atendimentos atualizada!");
+  };
+
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
   const { data: users = [] } = useUsers();
   const disb = useFinanceDisburseSimple();
@@ -898,7 +905,18 @@ export default function Page() {
 
       {/* Lista de Casos Financeiros */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRefreshCases}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar Lista
+          </Button>
+        </div>
 
         {loadingQueue ? (
           <div className="text-center py-12">
@@ -941,12 +959,13 @@ export default function Page() {
                   : undefined;
 
                 const cardStatus = (() => {
-                  if (item.status === "contrato_cancelado") return "disbursed";
+                  if (item.status === "caso_cancelado") return "caso_cancelado";
+                  if (item.status === "contrato_cancelado") return "contrato_cancelado";
                   if (item.status === "contrato_efetivado" || item.contract) return "disbursed";
                   if (item.status === "financeiro_pendente") return "financeiro_pendente";
                   if (item.status === "fechamento_aprovado") return "fechamento_aprovado";
                   return "approved";
-                })() as "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado";
+                })() as "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado" | "caso_cancelado" | "contrato_cancelado";
 
                 return (
                   <FinanceCard

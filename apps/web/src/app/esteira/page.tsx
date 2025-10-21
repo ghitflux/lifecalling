@@ -1,6 +1,6 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,24 @@ interface Case {
   observacoes?: string;
   banco?: string;
 }
+
+// Lista completa de todos os status possíveis no sistema
+const ALL_AVAILABLE_STATUSES = [
+  { value: "novo", label: "Novo", color: "blue" },
+  { value: "em_atendimento", label: "Em Atendimento", color: "yellow" },
+  { value: "calculista_pendente", label: "Calculista Pendente", color: "purple" },
+  { value: "calculo_aprovado", label: "Cálculo Aprovado", color: "green" },
+  { value: "fechamento_pendente", label: "Fechamento Pendente", color: "cyan" },
+  { value: "fechamento_aprovado", label: "Fechamento Aprovado", color: "emerald" },
+  { value: "financeiro_pendente", label: "Financeiro Pendente", color: "indigo" },
+  { value: "contrato_efetivado", label: "Contrato Efetivado", color: "success" },
+  { value: "devolvido_financeiro", label: "Devolvido Financeiro", color: "orange" },
+  { value: "contrato_cancelado", label: "Contrato Cancelado", color: "danger" },
+  { value: "caso_cancelado", label: "Cancelado", color: "danger" },
+  { value: "encerrado", label: "Encerrado", color: "muted" },
+  { value: "sem_contato", label: "Sem Contato", color: "gray" },
+  { value: "arquivado", label: "Arquivado", color: "muted" },
+] as const;
 
 function EsteiraPageContent() {
   useLiveCaseEvents();
@@ -294,6 +312,25 @@ function EsteiraPageContent() {
     staleTime: 60000, // Cache por 1 minuto
   });
 
+  // Mesclar lista completa de status com dados da API
+  const mergedStatuses = useMemo(() => {
+    if (!filtersData?.status) {
+      // Se API não retornou, usar lista completa com count 0
+      return ALL_AVAILABLE_STATUSES.map(s => ({ ...s, count: 0 }));
+    }
+
+    // Criar mapa dos counts da API
+    const apiCounts = new Map(
+      filtersData.status.map((s: any) => [s.value, s.count])
+    );
+
+    // Retornar lista completa com counts atualizados
+    return ALL_AVAILABLE_STATUSES.map(status => ({
+      ...status,
+      count: apiCounts.get(status.value) || 0,
+    }));
+  }, [filtersData]);
+
   const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
 
     if (isLoading) {
@@ -391,7 +428,7 @@ function EsteiraPageContent() {
               <div className="space-y-3">
 
                 {/* Filtro por Status - APENAS ADMIN */}
-                {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
+                {isAdminOrSupervisor && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Activity className="h-4 w-4 text-muted-foreground" />
@@ -411,11 +448,13 @@ function EsteiraPageContent() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {filtersData.status.map((status: any) => (
+                      {mergedStatuses.map((status) => (
                         <Badge
                           key={status.value}
                           variant={globalSelectedStatus.includes(status.value) ? "default" : "outline"}
-                          className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                          className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors ${
+                            status.count === 0 ? 'opacity-50' : ''
+                          }`}
                           onClick={() => {
                             setGlobalSelectedStatus(prev =>
                               prev.includes(status.value)
@@ -510,45 +549,45 @@ function EsteiraPageContent() {
               </div>
 
               {/* Filtros Rápidos por Status */}
-              {filtersData?.status && filtersData.status.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Status:</span>
-                    {mySelectedStatus.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setMySelectedStatus([]);
-                        }}
-                        className="h-6 text-xs"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Limpar
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {filtersData.status.map((status: any) => (
-                      <Badge
-                        key={status.value}
-                        variant={mySelectedStatus.includes(status.value) ? "default" : "outline"}
-                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                        onClick={() => {
-                          setMySelectedStatus(prev =>
-                            prev.includes(status.value)
-                              ? prev.filter(s => s !== status.value)
-                              : [...prev, status.value]
-                          );
-                        }}
-                      >
-                        {status.label} ({status.count})
-                      </Badge>
-                    ))}
-                  </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Status:</span>
+                  {mySelectedStatus.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setMySelectedStatus([]);
+                      }}
+                      className="h-6 text-xs"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Limpar
+                    </Button>
+                  )}
                 </div>
-              )}
+                <div className="flex flex-wrap gap-2">
+                  {mergedStatuses.map((status) => (
+                    <Badge
+                      key={status.value}
+                      variant={mySelectedStatus.includes(status.value) ? "default" : "outline"}
+                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors ${
+                        status.count === 0 ? 'opacity-50' : ''
+                      }`}
+                      onClick={() => {
+                        setMySelectedStatus(prev =>
+                          prev.includes(status.value)
+                            ? prev.filter(s => s !== status.value)
+                            : [...prev, status.value]
+                        );
+                      }}
+                    >
+                      {status.label} ({status.count})
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
               {/* Contador de Casos */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

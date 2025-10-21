@@ -440,6 +440,10 @@ async def import_payroll_file(
                     # Casos cancelados deliberadamente NÃO devem ser reabertos
                     CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado"]
 
+                    # Status que foram cancelados - NÃO reabrir e NÃO criar novos
+                    # Apenas atualizar dados de folha sem mudar status
+                    CANCELED_STATUSES = ["caso_cancelado", "contrato_cancelado"]
+
                     # Verificar se caso aberto já existe para este cliente
                     existing_case = db.query(Case).filter(
                         Case.client_id == client.id,
@@ -497,10 +501,44 @@ async def import_payroll_file(
                             counters["cases_reopened"] += 1
                             logger.info(f"Caso {case.id} REABERTO (era {old_status}) para cliente {client.id}")
                         else:
-                            # Criar novo caso
-                            case = create_case_for_client(db, client, batch, status_summary)
-                            counters["cases_created"] += 1
-                            logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
+                            # ANTES de criar novo caso, verificar se existe caso CANCELADO
+                            canceled_case = db.query(Case).filter(
+                                Case.client_id == client.id,
+                                Case.status.in_(CANCELED_STATUSES)
+                            ).order_by(Case.id.desc()).first()
+
+                            if canceled_case:
+                                # NÃO reabrir caso cancelado, apenas atualizar dados de folha
+                                # Manter status "caso_cancelado" ou "contrato_cancelado"
+                                canceled_case.payroll_status_summary = status_summary
+                                canceled_case.import_batch_id_new = batch.id
+                                canceled_case.ref_month = batch.ref_month
+                                canceled_case.ref_year = batch.ref_year
+                                canceled_case.last_update_at = datetime.utcnow()
+                                # NÃO mudar status - manter cancelado!
+
+                                # Criar evento informativo (não reabertura)
+                                db.add(CaseEvent(
+                                    case_id=canceled_case.id,
+                                    type="case.payroll_updated",
+                                    payload={
+                                        "status": canceled_case.status,
+                                        "reason": "Dados de folha atualizados (caso permanece cancelado)",
+                                        "batch_id": batch.id,
+                                        "ref_month": batch.ref_month,
+                                        "ref_year": batch.ref_year
+                                    },
+                                    created_at=now_brt()
+                                ))
+
+                                case = canceled_case
+                                counters["cases_updated"] += 1
+                                logger.info(f"Caso cancelado {case.id} atualizado (mantém status {canceled_case.status})")
+                            else:
+                                # Criar novo caso (nenhum caso existe para este cliente)
+                                case = create_case_for_client(db, client, batch, status_summary)
+                                counters["cases_created"] += 1
+                                logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
 
                 except Exception as case_error:
                     logger.error(f"Erro ao criar/atualizar caso para cliente {client.id}: {case_error}")

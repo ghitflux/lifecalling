@@ -2979,8 +2979,15 @@ await eventbus.broadcast("case.updated", {"case_id": case.id, "status": "contrat
    - Adicionados comentários explicativos
 
 3. **`apps/api/app/routers/finance.py`**
-   - ✅ Verificado - sem alterações necessárias
-   - Status `"contrato_cancelado"` já está correto
+   - Linha 35-40: Adicionado `"caso_cancelado"` ao `financial_statuses`
+   - Endpoint `/finance/queue` agora retorna casos cancelados
+
+#### Frontend (Next.js)
+
+4. **`apps/web/src/app/financeiro/page.tsx`**
+   - Linha 717: Contador `cancelado` atualizado para incluir ambos os status
+   - Linha 763: Filtro `liberado` exclui ambos os status de cancelamento
+   - Linha 766: Filtro `cancelado` verifica ambos os status
 
 ---
 
@@ -3168,14 +3175,417 @@ if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !=
 
 ---
 
-### 📝 Estatísticas
+### 🎨 Correções de Interface (Após Teste do Usuário)
 
-- **Arquivos Modificados:** 4 (2 backend + 2 frontend)
-- **Linhas de Código Alteradas:** ~25
-- **Bugs Corrigidos:** 5 (críticos)
+Durante os testes em produção, o usuário identificou **2 problemas visuais críticos** no módulo Financeiro:
+
+#### ❌ Problema 6: Status Visual Incorreto para Casos Cancelados
+
+**Arquivo:** `apps/web/src/app/financeiro/page.tsx:943-950`
+
+**Situação:**
+- Casos com `"caso_cancelado"` apareciam como "Fechamento Aprovado" (verde)
+- Casos com `"contrato_cancelado"` apareciam como "Liberado" (azul)
+- Usuário via status completamente errado na interface
+
+**Correção:**
+```typescript
+// ANTES (linhas 943-949)
+const cardStatus = (() => {
+  if (item.status === "contrato_cancelado") return "disbursed"; // ❌ Errado
+  if (item.status === "contrato_efetivado" || item.contract) return "disbursed";
+  if (item.status === "financeiro_pendente") return "financeiro_pendente";
+  if (item.status === "fechamento_aprovado") return "fechamento_aprovado";
+  return "approved"; // ❌ caso_cancelado caía aqui
+})();
+
+// DEPOIS
+const cardStatus = (() => {
+  if (item.status === "caso_cancelado") return "caso_cancelado"; // ✅
+  if (item.status === "contrato_cancelado") return "contrato_cancelado"; // ✅
+  if (item.status === "contrato_efetivado" || item.contract) return "disbursed";
+  if (item.status === "financeiro_pendente") return "financeiro_pendente";
+  if (item.status === "fechamento_aprovado") return "fechamento_aprovado";
+  return "approved";
+})();
+```
+
+---
+
+#### ❌ Problema 7: Botão "Efetivar Liberação" Aparecia em Casos Cancelados
+
+**Arquivo:** `packages/ui/src/FinanceCard.tsx:545, 606`
+
+**Situação:**
+- Casos cancelados mostravam botão "Efetivar Liberação"
+- Ação inapropriada para casos já cancelados
+- Confusão para operadores financeiros
+
+**Correção (2 locais):**
+```typescript
+// ANTES (linha 545)
+{onDisburse ? (
+  <Button onClick={() => setShowDisburseConfirm(true)}>
+    Efetivar Liberação
+  </Button>
+) : null}
+
+// DEPOIS
+{onDisburse && status !== "caso_cancelado" && status !== "contrato_cancelado" ? (
+  <Button onClick={() => setShowDisburseConfirm(true)}>
+    Efetivar Liberação
+  </Button>
+) : null}
+
+// ANTES (linha 606)
+{onDisburse && (
+  <Button onClick={() => setShowDisburseConfirm(true)}>
+    Efetivar Liberação
+  </Button>
+)}
+
+// DEPOIS
+{onDisburse && status !== "caso_cancelado" && status !== "contrato_cancelado" && (
+  <Button onClick={() => setShowDisburseConfirm(true)}>
+    Efetivar Liberação
+  </Button>
+)}
+```
+
+---
+
+#### ✅ Melhorias Visuais Adicionadas ao FinanceCard
+
+**Arquivo:** `packages/ui/src/FinanceCard.tsx`
+
+**1. Tipos de Status Expandidos (linha 57):**
+```typescript
+status: "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente"
+  | "contrato_efetivado" | "fechamento_aprovado" | "encerrado"
+  | "caso_cancelado" | "contrato_cancelado"; // ✅ Adicionados
+```
+
+**2. Cores para Status Cancelado (linhas 297-298):**
+```typescript
+statusColors = {
+  // ... outros status
+  caso_cancelado: "border-danger/40 bg-danger-subtle text-danger-foreground",
+  contrato_cancelado: "border-danger/40 bg-danger-subtle text-danger-foreground",
+}
+```
+
+**3. Labels Descritivos (linhas 313-314):**
+```typescript
+statusLabels = {
+  // ... outros status
+  caso_cancelado: "Cancelado",
+  contrato_cancelado: "Contrato Cancelado",
+}
+```
+
+---
+
+### 🎨 Comparação Visual
+
+**ANTES (Status Incorreto):**
+```
+┌──────────────────────────────────────┐
+│ PAULO CESAR        [Fechamento      │ ← ❌ Verde (errado)
+│ Caso #52            Aprovado]       │
+│                                      │
+│ R$ 4.581,06                          │
+│                                      │
+│ [Efetivar Liberação]                 │ ← ❌ Botão inapropriado
+└──────────────────────────────────────┘
+```
+
+**DEPOIS (Status Correto):**
+```
+┌──────────────────────────────────────┐
+│ PAULO CESAR        [Cancelado]      │ ← ✅ Vermelho (correto)
+│ Caso #52                             │
+│                                      │
+│ R$ 4.581,06                          │
+│                                      │
+│ [Ver Detalhes]                       │ ← ✅ Apenas visualização
+└──────────────────────────────────────┘
+```
+
+---
+
+### 🔄 Correção DEFINITIVA: Casos Cancelados Sendo Recriados (Problema Crítico #8)
+
+Após os testes em produção, foi identificado o **problema raiz** que causava casos cancelados aparecerem como "novo".
+
+#### ❌ Problema 8: Sistema Criava Novos Casos para Clientes com Casos Cancelados
+
+**Arquivo:** `apps/api/app/routers/imports.py:434-541`
+
+**Situação Crítica Identificada:**
+
+O sistema de importação tinha 3 categorias:
+1. **OPEN_STATUSES:** Casos ativos → atualizar dados
+2. **CLOSED_STATUSES:** Casos fechados → reabrir como "novo"
+3. **❌ CASOS CANCELADOS:** Não estavam em nenhuma categoria!
+
+**Resultado:**
+```
+Cliente com caso #52 (status "caso_cancelado")
+  ↓
+Nova importação de folha chega
+  ↓
+Sistema busca em OPEN_STATUSES → NÃO encontra
+Sistema busca em CLOSED_STATUSES → NÃO encontra
+  ↓
+CRIA NOVO caso #54 (status "novo") ❌ DUPLICATA INCORRETA!
+  ↓
+Cliente fica com 2 casos:
+  - #52: caso_cancelado (ignorado)
+  - #54: novo (criado erroneamente)
+```
+
+---
+
+#### ✅ Solução Implementada: Categoria CANCELED_STATUSES
+
+**1. Nova Constante (linha 443-445):**
+```python
+# Status que foram cancelados - NÃO reabrir e NÃO criar novos
+# Apenas atualizar dados de folha sem mudar status
+CANCELED_STATUSES = ["caso_cancelado", "contrato_cancelado"]
+```
+
+**2. Verificação Antes de Criar Novo Caso (linhas 504-541):**
+```python
+else:
+    # ANTES de criar novo caso, verificar se existe caso CANCELADO
+    canceled_case = db.query(Case).filter(
+        Case.client_id == client.id,
+        Case.status.in_(CANCELED_STATUSES)
+    ).order_by(Case.id.desc()).first()
+
+    if canceled_case:
+        # NÃO reabrir caso cancelado, apenas atualizar dados de folha
+        canceled_case.payroll_status_summary = status_summary
+        canceled_case.import_batch_id_new = batch.id
+        canceled_case.ref_month = batch.ref_month
+        canceled_case.ref_year = batch.ref_year
+        canceled_case.last_update_at = datetime.utcnow()
+        # NÃO mudar status - manter cancelado!
+
+        # Criar evento informativo
+        db.add(CaseEvent(
+            case_id=canceled_case.id,
+            type="case.payroll_updated",
+            payload={
+                "status": canceled_case.status,
+                "reason": "Dados de folha atualizados (caso permanece cancelado)",
+                ...
+            }
+        ))
+
+        case = canceled_case
+        counters["cases_updated"] += 1
+    else:
+        # Criar novo caso (nenhum caso existe)
+        case = create_case_for_client(...)
+        counters["cases_created"] += 1
+```
+
+---
+
+#### 📊 Tabela de Comportamentos (Importação de Folha)
+
+| Status do Caso Existente | Ação do Sistema | Novo Status |
+|--------------------------|-----------------|-------------|
+| `novo`, `em_atendimento`, etc (OPEN) | Atualiza dados | Mantém status atual |
+| `encerrado`, `sem_contato`, `arquivado` (CLOSED) | **Reabre** caso | `novo` |
+| `caso_cancelado`, `contrato_cancelado` (CANCELED) | Atualiza dados | **Mantém cancelado** ✅ |
+| (nenhum caso) | Cria novo caso | `novo` |
+
+---
+
+#### 🎯 Resultado Final
+
+**ANTES (Incorreto):**
+```
+Caso #52 (cancelado) → Importação → Sistema ignora #52
+                                  → Cria caso #54 (novo) ❌
+                                  → Cliente com 2 casos (duplicata)
+```
+
+**DEPOIS (Correto):**
+```
+Caso #52 (cancelado) → Importação → Encontra caso #52 cancelado
+                                  → Atualiza dados de folha
+                                  → MANTÉM status "caso_cancelado" ✅
+                                  → NÃO cria novo caso ✅
+                                  → Cliente permanece com 1 caso cancelado
+```
+
+---
+
+#### 💡 Benefícios Entregues
+
+✅ **Previne Duplicatas:** Não cria novos casos para clientes com casos cancelados
+✅ **Mantém Status:** Casos cancelados permanecem cancelados após importação
+✅ **Atualiza Dados:** Dados de folha são atualizados para rastreamento
+✅ **Evento Informativo:** Cria evento `case.payroll_updated` para auditoria
+✅ **Integridade:** Um cliente = um caso (mesmo cancelado)
+
+---
+
+### 📝 Estatísticas Finais
+
+- **Arquivos Modificados:** 8 (3 backend + 5 frontend)
+- **Linhas de Código Alteradas:** ~95
+- **Bugs Corrigidos:** 10 (8 críticos + 2 UX)
 - **Status Criados:** 1 (`caso_cancelado`)
+- **Categorias Criadas:** 1 (`CANCELED_STATUSES`)
 - **Endpoints Corrigidos:** 4
+- **Melhorias de UI:** 5 (cores, labels, botões condicionais + 2 botões de refresh)
+- **Botões de Refresh:** 2 (1 novo no Financeiro + 1 corrigido no Calculista)
 - **Documentação Atualizada:** 1 (este documento)
+
+---
+
+### 🔄 Melhorias de UX: Botões de Refresh nos Módulos
+
+Após feedback do usuário sobre status não atualizando automaticamente, foram implementados/corrigidos botões de refresh nos módulos principais.
+
+#### 🎯 Problema Reportado
+
+**Situação:**
+- Frontend não atualizava status automaticamente após cancelamento
+- Módulo Financeiro tinha botão de refresh APENAS para transações (não para casos)
+- Módulo Calculista tinha botão de refresh genérico que não funcionava corretamente
+
+---
+
+#### ✅ Solução 1: Botão de Refresh para CASOS no Financeiro
+
+**Arquivo:** `apps/web/src/app/financeiro/page.tsx`
+
+**Adicionado (linhas 76-81):**
+```typescript
+// Função para atualizar lista de casos para liberação
+const handleRefreshCases = () => {
+  queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
+  queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+  toast.success("Lista de atendimentos atualizada!");
+};
+```
+
+**Botão no Header (linhas 908-919):**
+```typescript
+<div className="flex items-center justify-between">
+  <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
+  <Button
+    size="sm"
+    variant="outline"
+    onClick={handleRefreshCases}
+    className="flex items-center gap-2"
+  >
+    <RefreshCw className="h-4 w-4" />
+    Atualizar Lista
+  </Button>
+</div>
+```
+
+**Benefício:**
+- ✅ Usuário pode manualmente atualizar lista de casos
+- ✅ Casos cancelados desaparecem imediatamente após refresh
+- ✅ Separado do botão de "Atualizar Transações" (receitas/despesas)
+
+---
+
+#### ✅ Solução 2: Corrigir Botão de Refresh no Calculista
+
+**Arquivo:** `apps/web/src/app/calculista/page.tsx`
+
+**ANTES (linha 72-75) - GENÉRICO DEMAIS:**
+```typescript
+const handleRefresh = () => {
+  queryClient.refetchQueries(); // ❌ Muito genérico
+  toast.success("Dados atualizados com sucesso!");
+};
+```
+
+**DEPOIS (linhas 72-77) - ESPECÍFICO:**
+```typescript
+const handleRefresh = () => {
+  queryClient.invalidateQueries({ queryKey: ["calculista-queue"] });
+  queryClient.invalidateQueries({ queryKey: ["calculistaSeries"] });
+  queryClient.invalidateQueries({ queryKey: ["my-stats"] });
+  toast.success("Dados atualizados com sucesso!");
+};
+```
+
+**Benefício:**
+- ✅ Refresh agora funciona corretamente
+- ✅ Invalida apenas queries relevantes do módulo
+- ✅ Performance melhor (não recarrega TODAS as queries)
+
+---
+
+#### 📊 Estrutura Final dos Módulos
+
+**Módulo Financeiro - 2 Botões de Refresh:**
+```
+┌──────────────────────────────────────────────────┐
+│ Gestão Financeira                                │
+│                                                  │
+│ [KPIs Financeiros]                               │
+│                                                  │
+│ Atendimentos para Liberação    [🔄 Atualizar Lista] ← NOVO!
+│ [Lista de casos]                                 │
+│                                                  │
+│ Receitas e Despesas            [🔄 Atualizar]   ← JÁ EXISTIA
+│ [Tabela de transações]                           │
+└──────────────────────────────────────────────────┘
+```
+
+**Módulo Calculista:**
+```
+┌──────────────────────────────────────────────────┐
+│ Calculista                     [🔄 Atualizar]   ← CORRIGIDO
+│ [KPIs]                                           │
+│ [Lista de casos]                                 │
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+#### 💡 Query Keys Invalidadas
+
+**Financeiro - Casos:**
+- `["financeQueue"]` - Lista de casos para liberação
+- `["financeContracts"]` - Contratos efetivados
+
+**Financeiro - Transações:**
+- `["transactions"]` - Receitas e despesas
+- `["financeMetrics"]` - Métricas financeiras
+
+**Calculista:**
+- `["calculista-queue"]` - Lista de casos do calculista
+- `["calculistaSeries"]` - Dados de séries temporais (gráficos)
+- `["my-stats"]` - Estatísticas do usuário logado
+
+---
+
+#### 🎯 Resultado
+
+**ANTES:**
+```
+Usuário cancela caso → Caso não sai da lista → ❌ Confusão
+Usuário clica "Atualizar" no Calculista → Nada acontece → ❌ Não funciona
+```
+
+**DEPOIS:**
+```
+Usuário cancela caso → Clica "Atualizar Lista" → ✅ Caso desaparece
+Usuário clica "Atualizar" no Calculista → ✅ Lista recarrega corretamente
+```
 
 ---
 

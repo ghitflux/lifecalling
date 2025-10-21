@@ -54,7 +54,7 @@ export interface FinanceCardProps {
   installments?: number;
   paidInstallments?: number;
 
-  status: "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado";
+  status: "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado" | "caso_cancelado" | "contrato_cancelado";
   dueDate?: string;
 
   /** callbacks como opcionais para evitar TS2774 */
@@ -294,6 +294,8 @@ export function FinanceCard({
     contrato_efetivado: "border-success/40 bg-success-subtle text-success-foreground",
     fechamento_aprovado: "border-emerald/40 bg-emerald-subtle text-emerald-foreground",
     encerrado: "border-muted/40 bg-muted text-muted-foreground",
+    caso_cancelado: "border-danger/40 bg-danger-subtle text-danger-foreground",
+    contrato_cancelado: "border-danger/40 bg-danger-subtle text-danger-foreground",
   } as const;
 
   const statusLabels = {
@@ -308,6 +310,8 @@ export function FinanceCard({
     contrato_efetivado: "Contrato Efetivado",
     fechamento_aprovado: "Fechamento Aprovado",
     encerrado: "Encerrado",
+    caso_cancelado: "Cancelado",
+    contrato_cancelado: "Contrato Cancelado",
   };
 
   const formatCurrency = (value: number) => {
@@ -538,7 +542,7 @@ export function FinanceCard({
 
             </div>
 
-            {onDisburse ? (
+            {onDisburse && status !== "caso_cancelado" && status !== "contrato_cancelado" ? (
               <Button size="sm" onClick={() => setShowDisburseConfirm(true)} className="w-full">
                 Efetivar Liberação
               </Button>
@@ -599,7 +603,7 @@ export function FinanceCard({
             </div>
 
             {/* Linha 2: Efetivar Liberação (botão principal) */}
-            {onDisburse && (
+            {onDisburse && status !== "caso_cancelado" && status !== "contrato_cancelado" && (
               <Button
                 size="sm"
                 onClick={() => setShowDisburseConfirm(true)}
