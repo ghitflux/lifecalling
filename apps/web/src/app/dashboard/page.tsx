@@ -502,7 +502,7 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Receita, despesas e resultado líquido</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
             title="Receita Total"
             value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -585,8 +585,8 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Imposto"
-            value={`R$ ${(((metrics.totalConsultoriaLiq ?? 0) * 0.14) + (metrics.totalManualTaxes ?? 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle={"14% Receita Líquida"}
+            value={`R$ ${(metrics.totalTax ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            subtitle={"14% Receita Bruta"}
             gradientVariant="amber"
             trend={financeTrends.imposto}
             icon={Receipt}
@@ -601,25 +601,6 @@ export default function DashboardPage() {
                 tooltipFormatter={(value) =>
                   `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 }
-              />
-            }
-          />
-          <KPICard
-            title="Comissões Geradas"
-            value={`R$ ${(metrics.totalCommissions || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle="Comissões pagas no período"
-            isLoading={metricsLoading}
-            gradientVariant="amber"
-            trend={financeTrends.comissoes}
-            icon={Wallet}
-            miniChart={
-              <MiniAreaChart
-                data={realTrendData.despesas}
-                dataKey="value"
-                xKey="day"
-                stroke="#f97316"
-                height={80}
-                valueType="currency"
               />
             }
           />

@@ -364,22 +364,28 @@ def finance_metrics(
         else:
             end_filter = now_brt()
 
-        # Usar uma única query agregada para contratos
-        contract_stats = db.query(
-            func.count(Contract.id).label("total_contracts"),
-            func.coalesce(
-                func.sum(Contract.consultoria_valor_liquido), 0
-            ).label("total_consultoria_liq")
+        # Contar total de contratos ativos
+        total_contracts = db.query(
+            func.count(Contract.id)
         ).filter(
             Contract.status == "ativo",
             Contract.signed_at >= start_filter,
             Contract.signed_at <= end_filter
-        ).first()
+        ).scalar() or 0
 
-        total_contracts = contract_stats.total_contracts or 0
-        total_consultoria_liquida = float(
-            contract_stats.total_consultoria_liq or 0
-        )
+        # Receitas de Consultoria (a partir de FinanceIncome, não Contract)
+        # Isso evita duplicação e garante que a tabela seja a fonte única da verdade
+        total_consultoria_liquida = float(db.query(
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
+        ).filter(
+            FinanceIncome.date >= start_filter,
+            FinanceIncome.date <= end_filter,
+            FinanceIncome.income_type.in_([
+                "Consultoria Líquida",
+                "Consultoria - Atendente",
+                "Consultoria - Balcão"
+            ])
+        ).scalar() or 0)
 
         # Receitas externas (clientes externos)
         total_external_income = float(db.query(
@@ -391,14 +397,17 @@ def finance_metrics(
             ExternalClientIncome.date <= end_filter
         ).scalar() or 0)
 
-        # Receitas manuais (EXCLUINDO consultoria líquida automática)
-        # Consultoria líquida já está sendo contada em total_consultoria_liquida
+        # Receitas manuais (EXCLUINDO todos os tipos de consultoria)
         total_manual_income = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
             FinanceIncome.date >= start_filter,
             FinanceIncome.date <= end_filter,
-            FinanceIncome.income_type != "Consultoria Líquida"
+            ~FinanceIncome.income_type.in_([
+                "Consultoria Líquida",
+                "Consultoria - Atendente",
+                "Consultoria - Balcão"
+            ])
         ).scalar() or 0)
 
         # Despesas
@@ -450,9 +459,9 @@ def finance_metrics(
             CommissionPayout.created_at <= end_filter
         ).scalar() or 0)
 
-        # Lucro líquido = Receita Total - Despesas
-        # Receita total já inclui tudo corretamente
-        net_profit = total_revenue - total_expenses
+        # Lucro líquido = Receita Total - (Despesas + Impostos)
+        # Evita dupla contagem de impostos manuais que já estão em total_expenses
+        net_profit = total_revenue - (total_expenses + total_tax - total_manual_taxes)
 
         return {
             "totalRevenue": round(total_revenue, 2),
@@ -943,14 +952,34 @@ class ExpenseInput(BaseModel):
 
 @r.get("/expenses")
 def list_expenses(
+    start_date: str | None = None,
+    end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Lista todas as despesas individuais"""
+    """Lista todas as despesas individuais, com filtro opcional por data"""
+    from datetime import datetime, timedelta
     with SessionLocal() as db:
         from ..models import FinanceExpense
-        expenses = db.query(FinanceExpense).order_by(
-            FinanceExpense.date.desc()
-        ).all()
+
+        # Criar query base
+        query = db.query(FinanceExpense)
+
+        # Aplicar filtros de data se fornecidos
+        if start_date:
+            try:
+                start_filter = datetime.fromisoformat(start_date)
+                query = query.filter(FinanceExpense.date >= start_filter)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                end_filter = datetime.fromisoformat(end_date)
+                query = query.filter(FinanceExpense.date <= end_filter)
+            except Exception:
+                pass
+
+        expenses = query.order_by(FinanceExpense.date.desc()).all()
 
         total = sum([float(exp.amount) for exp in expenses])
 
@@ -1349,14 +1378,34 @@ class IncomeInput(BaseModel):
 
 @r.get("/incomes")
 def list_incomes(
+    start_date: str | None = None,
+    end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Lista todas as receitas manuais"""
+    """Lista todas as receitas manuais, com filtro opcional por data"""
+    from datetime import datetime, timedelta
     with SessionLocal() as db:
         from ..models import FinanceIncome
-        incomes = db.query(FinanceIncome).order_by(
-            FinanceIncome.date.desc()
-        ).all()
+
+        # Criar query base
+        query = db.query(FinanceIncome)
+
+        # Aplicar filtros de data se fornecidos
+        if start_date:
+            try:
+                start_filter = datetime.fromisoformat(start_date)
+                query = query.filter(FinanceIncome.date >= start_filter)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                end_filter = datetime.fromisoformat(end_date)
+                query = query.filter(FinanceIncome.date <= end_filter)
+            except Exception:
+                pass
+
+        incomes = query.order_by(FinanceIncome.date.desc()).all()
 
         total = sum([float(inc.amount) for inc in incomes])
 
@@ -2142,6 +2191,51 @@ def get_transactions(
                         "attachment_size": exp.attachment_size,
                         "attachment_mime": exp.attachment_mime
                     })
+
+                # Adicionar impostos calculados automaticamente como despesas virtuais
+                # Calcular impostos sobre consultorias do período (14% sobre bruta)
+                total_consultoria_periodo = 0.0
+
+                # Consultorias de contratos internos
+                for t in transactions:
+                    if (t["type"] == "receita" and
+                        t["category"] in ["Consultoria Líquida", "Consultoria - Atendente", "Consultoria - Balcão"]):
+                        total_consultoria_periodo += t["amount"]
+
+                # Consultorias de clientes externos
+                for t in transactions:
+                    if t["type"] == "receita" and t["category"] == "Cliente Externo":
+                        total_consultoria_periodo += t["amount"]
+
+                # Impostos já pagos manualmente (para não duplicar)
+                impostos_manuais = sum(
+                    exp.amount for exp in expenses
+                    if exp.expense_type == "Impostos"
+                )
+
+                # Calcular imposto sobre consultoria bruta (consultoria_liq / 0.86 * 0.14)
+                if total_consultoria_periodo > 0:
+                    imposto_calculado = (total_consultoria_periodo / 0.86) * 0.14
+                    imposto_total = imposto_calculado + impostos_manuais
+
+                    # Adicionar linha virtual de imposto (somente se não for filtrado por categoria)
+                    if not category or category == "Impostos":
+                        transactions.append({
+                            "id": "imposto-calculado",
+                            "type": "despesa",
+                            "date": end.isoformat() if end else start.isoformat() if start else None,
+                            "category": "Impostos",
+                            "name": f"Impostos Calculados (14% sobre consultoria bruta)",
+                            "amount": float(imposto_calculado),
+                            "created_by": None,
+                            "created_at": None,
+                            "agent_name": None,
+                            "has_attachment": False,
+                            "attachment_filename": None,
+                            "attachment_size": None,
+                            "attachment_mime": None,
+                            "is_virtual": True  # Marca como linha virtual
+                        })
 
             # Ordenar por data (mais recente primeiro)
             transactions.sort(
