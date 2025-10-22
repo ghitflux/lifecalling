@@ -363,6 +363,10 @@ export function useFinanceDisburseSimple() {
   return useMutation({
     mutationFn: async (payload: {
       case_id: number;
+      consultoria_liquida_ajustada?: number;
+      percentual_atendente?: number;
+      atendente_user_id?: number;
+      // Campos antigos mantidos para compatibilidade
       commission_user_id?: number;
       commission_percentage?: number;
     }) => {

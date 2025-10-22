@@ -75,6 +75,9 @@ const generateRealTrendData = (seriesData: any[], kpis: any) => {
   // Dados de contratos baseados em KPIs reais
   const contratos = generateFallbackTrendData(kpis?.contracts_mtd || 0, kpis?.trends?.contracts_mtd || 0);
 
+  // Dados de impostos baseados em KPIs reais (agora apenas manuais)
+  const imposto = generateFallbackTrendData(0, 0); // Placeholder - impostos são manuais
+
   return {
     receita,
     despesas,
@@ -88,6 +91,7 @@ const generateRealTrendData = (seriesData: any[], kpis: any) => {
     aprovadas,
     conversao,
     contratos,
+    imposto,
   };
 };
 
@@ -306,8 +310,8 @@ export default function DashboardPage() {
       (previousMetrics.totalExpenses || 0) + (previousMetrics.totalTax || 0) - (previousMetrics.totalManualTaxes || 0)
     ),
     imposto: calculateTrend(
-      (metrics.totalConsultoriaLiq || 0) * 0.14,
-      (previousMetrics.totalConsultoriaLiq || 0) * 0.14
+      metrics.totalTax || 0, // Agora usa apenas impostos manuais
+      previousMetrics.totalTax || 0
     ),
     comissoes: calculateTrend(metrics.totalCommissions || 0, previousMetrics.totalCommissions || 0)
   };
@@ -502,7 +506,7 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Receita, despesas e resultado líquido</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
             title="Receita Total"
             value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -578,6 +582,25 @@ export default function DashboardPage() {
                 dataKey="value"
                 xKey="day"
                 stroke="#f43f5e"
+                height={80}
+                valueType="currency"
+              />
+            }
+          />
+          <KPICard
+            title="Impostos"
+            value={`R$ ${(metrics.totalTax ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"Impostos cadastrados manualmente"}
+            gradientVariant="amber"
+            trend={financeTrends.imposto}
+            icon={TrendingDown}
+            isLoading={metricsLoading}
+            miniChart={
+              <MiniAreaChart
+                data={realTrendData.imposto || []}
+                dataKey="value"
+                xKey="day"
+                stroke="#f59e0b"
                 height={80}
                 valueType="currency"
               />

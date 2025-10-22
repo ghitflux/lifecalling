@@ -254,7 +254,7 @@ export default function Page() {
       (metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0),
       (previousMetrics.totalExpenses || 0) + (previousMetrics.totalTax || 0) - (previousMetrics.totalManualTaxes || 0)
     ),
-    imposto: calculateTrend((metrics.totalConsultoriaLiq || 0) * 0.14, (previousMetrics.totalConsultoriaLiq || 0) * 0.14)
+    imposto: calculateTrend(metrics.totalTax || 0, previousMetrics.totalTax || 0) // Agora usa apenas impostos manuais
   };
 
   // Buscar dados de séries temporais para mini-charts
@@ -299,7 +299,7 @@ export default function Page() {
       despesas: convertSeriesToMiniChart(series, 'finance_despesas', metrics.totalExpenses || 0),
       lucro: convertSeriesToMiniChart(series, 'finance_resultado', metrics.netProfit || 0),
       consultoria: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalConsultoriaLiq || 0),
-      imposto: convertSeriesToMiniChart(series, 'finance_despesas', (metrics.totalConsultoriaLiq || 0) * 0.14)
+      imposto: convertSeriesToMiniChart(series, 'finance_despesas', metrics.totalTax || 0) // Agora usa apenas impostos manuais
     };
   }, [seriesData, metrics]);
 
@@ -457,7 +457,7 @@ export default function Page() {
         percentual_atendente: percentualAtendente,
         consultoria_liquida_ajustada: consultoriaAjustada,
         atendente_user_id: atendenteUserId
-      } as any); // Usando 'as any' temporariamente até atualizar tipos
+      });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
       console.error("Erro efetivar:", error);
@@ -829,7 +829,7 @@ export default function Page() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
           title="Receita Total"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -865,6 +865,15 @@ export default function Page() {
           gradientVariant="rose"
           trend={trends.despesas}
           miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
+        />
+        <KPICard
+          title="Impostos"
+          value={`R$ ${(metrics.totalTax || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Impostos cadastrados manualmente"
+          isLoading={metricsLoading}
+          gradientVariant="amber"
+          trend={trends.imposto}
+          miniChart={<MiniAreaChart data={getTrendChartData.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
         />
       </div>
 
