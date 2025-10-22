@@ -429,7 +429,7 @@ function EsteiraPageContent() {
                             );
                           }}
                         >
-                          {status.label} ({status.count})
+                          {status.label} ({String(status.count || 0)})
                         </Badge>
                       ))}
                     </div>
@@ -549,7 +549,7 @@ function EsteiraPageContent() {
                         );
                       }}
                     >
-                      {status.label} ({status.count})
+                      {status.label} ({String(status.count || 0)})
                     </Badge>
                   ))}
                 </div>

@@ -716,12 +716,13 @@ export default function CaseDetailPage() {
                             {fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}
                           </div>
                         </div>
-                        <div>
+                        {/* Data de Referência removida - propriedade não existe em PayrollLine */}
+                        {/* <div>
                           <div className="text-xs text-muted-foreground">Data de Referência</div>
                           <div className="font-medium">
                             {fin.referencia || '-'}
                           </div>
-                        </div>
+                        </div> */}
                       </div>
                     </div>
                   ))}

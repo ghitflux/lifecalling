@@ -457,7 +457,7 @@ export default function Page() {
         percentual_atendente: percentualAtendente,
         consultoria_liquida_ajustada: consultoriaAjustada,
         atendente_user_id: atendenteUserId
-      });
+      } as any); // Usando 'as any' temporariamente até atualizar tipos
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
       console.error("Erro efetivar:", error);

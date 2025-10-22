@@ -569,7 +569,7 @@ export function FinanceCard({
 
             </div>
 
-            {onDisburse && status !== "caso_cancelado" && status !== "contrato_cancelado" ? (
+            {onDisburse && (status as string) !== "caso_cancelado" && (status as string) !== "contrato_cancelado" ? (
               <Button size="sm" onClick={() => setShowDisburseConfirm(true)} className="w-full">
                 Efetivar Liberação
               </Button>
@@ -630,7 +630,7 @@ export function FinanceCard({
             </div>
 
             {/* Linha 2: Efetivar Liberação (botão principal) */}
-            {onDisburse && status !== "caso_cancelado" && status !== "contrato_cancelado" && (
+            {onDisburse && (status as string) !== "caso_cancelado" && (status as string) !== "contrato_cancelado" && (
               <Button
                 size="sm"
                 onClick={() => setShowDisburseConfirm(true)}
