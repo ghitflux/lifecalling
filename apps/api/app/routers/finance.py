@@ -435,21 +435,9 @@ def finance_metrics(
             total_manual_income
         )
 
-        # Impostos: 14% sobre consultoria bruta (contratos + externos)
-        # + impostos manuais (consultoria_liq / 0.86 * 0.14) para ambos
-        total_tax_contracts = (
-            (total_consultoria_liquida / 0.86 * 0.14)
-            if total_consultoria_liquida > 0
-            else 0
-        )
-        total_tax_external = (
-            (total_external_income / 0.86 * 0.14)
-            if total_external_income > 0
-            else 0
-        )
-        total_tax = (
-            total_tax_contracts + total_tax_external + total_manual_taxes
-        )
+        # Impostos: Apenas impostos manuais cadastrados
+        # Não há mais cálculo automático - financeiro cadastra manualmente
+        total_tax = total_manual_taxes
 
         # Comissões geradas (para KPI separado)
         total_commissions = float(db.query(
@@ -2191,51 +2179,6 @@ def get_transactions(
                         "attachment_size": exp.attachment_size,
                         "attachment_mime": exp.attachment_mime
                     })
-
-                # Adicionar impostos calculados automaticamente como despesas virtuais
-                # Calcular impostos sobre consultorias do período (14% sobre bruta)
-                total_consultoria_periodo = 0.0
-
-                # Consultorias de contratos internos
-                for t in transactions:
-                    if (t["type"] == "receita" and
-                        t["category"] in ["Consultoria Líquida", "Consultoria - Atendente", "Consultoria - Balcão"]):
-                        total_consultoria_periodo += t["amount"]
-
-                # Consultorias de clientes externos
-                for t in transactions:
-                    if t["type"] == "receita" and t["category"] == "Cliente Externo":
-                        total_consultoria_periodo += t["amount"]
-
-                # Impostos já pagos manualmente (para não duplicar)
-                impostos_manuais = sum(
-                    exp.amount for exp in expenses
-                    if exp.expense_type == "Impostos"
-                )
-
-                # Calcular imposto sobre consultoria bruta (consultoria_liq / 0.86 * 0.14)
-                if total_consultoria_periodo > 0:
-                    imposto_calculado = (total_consultoria_periodo / 0.86) * 0.14
-                    imposto_total = imposto_calculado + impostos_manuais
-
-                    # Adicionar linha virtual de imposto (somente se não for filtrado por categoria)
-                    if not category or category == "Impostos":
-                        transactions.append({
-                            "id": "imposto-calculado",
-                            "type": "despesa",
-                            "date": end.isoformat() if end else start.isoformat() if start else None,
-                            "category": "Impostos",
-                            "name": f"Impostos Calculados (14% sobre consultoria bruta)",
-                            "amount": float(imposto_calculado),
-                            "created_by": None,
-                            "created_at": None,
-                            "agent_name": None,
-                            "has_attachment": False,
-                            "attachment_filename": None,
-                            "attachment_size": None,
-                            "attachment_mime": None,
-                            "is_virtual": True  # Marca como linha virtual
-                        })
 
             # Ordenar por data (mais recente primeiro)
             transactions.sort(

@@ -337,7 +337,7 @@ export default function DashboardPage() {
       ],
       ["Atendimento Aberto", kpis.att_open ?? 0],
       ["Atendimento em Progresso", kpis.att_in_progress ?? 0],
-      ["SLA 72h", `${Math.round((kpis.att_sla_72h ?? 0) * 100)}%`],
+      ["SLA 48h úteis", `${Math.round((kpis.att_sla_72h ?? 0) * 100)}%`],
       ["TMA (min)", Math.round(kpis.att_tma_min ?? 0)],
       ["Simulações Criadas", kpis.sim_created ?? 0],
       ["Simulações Aprovadas", kpis.sim_approved ?? 0],
@@ -502,7 +502,7 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Receita, despesas e resultado líquido</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             title="Receita Total"
             value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -566,8 +566,8 @@ export default function DashboardPage() {
           />
           <KPICard
             title="Despesas"
-            value={`R$ ${((metrics.totalExpenses ?? 0) + (metrics.totalTax ?? 0) - (metrics.totalManualTaxes ?? 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"Gastos + Impostos do período"}
+            value={`R$ ${(metrics.totalExpenses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle={"Despesas do período"}
             gradientVariant="rose"
             trend={financeTrends.despesas}
             icon={TrendingDown}
@@ -580,27 +580,6 @@ export default function DashboardPage() {
                 stroke="#f43f5e"
                 height={80}
                 valueType="currency"
-              />
-            }
-          />
-          <KPICard
-            title="Imposto"
-            value={`R$ ${(metrics.totalTax ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle={"14% Receita Bruta"}
-            gradientVariant="amber"
-            trend={financeTrends.imposto}
-            icon={Receipt}
-            isLoading={metricsLoading}
-            miniChart={
-              <MiniAreaChart
-                data={realTrendData.consultoria}
-                dataKey="value"
-                xKey="day"
-                stroke="#f59e0b"
-                height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                }
               />
             }
           />
@@ -715,9 +694,9 @@ export default function DashboardPage() {
                 }
               />
               <KPICard
-                title="SLA 72h"
+                title="SLA 48h úteis"
                 value={`${Math.round((kpis?.att_sla_72h ?? 0) * 100)}%`}
-                subtitle={"dentro do prazo"}
+                subtitle={"dentro do prazo (excluindo fins de semana)"}
                 gradientVariant="emerald"
                 trend={kpis?.trends?.att_sla_72h ?? 0}
                 icon={CheckCircle}

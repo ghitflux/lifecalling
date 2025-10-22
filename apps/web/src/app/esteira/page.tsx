@@ -2,7 +2,7 @@
 import { useLiveCaseEvents } from "@/lib/ws";
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
+import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useMyStats } from "@/lib/hooks";
@@ -25,6 +25,7 @@ interface Case {
   telefone_preferencial?: string;
   observacoes?: string;
   banco?: string;
+  entidade?: string;
 }
 
 // Lista completa de todos os status possíveis no sistema
@@ -51,7 +52,6 @@ function EsteiraPageContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();  // Adicionar hook de autenticação
   const [activeTab, setActiveTab] = useState("global");
-  const [editingCase, setEditingCase] = useState<Case | null>(null);
 
   // Verificar se é admin ou supervisor
   const isAdminOrSupervisor = user?.role === 'admin' || user?.role === 'supervisor';
@@ -233,32 +233,8 @@ function EsteiraPageContent() {
     },
   });
 
-  // Mutation para atualizar atendimento
-  const updateCaseMutation = useMutation({
-    mutationFn: async ({ caseId, data }: { caseId: number; data: any }) => {
-      const response = await api.patch(`/cases/${caseId}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cases"] });
-      toast.success("Atendimento atualizado com sucesso!");
-      setEditingCase(null);
-    },
-    onError: (error) => {
-      toast.error("Erro ao atualizar atendimento. Tente novamente.");
-      console.error("Update case error:", error);
-    },
-  });
-
   const handlePegarAtendimento = (caseId: number) => {
     assignCaseMutation.mutate(caseId);
-  };
-
-  const handleEditCase = (caseId: number) => {
-    const case_to_edit = [...globalCases, ...myCases].find(c => c.id === caseId);
-    if (case_to_edit) {
-      setEditingCase(case_to_edit);
-    }
   };
 
   const handleViewCase = (caseId: number) => {
@@ -291,15 +267,6 @@ function EsteiraPageContent() {
     console.log('Verificação após salvar:', { savedPage, savedTab });
 
     router.push(`/casos/${caseId}`);
-  };
-
-  const handleSaveNotes = (data: { telefone_preferencial?: string; observacoes?: string }) => {
-    if (editingCase) {
-      updateCaseMutation.mutate({
-        caseId: editingCase.id,
-        data
-      });
-    }
   };
 
   // Query para buscar filtros disponíveis (bancos e status)
@@ -335,7 +302,7 @@ function EsteiraPageContent() {
 
     if (isLoading) {
       return (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 8 }, (_, i) => (
             <CaseSkeleton key={i} />
           ))}
@@ -360,14 +327,13 @@ function EsteiraPageContent() {
     }
 
     return (
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {Array.isArray(cases) && cases.map((caso) => (
           <EsteiraCard
             key={caso.id}
             caso={caso}
             onView={handleViewCase}
             onAssign={showPegarButton ? handlePegarAtendimento : undefined}
-            onEdit={handleEditCase}
           />
         ))}
         {Array.isArray(cases) && cases.length === 0 && (
@@ -629,17 +595,6 @@ function EsteiraPageContent() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Notes Editor Dialog */}
-      <CaseNotesEditor
-        open={!!editingCase}
-        onOpenChange={(open) => !open && setEditingCase(null)}
-        caseId={editingCase?.id || 0}
-        initialPhone={editingCase?.telefone_preferencial || ""}
-        initialNotes={editingCase?.observacoes || ""}
-        onSave={handleSaveNotes}
-        isLoading={updateCaseMutation.isPending}
-      />
     </div>
   );
 }

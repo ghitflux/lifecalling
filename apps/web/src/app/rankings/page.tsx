@@ -2,7 +2,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
-  KPICard,
   RankingTable,
   PodiumCard,
   CampaignCard,
@@ -13,7 +12,7 @@ import {
 import { CampaignModal } from "@/components/CampaignModal";
 import { useAuth } from "@/lib/auth";
 import { useMemo, useState } from "react";
-import { Download, Plus, Trophy, Target, TrendingUp } from "lucide-react";
+import { Download, Plus, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RankingsPage() {
@@ -37,22 +36,6 @@ export default function RankingsPage() {
     return lastDay.toISOString().split("T")[0];
   });
 
-  // Query: KPIs do usuário logado
-  const { data: myKpis, isLoading: myKpisLoading } = useQuery({
-    queryKey: ["rankings", "kpis", "me", user?.id, startDate, endDate],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const params = new URLSearchParams();
-      params.append("user_id", user.id.toString());
-      params.append("from", new Date(startDate).toISOString());
-      params.append("to", new Date(endDate).toISOString());
-      const response = await api.get(`/rankings/kpis?${params.toString()}`);
-      return response.data;
-    },
-    enabled: !!user?.id,
-    staleTime: 30000, // 30 segundos
-    gcTime: 60000 // 1 minuto (novo nome do cacheTime)
-  });
 
   // Query: Pódio (Top 3)
   const { data: podiumData, isLoading: podiumLoading } = useQuery({
@@ -192,7 +175,7 @@ export default function RankingsPage() {
       contracts: agent.contracts || 0,
       consultoria_liq: agent.consultoria_liq || 0,
       meta_contratos: agent.meta_contratos || 0,
-      meta_consultoria: agent.meta_consultoria || 10000,
+      meta_consultoria: agent.meta_consultoria || 15000,
       atingimento_contratos: agent.atingimento_contratos || 0,
       atingimento_consultoria: agent.atingimento_consultoria || 0
     }));
@@ -254,39 +237,6 @@ export default function RankingsPage() {
         />
       </div>
 
-      {/* KPIs Pessoais */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Target className="h-5 w-5" />
-          Minha Produção
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KPICard
-            title="Contratos Fechados"
-            value={myKpis?.kpis?.contracts || 0}
-            subtitle={`Meta: ${myKpis?.kpis?.meta_contratos || 0} contratos`}
-            gradientVariant="emerald"
-            isLoading={myKpisLoading}
-            icon={Trophy}
-          />
-          <KPICard
-            title="Volume de Produção"
-            value={`R$ ${(myKpis?.kpis?.consultoria_liq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={`Meta: R$ ${(myKpis?.kpis?.meta_consultoria || 10000).toLocaleString("pt-BR")}`}
-            gradientVariant="violet"
-            isLoading={myKpisLoading}
-            icon={TrendingUp}
-          />
-          <KPICard
-            title="Progresso da Meta"
-            value={`${(myKpis?.kpis?.progresso_consultoria || 0).toFixed(1)}%`}
-            subtitle={`Faltam R$ ${(myKpis?.kpis?.falta_consultoria || 0).toLocaleString("pt-BR")}`}
-            gradientVariant="sky"
-            isLoading={myKpisLoading}
-            icon={Target}
-          />
-        </div>
-      </div>
 
       {/* Pódio - Top 3 */}
       <div>

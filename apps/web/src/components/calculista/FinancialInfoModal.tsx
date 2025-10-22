@@ -118,6 +118,12 @@ export function FinancialInfoModal({
                     {fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}
                   </div>
                 </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Data de Referência</div>
+                  <div className="font-medium">
+                    {fin.referencia || '-'}
+                  </div>
+                </div>
               </div>
             </div>
           ))}

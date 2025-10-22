@@ -77,7 +77,7 @@ class CaseScheduler:
                         "assigned_at": case.assigned_at.isoformat() if case.assigned_at else None,
                         "expired_at": now.isoformat(),
                         "action": "auto_expired",
-                        "reason": "72_hour_limit_exceeded"
+                        "reason": "48_business_hours_exceeded"  # Atualizado de 72h para 48h úteis
                     })
 
                     # Resetar atribuição

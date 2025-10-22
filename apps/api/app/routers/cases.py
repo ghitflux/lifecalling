@@ -4,6 +4,7 @@ from fastapi import (  # pyright: ignore[reportMissingImports]
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from typing import List
 from datetime import datetime, timedelta
+from ..utils.business_days import add_business_hours
 import os
 import shutil
 from decimal import Decimal
@@ -328,7 +329,7 @@ def assign_case(
         c.status = "em_atendimento"
         c.last_update_at = now
         c.assigned_at = now
-        c.assignment_expires_at = now + timedelta(hours=72)
+        c.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
 
         if not c.assignment_history:
             c.assignment_history = []
@@ -389,7 +390,7 @@ def change_assignee(
         now = now_brt()
         case.assigned_user_id = new_user.id
         case.assigned_at = now
-        case.assignment_expires_at = now + timedelta(hours=72)
+        case.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
         case.last_update_at = now
 
         if not case.assignment_history:
@@ -915,6 +916,7 @@ def list_cases(
 
             for c in rows:
                 try:
+                    entidade_value = getattr(c, "entidade", None)
                     item = {
                         "id": c.id,
                         "status": c.status or "novo",
@@ -929,8 +931,8 @@ def list_cases(
                         "created_at": (
                             c.created_at.isoformat() if c.created_at else None
                         ),
-                        "banco": getattr(c, "banco", None),
-                        "entidade": getattr(c, "entidade", None),
+                        "banco": entidade_value,  # Usar entidade como banco
+                        "entidade": entidade_value,
                         "referencia_competencia": getattr(
                             c, "referencia_competencia", None
                         ),

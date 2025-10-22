@@ -586,12 +586,6 @@ export default function Page() {
   };
 
   const handleEditTransaction = (transaction: any) => {
-    // Ignorar transações virtuais (impostos calculados)
-    if (transaction.is_virtual || transaction.id === "imposto-calculado") {
-      toast.error("Impostos calculados não podem ser editados manualmente");
-      return;
-    }
-
     const realId = parseInt(transaction.id.split("-")[1]);
     if (transaction.type === "receita") {
       api.get(`/finance/incomes/${realId}`).then(res => {
@@ -607,12 +601,6 @@ export default function Page() {
   };
 
   const handleDeleteTransaction = async (transaction: any) => {
-    // Ignorar transações virtuais (impostos calculados)
-    if (transaction.is_virtual || transaction.id === "imposto-calculado") {
-      toast.error("Impostos calculados não podem ser excluídos manualmente");
-      return;
-    }
-
     const realId = parseInt(transaction.id.split("-")[1]);
     const confirmMessage =
       transaction.type === "receita"
@@ -841,7 +829,7 @@ export default function Page() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Receita Total"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -871,21 +859,12 @@ export default function Page() {
         />
         <KPICard
           title="Despesas"
-          value={`R$ ${((metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Gastos + Impostos do período"
+          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subtitle="Despesas do período"
           isLoading={metricsLoading}
           gradientVariant="rose"
           trend={trends.despesas}
           miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
-        />
-        <KPICard
-          title="Imposto"
-          value={`R$ ${(metrics.totalTax || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subtitle="14% Receita Bruta"
-          isLoading={metricsLoading}
-          gradientVariant="amber"
-          trend={trends.imposto}
-          miniChart={<MiniAreaChart data={getTrendChartData.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
         />
       </div>
 
@@ -1228,35 +1207,24 @@ export default function Page() {
                           </td>
                           <td className="p-4">
                             <div className="flex items-center justify-center gap-1">
-                              {/* Não mostrar ações para impostos calculados (linhas virtuais) */}
-                              {!transaction.is_virtual && transaction.id !== "imposto-calculado" && (
-                                <>
-                                  {/* Botão Editar - apenas para transações manuais (não de contratos) */}
-                                  {!transaction.name?.startsWith("Contrato #") && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleEditTransaction(transaction)}
-                                      className="h-8 w-8 p-0"
-                                      title="Editar"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeleteTransaction(transaction)}
-                                    className="h-8 w-8 p-0 text-danger hover:text-danger hover:bg-danger/10"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
-                              {transaction.is_virtual && (
-                                <span className="text-xs text-muted-foreground italic">Calculado automaticamente</span>
-                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditTransaction(transaction)}
+                                className="h-8 w-8 p-0"
+                                title="Editar"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteTransaction(transaction)}
+                                className="h-8 w-8 p-0 text-danger hover:text-danger hover:bg-danger/10"
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </td>
                         </tr>

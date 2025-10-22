@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime, timedelta
+from ..utils.business_days import add_business_hours
 import os
 import shutil
 
@@ -250,7 +251,7 @@ def assign_case(case_id: int, user=Depends(require_roles("admin", "supervisor", 
         c.status = "em_atendimento"
         c.last_update_at = now
         c.assigned_at = now
-        c.assignment_expires_at = now + timedelta(hours=72)
+        c.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
 
         # Adicionar ao histórico de atribuições
         if not c.assignment_history:
@@ -307,7 +308,7 @@ def change_assignee(case_id: int, payload: AssigneeUpdate, user=Depends(require_
         now = datetime.utcnow()
         case.assigned_user_id = new_user.id
         case.assigned_at = now
-        case.assignment_expires_at = now + timedelta(hours=72)
+        case.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
         case.last_update_at = now
 
         # Adicionar ao histórico
