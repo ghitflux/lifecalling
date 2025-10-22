@@ -185,24 +185,25 @@ function CalculistaPageContent() {
 
   // KPIs combinados (usando dados do fechamento para meta_mensal e consultoria_liquida)
   const combinedKpis = useMemo(() => {
-    if (kpis) {
-      return {
-        simulacoes_criadas: kpis.pending || 0,
-        simulacoes_aprovadas: kpis.approvedToday || 0,
-        taxa_aprovacao: kpis.approvalRate || 0,
-        volume_financeiro: kpis.volumeToday || 0,
-        meta_mensal: closingKpis?.meta_mensal || 0,
-        consultoria_liquida: closingKpis?.consultoria_liquida || 0,
-        trends: {
-          pending: kpis.trends?.pending || 0,
-          approvedToday: kpis.trends?.approvedToday || 0,
-          approvalRate: kpis.trends?.approvalRate || 0,
-          volumeToday: kpis.trends?.volumeToday || 0,
-          meta_mensal: closingKpis?.trends?.meta_mensal || 0,
-          consultoria_liquida: closingKpis?.trends?.consultoria_liquida || 0,
-        },
-      };
-    }
+    // Temporariamente usando stats ao invés de kpis (kpis = null devido a erro 500)
+    // if (kpis) {
+    //   return {
+    //     simulacoes_criadas: kpis.pending || 0,
+    //     simulacoes_aprovadas: kpis.approvedToday || 0,
+    //     taxa_aprovacao: kpis.approvalRate || 0,
+    //     volume_financeiro: kpis.volumeToday || 0,
+    //     meta_mensal: closingKpis?.meta_mensal || 0,
+    //     consultoria_liquida: closingKpis?.consultoria_liquida || 0,
+    //     trends: {
+    //       pending: kpis.trends?.pending || 0,
+    //       approvedToday: kpis.trends?.approvedToday || 0,
+    //       approvalRate: kpis.trends?.approvalRate || 0,
+    //       volumeToday: kpis.trends?.volumeToday || 0,
+    //       meta_mensal: closingKpis?.trends?.meta_mensal || 0,
+    //       consultoria_liquida: closingKpis?.trends?.consultoria_liquida || 0,
+    //     },
+    //   };
+    // }
     return {
       simulacoes_criadas: stats?.pending || 0,
       simulacoes_aprovadas: stats?.approvedToday || 0,
