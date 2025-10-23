@@ -15,7 +15,8 @@ import {
   useExpenseAttachments,
   useUploadIncomeAttachment,
   useUploadExpenseAttachment,
-  useUsers
+  useUsers,
+  useReopenCase
 } from "@/lib/hooks";
 import {
   ExpenseModal,
@@ -86,6 +87,7 @@ export default function Page() {
   const cancelContract = useCancelContract();
   const deleteContract = useDeleteContract();
   const uploadAttachment = useUploadContractAttachment();
+  const reopenCase = useReopenCase();
 
   const [uploadingContractId, setUploadingContractId] = useState<number | null>(null);
 
@@ -499,6 +501,15 @@ export default function Page() {
     } catch (error) {
       console.error("Erro deletar:", error);
       toast.error("Erro ao deletar operação. Tente novamente.");
+    }
+  };
+
+  const handleReopen = async (caseId: number) => {
+    try {
+      await reopenCase.mutateAsync(caseId);
+    } catch (error) {
+      console.error("Erro reabrir:", error);
+      // Erro já exibido pelo hook
     }
   };
 
@@ -971,6 +982,7 @@ export default function Page() {
                     simulationResult={simulationResult}
                     onDisburse={handleDisburse}
                     onCancel={contractId ? () => handleCancel(contractId) : undefined}
+                    onReopen={handleReopen}
                     onReturnToCalculista={handleReturnToCalculista}
                     onCancelCase={handleCancelCase}
                     clientBankInfo={clientBankInfo}
@@ -1330,6 +1342,7 @@ export default function Page() {
           setEditingIncome(null);
         }}
         onSubmit={(data, files) => saveIncomeMutation.mutate({ data, files })}
+        availableUsers={users}
         onDownloadAttachment={incomeId => {
           downloadIncomeAttachment.mutate(incomeId, {
             onSuccess: response => {

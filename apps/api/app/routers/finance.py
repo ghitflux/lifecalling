@@ -373,8 +373,19 @@ def finance_metrics(
             Contract.signed_at <= end_filter
         ).scalar() or 0
 
-        # Receitas de Consultoria (a partir de FinanceIncome, não Contract)
-        # Isso evita duplicação e garante que a tabela seja a fonte única da verdade
+        # CONSULTORIA BRUTA: Soma de custo_consultoria de simulações efetivadas
+        total_consultoria_bruta = float(db.query(
+            func.coalesce(func.sum(Simulation.custo_consultoria), 0)
+        ).join(
+            Case, Case.id == Simulation.case_id
+        ).filter(
+            Case.status == "contrato_efetivado",
+            Simulation.status == "approved",
+            Simulation.created_at >= start_filter,
+            Simulation.created_at <= end_filter
+        ).scalar() or 0)
+
+        # CONSULTORIA LÍQUIDA: 86% (receitas de Consultoria - Atendente/Balcão)
         total_consultoria_liquida = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
@@ -397,7 +408,7 @@ def finance_metrics(
             ExternalClientIncome.date <= end_filter
         ).scalar() or 0)
 
-        # Receitas manuais (EXCLUINDO todos os tipos de consultoria)
+        # Receitas manuais (EXCLUINDO consultoria)
         total_manual_income = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
@@ -410,8 +421,15 @@ def finance_metrics(
             ])
         ).scalar() or 0)
 
-        # Despesas
-        total_expenses = float(db.query(
+        # RECEITA TOTAL = Consultoria Bruta + Externas + Manuais
+        total_revenue = (
+            total_consultoria_bruta +
+            total_external_income +
+            total_manual_income
+        )
+
+        # Despesas manuais cadastradas
+        total_expenses_manual = float(db.query(
             func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
             FinanceExpense.date >= start_filter,
@@ -427,17 +445,12 @@ def finance_metrics(
             FinanceExpense.expense_type == "Impostos"
         ).scalar() or 0)
 
-        # Receita total = consultoria líquida + receitas externas
-        # + receitas manuais
-        total_revenue = (
-            total_consultoria_liquida +
-            total_external_income +
-            total_manual_income
-        )
+        # IMPOSTOS = Impostos Manuais + 14% da Receita Total (calculado automaticamente)
+        total_tax_auto = total_revenue * 0.14
+        total_tax = total_manual_taxes + total_tax_auto
 
-        # Impostos: Apenas impostos manuais cadastrados
-        # Não há mais cálculo automático - financeiro cadastra manualmente
-        total_tax = total_manual_taxes
+        # DESPESAS = Despesas Manuais + Impostos (manuais + automático 14%)
+        total_expenses = total_expenses_manual + total_tax
 
         # Comissões geradas (para KPI separado)
         total_commissions = float(db.query(
@@ -447,9 +460,8 @@ def finance_metrics(
             CommissionPayout.created_at <= end_filter
         ).scalar() or 0)
 
-        # Lucro líquido = Receita Total - (Despesas + Impostos)
-        # Evita dupla contagem de impostos manuais que já estão em total_expenses
-        net_profit = total_revenue - (total_expenses + total_tax - total_manual_taxes)
+        # Lucro líquido = Receita Total - Despesas
+        net_profit = total_revenue - total_expenses
 
         return {
             "totalRevenue": round(total_revenue, 2),
@@ -457,9 +469,11 @@ def finance_metrics(
             "netProfit": round(net_profit, 2),
             "totalContracts": int(total_contracts),
             "totalTax": round(total_tax, 2),
+            "totalTaxAuto": round(total_tax_auto, 2),
             "totalManualTaxes": round(total_manual_taxes, 2),
             "totalManualIncome": round(total_manual_income, 2),
             "totalConsultoriaLiq": round(total_consultoria_liquida, 2),
+            "totalConsultoriaBruta": round(total_consultoria_bruta, 2),
             "totalExternalIncome": round(total_external_income, 2),
             "totalCommissions": round(total_commissions, 2)
         }
@@ -714,6 +728,82 @@ async def disburse_simple(
             f"Erro ao efetivar liberação: {str(e)}"
         )
 
+
+
+@r.post("/cases/{case_id}/reopen")
+async def reopen_case(
+    case_id: int,
+    user=Depends(require_roles("admin", "financeiro"))
+):
+    """
+    Reabre um caso efetivado para ajustes nos valores.
+    - Altera status de contrato_efetivado para financeiro_pendente
+    - Exclui receitas automáticas (Consultoria - Atendente/Balcão)
+    - Apenas Admin e Financeiro podem reabrir
+    """
+    try:
+        with SessionLocal() as db:
+            # Buscar caso
+            case = db.get(Case, case_id)
+            if not case:
+                raise HTTPException(404, "Caso não encontrado")
+            
+            # Verificar se caso está efetivado
+            if case.status != "contrato_efetivado":
+                raise HTTPException(
+                    400, 
+                    f"Apenas casos efetivados podem ser reabertos. Status atual: {case.status}"
+                )
+            
+            # Excluir receitas automáticas criadas pela efetivação
+            from ..models import FinanceIncome
+            deleted_count = db.query(FinanceIncome).filter(
+                FinanceIncome.income_name.like(f"%Contrato%{case.id}%"),
+                FinanceIncome.income_type.in_([
+                    "Consultoria - Atendente",
+                    "Consultoria - Balcão"
+                ])
+            ).delete(synchronize_session=False)
+            
+            # Alterar status do caso
+            case.status = "financeiro_pendente"
+            case.last_update_at = now_brt()
+            
+            # Criar evento
+            db.add(CaseEvent(
+                case_id=case.id,
+                type="finance.reopened",
+                payload={
+                    "deleted_incomes": deleted_count,
+                    "reopened_by": user.id,
+                    "reopened_at": now_brt().isoformat()
+                },
+                created_by=user.id
+            ))
+            
+            db.commit()
+            db.refresh(case)
+        
+        await eventbus.broadcast(
+            "case.updated",
+            {"case_id": case_id, "status": "financeiro_pendente"}
+        )
+        
+        return {
+            "success": True,
+            "case_id": case_id,
+            "new_status": "financeiro_pendente",
+            "deleted_incomes": deleted_count,
+            "message": f"Caso reaberto com sucesso. {deleted_count} receitas excluídas."
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[ERRO] Falha ao reabrir caso {case_id}: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Erro ao reabrir caso: {str(e)}")
 
 @r.get("/commissions")
 def get_commissions(
@@ -1362,6 +1452,9 @@ class IncomeInput(BaseModel):
     income_type: str  # Tipo da receita
     income_name: str | None = None  # Nome/descrição da receita
     amount: float
+    agent_user_id: int | None = None  # ID do atendente (obrigatório para "Consultoria Bruta")
+    client_cpf: str | None = None  # CPF do cliente (obrigatório para "Consultoria Bruta")
+    client_name: str | None = None  # Nome do cliente (obrigatório para "Consultoria Bruta")
 
 
 @r.get("/incomes")
@@ -1434,6 +1527,20 @@ def create_income(
         if data.amount < 0:
             raise HTTPException(400, "Valor não pode ser negativo")
 
+        # Validação específica para "Consultoria Bruta"
+        if data.income_type == "Consultoria Bruta":
+            if not data.agent_user_id:
+                raise HTTPException(400, "Atendente é obrigatório para Consultoria Bruta")
+            if not data.client_cpf:
+                raise HTTPException(400, "CPF do cliente é obrigatório para Consultoria Bruta")
+            if not data.client_name:
+                raise HTTPException(400, "Nome do cliente é obrigatório para Consultoria Bruta")
+            
+            # Validar CPF (apenas formato básico)
+            cpf_clean = data.client_cpf.replace(".", "").replace("-", "").replace("/", "")
+            if len(cpf_clean) != 11 or not cpf_clean.isdigit():
+                raise HTTPException(400, "CPF inválido. Use formato: ###.###.###-##")
+
         # Parse da data
         try:
             income_date = datetime.fromisoformat(data.date)
@@ -1445,6 +1552,9 @@ def create_income(
             income_type=data.income_type,
             income_name=data.income_name,
             amount=data.amount,
+            agent_user_id=data.agent_user_id,
+            client_cpf=data.client_cpf,
+            client_name=data.client_name,
             created_by=user.id
         )
         db.add(income)

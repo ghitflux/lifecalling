@@ -1173,3 +1173,27 @@ export function useCreateManualClient() {
     },
   });
 }
+
+/** Reabrir caso efetivado para ajustes */
+export function useReopenCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (caseId: number) => {
+      const res = await api.post(`/finance/cases/${caseId}/reopen`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Caso reaberto com sucesso!');
+      qc.invalidateQueries({ queryKey: ['financeQueue'] });
+      qc.invalidateQueries({ queryKey: ['financeContracts'] });
+      qc.invalidateQueries({ queryKey: ['financeMetrics'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+    onError: (error: unknown) => {
+      logAxiosError('FINANCE/REOPEN', error);
+      const e = error as any;
+      const msg = e?.response?.data?.detail || e?.message || 'Erro ao reabrir caso';
+      toast.error(String(msg));
+    },
+  });
+}

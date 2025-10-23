@@ -62,6 +62,7 @@ export interface FinanceCardProps {
   onReject?: (id: number) => void;
   onDisburse?: (id: number, percentualAtendente?: number, consultoriaAjustada?: number, atendenteUserId?: number) => void;
   onCancel?: (id: number) => void;
+  onReopen?: (id: number) => void;
   onReturnToCalculista?: (id: number) => void;
   onCancelCase?: (id: number) => void;
 
@@ -198,6 +199,7 @@ export function FinanceCard({
   onReject,
   onDisburse,
   onCancel,
+  onReopen,
   onReturnToCalculista,
   onCancelCase,
   className,
@@ -573,6 +575,23 @@ export function FinanceCard({
               <Button size="sm" onClick={() => setShowDisburseConfirm(true)} className="w-full">
                 Efetivar Liberação
               </Button>
+
+            {/* Botão Reabrir para Ajuste (apenas em casos efetivados) */}
+            {onReopen && (status as string) === "contrato_efetivado" ? (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  if (confirm("Deseja reabrir este caso para ajustes nos valores? As receitas criadas automaticamente serão excluídas.")) {
+                    onReopen(id);
+                  }
+                }}
+                className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reabrir para Ajuste
+              </Button>
+            ) : null}
             ) : null}
           </div>
         )}

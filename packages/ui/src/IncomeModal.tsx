@@ -42,7 +42,7 @@ const formatFileSize = (bytes?: number): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
-import { DollarSign, Calendar, FileText, Paperclip, Download, X } from "lucide-react";
+import { DollarSign, Calendar, FileText, Paperclip, Download, X, User } from "lucide-react";
 
 export interface IncomeData {
   id?: number;
@@ -50,6 +50,9 @@ export interface IncomeData {
   income_type: string;
   income_name?: string;
   amount: number;
+  agent_user_id?: number;  // ID do atendente (obrigatório para "Consultoria Bruta")
+  client_cpf?: string;  // CPF do cliente (obrigatório para "Consultoria Bruta")
+  client_name?: string;  // Nome do cliente (obrigatório para "Consultoria Bruta")
   attachment_filename?: string;
   attachment_size?: number;
   has_attachment?: boolean;
@@ -63,6 +66,7 @@ export interface IncomeModalProps {
   onDeleteAttachment?: (incomeId: number) => void;
   initialData?: IncomeData | null;
   loading?: boolean;
+  availableUsers?: Array<{ id: number; name: string; role: string }>;
 }
 
 export function IncomeModal({
@@ -72,7 +76,8 @@ export function IncomeModal({
   onDownloadAttachment,
   onDeleteAttachment,
   initialData,
-  loading = false
+  loading = false,
+  availableUsers = []
 }: IncomeModalProps) {
   const currentDate = new Date();
   const [formData, setFormData] = useState<IncomeData>({
@@ -130,6 +135,7 @@ export function IncomeModal({
 
   const incomeTypes = [
     { value: "Receita Manual", label: "Receita Manual" },
+    { value: "Consultoria Bruta", label: "Consultoria Bruta" },
     { value: "Bônus", label: "Bônus" },
     { value: "Comissão", label: "Comissão" },
     { value: "Serviços Extras", label: "Serviços Extras" },
@@ -179,6 +185,77 @@ export function IncomeModal({
             <Input
               type="text"
               value={formData.income_name || ""}
+
+          {/* Campos condicionais para "Consultoria Bruta" */}
+          {formData.income_type === "Consultoria Bruta" && (
+            <>
+              {/* Atendente */}
+              <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-amber-700 mb-2">
+                  ⚠️ Campos obrigatórios para Consultoria Bruta
+                </p>
+
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Atendente *
+                </label>
+                <select
+                  value={formData.agent_user_id || ""}
+                  onChange={(e) => setFormData({ ...formData, agent_user_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                  className="w-full px-3 py-2 border rounded-md bg-white"
+                  disabled={loading}
+                  required
+                >
+                  <option value="">Selecione o atendente...</option>
+                  {availableUsers
+                    .filter(u => u.role === "atendente")
+                    .map(user => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))
+                  }
+                </select>
+              </div>
+
+              {/* CPF do Cliente */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">CPF do Cliente *</label>
+                <Input
+                  type="text"
+                  value={formData.client_cpf || ""}
+                  onChange={(e) => {
+                    let value = e.target.value.replace(/\D/g, "");
+                    if (value.length > 11) value = value.slice(0, 11);
+                    // Formatar CPF
+                    if (value.length > 9) {
+                      value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+                    } else if (value.length > 6) {
+                      value = value.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
+                    } else if (value.length > 3) {
+                      value = value.replace(/(\d{3})(\d{1,3})/, "$1.$2");
+                    }
+                    setFormData({ ...formData, client_cpf: value });
+                  }}
+                  placeholder="000.000.000-00"
+                  disabled={loading}
+                  required
+                  maxLength={14}
+                />
+              </div>
+
+              {/* Nome do Cliente */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome do Cliente *</label>
+                <Input
+                  type="text"
+                  value={formData.client_name || ""}
+                  onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                  placeholder="Nome completo do cliente"
+                  disabled={loading}
+                  required
+                />
+              </div>
+            </>
+          )}
               onChange={(e) => setFormData({ ...formData, income_name: e.target.value })}
               placeholder="Ex: Bônus de desempenho trimestral"
               disabled={loading}

@@ -250,6 +250,8 @@ class FinanceIncome(Base):
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Atendente responsável (para receitas de contratos)
+    client_cpf = Column(String(14), nullable=True)  # CPF do cliente (para receitas manuais)
+    client_name = Column(String(255), nullable=True)  # Nome do cliente (para receitas manuais)
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 
