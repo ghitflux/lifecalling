@@ -731,7 +731,7 @@ export default function Page() {
 
   // Contadores/filters
   const statusCounts = {
-    aprovado: items.filter((i: any) => i.status === "financeiro_pendente" && !i.contract).length,
+    aprovado: items.filter((i: any) => i.status === "financeiro_pendente").length,
     liberado: items.filter((i: any) => i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado" && i.status !== "caso_cancelado")).length,
     cancelado: items.filter((i: any) => i.status === "contrato_cancelado" || i.status === "caso_cancelado").length,
     todos: items.length
@@ -776,7 +776,7 @@ export default function Page() {
       const active = statusFilter[0];
       switch (active) {
         case "aprovado":
-          if (!(item.status === "financeiro_pendente" && !item.contract)) return false;
+          if (item.status !== "financeiro_pendente") return false;
           break;
         case "liberado":
           if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado" && item.status !== "caso_cancelado"))) return false;
