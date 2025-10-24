@@ -578,8 +578,23 @@ export function FinanceCard({
               </Button>
             ) : null}
 
-            {/* Botão Reabrir para Ajuste (apenas em casos efetivados) */}
-            {onReopen && (status as string) === "contrato_efetivado" ? (
+          </div>
+        )}
+
+        {/* Ações para casos efetivados */}
+        {status === "contrato_efetivado" && (
+          <div className="w-full space-y-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowDetailsModal(true)}
+              className="w-full"
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              Ver Detalhes
+            </Button>
+
+            {onReopen && (
               <Button
                 size="sm"
                 variant="outline"
@@ -593,7 +608,7 @@ export function FinanceCard({
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reabrir para Ajuste
               </Button>
-            ) : null}
+            )}
           </div>
         )}
 

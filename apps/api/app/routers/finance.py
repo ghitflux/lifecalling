@@ -2184,6 +2184,10 @@ def get_transactions(
                                 client_cpf = contract.case.client.cpf
                         except Exception:
                             pass
+                    else:
+                        # Para receitas manuais (Consultoria Bruta), pegar os campos diretamente
+                        client_name = inc.client_name
+                        client_cpf = inc.client_cpf
 
                     transactions.append({
                         "id": f"receita-{inc.id}",
