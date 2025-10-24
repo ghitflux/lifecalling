@@ -42,9 +42,9 @@ def round_half_up(value: float) -> float:
 
 
 def is_margin_bank(bank_name: str) -> bool:
-    """Verifica se um banco é do tipo 'Margem' (case-insensitive)"""
-    import re
-    return bool(re.search(r'margem', bank_name or '', re.IGNORECASE))
+    """Verifica se um banco é do tipo 'Margem*' especificamente (não inclui 'Margem Positiva')"""
+    return bank_name == "Margem*"
+
 
 
 def compute_simulation_totals(input_data: SimulationInput) -> SimulationTotals:
@@ -144,8 +144,8 @@ def validate_simulation_input(input_data: SimulationInput) -> List[str]:
             if bank.parcela <= 0:
                 errors.append(f"Parcela do banco {i+1} deve ser maior que zero")
         
-        # Para banco Margem*, saldo devedor pode ser zero ou negativo
-        if bank.bank != "Margem*":
+        # Para banco Margem* ou Margem Positiva, saldo devedor pode ser zero
+        if bank.bank != "Margem*" and bank.bank != "Margem Positiva":
             if bank.saldoDevedor <= 0:
                 errors.append(f"Saldo devedor do banco {i+1} deve ser maior que zero")
         

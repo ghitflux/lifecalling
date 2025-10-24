@@ -1182,6 +1182,7 @@ export function FinanceCard({
                     value={percentualAtendente}
                     onChange={(e) => setPercentualAtendente(Number(e.target.value))}
                   >
+                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
                     <option value="10">10% (Atendente) + 90% (Balcão)</option>
                     <option value="20">20% (Atendente) + 80% (Balcão)</option>
                     <option value="30">30% (Atendente) + 70% (Balcão)</option>

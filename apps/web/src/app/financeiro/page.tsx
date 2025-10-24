@@ -457,13 +457,21 @@ export default function Page() {
   const handleDisburse = async (
     id: number,
     percentualAtendente?: number,
-    consultoriaLiquidaAjustada?: number,
-    atendenteUserId?: number
+    consultoriaBruta?: number,
+    atendenteUserId?: number,
+    impostoPercentual?: number,
+    temCorretor?: boolean,
+    corretorNome?: string,
+    corretorComissaoValor?: number
   ) => {
     try {
       await disb.mutateAsync({
         case_id: id,
-        consultoria_liquida_ajustada: consultoriaLiquidaAjustada,
+        consultoria_bruta: consultoriaBruta || 0,
+        imposto_percentual: impostoPercentual || 14.0,
+        tem_corretor: temCorretor || false,
+        corretor_nome: corretorNome || null,
+        corretor_comissao_valor: corretorComissaoValor || null,
         percentual_atendente: percentualAtendente,
         atendente_user_id: atendenteUserId
       });
@@ -847,7 +855,7 @@ export default function Page() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
           title="Receita Total"
           subtitle="Todas Receitas"
@@ -856,6 +864,15 @@ export default function Page() {
           gradientVariant="emerald"
           trend={trends.receita}
           miniChart={<MiniAreaChart data={getTrendChartData.receita} dataKey="value" xKey="day" stroke="#10b981" height={60} valueType="currency" />}
+        />
+        <KPICard
+          title="Consultoria Líquida Total"
+          subtitle="Consultorias líquidas (após impostos)"
+          value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          isLoading={metricsLoading}
+          gradientVariant="cyan"
+          trend={trends.consultoria}
+          miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#06b6d4" height={60} valueType="currency" />}
         />
         <KPICard
           title="Lucro Líquido"
@@ -886,27 +903,6 @@ export default function Page() {
         />
       </div>
 
-      {/* DESTAQUE: CONSULTORIA LÍQUIDA */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-cyan-500" />
-            Destaque - Consultoria Líquida
-          </h2>
-          <p className="text-sm text-muted-foreground">Receita líquida de consultorias (após impostos)</p>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <KPICard
-            title="Consultoria Líquida Total"
-            subtitle="Consultorias líquidas (após impostos)"
-            value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            isLoading={metricsLoading}
-            gradientVariant="cyan"
-            trend={trends.consultoria}
-            miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#06b6d4" height={80} valueType="currency" />}
-          />
-        </div>
-      </div>
 
       {/* Filtros rápidos (casos) */}
       <QuickFilters
