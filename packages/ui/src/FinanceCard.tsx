@@ -575,12 +575,13 @@ export function FinanceCard({
               <Button size="sm" onClick={() => setShowDisburseConfirm(true)} className="w-full">
                 Efetivar Liberação
               </Button>
+            ) : null}
 
             {/* Botão Reabrir para Ajuste (apenas em casos efetivados) */}
             {onReopen && (status as string) === "contrato_efetivado" ? (
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   if (confirm("Deseja reabrir este caso para ajustes nos valores? As receitas criadas automaticamente serão excluídas.")) {
                     onReopen(id);
@@ -591,7 +592,6 @@ export function FinanceCard({
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reabrir para Ajuste
               </Button>
-            ) : null}
             ) : null}
           </div>
         )}
