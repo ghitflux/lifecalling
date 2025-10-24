@@ -24,6 +24,7 @@ import {
   File,
   ArrowLeft,
   Undo2,
+  RotateCcw,
 } from "lucide-react";
 
 interface SimulationResult {

@@ -185,6 +185,11 @@ export function IncomeModal({
             <Input
               type="text"
               value={formData.income_name || ""}
+              onChange={(e) => setFormData({ ...formData, income_name: e.target.value })}
+              placeholder="Ex: Bônus de desempenho trimestral"
+              disabled={loading}
+            />
+          </div>
 
           {/* Campos condicionais para "Consultoria Bruta" */}
           {formData.income_type === "Consultoria Bruta" && (
@@ -256,11 +261,6 @@ export function IncomeModal({
               </div>
             </>
           )}
-              onChange={(e) => setFormData({ ...formData, income_name: e.target.value })}
-              placeholder="Ex: Bônus de desempenho trimestral"
-              disabled={loading}
-            />
-          </div>
 
           {/* Valor */}
           <div className="space-y-2">
