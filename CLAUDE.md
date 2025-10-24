@@ -1,14 +1,148 @@
 # Documentação de Alterações - LifeCalling v1
 
+## Última Atualização: 24/10/2025
+
 ## Última Atualização: 21/10/2025
 
 ---
 
 ## 📋 Índice de Sessões
 
-1. [Sistema de Cancelamento de Casos (21/10/2025)](#sistema-de-cancelamento-21102025)
-2. [Sistema de Histórico de Simulações (20/10/2024)](#sistema-de-histórico-20102024)
-3. [Próximas Melhorias e Correções](#próximas-melhorias)
+1. [Correções Críticas no Módulo Financeiro (24/10/2025)](#correções-críticas-módulo-financeiro-24102025)
+2. [Sistema de Cancelamento de Casos (21/10/2025)](#sistema-de-cancelamento-21102025)
+3. [Sistema de Histórico de Simulações (20/10/2024)](#sistema-de-histórico-20102024)
+## 🔥 Correções Críticas no Módulo Financeiro (24/10/2025)
+
+### 📋 Resumo Geral
+
+Correção completa do módulo financeiro com foco em:
+1. **Sistema de reabertura de casos** efetivados para ajustes
+2. **Novos cálculos de KPI** (Receita Total, Impostos, Despesas)
+3. **Tipo de receita "Consultoria Bruta"** manual com campos obrigatórios
+4. **10 bugs críticos** corrigidos (sintaxe, lógica, UX)
+
+**Total de commits:** 8
+**Arquivos modificados:** 7 (3 backend + 4 frontend)
+**Linhas alteradas:** ~500
+
+---
+
+### 🎯 Funcionalidades Implementadas
+
+#### 1. Sistema de Reabertura de Casos Efetivados
+
+**Objetivo:** Permitir que Admin e Financeiro reabram casos efetivados para ajustar valores.
+
+**Backend - Endpoint Criado:**
+- `POST /finance/cases/{case_id}/reopen` (finance.py linha ~718)
+- Permissões: Admin e Financeiro apenas
+- Ações: Status → financeiro_pendente + Exclui receitas automáticas
+
+**Frontend:**
+- FinanceCard: Botão "Reabrir para Ajuste" (laranja, ícone RotateCcw)
+- Hook: `useReopenCase()` com invalidação de queries
+- Handler: `handleReopen()` integrado
+
+**Fluxo Completo:**
+1. Usuário clica "Reabrir para Ajuste"
+2. Confirmação: "Deseja reabrir...? Receitas serão excluídas."
+3. Backend altera status + exclui receitas
+4. Frontend mostra em "Aguardando Financeiro"
+
+---
+
+#### 2. Novos Cálculos de KPI
+
+| Card | Antes | Depois |
+|------|-------|--------|
+| Receita Total | Consultoria Líq + Ext + Man | **Consultoria Bruta** + Ext + Man |
+| Impostos | Apenas manuais | Manuais + **14% automático** |
+| Despesas | Apenas manuais | Manuais + Impostos |
+| Consultoria Líq | 86% do custo | 86% (mantém) |
+
+**Implementação (finance.py linhas 367-465):**
+- Consultoria Bruta = Σ custo_consultoria (simulações efetivadas)
+- Receita Total = Bruta + Externas + Manuais
+- Impostos = Manuais + (Receita * 14%)
+- Despesas = Manuais + Impostos
+
+---
+
+#### 3. Tipo "Consultoria Bruta" Manual
+
+**Campos Obrigatórios:**
+- Atendente (dropdown role "atendente")
+- CPF do Cliente (máscara ###.###.###-##)
+- Nome do Cliente (texto)
+
+**Validação Backend (finance.py 1531-1542):**
+- Verifica se campos estão preenchidos
+- Valida formato CPF (11 dígitos)
+- Retorna erro 400 se inválido
+
+**UI (IncomeModal.tsx 198-266):**
+- Box laranja com contraste melhorado
+- Campos condicionais (só aparecem se tipo = "Consultoria Bruta")
+- Integração com ranking de atendentes
+
+---
+
+### 🐛 Bugs Críticos Corrigidos
+
+1. **KPIs Zerados (500)**: Falta imports Simulation/Case → Adicionados ✅
+2. **CPF "-" na tabela**: GET /transactions sem else → Adicionado else ✅
+3. **Botão não aparece**: Lógica dentro bloco errado → Bloco separado ✅
+4. **Contraste ruim**: Texto claro em fundo claro → text-gray-900 + bg-white ✅
+5. **Hover claro**: bg-amber-50 + texto marrom → bg-amber-600 + texto branco ✅
+6. **Status "Liberado"**: contract antes de status → Reordenado ✅
+7. **Filtro vazio**: && !i.contract excluía casos → Removido ✅
+8. **CPF vazio efetivação**: Falta client_cpf/name → Adicionados ✅
+9-10. **Erros JSX**: Tags abertas + imports → Corrigidos ✅
+
+---
+
+### 📊 Arquivos Modificados
+
+**Backend:**
+1. models.py - client_cpf + client_name
+2. finance.py - Endpoint reopen + métricas + validações + CPF efetivação
+3. add_client_fields_to_finance_incomes.sql - Migração ✅
+
+**Frontend:**
+4. page.tsx (financeiro) - Lógica status + filtro + handler
+5. hooks.ts - useReopenCase
+6. IncomeModal.tsx - Campos condicionais + contraste
+7. FinanceCard.tsx - Botão reabrir + hover
+
+---
+
+### 📝 Commits (8 total)
+
+- c32d023: feat - Reabertura + KPIs
+- 0c5e1d4: fix - Sintaxe JSX FinanceCard
+- 18c4837: fix - Sintaxe JSX + imports
+- bb3ec0d: fix - Bugs críticos
+- 6f652df: fix - CPF/Nome + Botão
+- 8f767c5: fix - Bug reabertura + contraste
+- 7747a6b: fix - Filtro Aguardando Financeiro
+- 08a0fec: fix - CPF efetivação
+
+---
+
+### 📊 Estatísticas
+
+**Versão:** 1.6
+**Data:** 24/10/2025
+**Funcionalidades:** 3
+**Bugs Corrigidos:** 10
+**Arquivos:** 7
+**Linhas:** ~500
+
+---
+
+
+---
+
 
 ---
 
