@@ -340,10 +340,7 @@ def finance_metrics(
         Contract,
         FinanceIncome,
         FinanceExpense,
-        ExternalClientIncome,
-        CommissionPayout,
-        Simulation,
-        Case
+        ExternalClientIncome
     )
     from sqlalchemy import func  # pyright: ignore[reportMissingImports]
     from datetime import datetime, timedelta
@@ -375,19 +372,27 @@ def finance_metrics(
             Contract.signed_at <= end_filter
         ).scalar() or 0
 
-        # CONSULTORIA BRUTA: Soma de custo_consultoria de simulações efetivadas
-        total_consultoria_bruta = float(db.query(
-            func.coalesce(func.sum(Simulation.custo_consultoria), 0)
-        ).join(
-            Case, Case.id == Simulation.case_id
+        # RECEITA TOTAL: Soma de TODAS as receitas cadastradas
+        total_revenue = float(db.query(
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
-            Case.status == "contrato_efetivado",
-            Simulation.status == "approved",
-            Simulation.created_at >= start_filter,
-            Simulation.created_at <= end_filter
+            FinanceIncome.date >= start_filter,
+            FinanceIncome.date <= end_filter
         ).scalar() or 0)
 
-        # CONSULTORIA LÍQUIDA: 86% (receitas de Consultoria - Atendente/Balcão)
+        # Adicionar receitas externas (clientes externos)
+        total_external_income = float(db.query(
+            func.coalesce(
+                func.sum(ExternalClientIncome.custo_consultoria_liquido), 0
+            )
+        ).filter(
+            ExternalClientIncome.date >= start_filter,
+            ExternalClientIncome.date <= end_filter
+        ).scalar() or 0)
+
+        total_revenue = total_revenue + total_external_income
+
+        # Receitas de consultoria (para breakdown)
         total_consultoria_liquida = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
@@ -400,17 +405,7 @@ def finance_metrics(
             ])
         ).scalar() or 0)
 
-        # Receitas externas (clientes externos)
-        total_external_income = float(db.query(
-            func.coalesce(
-                func.sum(ExternalClientIncome.custo_consultoria_liquido), 0
-            )
-        ).filter(
-            ExternalClientIncome.date >= start_filter,
-            ExternalClientIncome.date <= end_filter
-        ).scalar() or 0)
-
-        # Receitas manuais (EXCLUINDO consultoria)
+        # Receitas manuais (outras receitas, excluindo consultoria)
         total_manual_income = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
@@ -423,22 +418,16 @@ def finance_metrics(
             ])
         ).scalar() or 0)
 
-        # RECEITA TOTAL = Consultoria Bruta + Externas + Manuais
-        total_revenue = (
-            total_consultoria_bruta +
-            total_external_income +
-            total_manual_income
-        )
-
-        # Despesas manuais cadastradas
-        total_expenses_manual = float(db.query(
+        # DESPESAS EXCLUINDO impostos (temporariamente)
+        total_expenses_without_tax = float(db.query(
             func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
             FinanceExpense.date >= start_filter,
-            FinanceExpense.date <= end_filter
+            FinanceExpense.date <= end_filter,
+            FinanceExpense.expense_type != "Impostos"
         ).scalar() or 0)
 
-        # Impostos manuais (despesas com categoria "Impostos")
+        # Impostos manuais (despesas categoria "Impostos")
         total_manual_taxes = float(db.query(
             func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
@@ -447,19 +436,19 @@ def finance_metrics(
             FinanceExpense.expense_type == "Impostos"
         ).scalar() or 0)
 
-        # IMPOSTOS = Impostos Manuais + 14% da Receita Total (calculado automaticamente)
-        total_tax_auto = total_revenue * 0.14
-        total_tax = total_manual_taxes + total_tax_auto
+        # TOTAL DE IMPOSTOS = Apenas impostos registrados na tabela
+        total_tax = total_manual_taxes
 
-        # DESPESAS = Despesas Manuais + Impostos (manuais + automático 14%)
-        total_expenses = total_expenses_manual + total_tax
+        # TOTAL DE DESPESAS = Despesas comuns + Impostos da tabela
+        total_expenses = total_expenses_without_tax + total_tax
 
-        # Comissões geradas (para KPI separado)
+        # Comissões de despesas (Comissão Corretor + outras)
         total_commissions = float(db.query(
-            func.coalesce(func.sum(CommissionPayout.commission_amount), 0)
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
-            CommissionPayout.created_at >= start_filter,
-            CommissionPayout.created_at <= end_filter
+            FinanceExpense.date >= start_filter,
+            FinanceExpense.date <= end_filter,
+            FinanceExpense.expense_type == "Comissão"
         ).scalar() or 0)
 
         # Lucro líquido = Receita Total - Despesas
@@ -471,11 +460,8 @@ def finance_metrics(
             "netProfit": round(net_profit, 2),
             "totalContracts": int(total_contracts),
             "totalTax": round(total_tax, 2),
-            "totalTaxAuto": round(total_tax_auto, 2),
-            "totalManualTaxes": round(total_manual_taxes, 2),
             "totalManualIncome": round(total_manual_income, 2),
             "totalConsultoriaLiq": round(total_consultoria_liquida, 2),
-            "totalConsultoriaBruta": round(total_consultoria_bruta, 2),
             "totalExternalIncome": round(total_external_income, 2),
             "totalCommissions": round(total_commissions, 2)
         }
@@ -660,6 +646,10 @@ async def disburse_simple(
             ct.created_by = user.id
             ct.agent_user_id = data.atendente_user_id or c.assigned_user_id
 
+            # Atualizar atendente do caso se foi selecionado no modal
+            if data.atendente_user_id:
+                c.assigned_user_id = data.atendente_user_id
+
             # NOVOS CAMPOS: Consultoria Bruta + Imposto
             ct.consultoria_bruta = consultoria_bruta
             ct.imposto_percentual = imposto_percentual
@@ -672,6 +662,32 @@ async def disburse_simple(
 
             db.add(ct)
             db.flush()
+
+            # ✅ CRIAR DESPESA DE IMPOSTO AUTOMATICAMENTE
+            if imposto_valor > 0:
+                from ..models import FinanceExpense
+                from datetime import date
+                
+                tax_expense = FinanceExpense(
+                    description=f"Imposto sobre consultoria bruta - "
+                               f"Contrato #{ct.id}",
+                    amount=imposto_valor,
+                    expense_type="Impostos",
+                    expense_name=f"Imposto sobre consultoria bruta - "
+                                f"Contrato #{ct.id}",
+                    date=date.today(),
+                    month=date.today().month,
+                    year=date.today().year,
+                    created_by=user.id,
+                    agent_user_id=ct.agent_user_id,
+                    client_cpf=c.client.cpf if c.client else None,
+                    client_name=c.client.name if c.client else None
+                )
+                db.add(tax_expense)
+                db.flush()
+                
+                # Vincular despesa ao contrato
+                ct.imposto_expense_id = tax_expense.id
 
             # 5. Criar Receitas (Atendente + Balcão)
             if consultoria_liquida and consultoria_liquida > 0:
@@ -722,12 +738,19 @@ async def disburse_simple(
             # 6. Criar Despesa de Comissão Corretor (se houver)
             if data.tem_corretor and data.corretor_comissao_valor and data.corretor_comissao_valor > 0:
                 from ..models import FinanceExpense
+                disbursed_date = data.disbursed_at or now_brt()
                 expense = FinanceExpense(
-                    date=data.disbursed_at or now_brt(),
+                    month=disbursed_date.month,
+                    year=disbursed_date.year,
+                    date=disbursed_date,
                     expense_type="Comissão",
-                    expense_name=f"Comissão Corretor - {data.corretor_nome} (Contrato #{ct.id})",
+                    expense_name=f"Comissão Corretor - {data.corretor_nome} "
+                                f"(Contrato #{ct.id})",
                     amount=data.corretor_comissao_valor,
-                    created_by=user.id
+                    created_by=user.id,
+                    agent_user_id=ct.agent_user_id,
+                    client_cpf=c.client.cpf if c.client else None,
+                    client_name=c.client.name if c.client else None
                 )
                 db.add(expense)
                 db.flush()
@@ -1996,6 +2019,21 @@ def get_timeseries(
             key = f"{int(row.year)}-{int(row.month):02d}"
             tax_dict[key] = float(row.total or 0) * 0.14
 
+        # Agregação de comissões por mês
+        commissions_query = db.query(
+            extract('year', FinanceExpense.date).label('year'),
+            extract('month', FinanceExpense.date).label('month'),
+            func.sum(FinanceExpense.amount).label('total')
+        ).filter(
+            FinanceExpense.date >= six_months_ago,
+            FinanceExpense.expense_type == "Comissão"
+        ).group_by('year', 'month').all()
+
+        commissions_dict = {}
+        for row in commissions_query:
+            key = f"{int(row.year)}-{int(row.month):02d}"
+            commissions_dict[key] = float(row.total or 0)
+
         # Gerar lista de meses completa
         months = []
         current = now_brt().replace(day=1)
@@ -2016,6 +2054,7 @@ def get_timeseries(
         revenue_series = []
         expenses_series = []
         tax_series = []
+        commissions_series = []
         net_profit_series = []
 
         for month in months:
@@ -2023,6 +2062,7 @@ def get_timeseries(
             revenue = revenue_dict.get(key, 0)
             expenses = expenses_dict.get(key, 0)
             tax = tax_dict.get(key, 0)
+            commissions = commissions_dict.get(key, 0)
             net_profit = revenue - expenses - tax
 
             revenue_series.append(
@@ -2034,6 +2074,9 @@ def get_timeseries(
             tax_series.append(
                 {"date": month["label"], "value": round(tax, 2)}
             )
+            commissions_series.append(
+                {"date": month["label"], "value": round(commissions, 2)}
+            )
             net_profit_series.append(
                 {"date": month["label"], "value": round(net_profit, 2)}
             )
@@ -2042,6 +2085,7 @@ def get_timeseries(
             "revenue": revenue_series,
             "expenses": expenses_series,
             "tax": tax_series,
+            "commissions": commissions_series,
             "netProfit": net_profit_series
         }
 
@@ -2308,7 +2352,8 @@ def get_transactions(
             # Buscar despesas
             if not transaction_type or transaction_type == "despesa":
                 expenses_query = db.query(FinanceExpense).options(
-                    joinedload(FinanceExpense.creator)
+                    joinedload(FinanceExpense.creator),
+                    joinedload(FinanceExpense.agent)
                 )
                 if start:
                     expenses_query = expenses_query.filter(
@@ -2339,8 +2384,12 @@ def get_transactions(
                             else None
                         ),
                         "agent_name": (
-                            exp.creator.name if exp.creator else None
+                            exp.agent.name if exp.agent else
+                            (exp.creator.name if exp.creator else None)
                         ),
+                        "agent_user_id": exp.agent_user_id,
+                        "client_cpf": exp.client_cpf,
+                        "client_name": exp.client_name,
                         "has_attachment": bool(exp.attachment_path),
                         "attachment_filename": exp.attachment_filename,
                         "attachment_size": exp.attachment_size,

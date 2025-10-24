@@ -7,12 +7,14 @@ import {
   CampaignCard,
   DateRangeFilter,
   ProgressBar,
-  Button
+  Button,
+  Card
 } from "@lifecalling/ui";
 import { CampaignModal } from "@/components/CampaignModal";
+import { ContractsDetailsModal } from "@/components/rankings/ContractsDetailsModal";
 import { useAuth } from "@/lib/auth";
 import { useMemo, useState } from "react";
-import { Download, Plus, Trophy } from "lucide-react";
+import { Download, Plus, Trophy, Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RankingsPage() {
@@ -23,6 +25,11 @@ export default function RankingsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState<any>(null);
+
+  // Estados para modal de contratos
+  const [showContractsModal, setShowContractsModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserName, setSelectedUserName] = useState<string>("");
 
   // Estados para filtro por período (padrão: mês atual)
   const [startDate, setStartDate] = useState<string>(() => {
@@ -91,6 +98,29 @@ export default function RankingsPage() {
       return response.data;
     }
   });
+
+  // Query: KPIs dos contratos do atendente (apenas para atendentes)
+  const { data: myContractsData } = useQuery({
+    queryKey: ["my-contracts-summary", user?.id, startDate, endDate],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const params = new URLSearchParams();
+      params.append("from", new Date(startDate).toISOString());
+      params.append("to", new Date(endDate).toISOString());
+      params.append("per_page", "1"); // Só precisa do summary
+      const response = await api.get(`/rankings/agents/${user.id}/contracts?${params.toString()}`);
+      return response.data;
+    },
+    enabled: user?.role === "atendente"
+  });
+
+  // Helper: formatar moeda
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
 
   // Mutations
   const createCampaignMutation = useMutation({
@@ -208,6 +238,7 @@ export default function RankingsPage() {
   }
 
   const isAdmin = user?.role === "admin";
+  const isAdminOrSupervisor = user?.role === "admin" || user?.role === "supervisor";
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -328,7 +359,25 @@ export default function RankingsPage() {
               { key: "contracts", header: "Contratos", format: "number" },
               { key: "consultoria_liq", header: "Consultoria Líq.", format: "currency" },
               { key: "meta_consultoria", header: "Meta", format: "currency" },
-              { key: "progress", header: "Progresso", render: ProgressCell }
+              { key: "progress", header: "Progresso", render: ProgressCell },
+              ...(isAdminOrSupervisor ? [{
+                key: "actions",
+                header: "Ações",
+                render: (row: any) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedUserId(row.user_id);
+                      setSelectedUserName(row.name);
+                      setShowContractsModal(true);
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver Detalhes
+                  </Button>
+                )
+              }] : [])
             ]}
             highlightTop3
           />
@@ -338,6 +387,44 @@ export default function RankingsPage() {
           </div>
         )}
       </div>
+
+      {/* Meus Contratos (apenas para atendentes) */}
+      {user?.role === "atendente" && (
+        <Card className="p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Meus Contratos Efetivados
+              </h2>
+
+              {/* KPIs rápidos */}
+              {myContractsData?.summary && (
+                <div className="flex gap-4 text-sm text-muted-foreground mt-2">
+                  <span>
+                    <strong>{myContractsData.summary.total_contracts}</strong> contrato(s)
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>{formatCurrency(myContractsData.summary.total_consultoria)}</strong> em consultoria
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <Button
+              onClick={() => {
+                setSelectedUserId(user.id);
+                setSelectedUserName(user.name);
+                setShowContractsModal(true);
+              }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Detalhes
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Campanhas Ativas */}
       <div>
@@ -455,6 +542,18 @@ export default function RankingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Detalhes de Contratos (Admin/Supervisor) */}
+      {selectedUserId && (
+        <ContractsDetailsModal
+          open={showContractsModal}
+          onOpenChange={setShowContractsModal}
+          userId={selectedUserId}
+          userName={selectedUserName}
+          startDate={startDate}
+          endDate={endDate}
+        />
       )}
     </div>
   );

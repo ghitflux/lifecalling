@@ -239,6 +239,12 @@ class FinanceExpense(Base):
     attachment_size = Column(Integer, nullable=True)  # Tamanho em bytes
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # ✅ NOVOS CAMPOS
+    agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    client_cpf = Column(String(14), nullable=True)
+    client_name = Column(String(255), nullable=True)
+    
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -247,6 +253,7 @@ class FinanceExpense(Base):
 
     # Relacionamentos
     creator = relationship("User", foreign_keys=[created_by])
+    agent = relationship("User", foreign_keys=[agent_user_id])  # ✅ NOVO
 
 class FinanceIncome(Base):
     __tablename__ = "finance_incomes"

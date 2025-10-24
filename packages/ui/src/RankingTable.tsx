@@ -5,7 +5,7 @@ import { Pagination } from "./Pagination";
 type Column = {
   key: string;
   header: string;
-  format?: "currency" | "signedCurrency" | "number";
+  format?: "currency" | "signedCurrency" | "number" | "date" | "cpf";
   render?: (row: any) => React.ReactNode;
 };
 
@@ -29,6 +29,17 @@ function formatValue(value: any, format?: Column["format"]) {
   }
   if (format === "number") {
     return (Number(value) || 0).toLocaleString();
+  }
+  if (format === "date") {
+    if (!value) return "—";
+    const date = new Date(value);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  if (format === "cpf") {
+    if (!value) return "—";
+    const cleaned = String(value).replace(/\D/g, '');
+    if (cleaned.length !== 11) return value;
+    return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9)}`;
   }
   return value as React.ReactNode;
 }

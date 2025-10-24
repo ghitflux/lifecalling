@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from ..db import get_db
 from ..rbac import require_roles
-from ..models import User, Case, Contract
+from ..models import User, Case, Contract, Client
 from datetime import datetime, timedelta, date
 import io
 import csv
@@ -676,6 +676,147 @@ def get_podium(
     return {
         "period": {"from": str(start), "to": str(end)},
         "podium": podium
+    }
+
+
+@r.get("/agents/{user_id}/contracts")
+def get_user_contracts(
+    user_id: int,
+    from_: str | None = Query(None, alias="from"),
+    to: str | None = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user=Depends(
+        require_roles(
+            "admin", "supervisor", "atendente"
+        )
+    ),
+):
+    """
+    Lista todos os contratos efetivados de um usuário específico.
+
+    Permissões:
+    - Atendente: apenas próprios contratos (user_id == current_user.id)
+    - Admin/Supervisor: qualquer user_id
+
+    Retorna:
+    - Lista de contratos com dados do cliente
+    - Totalizadores (qtd contratos, soma consultoria)
+    - Paginação
+    """
+
+    # Verificar permissão: atendente só pode ver próprios contratos
+    if user.role == "atendente" and user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você só pode visualizar seus próprios contratos"
+        )
+
+    # Verificar se usuário existe
+    target_user = db.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    start, end, _, _ = _parse_range(from_, to)
+
+    # Estratégia para encontrar o atendente dono do contrato
+    owner_user_id = case(
+        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
+        else_=Case.assigned_user_id
+    )
+
+    # Query base de contratos do usuário
+    base_query = (
+        db.query(Contract, Case, Client)
+        .join(Case, Case.id == Contract.case_id)
+        .join(Client, Client.id == Case.client_id)
+        .filter(Contract.status == "ativo")
+        .filter(owner_user_id == user_id)
+    )
+
+    # Aplicar filtro de data
+    if from_ and to:
+        base_query = base_query.filter(
+            func.coalesce(
+                Contract.signed_at, Contract.disbursed_at, Contract.created_at
+            ).between(start, end)
+        )
+
+    # Contar total de contratos
+    total_count = base_query.count()
+
+    # Aplicar paginação e ordenação
+    contracts_query = base_query.order_by(
+        Contract.signed_at.desc().nulls_last(),
+        Contract.created_at.desc()
+    ).offset((page - 1) * per_page).limit(per_page)
+
+    # Buscar contratos
+    results = contracts_query.all()
+
+    # Calcular totalizadores
+    summary_query = (
+        db.query(
+            func.count(Contract.id).label("total_contracts"),
+            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("total_consultoria")
+        )
+        .join(Case, Case.id == Contract.case_id)
+        .filter(Contract.status == "ativo")
+        .filter(owner_user_id == user_id)
+    )
+
+    if from_ and to:
+        summary_query = summary_query.filter(
+            func.coalesce(
+                Contract.signed_at, Contract.disbursed_at, Contract.created_at
+            ).between(start, end)
+        )
+
+    summary_result = summary_query.first()
+    total_contracts = int(summary_result.total_contracts or 0)
+    total_consultoria = float(summary_result.total_consultoria or 0)
+    ticket_medio = (total_consultoria / total_contracts) if total_contracts > 0 else 0
+
+    # Formatar itens
+    items = []
+    for contract, case_obj, client in results:
+        items.append({
+            "contract_id": contract.id,
+            "case_id": case_obj.id,
+            "client_id": client.id,
+            "client_name": client.name,
+            "client_cpf": client.cpf,
+            "signed_at": (
+                contract.signed_at.isoformat() if contract.signed_at else None
+            ),
+            "disbursed_at": (
+                contract.disbursed_at.isoformat()
+                if contract.disbursed_at
+                else None
+            ),
+            "consultoria_valor_liquido": float(
+                contract.consultoria_valor_liquido or 0
+            ),
+            "total_amount": float(contract.total_amount or 0),
+            "installments": contract.installments or 0,
+            "status": contract.status,
+            "case_status": case_obj.status  # Status do caso
+        })
+
+    return {
+        "items": items,
+        "summary": {
+            "total_contracts": total_contracts,
+            "total_consultoria": round(total_consultoria, 2),
+            "ticket_medio": round(ticket_medio, 2)
+        },
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total_count,
+            "pages": (total_count + per_page - 1) // per_page
+        }
     }
 
 

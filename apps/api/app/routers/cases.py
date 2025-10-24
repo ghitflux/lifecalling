@@ -1673,6 +1673,81 @@ async def change_case_status(
                 "new_status": data.new_status
             }
 
+        # ===== REVERSÃO INTELIGENTE DE STATUS =====
+        # Executar ações de reversão ANTES de mudar o status
+        from ..models import FinanceIncome, Simulation
+
+        # 1. Reversão para "calculista_pendente" a partir de financeiros
+        if (data.new_status == "calculista_pendente" and
+                previous_status in ["financeiro_pendente",
+                                    "contrato_efetivado"]):
+            # Excluir receitas financeiras automáticas geradas
+            deleted_incomes = db.query(FinanceIncome).filter(
+                FinanceIncome.case_id == case_id
+            ).delete(synchronize_session=False)
+
+            # Reverter simulação aprovada para draft
+            if case.last_simulation_id:
+                sim = db.get(Simulation, case.last_simulation_id)
+                if sim and sim.status == "approved":
+                    sim.status = "draft"
+
+            # Log da reversão
+            create_case_event(
+                db=db,
+                case_id=case_id,
+                actor_id=user.id,
+                event_type="case.finance_reversed",
+                payload={
+                    "deleted_incomes": deleted_incomes,
+                    "simulation_reverted":
+                        case.last_simulation_id is not None,
+                    "reason": (
+                        f"Status mudado de '{previous_status}' "
+                        f"para 'calculista_pendente'"
+                    )
+                }
+            )
+
+        # 2. Reversão para "em_atendimento" de "calculista_pendente"
+        elif (data.new_status == "em_atendimento" and
+                previous_status == "calculista_pendente"):
+            # Excluir simulações em draft (não aprovadas)
+            deleted_sims = db.query(Simulation).filter(
+                Simulation.case_id == case_id,
+                Simulation.status == "draft"
+            ).delete(synchronize_session=False)
+
+            if deleted_sims > 0:
+                create_case_event(
+                    db=db,
+                    case_id=case_id,
+                    actor_id=user.id,
+                    event_type="case.simulations_cleared",
+                    payload={
+                        "deleted_simulations": deleted_sims,
+                        "reason": "Caso retornado ao atendimento"
+                    }
+                )
+
+        # 3. Reversão para "novo" a partir de qualquer status
+        elif data.new_status == "novo":
+            # Limpar atribuição de usuário
+            if case.assigned_user_id:
+                old_assigned = case.assigned_user_id
+                case.assigned_user_id = None
+
+                create_case_event(
+                    db=db,
+                    case_id=case_id,
+                    actor_id=user.id,
+                    event_type="case.assignment_cleared",
+                    payload={
+                        "previous_assigned_user_id": old_assigned,
+                        "reason": "Status mudado para 'novo'"
+                    }
+                )
+
         # Atualizar status
         case.status = data.new_status
         case.last_update_at = now_brt()
@@ -1768,4 +1843,173 @@ async def cancel_case(
     return {
         "success": True,
         "message": "Caso cancelado com sucesso"
+    }
+
+
+@r.delete("/{case_id}/cascade")
+def delete_case_cascade(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
+    """
+    Deleta um caso e todos os dados associados (apenas admin).
+    Exclusão em cascata - remove contratos, comissões, receitas, despesas e anexos.
+
+    Ordem de exclusão:
+    1. CommissionPayout (para liberar FK de Contract/Case)
+    2. FinanceExpense (vinculadas ao CommissionPayout)
+    3. FinanceIncome (vinculadas ao contrato)
+    4. Contract (agora sem bloqueio FK)
+    5. case.last_simulation_id = None (para liberar FK de Simulations)
+    6. Simulations (agora sem bloqueio FK)
+    7. Attachments, Comments, CaseEvents
+    8. Case
+    """
+    from ..models import (
+        Simulation, Attachment, CommissionPayout, FinanceExpense,
+        FinanceIncome, Comment
+    )
+
+    # Buscar caso
+    case = db.get(Case, case_id)
+    if not case:
+        raise HTTPException(404, "Caso não encontrado")
+
+    # Buscar cliente para informações do log
+    client = db.get(Client, case.client_id) if case.client_id else None
+
+    # Estatísticas de exclusão
+    stats = {
+        "case_id": case_id,
+        "contracts": 0,
+        "commission_payouts": 0,
+        "finance_expenses": 0,
+        "finance_incomes": 0,
+        "simulations": 0,
+        "attachments": 0,
+        "events": 0,
+        "comments": 0
+    }
+
+    # PASSO 1: Deletar CommissionPayout (ANTES do Contract)
+    commission = db.query(CommissionPayout).filter_by(case_id=case_id).first()
+    if commission:
+        # PASSO 2: Deletar FinanceExpense vinculada ao CommissionPayout
+        if commission.expense_id:
+            expense = db.query(FinanceExpense).filter_by(
+                id=commission.expense_id
+            ).first()
+            if expense:
+                db.delete(expense)
+                stats["finance_expenses"] += 1
+
+        # Deletar CommissionPayout
+        db.delete(commission)
+        stats["commission_payouts"] += 1
+
+    # PASSO 3: Buscar Contract
+    contract = db.query(Contract).filter_by(case_id=case_id).first()
+    if contract:
+        # PASSO 4: Deletar FinanceIncome vinculadas ao contrato
+        # Buscar receitas pelo padrão de nome ou pelo CPF do cliente
+        incomes_to_delete = []
+
+        # Opção 1: Buscar por nome do contrato (ex: "Consultoria - Contrato #123")
+        incomes_by_name = db.query(FinanceIncome).filter(
+            FinanceIncome.income_name.like(f"%Contrato #{contract.id}%")
+        ).all()
+        incomes_to_delete.extend(incomes_by_name)
+
+        # Opção 2: Se temos cliente, buscar também por CPF + data próxima
+        if client and contract.signed_at:
+            from datetime import timedelta
+            signed_date = contract.signed_at
+            date_range_start = signed_date - timedelta(days=7)
+            date_range_end = signed_date + timedelta(days=7)
+
+            incomes_by_cpf = db.query(FinanceIncome).filter(
+                FinanceIncome.client_cpf == client.cpf,
+                FinanceIncome.date >= date_range_start,
+                FinanceIncome.date <= date_range_end
+            ).all()
+            incomes_to_delete.extend(incomes_by_cpf)
+
+        # Remover duplicatas
+        unique_incomes = list({inc.id: inc for inc in incomes_to_delete}.values())
+        for income in unique_incomes:
+            db.delete(income)
+            stats["finance_incomes"] += 1
+
+        # PASSO 5: Deletar anexos do contrato
+        contract_attachments = db.query(ContractAttachment).filter_by(
+            contract_id=contract.id
+        ).all()
+        for att in contract_attachments:
+            # Tentar deletar arquivo físico
+            try:
+                if os.path.exists(att.path):
+                    os.remove(att.path)
+            except Exception as e:
+                print(f"Erro ao remover arquivo {att.path}: {e}")
+            db.delete(att)
+
+        # PASSO 6: Deletar pagamentos
+        from ..models import Payment
+        db.query(Payment).filter_by(contract_id=contract.id).delete()
+
+        # PASSO 7: Deletar contrato
+        db.delete(contract)
+        stats["contracts"] += 1
+
+    # PASSO 8: Limpar referência last_simulation_id ANTES de deletar simulações
+    # (evitar erro de FK constraint)
+    if case.last_simulation_id:
+        case.last_simulation_id = None
+        db.flush()  # Commit imediato da mudança
+
+    # PASSO 9: Deletar simulações (agora sem bloqueio FK)
+    simulations = db.query(Simulation).filter_by(case_id=case_id).all()
+    for sim in simulations:
+        db.delete(sim)
+        stats["simulations"] += 1
+
+    # PASSO 10: Deletar anexos do caso
+    attachments = db.query(Attachment).filter_by(case_id=case_id).all()
+    for att in attachments:
+        # Tentar deletar arquivo físico
+        try:
+            if os.path.exists(att.path):
+                os.remove(att.path)
+        except Exception as e:
+            print(f"Erro ao remover arquivo {att.path}: {e}")
+        db.delete(att)
+        stats["attachments"] += 1
+
+    # PASSO 11: Deletar comentários (se houver)
+    comments = db.query(Comment).filter_by(case_id=case_id).all()
+    for comment in comments:
+        db.delete(comment)
+        stats["comments"] += 1
+
+    # PASSO 12: Deletar eventos
+    events = db.query(CaseEvent).filter_by(case_id=case_id).all()
+    for event in events:
+        db.delete(event)
+        stats["events"] += 1
+
+    # PASSO 13: Deletar caso
+    db.delete(case)
+    db.commit()
+
+    return {
+        "ok": True,
+        "message": (
+            f"Caso #{case_id} excluído com sucesso junto com "
+            f"{stats['contracts']} contrato(s), "
+            f"{stats['commission_payouts']} comissão(ões), "
+            f"{stats['finance_incomes']} receita(s), "
+            f"{stats['simulations']} simulação(ões)"
+        ),
+        "deleted": stats
     }

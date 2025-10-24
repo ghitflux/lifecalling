@@ -626,10 +626,11 @@ export default function CalculistaSimulationPage() {
           setCurrentSimulation(simulationData);
           setEditingSimulation(simulationData);
 
-          // Garantir que custoConsultoriaLiquido seja sempre number
-          const totals = {
+          // Garantir que custoConsultoriaLiquido e valorASubtrair sejam sempre number
+          const totals: SimulationTotals = {
             ...entry.totals,
-            custoConsultoriaLiquido: entry.totals.custoConsultoriaLiquido || (entry.totals.custoConsultoria * 0.86)
+            custoConsultoriaLiquido: entry.totals.custoConsultoriaLiquido || (entry.totals.custoConsultoria * 0.86),
+            valorASubtrair: (entry.totals as any).valorASubtrair || 0
           };
           setCurrentTotals(totals);
           toast.success("Simulação carregada para edição");

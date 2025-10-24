@@ -61,7 +61,16 @@ export interface FinanceCardProps {
   /** callbacks como opcionais para evitar TS2774 */
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
-  onDisburse?: (id: number, percentualAtendente?: number, consultoriaAjustada?: number, atendenteUserId?: number) => void;
+  onDisburse?: (
+    id: number,
+    percentualAtendente?: number,
+    consultoriaBruta?: number,
+    atendenteUserId?: number,
+    impostoPercentual?: number,
+    temCorretor?: boolean,
+    corretorNome?: string,
+    corretorComissaoValor?: number
+  ) => void;
   onCancel?: (id: number) => void;
   onReopen?: (id: number) => void;
   onReturnToCalculista?: (id: number) => void;
@@ -224,12 +233,20 @@ export function FinanceCard({
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const [showDisburseConfirm, setShowDisburseConfirm] = React.useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
   // Estados para consultoria editável e distribuição
   const [consultoriaLiquidaEditavel, setConsultoriaLiquidaEditavel] = React.useState<string>("");
   const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
   const [selectedAtendenteId, setSelectedAtendenteId] = React.useState<number | null>(null);
+
+  // Estados para consultoria bruta + imposto + corretor
+  const [consultoriaBruta, setConsultoriaBruta] = React.useState<string>("");
+  const [impostoPercentual] = React.useState<number>(14);
+  const [temCorretor, setTemCorretor] = React.useState<boolean>(false);
+  const [corretorNome, setCorretorNome] = React.useState<string>("");
+  const [corretorComissao, setCorretorComissao] = React.useState<string>("");
 
   // Inicializar consultoria editável com valor da simulação
   React.useEffect(() => {
@@ -239,6 +256,13 @@ export function FinanceCard({
       );
     }
   }, [simulationResult]);
+
+  // Inicializar consultoria bruta quando o modal abre
+  React.useEffect(() => {
+    if (showDisburseConfirm && simulationResult?.custoConsultoria) {
+      setConsultoriaBruta(formatCurrency(simulationResult.custoConsultoria));
+    }
+  }, [showDisburseConfirm, simulationResult]);
 
   // Inicializar atendente selecionado com o atendente do caso ao abrir modal
   React.useEffect(() => {
@@ -598,11 +622,7 @@ export function FinanceCard({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  if (confirm("Deseja reabrir este caso para ajustes nos valores? As receitas criadas automaticamente serão excluídas.")) {
-                    onReopen(id);
-                  }
-                }}
+                onClick={() => setShowReopenConfirm(true)}
                 className="w-full border-amber-500 text-amber-700 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-colors"
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
@@ -1060,7 +1080,7 @@ export function FinanceCard({
 
       {/* Confirmação Liberação */}
       <Dialog open={showDisburseConfirm} onOpenChange={setShowDisburseConfirm}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirmar Liberação</DialogTitle>
           </DialogHeader>
@@ -1086,26 +1106,44 @@ export function FinanceCard({
                   <span className="font-medium">{formatCurrency(simulationResult.liberadoCliente || 0)}</span>
                 </div>
 
-                {/* Campo Editável: Consultoria Líquida */}
+                {/* Campo Editável: Consultoria Bruta */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-muted-foreground">
-                    Consultoria Líquida (editável):
+                    Consultoria Bruta (editável):
                   </label>
                   <input
                     type="text"
                     className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm font-medium text-info focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={consultoriaLiquidaEditavel}
+                    value={consultoriaBruta}
                     onChange={(e) => {
                       const value = e.target.value.replace(/\D/g, "");
                       const numValue = Number(value) / 100;
-                      setConsultoriaLiquidaEditavel(formatCurrency(numValue));
+                      setConsultoriaBruta(formatCurrency(numValue));
                     }}
                     placeholder="R$ 0,00"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Valor original da simulação: {formatCurrency(simulationResult.custoConsultoriaLiquido || 0)}
+                    Valor original da simulação: {formatCurrency(simulationResult.custoConsultoria || 0)}
                   </p>
                 </div>
+
+                {/* Cálculos Automáticos */}
+                {consultoriaBruta && (
+                  <div className="space-y-1.5 border-t pt-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Imposto ({impostoPercentual}%):</span>
+                      <span className="font-medium text-destructive">
+                        {formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (impostoPercentual / 100))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground font-semibold">Consultoria Líquida:</span>
+                      <span className="font-semibold text-success">
+                        {formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100))}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1113,55 +1151,59 @@ export function FinanceCard({
             <div className="space-y-3 pt-2 border-t">
               <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
 
-              {/* Seleção de Atendente */}
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">
-                  Atendente
-                </label>
-                <select
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                  value={selectedAtendenteId || ""}
-                  onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
-                >
-                  <option value="">Selecione um atendente</option>
-                  {availableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Grid 2 Colunas: Atendente + Percentual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Seleção de Atendente */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={selectedAtendenteId || ""}
+                    onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
+                  >
+                    <option value="">Selecione um atendente</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">
-                  Percentual para Atendente
-                </label>
-                <select
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                  value={percentualAtendente}
-                  onChange={(e) => setPercentualAtendente(Number(e.target.value))}
-                >
-                  <option value="10">10% (Atendente) + 90% (Balcão)</option>
-                  <option value="20">20% (Atendente) + 80% (Balcão)</option>
-                  <option value="30">30% (Atendente) + 70% (Balcão)</option>
-                  <option value="40">40% (Atendente) + 60% (Balcão)</option>
-                  <option value="50">50% (Atendente) + 50% (Balcão)</option>
-                  <option value="60">60% (Atendente) + 40% (Balcão)</option>
-                  <option value="70">70% (Atendente) + 30% (Balcão)</option>
-                  <option value="80">80% (Atendente) + 20% (Balcão)</option>
-                  <option value="90">90% (Atendente) + 10% (Balcão)</option>
-                  <option value="100">100% (Atendente) + 0% (Balcão)</option>
-                </select>
+                {/* Percentual para Atendente */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Percentual para Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={percentualAtendente}
+                    onChange={(e) => setPercentualAtendente(Number(e.target.value))}
+                  >
+                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
+                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
+                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
+                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
+                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
+                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
+                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
+                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
+                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
+                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Preview da Distribuição */}
-              {consultoriaLiquidaEditavel && (
+              {consultoriaBruta && (
                 <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
                     <span className="font-medium text-success">
                       {formatCurrency(
-                        (parseCurrencyToNumber(consultoriaLiquidaEditavel) * percentualAtendente) / 100
+                        (parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100) * percentualAtendente) / 100
                       )}
                     </span>
                   </div>
@@ -1169,14 +1211,67 @@ export function FinanceCard({
                     <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
                     <span className="font-medium text-info">
                       {formatCurrency(
-                        (parseCurrencyToNumber(consultoriaLiquidaEditavel) * (100 - percentualAtendente)) / 100
+                        (parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100) * (100 - percentualAtendente)) / 100
                       )}
                     </span>
                   </div>
                   <div className="pt-2 border-t flex justify-between font-semibold">
-                    <span>Total:</span>
-                    <span>{consultoriaLiquidaEditavel}</span>
+                    <span>Total Líquido:</span>
+                    <span>{formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100))}</span>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Comissão de Corretor (Opcional) */}
+            <div className="space-y-3 pt-2 border-t">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={temCorretor}
+                  onChange={(e) => setTemCorretor(e.target.checked)}
+                  className="w-4 h-4 rounded border-input"
+                />
+                <span className="text-sm font-semibold">Tem Corretor?</span>
+              </label>
+
+              {temCorretor && (
+                <div className="space-y-3 pl-6">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">
+                      Nome do Corretor
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={corretorNome}
+                      onChange={(e) => setCorretorNome(e.target.value)}
+                      placeholder="Nome completo do corretor"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">
+                      Valor da Comissão
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={corretorComissao}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        const numValue = Number(value) / 100;
+                        setCorretorComissao(formatCurrency(numValue));
+                      }}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+
+                  {corretorComissao && (
+                    <div className="rounded-lg bg-orange-50 border border-orange-200 p-2 text-sm text-orange-800">
+                      Despesa de comissão: <strong>{corretorComissao}</strong>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1189,8 +1284,19 @@ export function FinanceCard({
               </Button>
               <Button
                 onClick={() => {
-                  const consultoriaAjustada = parseCurrencyToNumber(consultoriaLiquidaEditavel);
-                  onDisburse?.(id, percentualAtendente, consultoriaAjustada, selectedAtendenteId || undefined);
+                  const brutaValue = parseCurrencyToNumber(consultoriaBruta);
+                  const comissaoValue = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
+                  
+                  onDisburse?.(
+                    id,
+                    percentualAtendente,
+                    brutaValue,
+                    selectedAtendenteId || undefined,
+                    impostoPercentual,
+                    temCorretor,
+                    temCorretor ? corretorNome : undefined,
+                    temCorretor ? comissaoValue : undefined
+                  );
                   setShowDisburseConfirm(false);
                 }}
               >
@@ -1237,6 +1343,47 @@ export function FinanceCard({
               >
                 <XCircle className="h-4 w-4 mr-1" />
                 Cancelar Caso
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação Reabertura de Caso */}
+      <Dialog open={showReopenConfirm} onOpenChange={setShowReopenConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reabrir Caso</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
+                <div>
+                  <p className="text-sm font-medium text-warning">Atenção</p>
+                  <p className="mt-1 text-sm text-warning-foreground">
+                    Deseja reabrir este caso para ajustes nos valores?
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    As receitas criadas automaticamente serão excluídas.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowReopenConfirm(false)}>
+                Voltar
+              </Button>
+              <Button
+                variant="default"
+                onClick={() => {
+                  onReopen?.(id);
+                  setShowReopenConfirm(false);
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reabrir Caso
               </Button>
             </div>
           </div>

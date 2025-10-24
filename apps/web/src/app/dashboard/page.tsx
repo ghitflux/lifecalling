@@ -54,7 +54,7 @@ type AnalyticsBucket = "day" | "week" | "month";
 const iso = dateToISO;
 
 // Funções para converter dados reais em formato de mini-chart
-const generateRealTrendData = (seriesData: any[], kpis: any) => {
+const generateRealTrendData = (seriesData: any[], kpis: any, metrics?: any) => {
   // Dados financeiros baseados em séries reais
   const receita = convertFinanceToMiniChart(seriesData, 'finance_receita', kpis?.receita_auto_mtd || 0);
   const despesas = convertFinanceToMiniChart(seriesData, 'finance_despesas', 0);
@@ -75,8 +75,11 @@ const generateRealTrendData = (seriesData: any[], kpis: any) => {
   // Dados de contratos baseados em KPIs reais
   const contratos = generateFallbackTrendData(kpis?.contracts_mtd || 0, kpis?.trends?.contracts_mtd || 0);
 
-  // Dados de impostos baseados em KPIs reais (agora apenas manuais)
-  const imposto = generateFallbackTrendData(0, 0); // Placeholder - impostos são manuais
+  // Dados de impostos baseados em séries reais
+  const imposto = convertFinanceToMiniChart(seriesData, 'finance_impostos', metrics?.totalTax || 0);
+
+  // Dados de comissões baseados em métricas financeiras
+  const comissoes = convertFinanceToMiniChart(seriesData, 'finance_comissoes', metrics?.totalCommissions || 0);
 
   return {
     receita,
@@ -92,6 +95,7 @@ const generateRealTrendData = (seriesData: any[], kpis: any) => {
     conversao,
     contratos,
     imposto,
+    comissoes,
   };
 };
 
@@ -208,11 +212,6 @@ export default function DashboardPage() {
   const { data: series } = useAnalyticsSeries({ from, to }, bucket, selectedMonth);
   const seriesData = useMemo(() => series?.series ?? [], [series]);
 
-  // Gerar dados reais para mini-charts
-  const realTrendData = useMemo(() => {
-    return generateRealTrendData(seriesData, kpis);
-  }, [seriesData, kpis]);
-
   // Métricas financeiras - usar filtro personalizado se definido, senão usar mês atual
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
     queryKey: ["financeMetrics", startDate, endDate, selectedMonth],
@@ -234,6 +233,11 @@ export default function DashboardPage() {
   });
 
   const metrics = metricsData || {};
+
+  // Gerar dados reais para mini-charts
+  const realTrendData = useMemo(() => {
+    return generateRealTrendData(seriesData, kpis, metrics);
+  }, [seriesData, kpis, metrics]);
 
   // Calcular período anterior para comparação
   const calculatePreviousPeriod = () => {
@@ -410,12 +414,16 @@ export default function DashboardPage() {
         finance_receita: number;
         finance_despesas: number;
         finance_resultado: number;
+        finance_comissoes: number;
+        finance_impostos: number;
       }>;
     return seriesData.map((item: any) => ({
       date: item.date,
       finance_receita: (item.finance_receita ?? 0) as number,
       finance_despesas: (item.finance_despesas ?? 0) as number,
       finance_resultado: (item.finance_resultado ?? 0) as number,
+      finance_comissoes: (item.finance_comissoes ?? 0) as number,
+      finance_impostos: (item.finance_impostos ?? 0) as number,
     }));
   }, [seriesData]);
 
@@ -506,11 +514,11 @@ export default function DashboardPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Receita, despesas e resultado líquido</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             title="Receita Total"
             value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"Consultoria + Receitas Manuais + Externas"}
+            subtitle="Todas Receitas"
             gradientVariant="emerald"
             trend={financeTrends.receita}
             icon={DollarSign}
@@ -527,30 +535,9 @@ export default function DashboardPage() {
             }
           />
           <KPICard
-            title="Receita Consultoria Líquida"
-            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"consultorias líquidas"}
-            gradientVariant="sky"
-            trend={financeTrends.consultoria}
-            icon={Briefcase}
-            isLoading={metricsLoading}
-            miniChart={
-              <MiniAreaChart
-                data={realTrendData.consultoria}
-                dataKey="value"
-                xKey="day"
-                stroke="#38bdf8"
-                height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
-              />
-            }
-          />
-          <KPICard
             title="Lucro Líquido"
             value={`R$ ${(metrics.netProfit ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"Receita - Despesas"}
+            subtitle="Receita Total - Despesas"
             gradientVariant="violet"
             trend={financeTrends.lucro}
             icon={TrendingUp}
@@ -571,7 +558,7 @@ export default function DashboardPage() {
           <KPICard
             title="Despesas"
             value={`R$ ${(metrics.totalExpenses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"Despesas do período"}
+            subtitle="Despesas Totais"
             gradientVariant="rose"
             trend={financeTrends.despesas}
             icon={TrendingDown}
@@ -590,7 +577,7 @@ export default function DashboardPage() {
           <KPICard
             title="Impostos"
             value={`R$ ${(metrics.totalTax ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"Impostos cadastrados manualmente"}
+            subtitle="Impostos Totais"
             gradientVariant="amber"
             trend={financeTrends.imposto}
             icon={TrendingDown}
@@ -626,7 +613,9 @@ export default function DashboardPage() {
             lines={[
               { dataKey: "finance_receita", name: "Receita", color: "#10b981" },
               { dataKey: "finance_despesas", name: "Despesas", color: "#ef4444" },
-              { dataKey: "finance_resultado", name: "Resultado", color: "#f59e0b" },
+              { dataKey: "finance_comissoes", name: "Comissões", color: "#3b82f6" },
+              { dataKey: "finance_impostos", name: "Impostos", color: "#f59e0b" },
+              { dataKey: "finance_resultado", name: "Resultado", color: "#8b5cf6" },
             ]}
             xAxisKey="date"
             valueType="currency"

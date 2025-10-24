@@ -40,7 +40,6 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  DollarSign,
   Download,
   Plus,
   TrendingUp,
@@ -256,7 +255,8 @@ export default function Page() {
       (metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0),
       (previousMetrics.totalExpenses || 0) + (previousMetrics.totalTax || 0) - (previousMetrics.totalManualTaxes || 0)
     ),
-    imposto: calculateTrend(metrics.totalTax || 0, previousMetrics.totalTax || 0) // Agora usa apenas impostos manuais
+    imposto: calculateTrend(metrics.totalTax || 0, previousMetrics.totalTax || 0), // Agora usa apenas impostos manuais
+    comissoes: calculateTrend(metrics.totalCommissions || 0, previousMetrics.totalCommissions || 0)
   };
 
   // Buscar dados de séries temporais para mini-charts
@@ -295,13 +295,14 @@ export default function Page() {
   // Gerar dados de tendência reais para mini-charts
   const getTrendChartData = useMemo(() => {
     const series = seriesData?.series || [];
-    
+
     return {
       receita: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalRevenue || 0),
       despesas: convertSeriesToMiniChart(series, 'finance_despesas', metrics.totalExpenses || 0),
       lucro: convertSeriesToMiniChart(series, 'finance_resultado', metrics.netProfit || 0),
       consultoria: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalConsultoriaLiq || 0),
-      imposto: convertSeriesToMiniChart(series, 'finance_despesas', metrics.totalTax || 0) // Agora usa apenas impostos manuais
+      imposto: convertSeriesToMiniChart(series, 'finance_impostos', metrics.totalTax || 0),
+      comissoes: convertSeriesToMiniChart(series, 'finance_comissoes', metrics.totalCommissions || 0)
     };
   }, [seriesData, metrics]);
 
@@ -452,12 +453,17 @@ export default function Page() {
   });
 
   // Ações casos/contratos
-  const handleDisburse = async (id: number, percentualAtendente?: number, consultoriaAjustada?: number, atendenteUserId?: number) => {
+  const handleDisburse = async (
+    id: number,
+    percentualAtendente?: number,
+    consultoriaLiquidaAjustada?: number,
+    atendenteUserId?: number
+  ) => {
     try {
       await disb.mutateAsync({
         case_id: id,
+        consultoria_liquida_ajustada: consultoriaLiquidaAjustada,
         percentual_atendente: percentualAtendente,
-        consultoria_liquida_ajustada: consultoriaAjustada,
         atendente_user_id: atendenteUserId
       });
       toast.success("Liberação efetivada com sucesso!");
@@ -840,29 +846,20 @@ export default function Page() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Receita Total"
+          subtitle="Todas Receitas"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Consultoria + Receitas Manuais + Externas"
           isLoading={metricsLoading}
           gradientVariant="emerald"
           trend={trends.receita}
           miniChart={<MiniAreaChart data={getTrendChartData.receita} dataKey="value" xKey="day" stroke="#10b981" height={60} valueType="currency" />}
         />
         <KPICard
-          title="Receita Consultoria Líquida"
-          value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Consultorias líquidas"
-          isLoading={metricsLoading}
-          gradientVariant="sky"
-          trend={trends.consultoria}
-          miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#0ea5e9" height={60} valueType="currency" />}
-        />
-        <KPICard
           title="Lucro Líquido"
+          subtitle="Receita Total - Despesas"
           value={`R$ ${(metrics.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Receita - Despesas"
           isLoading={metricsLoading}
           gradientVariant="violet"
           trend={trends.lucro}
@@ -870,8 +867,8 @@ export default function Page() {
         />
         <KPICard
           title="Despesas"
+          subtitle="Despesas Totais"
           value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Despesas do período"
           isLoading={metricsLoading}
           gradientVariant="rose"
           trend={trends.despesas}
@@ -879,8 +876,8 @@ export default function Page() {
         />
         <KPICard
           title="Impostos"
+          subtitle="Impostos Totais"
           value={`R$ ${(metrics.totalTax || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Impostos cadastrados manualmente"
           isLoading={metricsLoading}
           gradientVariant="amber"
           trend={trends.imposto}
@@ -1150,7 +1147,7 @@ export default function Page() {
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-4 font-semibold text-sm">Data</th>
                         <th className="text-left p-4 font-semibold text-sm">Tipo</th>
-                        <th className="text-left p-4 font-semibold text-sm">Cliente</th>
+                        <th className="text-left p-4 font-semibold text-sm">Descrição</th>
                         <th className="text-left p-4 font-semibold text-sm">CPF</th>
                         <th className="text-left p-4 font-semibold text-sm">Atendente</th>
                         <th className="text-left p-4 font-semibold text-sm">Categoria</th>
@@ -1192,12 +1189,18 @@ export default function Page() {
                             {transaction.client_name ? (
                               <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{transaction.client_name}</span>
+                                <span className="font-medium">
+                                  {transaction.type === "receita" ? "REC - " : "DES - "}
+                                  {transaction.client_name}
+                                </span>
                               </div>
                             ) : transaction.name ? (
                               <div className="flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium text-muted-foreground italic">{transaction.name}</span>
+                                <span className="font-medium text-muted-foreground italic">
+                                  {transaction.type === "receita" ? "REC - " : "DES - "}
+                                  {transaction.name}
+                                </span>
                               </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -1222,10 +1225,7 @@ export default function Page() {
                             </span>
                           </td>
                           <td className={`p-4 text-right font-semibold whitespace-nowrap ${transaction.type === "receita" ? "text-success" : "text-danger"}`}>
-                            <div className="flex items-center justify-end gap-1">
-                              <DollarSign className="h-4 w-4" />
-                              R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </div>
+                            R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </td>
                           <td className="p-4">
                             <div className="flex items-center justify-center gap-1">

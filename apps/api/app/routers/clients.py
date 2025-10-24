@@ -774,6 +774,98 @@ def delete_client(
     return {"ok": True, "message": "Cliente excluído com sucesso"}
 
 
+@r.get("/{client_id}/delete-stats")
+def get_client_delete_stats(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
+    """
+    Retorna estatísticas de exclusão de um cliente.
+    Usado pelo frontend para mostrar confirmação detalhada antes da exclusão.
+    """
+    from ..models import (
+        Attachment, CaseEvent, Simulation, Contract, Payment,
+        CommissionPayout, FinanceExpense, FinanceIncome
+    )
+
+    # Buscar cliente
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar casos associados
+    cases = db.query(Case).filter_by(client_id=client.id).all()
+    case_ids = [case.id for case in cases]
+
+    # Contar estatísticas
+    stats = {
+        "client_name": client.name,
+        "client_cpf": client.cpf,
+        "cases_count": len(cases),
+        "contracts_count": 0,
+        "commission_payouts_count": 0,
+        "finance_expenses_count": 0,
+        "finance_incomes_count": 0,
+        "simulations_count": 0,
+        "attachments_count": 0,
+        "events_count": 0
+    }
+
+    if case_ids:
+        # Contar contratos
+        contracts = db.query(Contract).filter(
+            Contract.case_id.in_(case_ids)
+        ).all()
+        stats["contracts_count"] = len(contracts)
+
+        # Contar comissões
+        stats["commission_payouts_count"] = db.query(CommissionPayout).filter(
+            CommissionPayout.case_id.in_(case_ids)
+        ).count()
+
+        # Contar despesas vinculadas
+        commission_expense_ids = [
+            c.expense_id for c in db.query(CommissionPayout).filter(
+                CommissionPayout.case_id.in_(case_ids),
+                CommissionPayout.expense_id.isnot(None)
+            ).all()
+        ]
+        if commission_expense_ids:
+            stats["finance_expenses_count"] = db.query(FinanceExpense).filter(
+                FinanceExpense.id.in_(commission_expense_ids)
+            ).count()
+
+        # Contar simulações
+        stats["simulations_count"] = db.query(Simulation).filter(
+            Simulation.case_id.in_(case_ids)
+        ).count()
+
+        # Contar anexos
+        stats["attachments_count"] = db.query(Attachment).filter(
+            Attachment.case_id.in_(case_ids)
+        ).count()
+
+        # Contar eventos
+        stats["events_count"] = db.query(CaseEvent).filter(
+            CaseEvent.case_id.in_(case_ids)
+        ).count()
+
+    # Contar receitas vinculadas ao CPF
+    stats["finance_incomes_count"] = db.query(FinanceIncome).filter(
+        FinanceIncome.client_cpf == client.cpf
+    ).count()
+
+    return {
+        "ok": True,
+        "stats": stats,
+        "warning": (
+            "Esta ação é IRREVERSÍVEL e afetará o histórico financeiro, "
+            "rankings de atendentes e relatórios do sistema."
+        )
+    }
+
+
 @r.delete("/{client_id}/cascade")
 def delete_client_cascade(
     client_id: int,
@@ -782,7 +874,17 @@ def delete_client_cascade(
 ):
     """
     Deleta um cliente e todos os casos associados (apenas admin).
-    Exclusão em cascata - remove casos, anexos, eventos, simulações.
+    Exclusão em cascata - remove casos, contratos, comissões, receitas e despesas.
+
+    Ordem de exclusão:
+    1. CommissionPayout (para liberar FK de Contract/Case)
+    2. FinanceExpense (vinculadas ao CommissionPayout)
+    3. Contract (agora sem bloqueio FK)
+    4. case.last_simulation_id = None (para liberar FK de Simulations)
+    5. Simulations (agora sem bloqueio FK)
+    6. Attachments, CaseEvents, Case
+    7. FinanceIncome (vinculadas ao CPF do cliente)
+    8. ClientPhone, Client
     """
     # Buscar cliente
     client = db.query(Client).get(client_id)
@@ -792,21 +894,38 @@ def delete_client_cascade(
     # Buscar casos associados
     cases = db.query(Case).filter_by(client_id=client.id).all()
 
+    # Estatísticas de exclusão
+    stats = {
+        "cases": 0,
+        "contracts": 0,
+        "commission_payouts": 0,
+        "finance_expenses": 0,
+        "finance_incomes": 0,
+        "simulations": 0,
+        "attachments": 0,
+        "events": 0
+    }
+
     # Deletar em cascata
     for case in cases:
-        # Deletar anexos
-        from ..models import Attachment
-        db.query(Attachment).filter_by(case_id=case.id).delete()
+        # PASSO 1: Deletar CommissionPayout (ANTES do Contract)
+        from ..models import CommissionPayout, FinanceExpense
+        commission = db.query(CommissionPayout).filter_by(case_id=case.id).first()
+        if commission:
+            # PASSO 2: Deletar FinanceExpense vinculada ao CommissionPayout
+            if commission.expense_id:
+                expense = db.query(FinanceExpense).filter_by(
+                    id=commission.expense_id
+                ).first()
+                if expense:
+                    db.delete(expense)
+                    stats["finance_expenses"] += 1
 
-        # Deletar eventos
-        from ..models import CaseEvent
-        db.query(CaseEvent).filter_by(case_id=case.id).delete()
+            # Deletar CommissionPayout
+            db.delete(commission)
+            stats["commission_payouts"] += 1
 
-        # Deletar simulações
-        from ..models import Simulation
-        db.query(Simulation).filter_by(case_id=case.id).delete()
-
-        # Deletar contrato se existir
+        # PASSO 3: Deletar Contract (agora sem bloqueio FK)
         from ..models import Contract
         contract = db.query(Contract).filter_by(case_id=case.id).first()
         if contract:
@@ -822,24 +941,61 @@ def delete_client_cascade(
 
             # Deletar contrato
             db.delete(contract)
+            stats["contracts"] += 1
 
-        # Deletar caso
+        # PASSO 4: Limpar referência last_simulation_id ANTES de deletar simulações
+        # (evitar erro de FK constraint)
+        if case.last_simulation_id:
+            case.last_simulation_id = None
+            db.flush()  # Commit imediato da mudança
+
+        # PASSO 5: Deletar simulações (agora sem bloqueio FK)
+        from ..models import Simulation
+        simulations_count = db.query(Simulation).filter_by(case_id=case.id).count()
+        db.query(Simulation).filter_by(case_id=case.id).delete()
+        stats["simulations"] += simulations_count
+
+        # PASSO 6: Deletar anexos
+        from ..models import Attachment
+        attachments_count = db.query(Attachment).filter_by(case_id=case.id).count()
+        db.query(Attachment).filter_by(case_id=case.id).delete()
+        stats["attachments"] += attachments_count
+
+        # PASSO 7: Deletar eventos
+        from ..models import CaseEvent
+        events_count = db.query(CaseEvent).filter_by(case_id=case.id).count()
+        db.query(CaseEvent).filter_by(case_id=case.id).delete()
+        stats["events"] += events_count
+
+        # PASSO 8: Deletar caso
         db.delete(case)
+        stats["cases"] += 1
 
-    # Deletar telefones do cliente
+    # PASSO 9: Deletar FinanceIncome vinculadas ao CPF do cliente
+    from ..models import FinanceIncome
+    incomes = db.query(FinanceIncome).filter(
+        FinanceIncome.client_cpf == client.cpf
+    ).all()
+    for income in incomes:
+        db.delete(income)
+        stats["finance_incomes"] += 1
+
+    # PASSO 10: Deletar telefones do cliente
     db.query(ClientPhone).filter_by(client_id=client.id).delete()
 
-    # Deletar cliente
+    # PASSO 11: Deletar cliente
     db.delete(client)
     db.commit()
 
     return {
         "ok": True,
         "message": (
-            f"Cliente e {len(cases)} caso(s) associado(s) "
-            f"excluído(s) com sucesso"
+            f"Cliente '{client.name}' excluído com sucesso junto com "
+            f"{stats['cases']} caso(s), {stats['contracts']} contrato(s), "
+            f"{stats['commission_payouts']} comissão(ões), "
+            f"{stats['finance_incomes']} receita(s) financeira(s)"
         ),
-        "deleted_cases": len(cases)
+        "deleted": stats
     }
 
 
