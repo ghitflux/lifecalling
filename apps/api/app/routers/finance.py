@@ -829,14 +829,23 @@ async def reopen_case(
                 )
             
             # Excluir receitas automáticas criadas pela efetivação
-            from ..models import FinanceIncome
-            deleted_count = db.query(FinanceIncome).filter(
-                FinanceIncome.income_name.like(f"%Contrato%{case.id}%"),
-                FinanceIncome.income_type.in_([
-                    "Consultoria - Atendente",
-                    "Consultoria - Balcão"
-                ])
-            ).delete(synchronize_session=False)
+            from ..models import FinanceIncome, Contract
+            
+            # Buscar contrato vinculado ao caso
+            contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+            
+            if contract:
+                # Deletar receitas usando o contract_id correto (padrão: "Contrato #123")
+                deleted_count = db.query(FinanceIncome).filter(
+                    FinanceIncome.income_name.like(f"%(Contrato #{contract.id})%"),
+                    FinanceIncome.income_type.in_([
+                        "Consultoria - Atendente",
+                        "Consultoria - Balcão"
+                    ])
+                ).delete(synchronize_session=False)
+            else:
+                # Caso sem contrato: não há receitas para excluir
+                deleted_count = 0
             
             # Alterar status do caso
             case.status = "financeiro_pendente"
@@ -1728,7 +1737,7 @@ def update_income(
 @r.delete("/incomes/{income_id}")
 def delete_income(
     income_id: int,
-    user=Depends(require_roles("admin", "supervisor"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Remove uma receita manual"""
     with SessionLocal() as db:
