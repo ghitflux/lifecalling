@@ -341,7 +341,9 @@ def finance_metrics(
         FinanceIncome,
         FinanceExpense,
         ExternalClientIncome,
-        CommissionPayout
+        CommissionPayout,
+        Simulation,
+        Case
     )
     from sqlalchemy import func  # pyright: ignore[reportMissingImports]
     from datetime import datetime, timedelta
@@ -1498,6 +1500,9 @@ def list_incomes(
                     "income_type": inc.income_type,
                     "income_name": inc.income_name,
                     "amount": float(inc.amount),
+                    "agent_user_id": inc.agent_user_id,
+                    "client_cpf": inc.client_cpf,
+                    "client_name": inc.client_name,
                     "attachment_filename": inc.attachment_filename,
                     "attachment_size": inc.attachment_size,
                     "has_attachment": bool(inc.attachment_path),

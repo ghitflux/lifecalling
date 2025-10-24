@@ -195,9 +195,10 @@ export function IncomeModal({
           {formData.income_type === "Consultoria Bruta" && (
             <>
               {/* Atendente */}
-              <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-amber-700 mb-2">
-                  ⚠️ Campos obrigatórios para Consultoria Bruta
+              <div className="space-y-2 bg-amber-100 border-2 border-amber-400 rounded-lg p-4 shadow-sm">
+                <p className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                  <span className="text-lg">⚠️</span>
+                  Campos obrigatórios para Consultoria Bruta
                 </p>
 
                 <label className="text-sm font-medium flex items-center gap-2">
