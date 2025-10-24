@@ -48,6 +48,7 @@ import {
   Edit,
   TrendingDown,
   Receipt,
+  Briefcase,
   Target,
   RefreshCw,
   FileText,
@@ -883,6 +884,28 @@ export default function Page() {
           trend={trends.imposto}
           miniChart={<MiniAreaChart data={getTrendChartData.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
         />
+      </div>
+
+      {/* DESTAQUE: CONSULTORIA LÍQUIDA */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-cyan-500" />
+            Destaque - Consultoria Líquida
+          </h2>
+          <p className="text-sm text-muted-foreground">Receita líquida de consultorias (após impostos)</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <KPICard
+            title="Consultoria Líquida Total"
+            subtitle="Consultorias líquidas (após impostos)"
+            value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            isLoading={metricsLoading}
+            gradientVariant="cyan"
+            trend={trends.consultoria}
+            miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#06b6d4" height={80} valueType="currency" />}
+          />
+        </div>
       </div>
 
       {/* Filtros rápidos (casos) */}

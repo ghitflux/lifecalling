@@ -596,6 +596,40 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* DESTAQUE: CONSULTORIA LÍQUIDA */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-cyan-500" />
+            Destaque - Consultoria Líquida
+          </h2>
+          <p className="text-sm text-muted-foreground">Receita líquida de consultorias (após impostos)</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <KPICard
+            title="Consultoria Líquida Total"
+            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle="Consultorias líquidas (após impostos)"
+            gradientVariant="cyan"
+            trend={financeTrends.consultoria}
+            icon={Briefcase}
+            isLoading={metricsLoading}
+            miniChart={
+              <MiniAreaChart
+                data={realTrendData.consultoria}
+                dataKey="value"
+                xKey="day"
+                stroke="#06b6d4"
+                height={100}
+                tooltipFormatter={(value) =>
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                }
+              />
+            }
+          />
+        </div>
+      </div>
+
       {/* 2. GRÁFICOS FINANCEIROS */}
       <div className="space-y-3">
         <div>
