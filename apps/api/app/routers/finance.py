@@ -677,7 +677,9 @@ async def disburse_simple(
                         income_name=f"Consultoria {percentual_atendente:.0f}% - {client_name} (Contrato #{ct.id})",
                         amount=valor_atendente,
                         created_by=user.id,
-                        agent_user_id=atendente_id  # Atendente selecionado ou do caso
+                        agent_user_id=atendente_id,  # Atendente selecionado ou do caso
+                        client_cpf=c.client.cpf if c.client else None,
+                        client_name=client_name
                     )
                     db.add(income_atendente)
 
@@ -689,7 +691,9 @@ async def disburse_simple(
                         income_name=f"Consultoria {percentual_balcao:.0f}% - {client_name} (Contrato #{ct.id})",
                         amount=valor_balcao,
                         created_by=user.id,
-                        agent_user_id=None  # Sem usuário específico (receita do balcão)
+                        agent_user_id=None,  # Sem usuário específico (receita do balcão)
+                        client_cpf=c.client.cpf if c.client else None,
+                        client_name=client_name
                     )
                     db.add(income_balcao)
 
