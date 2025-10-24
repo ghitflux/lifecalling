@@ -195,36 +195,38 @@ export function IncomeModal({
           {formData.income_type === "Consultoria Bruta" && (
             <>
               {/* Atendente */}
-              <div className="space-y-2 bg-amber-100 border-2 border-amber-400 rounded-lg p-4 shadow-sm">
-                <p className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+              <div className="space-y-3 bg-amber-100 border-2 border-amber-400 rounded-lg p-4 shadow-sm">
+                <p className="text-sm font-semibold text-amber-900 mb-3 flex items-center gap-2">
                   <span className="text-lg">⚠️</span>
                   Campos obrigatórios para Consultoria Bruta
                 </p>
 
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Atendente *
-                </label>
-                <select
-                  value={formData.agent_user_id || ""}
-                  onChange={(e) => setFormData({ ...formData, agent_user_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                  className="w-full px-3 py-2 border rounded-md bg-white"
-                  disabled={loading}
-                  required
-                >
-                  <option value="">Selecione o atendente...</option>
-                  {availableUsers
-                    .filter(u => u.role === "atendente")
-                    .map(user => (
-                      <option key={user.id} value={user.id}>{user.name}</option>
-                    ))
-                  }
-                </select>
-              </div>
+                {/* Atendente */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Atendente *
+                  </label>
+                  <select
+                    value={formData.agent_user_id || ""}
+                    onChange={(e) => setFormData({ ...formData, agent_user_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border rounded-md bg-white text-gray-900"
+                    disabled={loading}
+                    required
+                  >
+                    <option value="">Selecione o atendente...</option>
+                    {availableUsers
+                      .filter(u => u.role === "atendente")
+                      .map(user => (
+                        <option key={user.id} value={user.id}>{user.name}</option>
+                      ))
+                    }
+                  </select>
+                </div>
 
-              {/* CPF do Cliente */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">CPF do Cliente *</label>
+                {/* CPF do Cliente */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-900">CPF do Cliente *</label>
                 <Input
                   type="text"
                   value={formData.client_cpf || ""}
@@ -248,17 +250,19 @@ export function IncomeModal({
                 />
               </div>
 
-              {/* Nome do Cliente */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nome do Cliente *</label>
-                <Input
-                  type="text"
-                  value={formData.client_name || ""}
-                  onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                  placeholder="Nome completo do cliente"
-                  disabled={loading}
-                  required
-                />
+                {/* Nome do Cliente */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-900">Nome do Cliente *</label>
+                  <Input
+                    type="text"
+                    className="bg-white text-gray-900"
+                    value={formData.client_name || ""}
+                    onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                    placeholder="Nome completo do cliente"
+                    disabled={loading}
+                    required
+                  />
+                </div>
               </div>
             </>
           )}

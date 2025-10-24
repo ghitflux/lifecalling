@@ -603,7 +603,7 @@ export function FinanceCard({
                     onReopen(id);
                   }
                 }}
-                className="w-full border-amber-500 text-amber-700 hover:bg-amber-50"
+                className="w-full border-amber-500 text-amber-700 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-colors"
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Reabrir para Ajuste

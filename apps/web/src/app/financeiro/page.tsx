@@ -965,9 +965,9 @@ export default function Page() {
                   if (item.status === "caso_cancelado") return "caso_cancelado";
                   if (item.status === "contrato_cancelado") return "contrato_cancelado";
                   if (item.status === "contrato_efetivado") return "contrato_efetivado";
-                  if (item.contract) return "disbursed";
                   if (item.status === "financeiro_pendente") return "financeiro_pendente";
                   if (item.status === "fechamento_aprovado") return "fechamento_aprovado";
+                  if (item.contract) return "disbursed";
                   return "approved";
                 })() as "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado" | "caso_cancelado" | "contrato_cancelado";
 
