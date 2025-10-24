@@ -564,9 +564,22 @@ async def disburse(
 class DisburseSimpleIn(BaseModel):
     case_id: int
     disbursed_at: datetime | None = None
-    consultoria_liquida_ajustada: float | None = None  # Valor editado manualmente
-    percentual_atendente: float | None = None  # Percentual para atendente (padrão 70%)
-    atendente_user_id: int | None = None  # ID do atendente que receberá a consultoria (padrão: atendente do caso)
+
+    # NOVOS CAMPOS: Consultoria Bruta + Imposto
+    consultoria_bruta: float  # Obrigatório: Valor bruto da consultoria
+    imposto_percentual: float = 14.0  # Percentual de imposto (padrão 14%)
+
+    # Comissão de Corretor (opcional)
+    tem_corretor: bool = False
+    corretor_nome: str | None = None
+    corretor_comissao_valor: float | None = None
+
+    # Distribuição (já existente)
+    percentual_atendente: float | None = None
+    atendente_user_id: int | None = None
+
+    # DEPRECATED (manter para compatibilidade temporária)
+    consultoria_liquida_ajustada: float | None = None
 
 
 @r.post("/disburse-simple")
@@ -574,10 +587,10 @@ async def disburse_simple(
     data: DisburseSimpleIn,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Efetiva liberação usando os valores já calculados da simulação"""
+    """Efetiva liberação com Consultoria Bruta + Comissão Corretor (opcional)"""
     try:
         with SessionLocal() as db:
-            # Buscar caso com eager loading do cliente
+            # 1. Buscar caso com eager loading do cliente
             c = db.query(Case).options(
                 joinedload(Case.client)
             ).filter(Case.id == data.case_id).first()
@@ -589,7 +602,7 @@ async def disburse_simple(
             if not c.client:
                 raise HTTPException(400, "Caso não possui cliente associado")
 
-            # Busca a simulação mais recente aprovada
+            # 2. Busca a simulação mais recente aprovada
             from ..models import Simulation
             simulation = db.query(Simulation).filter(
                 Simulation.case_id == c.id,
@@ -618,19 +631,19 @@ async def disburse_simple(
                     "Simulação não possui prazo válido"
                 )
 
-            # Validar consultoria líquida
-            # Usar valor ajustado se fornecido, senão usar da simulação
-            consultoria_liquida = (
-                data.consultoria_liquida_ajustada
-                if data.consultoria_liquida_ajustada is not None
-                else (simulation.custo_consultoria_liquido or 0)
-            )
+            # 3. Calcular Consultoria Líquida a partir da Bruta
+            consultoria_bruta = data.consultoria_bruta
+            imposto_percentual = data.imposto_percentual or 14.0
+            imposto_valor = consultoria_bruta * (imposto_percentual / 100)
+            consultoria_liquida = consultoria_bruta - imposto_valor
+
             if consultoria_liquida <= 0:
                 print(
                     f"[AVISO] Consultoria líquida é zero para caso {c.id}, "
                     f"não será criada receita automática"
                 )
 
+            # 4. Criar ou Atualizar Contract
             ct = db.query(Contract).filter(Contract.case_id == c.id).first()
             if not ct:
                 ct = Contract(case_id=c.id)
@@ -645,13 +658,22 @@ async def disburse_simple(
             ct.consultoria_valor_liquido = consultoria_liquida
             ct.signed_at = data.disbursed_at or now_brt()
             ct.created_by = user.id
-            # Usar atendente fornecido ou atendente do caso como fallback
             ct.agent_user_id = data.atendente_user_id or c.assigned_user_id
+
+            # NOVOS CAMPOS: Consultoria Bruta + Imposto
+            ct.consultoria_bruta = consultoria_bruta
+            ct.imposto_percentual = imposto_percentual
+            ct.imposto_valor = imposto_valor
+
+            # NOVOS CAMPOS: Comissão Corretor (opcional)
+            ct.tem_corretor = data.tem_corretor
+            ct.corretor_nome = data.corretor_nome
+            ct.corretor_comissao_valor = data.corretor_comissao_valor
 
             db.add(ct)
             db.flush()
 
-            # Criar 2 receitas: Atendente + Balcão (distribuição da Consultoria Líquida)
+            # 5. Criar Receitas (Atendente + Balcão)
             if consultoria_liquida and consultoria_liquida > 0:
                 from ..models import FinanceIncome
                 client_name = (
@@ -677,7 +699,7 @@ async def disburse_simple(
                         income_name=f"Consultoria {percentual_atendente:.0f}% - {client_name} (Contrato #{ct.id})",
                         amount=valor_atendente,
                         created_by=user.id,
-                        agent_user_id=atendente_id,  # Atendente selecionado ou do caso
+                        agent_user_id=atendente_id,
                         client_cpf=c.client.cpf if c.client else None,
                         client_name=client_name
                     )
@@ -697,6 +719,23 @@ async def disburse_simple(
                     )
                     db.add(income_balcao)
 
+            # 6. Criar Despesa de Comissão Corretor (se houver)
+            if data.tem_corretor and data.corretor_comissao_valor and data.corretor_comissao_valor > 0:
+                from ..models import FinanceExpense
+                expense = FinanceExpense(
+                    date=data.disbursed_at or now_brt(),
+                    expense_type="Comissão",
+                    expense_name=f"Comissão Corretor - {data.corretor_nome} (Contrato #{ct.id})",
+                    amount=data.corretor_comissao_valor,
+                    created_by=user.id
+                )
+                db.add(expense)
+                db.flush()
+
+                # Vincular expense ao contract
+                ct.corretor_expense_id = expense.id
+
+            # 7. Atualizar status do caso
             c.status = "contrato_efetivado"
             c.last_update_at = now_brt()
             db.add(CaseEvent(
@@ -704,6 +743,11 @@ async def disburse_simple(
                 type="finance.disbursed",
                 payload={
                     "contract_id": ct.id,
+                    "consultoria_bruta": float(consultoria_bruta),
+                    "consultoria_liquida": float(consultoria_liquida),
+                    "imposto_percentual": float(imposto_percentual),
+                    "tem_corretor": data.tem_corretor,
+                    "corretor_comissao": float(data.corretor_comissao_valor or 0),
                     "amount": float(total_amount),
                     "installments": simulation.prazo
                 },

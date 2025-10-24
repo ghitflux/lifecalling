@@ -1,16 +1,311 @@
 # Documentação de Alterações - LifeCalling v1
 
-## Última Atualização: 24/10/2025
-
-## Última Atualização: 21/10/2025
+## Última Atualização: 24/10/2025 - 17:00 (Em Progresso)
 
 ---
 
 ## 📋 Índice de Sessões
 
-1. [Correções Críticas no Módulo Financeiro (24/10/2025)](#correções-críticas-módulo-financeiro-24102025)
-2. [Sistema de Cancelamento de Casos (21/10/2025)](#sistema-de-cancelamento-21102025)
-3. [Sistema de Histórico de Simulações (20/10/2024)](#sistema-de-histórico-20102024)
+1. [🚧 Consultoria Bruta + Controle Admin - EM PROGRESSO (24/10/2025)](#consultoria-bruta-controle-admin-24102025)
+2. [Correções Críticas no Módulo Financeiro (24/10/2025)](#correções-críticas-módulo-financeiro-24102025)
+3. [Sistema de Cancelamento de Casos (21/10/2025)](#sistema-de-cancelamento-21102025)
+4. [Sistema de Histórico de Simulações (20/10/2024)](#sistema-de-histórico-20102024)
+
+---
+
+## 🚧 Consultoria Bruta + Controle Admin - EM PROGRESSO (24/10/2025)
+
+### 📋 Resumo Geral
+
+Implementação de **2 ajustes críticos** solicitados:
+
+1. **Controle Administrativo**: Reversão inteligente de status
+2. **Campo de Consultoria Bruta**: Editável + Imposto 14% + Comissão de Corretor (opcional)
+
+---
+
+### ✅ IMPLEMENTADO (Backend - 4 arquivos)
+
+#### 1. **models.py** - Novos Campos em Contract
+**Arquivo:** `lifecalling/apps/api/app/models.py` (linhas 182-191)
+
+```python
+# Campos de consultoria bruta e imposto (novos)
+consultoria_bruta = Column(Numeric(14,2), nullable=True)
+imposto_percentual = Column(Numeric(5,2), default=14.00, nullable=True)
+imposto_valor = Column(Numeric(14,2), nullable=True)
+
+# Campos de comissão de corretor (opcional)
+tem_corretor = Column(Boolean, default=False, nullable=True)
+corretor_nome = Column(String(255), nullable=True)
+corretor_comissao_valor = Column(Numeric(14,2), nullable=True)
+corretor_expense_id = Column(Integer, ForeignKey("finance_expenses.id", ondelete="SET NULL"), nullable=True)
+```
+
+✅ **Status:** Implementado e validado
+
+---
+
+#### 2. **Migração Alembic** - Criada
+**Arquivo:** `lifecalling/apps/api/migrations/versions/a1b2c3d4e5f6_add_consultoria_bruta_e_comissao_corretor.py`
+
+```python
+# Adiciona 7 campos novos em contracts
+- consultoria_bruta
+- imposto_percentual (padrão 14%)
+- imposto_valor
+- tem_corretor
+- corretor_nome
+- corretor_comissao_valor
+- corretor_expense_id (FK para finance_expenses)
+```
+
+✅ **Status:** Arquivo criado, **AGUARDANDO EXECUÇÃO**
+
+---
+
+#### 3. **finance.py** - Schema DisburseSimpleIn Atualizado
+**Arquivo:** `lifecalling/apps/api/app/routers/finance.py` (linhas 564-582)
+
+```python
+class DisburseSimpleIn(BaseModel):
+    case_id: int
+    disbursed_at: datetime | None = None
+
+    # NOVOS CAMPOS: Consultoria Bruta + Imposto
+    consultoria_bruta: float  # Obrigatório
+    imposto_percentual: float = 14.0  # Padrão 14%
+
+    # Comissão de Corretor (opcional)
+    tem_corretor: bool = False
+    corretor_nome: str | None = None
+    corretor_comissao_valor: float | None = None
+
+    # Distribuição (já existente)
+    percentual_atendente: float | None = None
+    atendente_user_id: int | None = None
+```
+
+✅ **Status:** Implementado
+
+---
+
+#### 4. **finance.py** - Rota POST /disburse-simple Reescrita
+**Arquivo:** `lifecalling/apps/api/app/routers/finance.py` (linhas 585-779)
+
+**Novos recursos:**
+- Calcula `consultoria_liquida = bruta - (bruta * 14%)`
+- Salva `consultoria_bruta`, `imposto_percentual`, `imposto_valor` no Contract
+- Cria FinanceExpense automática se `tem_corretor = true`
+- Vincula despesa ao Contract via `corretor_expense_id`
+
+✅ **Status:** Implementado
+
+---
+
+### ⏳ PENDENTE (A Implementar)
+
+#### 5. **cases.py** - Reversão Inteligente de Status
+**Arquivo:** `lifecalling/apps/api/app/routers/cases.py` (linha ~1629)
+
+**Objetivo:** Quando admin muda status, sistema reverte mudanças automaticamente.
+
+**Lógica a implementar:**
+```python
+REVERSAL_ACTIONS = {
+    "calculista_pendente": {
+        "from": ["financeiro_pendente", "contrato_efetivado"],
+        "actions": [
+            "delete_finance_incomes",  # Excluir receitas Atendente/Balcão
+            "revert_simulation_to_draft"  # Voltar simulação para draft
+        ]
+    },
+    "em_atendimento": {
+        "from": ["calculista_pendente"],
+        "actions": ["delete_draft_simulations"]
+    },
+    "novo": {
+        "from": ["*"],  # Qualquer status
+        "actions": ["reset_assignment"]  # Limpar assigned_user_id
+    }
+}
+```
+
+❌ **Status:** Não implementado (código localizado mas não modificado)
+
+---
+
+#### 6. **FinanceCard.tsx** - Modal de Efetivação Atualizado
+**Arquivo:** `lifecalling/packages/ui/src/FinanceCard.tsx` (linhas 1062-1203)
+
+**Novos campos a adicionar:**
+```tsx
+// Estados
+const [consultoriaBruta, setConsultoriaBruta] = useState<string>("");
+const [impostoPercentual] = useState<number>(14);
+const [temCorretor, setTemCorretor] = useState<boolean>(false);
+const [corretorNome, setCorretorNome] = useState<string>("");
+const [corretorComissao, setCorretorComissao] = useState<string>("");
+
+// Cálculo automático
+const consultoriaLiquida = consultoriaBruta * 0.86;
+
+// JSX: Campos editáveis + Preview + Checkbox Corretor
+```
+
+❌ **Status:** Não implementado
+
+---
+
+#### 7. **financeiro/page.tsx** - Callback Atualizado
+**Arquivo:** `lifecalling/apps/web/src/app/financeiro/page.tsx`
+
+**Atualização necessária:**
+```typescript
+const handleDisburse = async (
+  caseId: number,
+  percentualAtendente?: number,
+  _unused?: number,  // deprecated
+  atendenteUserId?: number,
+  // NOVOS PARÂMETROS:
+  consultoriaBruta?: number,
+  impostoPercentual?: number,
+  temCorretor?: boolean,
+  corretorNome?: string,
+  corretorComissaoValor?: number
+) => {
+  await api.post("/finance/disburse-simple", {
+    case_id: caseId,
+    consultoria_bruta: consultoriaBruta,
+    imposto_percentual: impostoPercentual || 14,
+    tem_corretor: temCorretor || false,
+    corretor_nome: temCorretor ? corretorNome : null,
+    corretor_comissao_valor: temCorretor ? corretorComissaoValor : null,
+    percentual_atendente: percentualAtendente,
+    atendente_user_id: atendenteUserId
+  });
+};
+```
+
+❌ **Status:** Não implementado
+
+---
+
+#### 8. **Execução de Migração + Restart API**
+
+**Comandos a executar:**
+```bash
+# Entrar no container da API
+docker exec -it lifecalling-api-1 bash
+
+# Executar migração
+cd /app
+alembic upgrade head
+
+# Sair do container
+exit
+
+# Reiniciar API
+docker restart lifecalling-api-1
+```
+
+❌ **Status:** Não executado
+
+---
+
+### 📊 Progresso Geral
+
+| Tarefa | Status | Arquivos |
+|--------|--------|----------|
+| Models.py (campos) | ✅ Completo | 1 arquivo |
+| Migração Alembic | ✅ Completo | 1 arquivo |
+| Schema DisburseSimpleIn | ✅ Completo | 1 arquivo |
+| Rota /disburse-simple | ✅ Completo | 1 arquivo |
+| Reversão de status (cases.py) | ❌ Pendente | 1 arquivo |
+| FinanceCard.tsx (modal) | ❌ Pendente | 1 arquivo |
+| financeiro/page.tsx (callback) | ❌ Pendente | 1 arquivo |
+| Migração + Restart | ❌ Pendente | N/A |
+
+**Total Implementado:** 50% (4/8 tarefas)
+**Total Pendente:** 50% (4/8 tarefas)
+
+---
+
+### 🎯 Próximos Passos
+
+#### Opção A: Continuar Implementação (Recomendado)
+1. ✅ Implementar reversão de status em cases.py
+2. ✅ Atualizar FinanceCard.tsx com novos campos
+3. ✅ Atualizar callback em financeiro/page.tsx
+4. ✅ Executar migração no Docker
+5. ✅ Reiniciar API
+6. ✅ Testar fluxo completo
+
+#### Opção B: Fazer Commit Parcial (Atual)
+1. ✅ Commit do backend implementado (models, schema, rota)
+2. ❌ Frontend fica pendente para próxima sessão
+3. ❌ Migração executada apenas quando frontend estiver pronto
+
+---
+
+### 📝 Detalhes Técnicos
+
+#### Fluxo Final Esperado (Quando Completo)
+
+**1. Efetivação COM Corretor:**
+```
+Financeiro abre modal
+→ Vê Consultoria Bruta: R$ 10.000 (da simulação)
+→ Pode editar manualmente
+→ Sistema calcula automaticamente:
+  • Imposto 14%: R$ 1.400
+  • Líquida: R$ 8.600
+→ Marca "Tem Corretor?"
+→ Preenche: Nome + Comissão (R$ 500)
+→ Seleciona distribuição: 70% Atendente
+→ Confirma
+
+Backend cria:
+✅ 1 Contract (com consultoria_bruta, imposto, corretor)
+✅ 2 FinanceIncome (Atendente R$ 6.020 + Balcão R$ 2.580)
+✅ 1 FinanceExpense (Comissão R$ 500)
+```
+
+**2. Reversão de Status pelo Admin:**
+```
+Admin abre caso "contrato_efetivado"
+→ Dropdown: Altera para "calculista_pendente"
+→ Confirma mudança
+
+Backend executa automaticamente:
+✅ Exclui FinanceIncome (Atendente + Balcão)
+✅ Volta Simulation.status = "draft"
+✅ Mantém Contract (histórico)
+✅ Caso volta para fila do calculista
+```
+
+---
+
+### 🔍 Arquivos Modificados Hoje
+
+```
+BACKEND (4 arquivos):
+✅ lifecalling/apps/api/app/models.py
+✅ lifecalling/apps/api/migrations/versions/a1b2c3d4e5f6_*.py
+✅ lifecalling/apps/api/app/routers/finance.py (schema)
+✅ lifecalling/apps/api/app/routers/finance.py (rota disburse)
+
+FRONTEND (0 arquivos - PENDENTE):
+❌ lifecalling/packages/ui/src/FinanceCard.tsx
+❌ lifecalling/apps/web/src/app/financeiro/page.tsx
+
+OUTROS:
+❌ lifecalling/apps/api/app/routers/cases.py (reversão status)
+```
+
+---
+
+
 ## 🔥 Correções Críticas no Módulo Financeiro (24/10/2025)
 
 ### 📋 Resumo Geral

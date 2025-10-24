@@ -179,6 +179,17 @@ class Contract(Base):
     created_by = Column(Integer, ForeignKey("users.id"))  # Quem efetivou (financeiro)
     agent_user_id = Column(Integer, ForeignKey("users.id"))  # Atendente do caso (para ranking)
 
+    # Campos de consultoria bruta e imposto (novos)
+    consultoria_bruta = Column(Numeric(14,2), nullable=True)  # Valor bruto da consultoria
+    imposto_percentual = Column(Numeric(5,2), default=14.00, nullable=True)  # Percentual de imposto (padrão 14%)
+    imposto_valor = Column(Numeric(14,2), nullable=True)  # Valor do imposto calculado
+
+    # Campos de comissão de corretor (opcional)
+    tem_corretor = Column(Boolean, default=False, nullable=True)  # Se tem corretor envolvido
+    corretor_nome = Column(String(255), nullable=True)  # Nome do corretor
+    corretor_comissao_valor = Column(Numeric(14,2), nullable=True)  # Valor da comissão do corretor
+    corretor_expense_id = Column(Integer, ForeignKey("finance_expenses.id", ondelete="SET NULL"), nullable=True)  # FK para despesa criada
+
     case = relationship("Case")
     attachments = relationship("ContractAttachment", back_populates="contract", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
