@@ -128,7 +128,7 @@ export function usePendingSimulations() {
  */
 export function useAllSimulations(
   includeCompletedToday: boolean = false,
-  params?: { search?: string; page?: number; pageSize?: number; caseStatus?: string }
+  params?: { search?: string; page?: number; pageSize?: number; caseStatus?: string; uniqueByCpf?: boolean }
 ) {
   return useQuery({
     queryKey: [
@@ -152,6 +152,7 @@ export function useAllSimulations(
       if (params?.page) searchParams.append("page", params.page.toString());
       if (params?.pageSize) searchParams.append("page_size", params.pageSize.toString());
       if (params?.caseStatus) searchParams.append("case_status", params.caseStatus);
+      if (params?.uniqueByCpf) searchParams.append("unique_by_cpf", "true");
 
       const response = await api.get(`/simulations?${searchParams.toString()}`);
       return {

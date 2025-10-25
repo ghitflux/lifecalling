@@ -63,6 +63,7 @@ def list_pending(
     page: int = 1,  # NOVO parâmetro para paginação
     page_size: int = 20,  # NOVO parâmetro para paginação
     case_status: str = None,  # NOVO parâmetro para filtrar por status do caso
+    unique_by_cpf: bool = False,  # NOVO: mostrar apenas última simulação por CPF
     user=Depends(require_roles(
         "admin", "supervisor", "calculista", "fechamento"
     ))
@@ -114,6 +115,26 @@ def list_pending(
         if date == "today" and not all:
             today = now_brt().date()
             q = q.filter(func.date(Simulation.updated_at) == today)
+
+        # Filtrar para mostrar apenas a última simulação de cada CPF
+        if unique_by_cpf and all:
+            from sqlalchemy import distinct
+            # Subquery para pegar o MAX(simulation.id) por CPF
+            subq = db.query(
+                Client.cpf,
+                func.max(Simulation.id).label('max_sim_id')
+            ).join(Case, Case.client_id == Client.id
+            ).join(Simulation, Simulation.case_id == Case.id
+            ).group_by(Client.cpf).subquery()
+            
+            # Aplicar filtro para pegar apenas as simulações com ID máximo por CPF
+            q = q.join(
+                subq,
+                and_(
+                    Client.cpf == subq.c.cpf,
+                    Simulation.id == subq.c.max_sim_id
+                )
+            )
 
         # Contar total de resultados
         total_count = q.count()

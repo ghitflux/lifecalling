@@ -144,7 +144,8 @@ function CalculistaPageContent() {
       search: searchTerm || undefined,
       page: currentPage,
       pageSize: pageSize,
-      caseStatus: activeTab === "todas_simulacoes" ? undefined : caseStatusFilter
+      caseStatus: activeTab === "todas_simulacoes" ? undefined : caseStatusFilter,
+      uniqueByCpf: activeTab === "todas_simulacoes" ? true : false // Apenas última simulação por CPF
     }
   );
   
