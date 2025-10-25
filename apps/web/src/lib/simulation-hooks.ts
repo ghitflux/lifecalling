@@ -143,7 +143,7 @@ export function useAllSimulations(
       const searchParams = new URLSearchParams();
 
       if (includeCompletedToday) {
-        searchParams.append("include_completed_today", "true");
+        searchParams.append("all", "true");  // Buscar TODAS as simulações
       } else {
         searchParams.append("status", "draft");
       }

@@ -494,14 +494,19 @@ def closing_kpis(
             )
         ).scalar() or 0
 
-        # Consultoria líquida no período atual
+        # Consultoria líquida no período atual (CORRIGIDO: usar FinanceIncome)
+        from ..models import FinanceIncome
         consultoria_liquida = db.query(
-            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
             and_(
-                Contract.status == "ativo",
-                Contract.signed_at >= start_date,
-                Contract.signed_at < end_date
+                FinanceIncome.date >= start_date,
+                FinanceIncome.date < end_date,
+                FinanceIncome.income_type.in_([
+                    "Consultoria Líquida",
+                    "Consultoria - Atendente",
+                    "Consultoria - Balcão"
+                ])
             )
         ).scalar() or 0
 
@@ -545,14 +550,18 @@ def closing_kpis(
             )
         ).scalar() or 0
 
-        # Consultoria líquida no período anterior
+        # Consultoria líquida no período anterior (CORRIGIDO: usar FinanceIncome)
         consultoria_liquida_prev = db.query(
-            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
             and_(
-                Contract.status == "ativo",
-                Contract.signed_at >= prev_start_date,
-                Contract.signed_at < prev_end_date
+                FinanceIncome.date >= prev_start_date,
+                FinanceIncome.date < prev_end_date,
+                FinanceIncome.income_type.in_([
+                    "Consultoria Líquida",
+                    "Consultoria - Atendente",
+                    "Consultoria - Balcão"
+                ])
             )
         ).scalar() or 0
 

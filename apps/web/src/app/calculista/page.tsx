@@ -58,7 +58,7 @@ function CalculistaPageContent() {
   const queryClient = useQueryClient();
 
   // Estados
-  const [activeTab, setActiveTab] = useState("pendentes");
+  const [activeTab, setActiveTab] = useState("todas_simulacoes");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -131,14 +131,22 @@ function CalculistaPageContent() {
 
   // Dados - busca em tempo real
   // Determinar caseStatus baseado na aba ativa
-  const caseStatusFilter = activeTab === "pendentes" ? "calculista_pendente" : undefined;
+  // Para "todas_simulacoes", não filtrar por status (buscar TODAS)
+  const caseStatusFilter = activeTab === "todas_simulacoes" 
+    ? undefined 
+    : activeTab === "pendentes" 
+      ? "calculista_pendente" 
+      : undefined;
 
-  const { data: allSimsData, isLoading: simsLoading } = useAllSimulations(true, {
-    search: searchTerm || undefined,
-    page: currentPage,
-    pageSize: pageSize,
-    caseStatus: caseStatusFilter
-  });
+  const { data: allSimsData, isLoading: simsLoading } = useAllSimulations(
+    activeTab === "todas_simulacoes", // Se true, busca TODAS sem filtro de status
+    {
+      search: searchTerm || undefined,
+      page: currentPage,
+      pageSize: pageSize,
+      caseStatus: activeTab === "todas_simulacoes" ? undefined : caseStatusFilter
+    }
+  );
   
   const allSims = allSimsData?.items || [];
   const totalCount = allSimsData?.totalCount || 0;
@@ -432,6 +440,9 @@ function CalculistaPageContent() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="todas_simulacoes">
+            Todas Simulações
+          </TabsTrigger>
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
@@ -446,9 +457,6 @@ function CalculistaPageContent() {
           </TabsTrigger>
           <TabsTrigger value="concluidas">
             Concluídas Hoje ({completedSims.length})
-          </TabsTrigger>
-          <TabsTrigger value="todas_simulacoes">
-            Todas Simulações
           </TabsTrigger>
           <TabsTrigger value="efetivados">
             Casos Efetivados ({casosEfetivados?.length || 0})
