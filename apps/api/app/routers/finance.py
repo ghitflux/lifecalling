@@ -1315,17 +1315,37 @@ def delete_expense(
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Remove uma despesa (incluindo despesas geradas por comissão)"""
-    with SessionLocal() as db:
-        from ..models import FinanceExpense
-        expense = db.get(FinanceExpense, expense_id)
+    try:
+        with SessionLocal() as db:
+            from ..models import FinanceExpense, CommissionPayout
 
-        if not expense:
-            raise HTTPException(404, "Despesa não encontrada")
+            expense = db.get(FinanceExpense, expense_id)
+            if not expense:
+                raise HTTPException(404, "Despesa não encontrada")
 
-        db.delete(expense)
-        db.commit()
+            # Verificar se há CommissionPayout vinculado
+            commission = db.query(CommissionPayout).filter(
+                CommissionPayout.expense_id == expense_id
+            ).first()
 
-        return {"message": "Despesa removida com sucesso"}
+            if commission:
+                # Desvincular a comissão da despesa
+                commission.expense_id = None
+                db.add(commission)
+
+            # Deletar a despesa
+            db.delete(expense)
+            db.commit()
+
+            return {"message": "Despesa removida com sucesso"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[ERRO] Falha ao deletar despesa {expense_id}: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Erro ao remover despesa: {str(e)}")
 
 
 @r.post("/expenses/{expense_id}/attachment")
