@@ -19,6 +19,7 @@ import {
   MiniAreaChart,
   ProgressBar,
   Pagination,
+  DateRangeFilter,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
@@ -38,6 +39,7 @@ import {
   CheckCircle,
   XCircle,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   Target,
   RefreshCw,
@@ -62,6 +64,18 @@ function CalculistaPageContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  // Estados para filtro de período
+  const [startDate, setStartDate] = useState<string>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split("T")[0];
+  });
 
   // Reset página quando busca muda
   useEffect(() => {
@@ -153,17 +167,25 @@ function CalculistaPageContent() {
   const totalCount = allSimsData?.totalCount || 0;
   const totalPages = allSimsData?.totalPages || 1;
   const { data: stats } = useCalculistaStats();
-  // KPIs do mês atual (dados reais)
-  const currentMonth = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
 
+  // KPIs do período selecionado (dados reais)
   // Temporariamente desabilitado devido a erro 500
-  // const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: currentMonth });
+  // const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ from: startDate, to: endDate });
   const kpis = null;
   const isLoadingKpis = false;
-  const { data: closingKpis, isLoading: isLoadingClosingKpis } = useClosingKpis({ month: currentMonth });
+  const { data: closingKpis, isLoading: isLoadingClosingKpis } = useClosingKpis({ from: startDate, to: endDate });
+
+  // Query para métricas financeiras (mesmo endpoint do Financeiro)
+  const { data: financeMetrics, isLoading: financeMetricsLoading } = useQuery({
+    queryKey: ["financeMetrics", startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
+      return response.data;
+    }
+  });
 
   const { data: casosEfetivados, isLoading: efetivadosLoading } =
     useCasosEfetivados();
@@ -335,77 +357,59 @@ function CalculistaPageContent() {
         </div>
       </div>
 
-
+      {/* Filtro de Período */}
+      <div className="flex flex-col gap-4">
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={(start, end) => {
+            if (start && end) {
+              const s = new Date(start);
+              const e = new Date(end);
+              if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+                setStartDate(start);
+                setEndDate(end);
+              }
+            }
+          }}
+          onClear={() => {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setStartDate(firstDay.toISOString().split("T")[0]);
+            setEndDate(lastDay.toISOString().split("T")[0]);
+          }}
+          label="Filtrar período:"
+          className="mb-4"
+        />
+      </div>
 
       {/* KPIs do módulo */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mb-8">
+        {/* Card Consultoria Líquida */}
         <KPICard
-          title="Consultoria Líquida"
-          value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
-          subtitle="Casos efetivados pelo financeiro"
-          trend={combinedKpis.trends?.consultoria_liquida || 0}
-          icon={DollarSign}
-          color="warning"
-          gradientVariant="amber"
-          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
-          miniChart={
-            <MiniAreaChart
-              data={getTrendChartData.volume}
-              dataKey="value"
-              xKey="day"
-              stroke="#f59e0b"
-              height={60}
-              valueType="currency"
-            />
-          }
+          title="Consultoria Líquida Total"
+          subtitle="86% da Receita Total"
+          value={`R$ ${(financeMetrics?.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          isLoading={financeMetricsLoading}
+          gradientVariant="cyan"
+          trend={closingKpis?.trends?.consultoria_liquida || 0}
         />
 
-        {/* Card Meta Mensal Customizado */}
-        <Card className={`p-6 ${combinedKpis.meta_mensal >= 0 ? 'border-success bg-success/5' : 'border-danger bg-danger/5'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${combinedKpis.meta_mensal >= 0 ? 'bg-success/10' : 'bg-danger/10'}`}>
-                <Target className={`h-5 w-5 ${combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'}`} />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Meta Mensal</h3>
-                <p className={`text-2xl font-bold ${combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'}`}>
-                  R$ {combinedKpis.meta_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className={`flex items-center gap-1 text-sm ${
-                (combinedKpis.trends?.meta_mensal ?? 0) >= 0 ? 'text-success' : 'text-danger'
-              }`}>
-                <TrendingUp className="h-4 w-4" />
-                {Math.abs(combinedKpis.trends?.meta_mensal ?? 0).toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground">vs. mês anterior</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progresso da Meta</span>
-              <span className="font-medium">
-                {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0
-                  ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
-                  : 0}%
-              </span>
-            </div>
-            <ProgressBar
-              value={combinedKpis.meta_mensal >= 0 ? combinedKpis.meta_mensal : 0}
-              max={combinedKpis.consultoria_liquida * 0.1}
-              variant={combinedKpis.meta_mensal >= 0 ? "success" : "danger"}
-              size="sm"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Atual: {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-        </Card>
+        {/* Card Resultado Thiago */}
+        <KPICard
+          title="Resultado Thiago"
+          subtitle="10% × (Lucro Líquido - Receitas Peltson)"
+          value={`${(closingKpis?.meta_mensal || 0) >= 0 ? 'R$ ' : '-R$ '}${Math.abs(closingKpis?.meta_mensal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          isLoading={isLoadingClosingKpis}
+          gradientVariant={(closingKpis?.meta_mensal || 0) >= 0 ? "emerald" : "rose"}
+          icon={(closingKpis?.meta_mensal || 0) >= 0 ? TrendingUp : TrendingDown}
+          trend={closingKpis?.trends?.meta_mensal || 0}
+          className={(closingKpis?.meta_mensal || 0) >= 0
+            ? "border-2 border-emerald-500/60 shadow-emerald-500/20"
+            : "border-2 border-rose-500/60 shadow-rose-500/20"
+          }
+        />
       </div>
 
       {/* Campo de Busca */}

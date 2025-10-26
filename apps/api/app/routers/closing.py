@@ -504,8 +504,8 @@ def closing_kpis(
                 FinanceIncome.date < end_date,
                 FinanceIncome.income_type.in_([
                     "Consultoria Líquida",
-                    "Consultoria - Atendente",
-                    "Consultoria - Balcão"
+                    "Consultoria Líquida - Atendente",
+                    "Consultoria Líquida - Balcão"
                 ])
             )
         ).scalar() or 0
@@ -550,7 +550,8 @@ def closing_kpis(
             )
         ).scalar() or 0
 
-        # Consultoria líquida no período anterior (CORRIGIDO: usar FinanceIncome)
+        # Consultoria líquida no período anterior
+        # (CORRIGIDO: usar FinanceIncome)
         consultoria_liquida_prev = db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
@@ -559,8 +560,8 @@ def closing_kpis(
                 FinanceIncome.date < prev_end_date,
                 FinanceIncome.income_type.in_([
                     "Consultoria Líquida",
-                    "Consultoria - Atendente",
-                    "Consultoria - Balcão"
+                    "Consultoria Líquida - Atendente",
+                    "Consultoria Líquida - Balcão"
                 ])
             )
         ).scalar() or 0
@@ -595,11 +596,51 @@ def closing_kpis(
             )
         ).scalar() or 0
 
-        # Calcular Meta Mensal: (Consultoria Líquida - Despesas) * 10%
-        meta_mensal = (float(consultoria_liquida) - float(despesas)) * 0.1
-        meta_mensal_prev = (
-            (float(consultoria_liquida_prev) - float(despesas_prev)) * 0.1
+        # Calcular Lucro Líquido: Consultoria Líquida - Despesas
+        lucro_liquido = (
+            float(consultoria_liquida) - float(despesas)
         )
+        lucro_liquido_prev = (
+            float(consultoria_liquida_prev) - float(despesas_prev)
+        )
+        
+        # Resultado Thiago/Francisco = (10% do Lucro Líquido) - Receitas Peltson
+        # PODE SER NEGATIVO - isto é esperado e correto!
+        from ..models import User
+        peltson = db.query(User).filter(
+            User.email == "peltson@gmail.com"
+        ).first()
+
+        receitas_peltson = 0
+        if peltson:
+            receitas_peltson = db.query(
+                func.coalesce(func.sum(FinanceIncome.amount), 0)
+            ).filter(
+                FinanceIncome.agent_user_id == peltson.id,
+                FinanceIncome.income_type == (
+                    "Consultoria Líquida - Atendente"
+                ),
+                FinanceIncome.date >= start_date,
+                FinanceIncome.date < end_date
+            ).scalar() or 0
+
+        receitas_peltson_prev = 0
+        if peltson:
+            receitas_peltson_prev = db.query(
+                func.coalesce(func.sum(FinanceIncome.amount), 0)
+            ).filter(
+                FinanceIncome.agent_user_id == peltson.id,
+                FinanceIncome.income_type == (
+                    "Consultoria Líquida - Atendente"
+                ),
+                FinanceIncome.date >= prev_start_date,
+                FinanceIncome.date < prev_end_date
+            ).scalar() or 0
+
+        # Fórmula: 10% × (Lucro Líquido - Receitas Peltson)
+        # O que sobra após Peltson é a produção de Thiago/Francisco
+        meta_mensal = (lucro_liquido - float(receitas_peltson)) * 0.10
+        meta_mensal_prev = (lucro_liquido_prev - float(receitas_peltson_prev)) * 0.10
 
         return {
             "casos_pendentes": casos_pendentes,

@@ -363,6 +363,11 @@ export function useFinanceDisburseSimple() {
   return useMutation({
     mutationFn: async (payload: {
       case_id: number;
+      consultoria_bruta: number;
+      imposto_percentual?: number;
+      tem_corretor?: boolean;
+      corretor_nome?: string | null;
+      corretor_comissao_valor?: number | null;
       consultoria_liquida_ajustada?: number;
       percentual_atendente?: number;
       atendente_user_id?: number;
@@ -953,11 +958,11 @@ export function useClosingKpis(params?: { from?: string; to?: string; month?: st
         };
       }
     },
-    staleTime: 30000, // 30 segundos
+    staleTime: 0, // Sempre considerar dados desatualizados
     gcTime: 60000, // 1 minuto
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    refetchInterval: 30000 // Refetch a cada 30 segundos
+    refetchInterval: 5000 // Refetch a cada 5 segundos
   });
 }
 
@@ -973,23 +978,16 @@ export function useFinancialData(params?: { month?: string }) {
         const response = await api.get(`/financial/data?${searchParams.toString()}`);
         const data = response.data;
 
-        // Calcular Meta Mensal: (Receita líquida - despesas) * 10%
-        const receitaLiquida = data.receita_liquida || 0;
-        const despesas = data.despesas || 0;
-        const metaMensal = (receitaLiquida - despesas) * 0.1;
-
-        return {
-          ...data,
-          meta_mensal: metaMensal
-        };
+        // Meta Mensal já vem calculada do backend (10% do Lucro Líquido)
+        return data;
       } catch (error) {
         console.error('Erro ao carregar dados financeiros:', error);
         // Retornar dados padrão em caso de erro
         return {
           receita_liquida: 0,
+          consultoria_liquida: 0,
           despesas: 0,
-          lucro: 0,
-          margem: 0,
+          resultado: 0,
           meta_mensal: 0
         };
       }
