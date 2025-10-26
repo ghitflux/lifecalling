@@ -54,7 +54,8 @@ import {
   FileText,
   Calendar,
   User,
-  X
+  X,
+  Search
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -107,6 +108,7 @@ export default function Page() {
 
   // Filtros transações
   const [transactionType, setTransactionType] = useState<string>("");
+  const [transactionSearchTerm, setTransactionSearchTerm] = useState<string>("");
 
   // Período
   const [startDate, setStartDate] = useState<string>(() => {
@@ -157,8 +159,24 @@ export default function Page() {
   // SEMPRE usar totais do backend - representa TODAS as transações do período
   const totals = backendTotals;
 
-  const transactionsTotalPages = Math.ceil(transactions.length / pageSize);
-  const paginatedTransactions = transactions.slice((page - 1) * pageSize, page * pageSize);
+  // Filtrar transações por busca (nome ou CPF)
+  const filteredTransactions = transactions.filter((transaction: any) => {
+    if (!transactionSearchTerm) return true;
+
+    const searchLower = transactionSearchTerm.toLowerCase();
+    const clientName = transaction.client_name?.toLowerCase() || "";
+    const clientCpf = transaction.client_cpf || "";
+    const transactionName = transaction.name?.toLowerCase() || "";
+
+    return (
+      clientName.includes(searchLower) ||
+      clientCpf.includes(searchLower) ||
+      transactionName.includes(searchLower)
+    );
+  });
+
+  const transactionsTotalPages = Math.ceil(filteredTransactions.length / pageSize);
+  const paginatedTransactions = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
 
   // Export CSV
   const exportToCSV = () => {
@@ -867,7 +885,7 @@ export default function Page() {
         />
         <KPICard
           title="Consultoria Líquida Total"
-          subtitle="Consultorias líquidas (após impostos)"
+          subtitle="86% da Receita Total"
           value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
           gradientVariant="cyan"
@@ -876,7 +894,7 @@ export default function Page() {
         />
         <KPICard
           title="Lucro Líquido"
-          subtitle="Receita Total - Despesas"
+          subtitle="Consultoria Líquida - Despesas"
           value={`R$ ${(metrics.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
           gradientVariant="violet"
@@ -885,7 +903,7 @@ export default function Page() {
         />
         <KPICard
           title="Despesas"
-          subtitle="Despesas Totais"
+          subtitle="Despesas (sem impostos)"
           value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
           gradientVariant="rose"
@@ -894,7 +912,7 @@ export default function Page() {
         />
         <KPICard
           title="Impostos"
-          subtitle="Impostos Totais"
+          subtitle="14% da Receita Total"
           value={`R$ ${(metrics.totalTax || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
           gradientVariant="amber"
@@ -967,7 +985,10 @@ export default function Page() {
                       seguroObrigatorio: item.simulation.totals.seguroObrigatorio || 0,
                       valorLiquido: item.simulation.totals.valorLiquido,
                       custoConsultoria: item.simulation.totals.custoConsultoria,
+                      // Se tem contrato efetivado, usar consultoria_liquida do contrato (pode ter sido ajustada)
+                      // Senão, usar valor calculado da simulação
                       custoConsultoriaLiquido:
+                        item.contract?.consultoria_liquida ||
                         item.simulation.totals.custoConsultoriaLiquido ||
                         item.simulation.totals.custoConsultoria * 0.86,
                       liberadoCliente: item.simulation.totals.liberadoCliente,
@@ -1097,50 +1118,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Resumo topo - Apenas na tab "Todas" */}
-          {!transactionType && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Receitas</p>
-                    <p className="text-2xl font-bold text-success">R$ {totals.receitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-success" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Despesas</p>
-                    <p className="text-2xl font-bold text-danger">R$ {totals.despesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center">
-                    <TrendingDown className="h-6 w-6 text-danger" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Saldo</p>
-                    <p className={`text-2xl font-bold ${totals.saldo >= 0 ? "text-success" : "text-danger"}`}>
-                      R$ {totals.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totals.saldo >= 0 ? "bg-success/10" : "bg-danger/10"}`}>
-                    <Wallet className={`h-6 w-6 ${totals.saldo >= 0 ? "text-success" : "text-danger"}`} />
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Abas transações */}
           <Tabs value={transactionType || "todas"} onValueChange={v => setTransactionType(v === "todas" ? "" : v)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="todas">Todas</TabsTrigger>
@@ -1148,6 +1125,32 @@ export default function Page() {
               <TabsTrigger value="despesa">Despesas</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* Campo de busca */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou CPF..."
+              value={transactionSearchTerm}
+              onChange={(e) => {
+                setTransactionSearchTerm(e.target.value);
+                setPage(1); // Reset para primeira página ao buscar
+              }}
+              className="w-full pl-10 pr-4 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            {transactionSearchTerm && (
+              <button
+                onClick={() => {
+                  setTransactionSearchTerm("");
+                  setPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
           {/* Tabela unificada */}
           {loadingTransactions ? (
@@ -1311,7 +1314,11 @@ export default function Page() {
           ) : (
             <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
               <p>Nenhuma transação encontrada</p>
-              <p className="text-sm mt-1">Adicione receitas ou despesas para começar</p>
+              <p className="text-sm mt-1">
+                {transactionSearchTerm
+                  ? "Tente ajustar o termo de busca"
+                  : "Adicione receitas ou despesas para começar"}
+              </p>
             </div>
           )}
         </div>
@@ -1450,7 +1457,11 @@ export default function Page() {
                       seguroObrigatorio: financeCardDetails.simulation.seguro || 0,
                       valorLiquido: financeCardDetails.simulation.totals?.valorLiquido || 0,
                       custoConsultoria: financeCardDetails.simulation.totals?.custoConsultoria || 0,
-                      custoConsultoriaLiquido: financeCardDetails.simulation.totals?.custoConsultoriaLiquido || 0,
+                      // Se tem contrato efetivado, usar consultoria_liquida do contrato (pode ter sido ajustada)
+                      custoConsultoriaLiquido:
+                        financeCardDetails.contract?.consultoria_liquida ||
+                        financeCardDetails.simulation.totals?.custoConsultoriaLiquido ||
+                        0,
                       liberadoCliente: financeCardDetails.simulation.totals?.liberadoCliente || 0,
                       percentualConsultoria: financeCardDetails.simulation.percentual_consultoria || 0,
                       taxaJuros: 1.99,
