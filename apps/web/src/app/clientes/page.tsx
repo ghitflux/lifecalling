@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@lifecalling/ui";
 import { api } from "@/lib/api";
 import Link from "next/link";
-import { Search, User, FileText, Users, X, Building2, Activity, Target, CheckCircle, TrendingUp, Briefcase } from "lucide-react";
+import { Search, User, FileText, Users, X, Building2, Activity, Target, CheckCircle, TrendingUp, Briefcase, Download } from "lucide-react";
 import { KPICard } from "@lifecalling/ui";
+import { ExportClientsDialog } from "@/components/ExportClientsDialog";
 
 export default function Clientes() {
   const [page, setPage] = useState(1);
@@ -19,6 +20,7 @@ export default function Clientes() {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [selectedOrgao, setSelectedOrgao] = useState<string | null>(null);
   const [semContratos, setSemContratos] = useState<boolean>(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Query para filtros disponíveis
   const { data: filtersData } = useQuery({
@@ -92,6 +94,10 @@ export default function Clientes() {
             Clientes importados do sistema de folha de pagamento
           </p>
         </div>
+        <Button onClick={() => setExportDialogOpen(true)}>
+          <Download className="h-4 w-4 mr-2" />
+          Exportar CSV
+        </Button>
       </div>
 
       {/* KPI Cards */}
@@ -384,6 +390,19 @@ export default function Clientes() {
           )}
         </>
       )}
+
+      {/* Export Dialog */}
+      <ExportClientsDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        filters={{
+          searchTerm,
+          selectedBanco,
+          selectedStatus,
+          selectedOrgao,
+          semContratos,
+        }}
+      />
     </div>
   );
 }
