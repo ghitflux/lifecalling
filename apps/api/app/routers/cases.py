@@ -9,13 +9,14 @@ import os
 import shutil
 from decimal import Decimal
 
-from sqlalchemy import or_  # pyright: ignore[reportMissingImports]
+from sqlalchemy import or_, func  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 from ..rbac import require_roles
 from ..security import get_current_user, verify_csrf
 from ..db import SessionLocal, get_db
 from ..models import (
-    Case, Client, CaseEvent, Contract, ContractAttachment, now_brt
+    Case, Client, CaseEvent, Contract, ContractAttachment, Attachment,
+    ClientPhone, Comment, now_brt
 )
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
@@ -1288,6 +1289,113 @@ async def mark_no_contact(
     return {"success": True, "case_id": case_id, "status": "sem_contato"}
 
 
+@r.post("/{case_id}/return-to-pipeline")
+async def return_to_pipeline(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """Devolve um caso para a esteira com status 'novo' após validações."""
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Validar se o usuário é o proprietário do caso
+        if case.assigned_user_id != user.id:
+            raise HTTPException(
+                403,
+                "Apenas o usuário proprietário do caso pode devolvê-lo "
+                "para a esteira"
+            )
+
+        # Validar se o caso não está já com status 'novo'
+        if case.status == "novo":
+            raise HTTPException(
+                400,
+                "O caso já está com status 'novo' na esteira"
+            )
+
+        # Validar anexos - pelo menos 1 anexo
+        attachments_count = db.query(func.count(Attachment.id)).filter(
+            Attachment.case_id == case_id
+        ).scalar() or 0
+
+        if attachments_count < 1:
+            raise HTTPException(
+                400,
+                "É necessário pelo menos 1 anexo para devolver o caso "
+                "para a esteira"
+            )
+
+        # Validar telefones - pelo menos 1 telefone registrado para o cliente
+        phones_count = db.query(func.count(ClientPhone.id)).filter(
+            ClientPhone.client_id == case.client_id
+        ).scalar() or 0
+
+        if phones_count < 1:
+            raise HTTPException(
+                400,
+                "É necessário pelo menos 1 telefone registrado para o "
+                "cliente para devolver o caso para a esteira"
+            )
+
+        # Validar comentários - pelo menos 1 comentário do usuário proprietário
+        comments_count = db.query(func.count(Comment.id)).filter(
+            Comment.case_id == case_id,
+            Comment.author_id == user.id,
+            Comment.deleted_at.is_(None)
+        ).scalar() or 0
+
+        if comments_count < 1:
+            raise HTTPException(
+                400,
+                "É necessário pelo menos 1 comentário do usuário proprietário "
+                "para devolver o caso para a esteira"
+            )
+
+        # Todas as validações passaram - devolver para esteira
+        previous_status = case.status
+        case.status = "novo"
+        case.assigned_user_id = None
+        case.assigned_at = None
+        case.assignment_expires_at = None
+        case.last_update_at = now_brt()
+
+        # Criar evento de devolução
+        db.add(
+            CaseEvent(
+                case_id=case.id,
+                type="case.returned_to_pipeline",
+                payload={
+                    "message": "Caso devolvido para a esteira",
+                    "returned_by": user.name,
+                    "previous_status": previous_status,
+                    "reason": "Devolução pelo usuário proprietário"
+                },
+                created_by=user.id,
+            )
+        )
+
+        db.commit()
+
+    await eventbus.broadcast(
+        "case.updated",
+        {
+            "case_id": case_id,
+            "status": "novo",
+            "assigned_user_id": None,
+            "returned_by": user.name
+        }
+    )
+
+    return {
+        "success": True,
+        "case_id": case_id,
+        "status": "novo",
+        "message": "Caso devolvido para a esteira com sucesso"
+    }
+
+
 @r.post("/{case_id}/to-fechamento")
 async def to_fechamento(
     case_id: int,
@@ -1339,7 +1447,9 @@ def run_scheduler_maintenance(
     """Executa manutenção do scheduler."""
     with SessionLocal() as db:
         scheduler = CaseScheduler(db)
-        stats = scheduler.process_expired_cases()
+        stats = scheduler.process_expired_cases(
+            execution_type="manual", user_id=user.id
+        )
         return {
             "maintenance_completed": True,
             "stats": stats,
@@ -1587,7 +1697,7 @@ async def return_to_calculista(
     case_id: int,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Retorna um caso para o calculista."""
+    """Retorna um caso para o calculista e encerra contrato se existir."""
     with SessionLocal() as db:
         case = db.get(Case, case_id)
         if not case:
@@ -1597,6 +1707,22 @@ async def return_to_calculista(
         case.status = "devolvido_financeiro"
         case.last_update_at = now_brt()
 
+        # Se houver contrato associado, alterar status para encerrado
+        contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+        contract_was_updated = False
+        if contract:
+            print(f"[INFO] Contrato #{contract.id} encontrado com status '{contract.status}'")
+            # Alterar status apenas se não estiver já encerrado
+            if contract.status != "encerrado":
+                contract.status = "encerrado"
+                contract.updated_at = now_brt()
+                contract_was_updated = True
+                print(f"[INFO] Contrato #{contract.id} alterado para 'encerrado'")
+            else:
+                print(f"[INFO] Contrato #{contract.id} já estava encerrado")
+        else:
+            print(f"[INFO] Nenhum contrato encontrado para o caso #{case_id}")
+
         db.add(
             CaseEvent(
                 case_id=case.id,
@@ -1605,12 +1731,16 @@ async def return_to_calculista(
                     "returned_by": user.id,
                     "returned_by_name": user.name,
                     "previous_status": previous_status,
-                    "reason": "Devolvido do financeiro para recálculo"
+                    "reason": "Devolvido do financeiro para recálculo",
+                    "contract_id": contract.id if contract else None,
+                    "contract_previous_status": contract.status if contract else None,
+                    "contract_updated": contract_was_updated
                 },
                 created_by=user.id,
             )
         )
         db.commit()
+        print(f"[INFO] Caso #{case_id} devolvido ao calculista com sucesso")
 
     await eventbus.broadcast(
         "case.updated", {"case_id": case_id, "status": "devolvido_financeiro"}
@@ -1813,7 +1943,7 @@ async def cancel_case(
     case_id: int,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Cancela um caso (muda status para 'caso_cancelado')"""
+    """Cancela um caso (muda status para 'caso_cancelado') e encerra contrato se existir"""
     with SessionLocal() as db:
         case = db.get(Case, case_id)
         if not case:
@@ -1823,17 +1953,37 @@ async def cancel_case(
         case.status = "caso_cancelado"
         case.last_update_at = now_brt()
 
+        # Se houver contrato associado, alterar status para encerrado
+        contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+        contract_was_updated = False
+        if contract:
+            print(f"[INFO] Contrato #{contract.id} encontrado com status '{contract.status}'")
+            # Alterar status apenas se não estiver já encerrado
+            if contract.status != "encerrado":
+                contract.status = "encerrado"
+                contract.updated_at = now_brt()
+                contract_was_updated = True
+                print(f"[INFO] Contrato #{contract.id} alterado para 'encerrado'")
+            else:
+                print(f"[INFO] Contrato #{contract.id} já estava encerrado")
+        else:
+            print(f"[INFO] Nenhum contrato encontrado para o caso #{case_id}")
+
         db.add(CaseEvent(
             case_id=case.id,
             type="case.cancelled",
             payload={
                 "cancelled_by": user.id,
                 "cancelled_by_name": user.name,
-                "previous_status": previous_status
+                "previous_status": previous_status,
+                "contract_id": contract.id if contract else None,
+                "contract_previous_status": contract.status if contract else None,
+                "contract_updated": contract_was_updated
             },
             created_by=user.id
         ))
         db.commit()
+        print(f"[INFO] Caso #{case_id} cancelado com sucesso")
 
     await eventbus.broadcast(
         "case.updated",

@@ -121,6 +121,7 @@ export default function ClienteDetalhe() {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       ativo: { color: "bg-green-100 text-green-800", label: "Ativo" },
+      em_revisao: { color: "bg-yellow-100 text-yellow-800", label: "Em Revisão" },
       encerrado: { color: "bg-gray-100 text-gray-800", label: "Encerrado" },
       inadimplente: { color: "bg-red-100 text-red-800", label: "Inadimplente" },
     } as const;
@@ -369,9 +370,7 @@ export default function ClienteDetalhe() {
                     <Badge variant="outline" className="font-mono">
                       Contrato #{contrato.id}
                     </Badge>
-                    <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
-                      {contrato.status === "ativo" ? "Ativo" : contrato.status}
-                    </Badge>
+                    {getStatusBadge(contrato.status)}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

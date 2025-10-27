@@ -28,6 +28,141 @@ def _parse_range(from_: str | None, to: str | None):
     return start, end, prev_start, prev_end
 
 
+# Util: calcular consultoria líquida por usuário
+def _calcular_consultoria_liquida_por_usuario(
+    db: Session,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    user_id: int | None = None
+) -> dict[int, float]:
+    """
+    Calcula consultoria líquida por usuário diferenciando receitas
+    líquidas (novas) das brutas (antigas).
+
+    Lógica:
+    - Receitas LÍQUIDAS: Já deduzidas (imposto e comissão) - somar direto
+    - Receitas BRUTAS: Precisam dedução - somar e deduzir despesas
+
+    Retorna dict {user_id: valor_liquido}
+    """
+    from ..models import FinanceIncome, FinanceExpense
+
+    # Query de receitas LÍQUIDAS (JÁ deduzidas - não deduzir novamente)
+    receitas_liquidas_q = (
+        db.query(
+            FinanceIncome.agent_user_id,
+            func.coalesce(
+                func.sum(FinanceIncome.amount), 0
+            ).label("receitas_liquidas")
+        )
+        .filter(FinanceIncome.agent_user_id.isnot(None))
+        .filter(FinanceIncome.income_type.in_([
+            "Consultoria Líquida - Atendente",
+            "Consultoria Líquida - Balcão",
+            "Consultoria Líquida"
+        ]))
+    )
+
+    if user_id:
+        receitas_liquidas_q = receitas_liquidas_q.filter(
+            FinanceIncome.agent_user_id == user_id
+        )
+
+    if start_date and end_date:
+        receitas_liquidas_q = receitas_liquidas_q.filter(
+            FinanceIncome.date.between(start_date, end_date)
+        )
+
+    receitas_liquidas_results = receitas_liquidas_q.group_by(
+        FinanceIncome.agent_user_id
+    ).all()
+
+    # Query de receitas BRUTAS (precisam dedução de despesas)
+    receitas_brutas_q = (
+        db.query(
+            FinanceIncome.agent_user_id,
+            func.coalesce(
+                func.sum(FinanceIncome.amount), 0
+            ).label("receitas_brutas")
+        )
+        .filter(FinanceIncome.agent_user_id.isnot(None))
+        .filter(FinanceIncome.income_type.in_([
+            "Consultoria Bruta - Atendente",
+            "Consultoria Bruta - Balcão",
+            "Consultoria - Atendente",
+            "Consultoria - Balcão"
+        ]))
+    )
+
+    if user_id:
+        receitas_brutas_q = receitas_brutas_q.filter(
+            FinanceIncome.agent_user_id == user_id
+        )
+
+    if start_date and end_date:
+        receitas_brutas_q = receitas_brutas_q.filter(
+            FinanceIncome.date.between(start_date, end_date)
+        )
+
+    receitas_brutas_results = receitas_brutas_q.group_by(
+        FinanceIncome.agent_user_id
+    ).all()
+
+    # Query de despesas (apenas para receitas brutas)
+    expense_q = (
+        db.query(
+            FinanceExpense.agent_user_id,
+            func.coalesce(
+                func.sum(FinanceExpense.amount), 0
+            ).label("despesas")
+        )
+        .filter(FinanceExpense.agent_user_id.isnot(None))
+        .filter(FinanceExpense.expense_type.in_(["Impostos", "Comissão"]))
+    )
+
+    if user_id:
+        expense_q = expense_q.filter(
+            FinanceExpense.agent_user_id == user_id
+        )
+
+    if start_date and end_date:
+        expense_q = expense_q.filter(
+            FinanceExpense.date.between(start_date, end_date)
+        )
+
+    expense_results = expense_q.group_by(
+        FinanceExpense.agent_user_id
+    ).all()
+
+    # Construir resultado
+    resultado = {}
+
+    # 1. Adicionar receitas LÍQUIDAS (sem dedução)
+    for r in receitas_liquidas_results:
+        resultado[r.agent_user_id] = float(r.receitas_liquidas or 0)
+
+    # 2. Adicionar receitas BRUTAS - deduzir despesas
+    receitas_brutas_map = {
+        r.agent_user_id: float(r.receitas_brutas or 0)
+        for r in receitas_brutas_results
+    }
+    despesas_map = {
+        r.agent_user_id: float(r.despesas or 0)
+        for r in expense_results
+    }
+
+    for user_id_bruta, receita_bruta in receitas_brutas_map.items():
+        despesa = despesas_map.get(user_id_bruta, 0)
+        liquida_bruta = receita_bruta - despesa
+
+        if user_id_bruta in resultado:
+            resultado[user_id_bruta] += liquida_bruta
+        else:
+            resultado[user_id_bruta] = liquida_bruta
+
+    return resultado
+
+
 @r.get("/agents")
 def ranking_agents(
     from_: str | None = Query(None, alias="from"),
@@ -91,28 +226,17 @@ def ranking_agents(
     contracts_data = contracts_q.group_by(owner_user_id).all()
     contracts_map = {r.user_id: {"qtd": r.qtd} for r in contracts_data}
 
-    # Buscar soma de TODAS as receitas por atendente (ambos os fluxos)
-    from ..models import FinanceIncome
-    income_q = (
-        db.query(
-            FinanceIncome.agent_user_id.label("user_id"),
-            func.coalesce(
-                func.sum(FinanceIncome.amount), 0
-            ).label("consult_sum")
-        )
-        .filter(FinanceIncome.agent_user_id.isnot(None))
+    # Buscar consultoria líquida por atendente (NOVO: com dedução de despesas)
+    consultoria_liquida_map = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=start if (from_ and to) else None,
+        end_date=end if (from_ and to) else None,
+        user_id=agent_id
     )
 
-    # Aplicar filtro de data nas receitas
-    if from_ and to:
-        income_q = income_q.filter(FinanceIncome.date.between(start, end))
-
-    income_data = income_q.group_by(FinanceIncome.agent_user_id).all()
-    income_map = {r.user_id: float(r.consult_sum or 0) for r in income_data}
-
-    # Mesclar dados de contratos e receitas
+    # Mesclar dados de contratos e consultoria líquida
     for user_id in contracts_map:
-        contracts_map[user_id]["consult_sum"] = income_map.get(user_id, 0)
+        contracts_map[user_id]["consult_sum"] = consultoria_liquida_map.get(user_id, 0)
 
     # Período anterior para trend - quantidade de contratos
     prev_q = (
@@ -133,32 +257,17 @@ def ranking_agents(
     prev = prev_q.all()
     prev_map = {r.user_id: {"qtd": r.qtd} for r in prev}
 
-    # Buscar soma de TODAS as receitas do período anterior (ambos os fluxos)
-    prev_income_q = (
-        db.query(
-            FinanceIncome.agent_user_id.label("user_id"),
-            func.coalesce(
-                func.sum(FinanceIncome.amount), 0
-            ).label("consult_sum")
-        )
-        .filter(FinanceIncome.agent_user_id.isnot(None))
+    # Buscar consultoria líquida do período anterior (NOVO: com dedução de despesas)
+    prev_consultoria_map = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=prev_start if (from_ and to) else None,
+        end_date=prev_end if (from_ and to) else None,
+        user_id=agent_id
     )
 
-    if from_ and to:
-        prev_income_q = prev_income_q.filter(
-            FinanceIncome.date.between(prev_start, prev_end)
-        )
-
-    prev_income_data = prev_income_q.group_by(
-        FinanceIncome.agent_user_id
-    ).all()
-    prev_income_map = {
-        r.user_id: float(r.consult_sum or 0) for r in prev_income_data
-    }
-
-    # Mesclar dados de contratos e receitas do período anterior
+    # Mesclar dados de contratos e consultoria líquida do período anterior
     for user_id in prev_map:
-        prev_map[user_id]["consult_sum"] = prev_income_map.get(user_id, 0)
+        prev_map[user_id]["consult_sum"] = prev_consultoria_map.get(user_id, 0)
 
     # buscar metas (se existir campo User.settings)
     targets_map = {}
@@ -331,39 +440,71 @@ def ranking_teams(
         (Contract.created_by.isnot(None), Contract.created_by),
         else_=Case.assigned_user_id
     )
-    q = (
+
+    # Contar contratos por role
+    contracts_q = (
         db.query(
             func.coalesce(User.role, "Sem Time").label("team"),
-            func.count(Contract.id).label("contracts"),
-            func.coalesce(
-                func.sum(Contract.consultoria_valor_liquido), 0
-            ).label("consult_sum")
+            func.count(Contract.id).label("contracts")
         )
         .join(Case, Case.id == Contract.case_id, isouter=True)
         .join(User, User.id == owner_user_id)
         .group_by(func.coalesce(User.role, "Sem Time"))
-        .order_by(func.sum(Contract.consultoria_valor_liquido).desc())
     )
 
     # Aplicar filtro de data apenas se especificado
     if from_ and to:
-        q = q.filter(
+        contracts_q = contracts_q.filter(
             func.coalesce(
                 Contract.signed_at, Contract.disbursed_at, Contract.created_at
             ).between(start, end)
         )
 
-    rows = q.all()
-    return {
-        "items": [
-            {
-                "team": r.team,
-                "contracts": int(r.contracts or 0),
-                "consultoria_liq": float(r.consult_sum or 0)
-            }
-            for r in rows
-        ]
-    }
+    contracts_data = contracts_q.all()
+
+    # Buscar consultoria líquida por usuário (NOVO: com dedução de despesas)
+    consultoria_map = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=start if (from_ and to) else None,
+        end_date=end if (from_ and to) else None
+    )
+
+    # Agrupar consultoria por role/team
+    team_consultoria = {}
+    for user_id, consultoria_liq in consultoria_map.items():
+        user_obj = db.get(User, user_id)
+        if user_obj:
+            team = user_obj.role or "Sem Time"
+            team_consultoria[team] = team_consultoria.get(team, 0) + consultoria_liq
+
+    # Mesclar contratos e consultoria por team
+    teams_map = {}
+    for r in contracts_data:
+        teams_map[r.team] = {
+            "contracts": int(r.contracts or 0),
+            "consultoria_liq": team_consultoria.get(r.team, 0)
+        }
+
+    # Adicionar teams com consultoria mas sem contratos
+    for team, consult_sum in team_consultoria.items():
+        if team not in teams_map:
+            teams_map[team] = {"contracts": 0, "consultoria_liq": consult_sum}
+
+    # Ordenar por consultoria líquida
+    items = [
+        {
+            "team": team,
+            "contracts": data["contracts"],
+            "consultoria_liq": data["consultoria_liq"]
+        }
+        for team, data in sorted(
+            teams_map.items(),
+            key=lambda x: x[1]["consultoria_liq"],
+            reverse=True
+        )
+    ]
+
+    return {"items": items}
 
 
 @r.get("/export.csv")
@@ -403,32 +544,26 @@ def export_csv(
             .group_by(owner_user_id)
         ).all()
 
-        # Somar TODAS as receitas por atendente (ambos os fluxos)
-        from ..models import FinanceIncome
-        income_rows = (
-            db.query(
-                FinanceIncome.agent_user_id.label("user_id"),
-                func.coalesce(
-                    func.sum(FinanceIncome.amount), 0
-                ).label("consult_sum")
-            )
-            .filter(
-                FinanceIncome.agent_user_id.isnot(None),
-                func.date(FinanceIncome.date).between(start, end)
-            )
-            .group_by(FinanceIncome.agent_user_id)
-        ).all()
+        # Buscar consultoria líquida por atendente (NOVO: com dedução de despesas)
+        consultoria_map = _calcular_consultoria_liquida_por_usuario(
+            db,
+            start_date=start,
+            end_date=end
+        )
 
-        # Mesclar dados
+        # Mesclar dados de contratos e consultoria
         rows_map = {}
         for r in contracts_rows:
             rows_map[r.user_id] = {"qtd": int(r.qtd or 0), "consult_sum": 0}
 
-        for r in income_rows:
-            if r.user_id in rows_map:
-                rows_map[r.user_id]["consult_sum"] = float(r.consult_sum or 0)
-            else:
-                rows_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.consult_sum or 0)}
+        # Adicionar consultoria líquida
+        for user_id in rows_map:
+            rows_map[user_id]["consult_sum"] = consultoria_map.get(user_id, 0)
+
+        # Adicionar usuários com consultoria mas sem contratos
+        for user_id, consult_sum in consultoria_map.items():
+            if user_id not in rows_map:
+                rows_map[user_id] = {"qtd": 0, "consult_sum": consult_sum}
 
         # Ordenar por consultoria líquida
         sorted_users = sorted(
@@ -463,33 +598,25 @@ def export_csv(
             .group_by(owner_user_id)
         ).all()
 
-        # Período anterior - receitas (todas as receitas de atendentes)
-        prev_income = (
-            db.query(
-                FinanceIncome.agent_user_id.label("user_id"),
-                func.coalesce(
-                    func.sum(FinanceIncome.amount), 0
-                ).label("consult_sum")
-            )
-            .filter(
-                FinanceIncome.agent_user_id.isnot(None),
-                func.date(FinanceIncome.date).between(prev_start, prev_end)
-            )
-            .group_by(FinanceIncome.agent_user_id)
-        ).all()
+        # Período anterior - consultoria líquida (NOVO: com dedução de despesas)
+        prev_consultoria_map = _calcular_consultoria_liquida_por_usuario(
+            db,
+            start_date=prev_start,
+            end_date=prev_end
+        )
 
         prev_map = {}
         for r in prev_contracts:
             prev_map[r.user_id] = {"qtd": int(r.qtd or 0), "consult_sum": 0}
 
-        for r in prev_income:
-            if r.user_id in prev_map:
-                prev_map[r.user_id]["consult_sum"] = float(r.consult_sum or 0)
-            else:
-                prev_map[r.user_id] = {
-                    "qtd": 0,
-                    "consult_sum": float(r.consult_sum or 0)
-                }
+        # Adicionar consultoria líquida do período anterior
+        for user_id in prev_map:
+            prev_map[user_id]["consult_sum"] = prev_consultoria_map.get(user_id, 0)
+
+        # Adicionar usuários com consultoria mas sem contratos no período anterior
+        for user_id, consult_sum in prev_consultoria_map.items():
+            if user_id not in prev_map:
+                prev_map[user_id] = {"qtd": 0, "consult_sum": consult_sum}
 
         # cabeçalho
         writer.writerow([
@@ -544,13 +671,12 @@ def export_csv(
             (Contract.created_by.isnot(None), Contract.created_by),
             else_=Case.assigned_user_id
         )
-        rows = (
+
+        # Contar contratos por team
+        contracts_rows = (
             db.query(
                 func.coalesce(User.role, "Sem Time").label("team"),
-                func.count(Contract.id).label("contracts"),
-                func.coalesce(
-                    func.sum(Contract.consultoria_valor_liquido), 0
-                ).label("consult_sum")
+                func.count(Contract.id).label("contracts")
             )
             .join(Case, Case.id == Contract.case_id)
             .join(User, User.id == owner_user_id)
@@ -559,14 +685,49 @@ def export_csv(
                 func.date(Contract.signed_at).between(start, end)
             )
             .group_by(func.coalesce(User.role, "Sem Time"))
-            .order_by(func.sum(Contract.consultoria_valor_liquido).desc())
         ).all()
+
+        # Buscar consultoria líquida por usuário (NOVO: com dedução de despesas)
+        consultoria_map = _calcular_consultoria_liquida_por_usuario(
+            db,
+            start_date=start,
+            end_date=end
+        )
+
+        # Agrupar consultoria por team
+        team_consultoria = {}
+        for user_id, consultoria_liq in consultoria_map.items():
+            user_obj = db.get(User, user_id)
+            if user_obj:
+                team = user_obj.role or "Sem Time"
+                team_consultoria[team] = team_consultoria.get(team, 0) + consultoria_liq
+
+        # Mesclar contratos e consultoria
+        teams_map = {}
+        for r in contracts_rows:
+            teams_map[r.team] = {
+                "contracts": int(r.contracts or 0),
+                "consultoria_liq": team_consultoria.get(r.team, 0)
+            }
+
+        # Adicionar teams com consultoria mas sem contratos
+        for team, consult_sum in team_consultoria.items():
+            if team not in teams_map:
+                teams_map[team] = {"contracts": 0, "consultoria_liq": consult_sum}
+
+        # Ordenar por consultoria líquida
+        sorted_teams = sorted(
+            teams_map.items(),
+            key=lambda x: x[1]["consultoria_liq"],
+            reverse=True
+        )
+
         writer.writerow(["team", "contracts", "consultoria_liq"])
-        for r0 in rows:
+        for team, data in sorted_teams:
             writer.writerow([
-                r0.team,
-                int(r0.contracts or 0),
-                round(float(r0.consult_sum or 0), 2)
+                team,
+                data["contracts"],
+                round(data["consultoria_liq"], 2)
             ])
     else:
         raise HTTPException(
@@ -621,37 +782,29 @@ def get_podium(
 
     contracts_data = contracts_query.group_by(owner_user_id).all()
 
-    # Query para somar TODAS as receitas por atendente (ambos os fluxos)
-    from ..models import FinanceIncome
-    income_query = (
-        db.query(
-            FinanceIncome.agent_user_id.label("user_id"),
-            func.coalesce(
-                func.sum(FinanceIncome.amount), 0
-            ).label("consultoria_liq")
-        )
-        .join(User, User.id == FinanceIncome.agent_user_id)
-        .filter(FinanceIncome.agent_user_id.isnot(None))
-        .filter(User.role == "atendente")
+    # Buscar consultoria líquida por atendente (NOVO: com dedução de despesas)
+    consultoria_liquida_map = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=start if (from_ and to) else None,
+        end_date=end if (from_ and to) else None
     )
 
-    if from_ and to:
-        income_query = income_query.filter(
-            FinanceIncome.date.between(start, end)
-        )
-
-    income_data = income_query.group_by(FinanceIncome.agent_user_id).all()
-
-    # Criar mapa mesclando contratos e receitas
+    # Criar mapa mesclando contratos e consultoria líquida
     podium_map = {}
     for r in contracts_data:
         podium_map[r.user_id] = {"contracts": int(r.contracts or 0), "consultoria_liq": 0}
 
-    for r in income_data:
-        if r.user_id in podium_map:
-            podium_map[r.user_id]["consultoria_liq"] = float(r.consultoria_liq or 0)
-        else:
-            podium_map[r.user_id] = {"contracts": 0, "consultoria_liq": float(r.consultoria_liq or 0)}
+    # Adicionar consultoria líquida para usuários com contratos
+    for user_id in podium_map:
+        podium_map[user_id]["consultoria_liq"] = consultoria_liquida_map.get(user_id, 0)
+
+    # Adicionar consultoria líquida para usuários SEM contratos (mas com receitas)
+    for user_id, consultoria_liq in consultoria_liquida_map.items():
+        if user_id not in podium_map:
+            # Verificar se é atendente
+            user_obj = db.get(User, user_id)
+            if user_obj and user_obj.role == "atendente":
+                podium_map[user_id] = {"contracts": 0, "consultoria_liq": consultoria_liq}
 
     # Ordenar por consultoria líquida e pegar Top 3
     sorted_users = sorted(
@@ -880,21 +1033,14 @@ def get_rankings_kpis(
         # Calcular métricas do usuário - quantidade de contratos
         user_contracts = user_contracts_query.count()
 
-        # Buscar soma de TODAS as receitas do usuário (ambos os fluxos)
-        from ..models import FinanceIncome
-        user_income_query = (
-            db.query(
-                func.coalesce(func.sum(FinanceIncome.amount), 0)
-            )
-            .filter(FinanceIncome.agent_user_id == user_id)
+        # Buscar consultoria líquida do usuário (NOVO: com dedução de despesas)
+        consultoria_map = _calcular_consultoria_liquida_por_usuario(
+            db,
+            start_date=start if (from_ and to) else None,
+            end_date=end if (from_ and to) else None,
+            user_id=user_id
         )
-
-        if from_ and to:
-            user_income_query = user_income_query.filter(
-                FinanceIncome.date.between(start, end)
-            )
-
-        user_consultoria = float(user_income_query.scalar() or 0)
+        user_consultoria = consultoria_map.get(user_id, 0)
 
         # Buscar meta do usuário
         meta = {}
@@ -958,18 +1104,13 @@ def get_rankings_kpis(
     # Total de contratos no período
     total_contracts = base_q.count()
 
-    # Consultoria líquida total - somar TODAS as receitas de atendentes (ambos os fluxos)
-    from ..models import FinanceIncome
-    total_income_q = (db.query(
-                func.coalesce(func.sum(FinanceIncome.amount), 0)
-            )
-            .filter(FinanceIncome.agent_user_id.isnot(None))
+    # Consultoria líquida total (NOVO: com dedução de despesas)
+    consultoria_map_agregado = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=start if (from_ and to) else None,
+        end_date=end if (from_ and to) else None
     )
-
-    if from_ and to:
-        total_income_q = total_income_q.filter(FinanceIncome.date.between(start, end))
-
-    total_consultoria = float(total_income_q.scalar() or 0)
+    total_consultoria = sum(consultoria_map_agregado.values())
 
     # Ticket médio geral
     ticket_medio_geral = (total_consultoria / total_contracts) if total_contracts > 0 else 0
@@ -1000,29 +1141,23 @@ def get_rankings_kpis(
 
     contracts_perf_results = contracts_perf_query.all()
 
-    # Performance por atendente - consultoria líquida (todas as receitas)
-    income_perf_query = (db.query(
-        FinanceIncome.agent_user_id.label("user_id"),
-        func.coalesce(func.sum(FinanceIncome.amount), 0).label("consult_sum")
-    )
-    .filter(FinanceIncome.agent_user_id.isnot(None))
-    .group_by(FinanceIncome.agent_user_id))
+    # Performance por atendente - consultoria líquida (NOVO: usando função helper)
+    # Reutilizar o mapa já calculado acima
+    consultoria_perf_map = consultoria_map_agregado
 
-    if from_ and to:
-        income_perf_query = income_perf_query.filter(FinanceIncome.date.between(start, end))
-
-    income_perf_results = income_perf_query.all()
-
-    # Mesclar resultados de contratos e receitas
+    # Mesclar resultados de contratos e consultoria líquida
     performance_map = {}
     for r in contracts_perf_results:
         performance_map[r.user_id] = {"qtd": int(r.qtd or 0), "consult_sum": 0}
 
-    for r in income_perf_results:
-        if r.user_id in performance_map:
-            performance_map[r.user_id]["consult_sum"] = float(r.consult_sum or 0)
-        else:
-            performance_map[r.user_id] = {"qtd": 0, "consult_sum": float(r.consult_sum or 0)}
+    # Adicionar consultoria líquida para usuários com contratos
+    for user_id in performance_map:
+        performance_map[user_id]["consult_sum"] = consultoria_perf_map.get(user_id, 0)
+
+    # Adicionar consultoria líquida para usuários SEM contratos (mas com receitas)
+    for user_id, consult_sum in consultoria_perf_map.items():
+        if user_id not in performance_map:
+            performance_map[user_id] = {"qtd": 0, "consult_sum": consult_sum}
 
     # Criar lista de tuplas compatível com o código original
     class PerfResult:
@@ -1083,19 +1218,13 @@ def get_rankings_kpis(
 
     prev_total_contracts = prev_query.count()
 
-    # Período anterior - consultoria líquida (todas as receitas de atendentes)
-    prev_income_q = (db.query(
-                func.coalesce(func.sum(FinanceIncome.amount), 0)
-            )
-            .filter(FinanceIncome.agent_user_id.isnot(None))
+    # Período anterior - consultoria líquida (NOVO: com dedução de despesas)
+    prev_consultoria_map = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=prev_start if (from_ and to) else None,
+        end_date=prev_end if (from_ and to) else None
     )
-
-    if from_ and to:
-        prev_income_q = prev_income_q.filter(
-            FinanceIncome.date.between(prev_start, prev_end)
-        )
-
-    prev_total_consultoria = float(prev_income_q.scalar() or 0)
+    prev_total_consultoria = sum(prev_consultoria_map.values())
 
     # Calcular trends
     trend_contracts = total_contracts - prev_total_contracts

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, logAxiosError } from "./api";
 import type { Case, CaseDetail } from "@/types";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function useCases(params?: { status?: string; mine?: boolean; q?: string; }) {
   const sp = new URLSearchParams();
@@ -157,6 +158,26 @@ export function useMarkNoContact() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Erro ao marcar sem contato");
+    }
+  });
+}
+
+export function useReturnToPipeline() {
+  const qc = useQueryClient();
+  const router = useRouter();
+  return useMutation({
+    mutationFn: async (caseId: number) => (await api.post(`/cases/${caseId}/return-to-pipeline`)).data,
+    onSuccess: (_, caseId) => {
+      qc.invalidateQueries({ queryKey: ["case", caseId] });
+      qc.invalidateQueries({ queryKey: ["case", caseId, "events"] });
+      qc.invalidateQueries({ queryKey: ["cases"] });
+      qc.invalidateQueries({ queryKey: ["clientPhones"] });
+      toast.success("Caso devolvido para a esteira com sucesso!");
+      // Redirecionar para a esteira após sucesso
+      router.push('/esteira');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Erro ao devolver caso para a esteira");
     }
   });
 }

@@ -1,0 +1,910 @@
+Case ID,Cliente,CPF,Status,Atendente,Atendente ID,Atribuído em,Dias parado,Teve interação?,Motivo
+1,JOANA MARIA DOS SANTOS,47082976372,em_atendimento,Maria Clara,6,06/10/2025 18:06,20,Não,Mais de 48h sem nenhuma interação
+12704,ANTONIO DE SOUSA SANTOS,24066079334,em_atendimento,Isabela,7,10/10/2025 11:26,16,Não,Mais de 48h sem nenhuma interação
+12713,JOSE DOS SANTOS CAVALCANTE,18331114353,em_atendimento,Isabela,7,13/10/2025 18:53,13,Não,Mais de 48h sem nenhuma interação
+12735,JOSE LUIS DA SILVA,27357392368,em_atendimento,Carol,11,14/10/2025 12:06,12,Não,Mais de 48h sem nenhuma interação
+4,FRANCISCO DAS CHAGAS REGO,28689160310,em_atendimento,Patrine,5,06/10/2025 18:09,20,Não,Mais de 48h sem nenhuma interação
+86,JOSE ANTONIO FILHO,15143317304,em_atendimento,Patrine,5,07/10/2025 12:47,19,Sim,Mais de 7 dias parado (limite máximo)
+37329,LUCIA DE FATIMA COELHO,34800735300,em_atendimento,Maria Clara,6,06/10/2025 18:15,20,Não,Mais de 48h sem nenhuma interação
+28,SEBASTIAO DE ARAUJO GOMES,33737665320,em_atendimento,Patrine,5,07/10/2025 12:05,19,Sim,Mais de 7 dias parado (limite máximo)
+11373,SEBASTIAO DENIS RIBEIRO JUCA,70687390320,em_atendimento,Maria Clara,6,07/10/2025 11:44,19,Não,Mais de 48h sem nenhuma interação
+39021,MARIA TERESA GOMES COELHO,33952388300,em_atendimento,Maria Clara,6,06/10/2025 18:58,20,Não,Mais de 48h sem nenhuma interação
+12774,MANOEL MALAQUIAS DE LIMA,18183247334,em_atendimento,Isabela,7,10/10/2025 12:24,16,Não,Mais de 48h sem nenhuma interação
+12773,JOSE CARVALHO DA SILOVA,16055691353,em_atendimento,Matheus,9,14/10/2025 13:47,12,Sim,Mais de 7 dias parado (limite máximo)
+475,LORENA EUGENIA VELOSO CARVALHO,00351058362,em_atendimento,Mariany,10,10/10/2025 14:28,16,Não,Mais de 48h sem nenhuma interação
+25097,ANTONIO WILSON ALVES DA,48208795372,em_atendimento,Maria Clara,6,07/10/2025 11:57,19,Não,Mais de 48h sem nenhuma interação
+82,FRANCISCA MEDIANEIRA DANTAS,30704812304,em_atendimento,Matheus,9,07/10/2025 14:04,19,Não,Mais de 48h sem nenhuma interação
+109,MARIA HELENA DE SOUSA,09688013315,em_atendimento,Maria Clara,6,07/10/2025 12:17,19,Não,Mais de 48h sem nenhuma interação
+1590,MARIA DO SOCORRO BORGES,34228446353,em_atendimento,Mariany,10,10/10/2025 14:39,16,Não,Mais de 48h sem nenhuma interação
+37356,MARIA DE JESUS MELO,48220256320,em_atendimento,Maria Clara,6,07/10/2025 12:09,19,Não,Mais de 48h sem nenhuma interação
+1577,EZEQUIEL JOAO DE SOUSA,34930795320,em_atendimento,Mariany,10,10/10/2025 14:40,16,Não,Mais de 48h sem nenhuma interação
+1857,LUIZ FELIPE DE BRITO,20104090359,em_atendimento,Mariany,10,10/10/2025 14:48,16,Não,Mais de 48h sem nenhuma interação
+12882,ANTONIO FRANCISCO SARAIVA DOS,27337731353,em_atendimento,Matheus,9,14/10/2025 14:01,12,Sim,Mais de 7 dias parado (limite máximo)
+12907,IRONALDO DA SILVA -,07888759300,em_atendimento,Matheus,9,14/10/2025 14:05,12,Não,Mais de 48h sem nenhuma interação
+3915,ROSANGELA TEOTONIO DE MOURA,00968432417,em_atendimento,Patrine,5,07/10/2025 17:36,19,Sim,Mais de 7 dias parado (limite máximo)
+8972,EVA SANTANA E SILVA,94632294349,em_atendimento,Isabela,7,09/10/2025 19:16,17,Não,Mais de 48h sem nenhuma interação
+32108,ANTONIO ALONSO DA SILVA,28816960310,em_atendimento,Mariany,10,10/10/2025 15:05,16,Não,Mais de 48h sem nenhuma interação
+8765,MARIA LUCIA GOMES ROSA,48989347300,em_atendimento,Mariany,10,10/10/2025 16:56,16,Não,Mais de 48h sem nenhuma interação
+39024,ANTONIO FAUSTO DA COSTA,39574954315,em_atendimento,Isabela,7,09/10/2025 16:46,17,Não,Mais de 48h sem nenhuma interação
+231,JOSE WILSON DE MORAIS,27401448300,em_atendimento,Matheus,9,14/10/2025 16:27,12,Não,Mais de 48h sem nenhuma interação
+13011,LIDIO RODRIGUES DE SOUSA,24072796387,em_atendimento,Matheus,9,14/10/2025 16:42,12,Sim,Mais de 7 dias parado (limite máximo)
+40179,LENILDA MARIA DE ARAUJO,37489720320,em_atendimento,Isabela,7,20/10/2025 13:17,6,Não,Mais de 48h sem nenhuma interação
+11548,MARIA DAS GRACAS SANTOS,13185586387,em_atendimento,Mariany,10,07/10/2025 15:56,19,Não,Mais de 48h sem nenhuma interação
+25422,GARDENE LACERDA MOURA,49683004334,em_atendimento,Mariany,10,13/10/2025 17:15,13,Não,Mais de 48h sem nenhuma interação
+11390,JACKSON ODORICO DA CRUZ,75060426300,em_atendimento,Patrine,5,07/10/2025 18:11,19,Não,Mais de 48h sem nenhuma interação
+32160,NIVALDO PORTELA LEAL JUNIOR,68068336320,em_atendimento,Mariany,10,17/10/2025 13:27,9,Não,Mais de 48h sem nenhuma interação
+15098,MARIA DE LOURDES DA,37349490330,em_atendimento,Mariany,10,13/10/2025 17:47,13,Não,Mais de 48h sem nenhuma interação
+32264,MARIA SUELY DE CARVALHO,50420674349,em_atendimento,Mariany,10,13/10/2025 17:36,13,Não,Mais de 48h sem nenhuma interação
+32265,MARIA DE LOURDES BATISTA,34738932349,em_atendimento,Mariany,10,13/10/2025 17:46,13,Não,Mais de 48h sem nenhuma interação
+514,CESAR ERNANI IBIAPINA RUFINO,32787014372,em_atendimento,Maria Clara,6,08/10/2025 13:47,18,Não,Mais de 48h sem nenhuma interação
+32360,CRISTIANE ALVES LEMOS VERAS,78970130306,em_atendimento,Carol,11,13/10/2025 14:06,13,Não,Mais de 48h sem nenhuma interação
+13253,BERNARDO JOSE DA SILVA,32760060306,em_atendimento,Carol,11,13/10/2025 14:12,13,Não,Mais de 48h sem nenhuma interação
+13331,MARCOS VENICIO DE SOUSA,27349489315,em_atendimento,Matheus,9,10/10/2025 14:32,16,Não,Mais de 48h sem nenhuma interação
+37452,JOAO CORREIA DA SILVA,34006095368,em_atendimento,Maria Clara,6,08/10/2025 14:32,18,Não,Mais de 48h sem nenhuma interação
+32380,MONICA EUGENIA ARRUDA DE,32794827391,em_atendimento,Mariany,10,13/10/2025 19:36,13,Não,Mais de 48h sem nenhuma interação
+32406,SALVINA DE BRITO FONTENELE,38716330382,em_atendimento,Matheus,9,10/10/2025 12:48,16,Sim,Mais de 7 dias parado (limite máximo)
+32383,MARIA ZOZUENE DOS SANTOS,81145020372,em_atendimento,Matheus,9,10/10/2025 13:08,16,Sim,Mais de 7 dias parado (limite máximo)
+37482,MARTA MARIA TEIXEIRA NEGREIROS,87588544368,em_atendimento,Maria Clara,6,08/10/2025 19:08,18,Não,Mais de 48h sem nenhuma interação
+27324,MARCELLO JOSE MADEIRA MARTINS,41169190391,em_atendimento,Matheus,9,10/10/2025 14:55,16,Sim,Mais de 7 dias parado (limite máximo)
+32413,EDMILSON SILVA DE ARAUJO,28814460353,em_atendimento,Mariany,10,14/10/2025 11:33,12,Não,Mais de 48h sem nenhuma interação
+32497,RAIMUNDO NONATO BEZERRA,06622402353,em_atendimento,Matheus,9,10/10/2025 13:47,16,Sim,Mais de 7 dias parado (limite máximo)
+40187,VIRGINIA DELZUITA ROCHA,45338329387,em_atendimento,Maria Clara,6,09/10/2025 12:39,17,Não,Mais de 48h sem nenhuma interação
+32597,REGINA SOARES DO NASCIMENTO,37303406387,em_atendimento,Maria Clara,6,10/10/2025 12:01,16,Não,Mais de 48h sem nenhuma interação
+13499,VALMIR FERREIRA LIMA -3o.,39634523315,em_atendimento,Maria Clara,6,10/10/2025 12:17,16,Não,Mais de 48h sem nenhuma interação
+40190,JOSE DE MOURA REGO,22742018387,em_atendimento,Maria Clara,6,10/10/2025 12:48,16,Não,Mais de 48h sem nenhuma interação
+13532,HELOM RODRIGUES PACHECO -3o.,42875226304,em_atendimento,Maria Clara,6,10/10/2025 14:17,16,Não,Mais de 48h sem nenhuma interação
+26206,MARIA PINHEIRO ALVES,43950698353,em_atendimento,Maria Clara,6,13/10/2025 11:59,13,Não,Mais de 48h sem nenhuma interação
+32614,JACINTA MARTA NUNES DE,20032170378,em_atendimento,Maria Clara,6,10/10/2025 14:19,16,Não,Mais de 48h sem nenhuma interação
+32625,ANA ELISA DE SOUSA,37376594353,em_atendimento,Maria Clara,6,10/10/2025 14:25,16,Não,Mais de 48h sem nenhuma interação
+32611,ARISTIDES HILARIO DA ROCHA,32792255315,em_atendimento,Maria Clara,6,10/10/2025 14:26,16,Não,Mais de 48h sem nenhuma interação
+37583,LISANDRO NUNES DA SILVA,51444488368,em_atendimento,Maria Clara,6,10/10/2025 17:03,16,Não,Mais de 48h sem nenhuma interação
+32674,MARIA DE FATIMA NUNES,15211100344,em_atendimento,Maria Clara,6,13/10/2025 12:31,13,Não,Mais de 48h sem nenhuma interação
+867,JOSE VOLNEI DANTAS PEREIRA,84806974315,em_atendimento,Maria Clara,6,13/10/2025 12:49,13,Não,Mais de 48h sem nenhuma interação
+15560,LUISANILDA CARVALHO BORGES -AGENTE,65261348315,em_atendimento,Maria Clara,6,14/10/2025 12:32,12,Não,Mais de 48h sem nenhuma interação
+40203,FRANCISCO DE JESUS PINHEIRO,42873460334,em_atendimento,Matheus,9,13/10/2025 12:56,13,Não,Mais de 48h sem nenhuma interação
+37620,MARIA CRISTINA DE SOUSA,73852791391,em_atendimento,Maria Clara,6,14/10/2025 13:47,12,Não,Mais de 48h sem nenhuma interação
+37635,MARIA DO SOCORRO SILVA,34209158372,em_atendimento,Maria Clara,6,13/10/2025 17:46,13,Não,Mais de 48h sem nenhuma interação
+37634,RENATA PINTO ARAUJO MACHADO,93130759387,em_atendimento,Maria Clara,6,13/10/2025 17:48,13,Não,Mais de 48h sem nenhuma interação
+37638,LUCIANA CARVALHO NASCIMENTO FE,34973729353,em_atendimento,Maria Clara,6,13/10/2025 18:10,13,Não,Mais de 48h sem nenhuma interação
+1051,MARIA LUCIA FERREIRA DA,02113633329,em_atendimento,Maria Clara,6,13/10/2025 17:51,13,Não,Mais de 48h sem nenhuma interação
+1053,ANA PAULA MOREIRA GUIMARAES,74354515334,em_atendimento,Maria Clara,6,13/10/2025 18:12,13,Não,Mais de 48h sem nenhuma interação
+1081,RAIMUNDO NONATO LOPES FILHO,15964779387,em_atendimento,Maria Clara,6,13/10/2025 18:26,13,Não,Mais de 48h sem nenhuma interação
+13884,ALINE ALVES SOUSA -AGENTE,13010328320,em_atendimento,Patrine,5,13/10/2025 12:59,13,Sim,Mais de 7 dias parado (limite máximo)
+39112,CRISTIANE GONCALVES RIBEIRO SO,38647095391,em_atendimento,Maria Clara,6,13/10/2025 18:36,13,Não,Mais de 48h sem nenhuma interação
+68,MARIA DE JESUS ANDRADE,20116020334,em_atendimento,Patrine,5,07/10/2025 12:04,19,Sim,Mais de 7 dias parado (limite máximo)
+42022,ANTONIA OLIVEIRA DE ASSUNCAO,39742016372,em_atendimento,Patrine,5,15/10/2025 12:45,11,Não,Mais de 48h sem nenhuma interação
+42025,EDSON MARTINS DA SILVA,28699300387,em_atendimento,Isabela,7,15/10/2025 12:11,11,Não,Mais de 48h sem nenhuma interação
+15155,NEUSA MARIA DE SOUSA,45363447304,em_atendimento,Carol,11,08/10/2025 18:36,18,Sim,Mais de 7 dias parado (limite máximo)
+33185,RENATO RANNIERY MARQUES ALENCA,91669308391,em_atendimento,Carol,11,22/10/2025 13:06,4,Não,Mais de 48h sem nenhuma interação
+105,JOSE BARROS SOBRINHO,19955235349,em_atendimento,Patrine,5,07/10/2025 12:46,19,Sim,Mais de 7 dias parado (limite máximo)
+4123,HENDERSON DA SILVA RETRAO,00295306360,em_atendimento,Isabela,7,17/10/2025 12:29,9,Não,Mais de 48h sem nenhuma interação
+41526,THAYANNE MARQUES RAMOS 1,05196224300,em_atendimento,Patrine,5,15/10/2025 12:23,11,Não,Mais de 48h sem nenhuma interação
+398,INES MARIA VIEIRA DA,67768792300,em_atendimento,Isabela,7,09/10/2025 17:17,17,Não,Mais de 48h sem nenhuma interação
+40366,CLAUDIO NUNES DA SILVA,42916771387,em_atendimento,Carol,11,20/10/2025 15:16,6,Não,Mais de 48h sem nenhuma interação
+8824,ILDECI ISABEL SOARES -,35029544372,em_atendimento,Isabela,7,09/10/2025 17:57,17,Não,Mais de 48h sem nenhuma interação
+8993,JOSE NILTON DO NASCIMENTO,78141915304,em_atendimento,Isabela,7,09/10/2025 13:51,17,Não,Mais de 48h sem nenhuma interação
+17537,MARIA DE FATIMA DOS,32748760387,em_atendimento,Patrine,5,07/10/2025 18:14,19,Sim,Mais de 7 dias parado (limite máximo)
+34582,ANTONIO FERNANDES DOS REIS,18260748304,em_atendimento,Isabela,7,09/10/2025 17:12,17,Não,Mais de 48h sem nenhuma interação
+40637,FRANCISCO FERREIRA SOUSA -,00529410354,em_atendimento,Patrine,5,15/10/2025 14:37,11,Não,Mais de 48h sem nenhuma interação
+40632,JULIO CESAR ALVES DA,94081840334,em_atendimento,Patrine,5,15/10/2025 14:38,11,Não,Mais de 48h sem nenhuma interação
+38623,MARIA DAS GRACAS BASILIO,27376249320,em_atendimento,Carol,11,20/10/2025 16:15,6,Não,Mais de 48h sem nenhuma interação
+40650,SERGIO FERREIRA DO NASCIMENTO,35400773320,em_atendimento,Patrine,5,15/10/2025 15:03,11,Não,Mais de 48h sem nenhuma interação
+40652,MARIA DE JESUS BORGES,34013377349,em_atendimento,Patrine,5,15/10/2025 15:05,11,Não,Mais de 48h sem nenhuma interação
+40667,CARLOS ALBERTO BATISTA DA,07851090300,em_atendimento,Patrine,5,15/10/2025 14:16,11,Não,Mais de 48h sem nenhuma interação
+40683,JOSE ALVES DO NASCIMENTO,15146324204,em_atendimento,Patrine,5,15/10/2025 12:49,11,Não,Mais de 48h sem nenhuma interação
+40697,LESTON SOARES COELHO,28731930344,em_atendimento,Patrine,5,15/10/2025 13:41,11,Não,Mais de 48h sem nenhuma interação
+40698,MARIA IRACEMA DE JESUS,34982990344,em_atendimento,Patrine,5,15/10/2025 12:47,11,Não,Mais de 48h sem nenhuma interação
+40704,OSMARINA DA SILVA ALMEIDA,45361444391,em_atendimento,Patrine,5,15/10/2025 12:50,11,Não,Mais de 48h sem nenhuma interação
+40708,KACIO JEFFERSON REGO VIEIRA,76082199391,em_atendimento,Patrine,5,15/10/2025 12:35,11,Não,Mais de 48h sem nenhuma interação
+173,LUCIANA EVANGELISTA FERNANDES -,69366438334,em_atendimento,Carol,11,17/10/2025 15:18,9,Não,Mais de 48h sem nenhuma interação
+10901,MARIA FRANCISCA RODRIGUES DE,68974183315,em_atendimento,Patrine,5,22/10/2025 20:33,4,Não,Mais de 48h sem nenhuma interação
+11044,JOAO GONCALO DA SILVA,15233987287,em_atendimento,Mariany,10,07/10/2025 14:13,19,Não,Mais de 48h sem nenhuma interação
+34914,ANTONIETA DA SILVA BARBOSA,51700328387,em_atendimento,Mariany,10,07/10/2025 14:14,19,Não,Mais de 48h sem nenhuma interação
+8908,EDILENE MARIA DE OLIVEIRA,43959822391,em_atendimento,Isabela,7,09/10/2025 19:08,17,Não,Mais de 48h sem nenhuma interação
+3659,ELIZABETE DO VALE BRITO,38312603204,em_atendimento,Patrine,5,21/10/2025 13:43,5,Não,Mais de 48h sem nenhuma interação
+41816,FRANCISCA DAS CHAGAS MAGALHAES,04752279304,em_atendimento,Matheus,9,15/10/2025 17:34,11,Não,Mais de 48h sem nenhuma interação
+42134,MARIA DO SOCORRO LIMA,81724144391,em_atendimento,Patrine,5,15/10/2025 11:57,11,Não,Mais de 48h sem nenhuma interação
+11205,RAIMUNDO NONATO CARVALHO DA,30573432368,em_atendimento,Matheus,9,16/10/2025 15:08,10,Sim,Mais de 7 dias parado (limite máximo)
+11454,PEDRO GOMES DE OLIVEIRA,92461719349,em_atendimento,Isabela,7,22/10/2025 18:03,4,Não,Mais de 48h sem nenhuma interação
+11684,JOSE DE LIMA E,00725420391,em_atendimento,Mariany,10,07/10/2025 17:39,19,Não,Mais de 48h sem nenhuma interação
+390,VERA LUCIA COSTA RIBEIRO,37498614391,em_atendimento,Isabela,7,09/10/2025 17:15,17,Não,Mais de 48h sem nenhuma interação
+4887,ALFREDO PEREIRA CABRAL AG.POL-AGENTE,07890290306,em_atendimento,Isabela,7,17/10/2025 13:00,9,Não,Mais de 48h sem nenhuma interação
+12214,ANTONIO ALVES DA ROCHA,64371280382,em_atendimento,Mariany,10,07/10/2025 18:19,19,Não,Mais de 48h sem nenhuma interação
+21038,MARLENE DE SOUSA CARVALHO,43941834304,em_atendimento,Carol,11,13/10/2025 11:58,13,Não,Mais de 48h sem nenhuma interação
+35038,CELMO ALVES SANTIAGO,00400641313,em_atendimento,Mariany,10,07/10/2025 14:23,19,Não,Mais de 48h sem nenhuma interação
+35094,RAIMUNDO CAMPELO FILHO -AGENTE,05182999372,em_atendimento,Mariany,10,07/10/2025 17:33,19,Não,Mais de 48h sem nenhuma interação
+35095,SONIA MARIA DO REGO,07861532372,em_atendimento,Mariany,10,07/10/2025 17:44,19,Não,Mais de 48h sem nenhuma interação
+35111,MARIA DA CONCEICAO CARVALHO,43932711300,em_atendimento,Mariany,10,07/10/2025 17:55,19,Não,Mais de 48h sem nenhuma interação
+35121,RITA CECILIA GONDIM VERAS,07893515368,em_atendimento,Matheus,9,17/10/2025 16:16,9,Sim,Mais de 7 dias parado (limite máximo)
+40760,IDALIO DOS SANTOS PINHEIRO,68674503349,em_atendimento,Maria Clara,6,16/10/2025 14:07,10,Não,Mais de 48h sem nenhuma interação
+39624,SILVIO PEREIRA LEITE,16095715334,em_atendimento,Matheus,9,15/10/2025 14:51,11,Sim,Mais de 7 dias parado (limite máximo)
+39637,LUIZ JOSE PEREIRA DA,07710810306,em_atendimento,Mariany,10,07/10/2025 16:32,19,Não,Mais de 48h sem nenhuma interação
+39640,SONIA MARIA DE MORAES,03615146387,em_atendimento,Mariany,10,07/10/2025 17:43,19,Não,Mais de 48h sem nenhuma interação
+39669,GILBERTO FERNANDES RODRIGUES -,07911424349,em_atendimento,Mariany,10,07/10/2025 18:14,19,Não,Mais de 48h sem nenhuma interação
+40776,RAFAEL DA SILVA MONTEIRO,01625684363,em_atendimento,Maria Clara,6,15/10/2025 18:12,11,Não,Mais de 48h sem nenhuma interação
+40786,MATHEUS TEIXEIRA BATISTA -SOLDADO,07198921396,em_atendimento,Maria Clara,6,16/10/2025 13:42,10,Não,Mais de 48h sem nenhuma interação
+40789,ANDERSON PEREIRA DA SILVA,05382849358,em_atendimento,Maria Clara,6,15/10/2025 18:18,11,Não,Mais de 48h sem nenhuma interação
+40799,FERNANDO TORQUATO NORONHA -SOLDADO,02650085304,em_atendimento,Maria Clara,6,15/10/2025 18:01,11,Não,Mais de 48h sem nenhuma interação
+40804,JOAO FAUSTINO QUEIROZ JUNIOR,05961681360,em_atendimento,Maria Clara,6,15/10/2025 17:49,11,Não,Mais de 48h sem nenhuma interação
+40809,LAECIO RODRIGUES DO NASCIMENTO,03464651339,em_atendimento,Maria Clara,6,15/10/2025 17:56,11,Não,Mais de 48h sem nenhuma interação
+8979,MARIA LUCIA DOS SANTOS,00651637376,em_atendimento,Isabela,7,09/10/2025 13:48,17,Não,Mais de 48h sem nenhuma interação
+40851,JORGE DAYLON FONTES GOMES,47900547304,em_atendimento,Maria Clara,6,15/10/2025 17:41,11,Não,Mais de 48h sem nenhuma interação
+40858,IDAMARA FERREIRA SOARES -,62191772315,em_atendimento,Maria Clara,6,15/10/2025 17:28,11,Não,Mais de 48h sem nenhuma interação
+42135,MARIA ROSENI DE SOUSA,04177940372,em_atendimento,Isabela,7,13/10/2025 19:42,13,Não,Mais de 48h sem nenhuma interação
+11183,RAIMUNDO GOMES DE SOUSA,28818407368,em_atendimento,Matheus,9,16/10/2025 15:26,10,Sim,Mais de 7 dias parado (limite máximo)
+11387,FLAUDEMILTON LUIZ DE OLIVEIRA,62108204334,em_atendimento,Isabela,7,22/10/2025 17:52,4,Não,Mais de 48h sem nenhuma interação
+11819,VERA LUCIA MONTEIRO DA,13389173315,em_atendimento,Isabela,7,22/10/2025 19:11,4,Não,Mais de 48h sem nenhuma interação
+39660,ANA ZENEIDA MENEZES CARLOS,34974890344,em_atendimento,Isabela,7,22/10/2025 19:48,4,Não,Mais de 48h sem nenhuma interação
+11247,ELDES DE CASTRO RIBEIRO,28736931349,em_atendimento,Matheus,9,15/10/2025 14:44,11,Não,Mais de 48h sem nenhuma interação
+40928,WALDEIR RIBEIRO GONCALVES -SOLDADO,67497810391,em_atendimento,Isabela,7,15/10/2025 18:40,11,Não,Mais de 48h sem nenhuma interação
+25648,VIVIAN DE AQUINO SILVA,67842291349,em_atendimento,Isabela,7,20/10/2025 16:09,6,Não,Mais de 48h sem nenhuma interação
+25619,HELENA ALVES DE MACEDO,81320230300,em_atendimento,Isabela,7,21/10/2025 16:54,5,Não,Mais de 48h sem nenhuma interação
+260,DANIEL MAGALHAES CHAVES,32752407300,em_atendimento,Isabela,7,21/10/2025 19:40,5,Não,Mais de 48h sem nenhuma interação
+15730,IVANETE DA SILVA GONCALVES,26693755372,em_atendimento,Mariany,10,16/10/2025 13:50,10,Não,Mais de 48h sem nenhuma interação
+25992,IONA DIAS FEITOSA DE,75896591187,em_atendimento,Isabela,7,20/10/2025 16:26,6,Não,Mais de 48h sem nenhuma interação
+26182,CARLOS CESAR GONCALVES FURTADO,53719972372,em_atendimento,Isabela,7,20/10/2025 16:34,6,Não,Mais de 48h sem nenhuma interação
+36045,DANIEL GUIMARAES GONCALVES,01065374313,em_atendimento,Mariany,10,16/10/2025 14:14,10,Não,Mais de 48h sem nenhuma interação
+41957,ADRIANA FRANCO DA SILVA,53631021372,em_atendimento,Matheus,9,15/10/2025 17:25,11,Sim,Mais de 7 dias parado (limite máximo)
+36172,ANTONIO CARLOS DA SILVA,30636175391,em_atendimento,Mariany,10,22/10/2025 12:04,4,Não,Mais de 48h sem nenhuma interação
+36212,ALCIMARIO FERNANDES LIMA DUART,01729739377,em_atendimento,Mariany,10,17/10/2025 18:15,9,Não,Mais de 48h sem nenhuma interação
+40978,FRANCISCA DE QUADRO SILVA,70437920372,em_atendimento,Isabela,7,15/10/2025 16:36,11,Não,Mais de 48h sem nenhuma interação
+40696,CONCEICAO DE MARIA DA,34989803353,em_atendimento,Patrine,5,15/10/2025 12:31,11,Não,Mais de 48h sem nenhuma interação
+40995,LUCAS OLIVEIRA RIBEIRO,89072219368,em_atendimento,Maria Clara,6,15/10/2025 12:15,11,Não,Mais de 48h sem nenhuma interação
+29969,ISRAEL DOS SANTOS VELOSO,03735161340,em_atendimento,Mariany,10,21/10/2025 17:23,5,Não,Mais de 48h sem nenhuma interação
+40660,FRANCISCO CARVALHO DE CERQUEIR,28928440378,em_atendimento,Isabela,7,15/10/2025 16:48,11,Não,Mais de 48h sem nenhuma interação
+41034,LAURITA MARIA DE OLIVEIRA,15108805349,em_atendimento,Isabela,7,15/10/2025 18:19,11,Não,Mais de 48h sem nenhuma interação
+18384,MARIA DO SOCORRO MACEDO,18351751391,em_atendimento,Carol,11,13/10/2025 19:41,13,Não,Mais de 48h sem nenhuma interação
+30313,STANLEY DIEGO SOARES COSTA,01068141336,em_atendimento,Carol,11,09/10/2025 19:11,17,Não,Mais de 48h sem nenhuma interação
+30975,AMADEU CRISPIM DE MOURA,28679326372,em_atendimento,Carol,11,16/10/2025 18:00,10,Não,Mais de 48h sem nenhuma interação
+31094,MARIA ELIANE DA SILVA,91475287372,em_atendimento,Patrine,5,07/10/2025 12:33,19,Não,Mais de 48h sem nenhuma interação
+31095,ALAN JESUITO DE SOUSA,85978914320,em_atendimento,Patrine,5,07/10/2025 12:40,19,Sim,Mais de 7 dias parado (limite máximo)
+25050,CEELI MESQUITA DA SILVA,36172901320,em_atendimento,Maria Clara,6,06/10/2025 18:51,20,Não,Mais de 48h sem nenhuma interação
+177,ARTEMIRE FERREIRA SILVA,13862952304,em_atendimento,Isabela,7,21/10/2025 19:33,5,Não,Mais de 48h sem nenhuma interação
+1163,SHIRLEI MARLY ALVES 1TE-,23998458387,em_atendimento,Isabela,7,15/10/2025 18:05,11,Não,Mais de 48h sem nenhuma interação
+42027,TANIA MARIA DE SOUSA,78060281372,em_atendimento,Maria Clara,6,22/10/2025 12:18,4,Não,Mais de 48h sem nenhuma interação
+41193,FRANCISCA COELHO RODRIGUES DE,27453871387,em_atendimento,Carol,11,09/10/2025 19:14,17,Não,Mais de 48h sem nenhuma interação
+41198,ANTONIA MARIA DE ARAUJO,27415465334,em_atendimento,Carol,11,09/10/2025 15:30,17,Não,Mais de 48h sem nenhuma interação
+4496,DAVID FRANCISCO RIOTINTO SANTO,03801437396,em_atendimento,Carol,11,22/10/2025 12:51,4,Não,Mais de 48h sem nenhuma interação
+42033,JOSE MARIA DE SOUSA,35011092372,em_atendimento,Carol,11,13/10/2025 13:47,13,Não,Mais de 48h sem nenhuma interação
+4514,NANCILDES LIMA VERDE SANTOS,28808746372,em_atendimento,Carol,11,21/10/2025 17:36,5,Não,Mais de 48h sem nenhuma interação
+4508,JOAO VIEIRA DE CARVALHO,16077067334,em_atendimento,Carol,11,21/10/2025 17:54,5,Não,Mais de 48h sem nenhuma interação
+33192,MARGARIDA MARIA IBIAPINA DE,18237932315,em_atendimento,Carol,11,21/10/2025 17:57,5,Não,Mais de 48h sem nenhuma interação
+33191,MANOEL MESSIAS DOS SANTOS,15058018349,em_atendimento,Carol,11,21/10/2025 18:04,5,Não,Mais de 48h sem nenhuma interação
+33189,LUIZ RAIMUNDO DA SILVA,01518300375,em_atendimento,Carol,11,22/10/2025 12:39,4,Não,Mais de 48h sem nenhuma interação
+33187,CAMILA RUBIA DE OLIVEIRA,94720150349,em_atendimento,Carol,11,22/10/2025 12:56,4,Não,Mais de 48h sem nenhuma interação
+33186,MAURICIO DA SILVA FERREIRA,02049894341,em_atendimento,Carol,11,22/10/2025 13:03,4,Não,Mais de 48h sem nenhuma interação
+4531,MARIA DAS GRACAS OLIVEIRA,21792470363,em_atendimento,Carol,11,22/10/2025 15:21,4,Não,Mais de 48h sem nenhuma interação
+33205,JOSE DE RIBAMAR RIBEIRO,25015192215,em_atendimento,Carol,11,22/10/2025 15:33,4,Não,Mais de 48h sem nenhuma interação
+33202,EDVAR RODRIGUES DE MOURA,29720508353,em_atendimento,Carol,11,23/10/2025 13:44,3,Não,Mais de 48h sem nenhuma interação
+4516,ROSA MARIA DE SOUSA,28808592391,em_atendimento,Carol,11,23/10/2025 14:40,3,Não,Mais de 48h sem nenhuma interação
+33207,SANDRO MAVIO RAMOS TEOFILO,34785760320,em_atendimento,Carol,11,22/10/2025 15:06,4,Não,Mais de 48h sem nenhuma interação
+31723,EUCLIDES CAMPOS DE OLIVEIRA,28685300363,em_atendimento,Carol,11,23/10/2025 14:59,3,Não,Mais de 48h sem nenhuma interação
+33263,JERONCIO FERREIRA DE SA,34973486353,em_atendimento,Carol,11,23/10/2025 15:33,3,Não,Mais de 48h sem nenhuma interação
+33261,MARIA LUCIA SILVA LIMA,10559612320,em_atendimento,Carol,11,23/10/2025 17:55,3,Não,Mais de 48h sem nenhuma interação
+33260,MARIA DOS REMEDIOS MAGALHAES,34778322304,em_atendimento,Carol,11,23/10/2025 18:13,3,Não,Mais de 48h sem nenhuma interação
+33258,ANA DIVA RIBEIRO DOS,34032495300,em_atendimento,Carol,11,24/10/2025 11:50,2,Não,Mais de 48h sem nenhuma interação
+42036,CARLOS CESAR BARBOSA DE,35271833372,em_atendimento,Isabela,7,15/10/2025 17:35,11,Não,Mais de 48h sem nenhuma interação
+42037,JOSE DO NASCIMENTO PEREIRA,13141740372,em_atendimento,Maria Clara,6,22/10/2025 12:19,4,Não,Mais de 48h sem nenhuma interação
+42038,MOISES FREITAS SOARES AG.POL-AGENTE,05480122371,em_atendimento,Isabela,7,14/10/2025 19:00,12,Não,Mais de 48h sem nenhuma interação
+42040,ISAC NAVARRO CARVALHO BORGES,01026422302,em_atendimento,Isabela,7,13/10/2025 11:43,13,Não,Mais de 48h sem nenhuma interação
+41232,CRISTINA MARIA DA ROCHA,20990251187,em_atendimento,Carol,11,09/10/2025 18:53,17,Não,Mais de 48h sem nenhuma interação
+41229,RAIMUNDO JOSE CARVALHO DA,28820754304,em_atendimento,Carol,11,09/10/2025 19:02,17,Não,Mais de 48h sem nenhuma interação
+33602,RAIMUNDO CARDOSO DE MACEDO,85194298668,em_atendimento,Patrine,5,07/10/2025 17:03,19,Sim,Mais de 7 dias parado (limite máximo)
+41504,JOSE DA CRUZ CARDOSO,22662448334,em_atendimento,Mariany,10,15/10/2025 17:27,11,Não,Mais de 48h sem nenhuma interação
+42041,MARCOS DANILO SABOIA MESQUITA,84587350320,em_atendimento,Isabela,7,13/10/2025 11:40,13,Não,Mais de 48h sem nenhuma interação
+42042,SOLANGE MARCIA SANTOS DA,84520132304,em_atendimento,Isabela,7,13/10/2025 11:41,13,Não,Mais de 48h sem nenhuma interação
+41234,MARIA DO LIVRAMENTO DE,33828610382,em_atendimento,Maria Clara,6,15/10/2025 12:35,11,Não,Mais de 48h sem nenhuma interação
+41238,ADNA ALVES RODRIGUES DE,50379275368,em_atendimento,Carol,11,09/10/2025 19:09,17,Não,Mais de 48h sem nenhuma interação
+42045,WANNDERSONN MACHADO SOARES,02632288355,em_atendimento,Isabela,7,10/10/2025 17:57,16,Não,Mais de 48h sem nenhuma interação
+42046,MADISLAN DA SILVA SOUSA,97043230349,em_atendimento,Isabela,7,13/10/2025 11:44,13,Não,Mais de 48h sem nenhuma interação
+33264,SILVANI LEITE DUARTE BEZERRA,15284018320,em_atendimento,Carol,11,23/10/2025 15:23,3,Não,Mais de 48h sem nenhuma interação
+33996,TAYLAN CAIO BORGES TEIXEIRA,06498790318,em_atendimento,Carol,11,07/10/2025 12:48,19,Sim,Mais de 7 dias parado (limite máximo)
+40742,MARIA DAS GRACAS DE,35292202304,em_atendimento,Maria Clara,6,16/10/2025 14:03,10,Não,Mais de 48h sem nenhuma interação
+42049,GEAN DE SOUSA LIMA,61882471369,em_atendimento,Isabela,7,10/10/2025 18:13,16,Não,Mais de 48h sem nenhuma interação
+41246,MARIVALDO CARDOSO DE AMORIM,01298106303,em_atendimento,Carol,11,09/10/2025 18:43,17,Não,Mais de 48h sem nenhuma interação
+41247,FRANCISCO SOLANO FEITOSA JUNIO,04683951304,em_atendimento,Isabela,7,09/10/2025 14:14,17,Não,Mais de 48h sem nenhuma interação
+42052,ESDRAS RODRIGUES DE SANTANA,13032087414,em_atendimento,Isabela,7,10/10/2025 18:02,16,Não,Mais de 48h sem nenhuma interação
+41249,MARIA AUGUSTA DE ARAUJO,23338385315,em_atendimento,Carol,11,09/10/2025 15:40,17,Não,Mais de 48h sem nenhuma interação
+41252,MARIA NATIVIDADE SANTOS DE,49006835315,em_atendimento,Carol,11,09/10/2025 14:23,17,Não,Mais de 48h sem nenhuma interação
+41250,ROSA MARIA PEREIRA DA,28741293304,em_atendimento,Isabela,7,09/10/2025 16:42,17,Não,Mais de 48h sem nenhuma interação
+42055,JOSE CAIO DE MACEDO,07777658379,em_atendimento,Isabela,7,10/10/2025 17:22,16,Não,Mais de 48h sem nenhuma interação
+41254,LUIZ JOAQUIM PEREIRA DA,35312866334,em_atendimento,Carol,11,09/10/2025 14:39,17,Não,Mais de 48h sem nenhuma interação
+41256,LUCIENE CORNELIO DO NASCIMENTO,34078703372,em_atendimento,Carol,11,09/10/2025 15:16,17,Não,Mais de 48h sem nenhuma interação
+42056,LILIA DA SILVA ARAUJO,03596043310,em_atendimento,Isabela,7,10/10/2025 17:21,16,Não,Mais de 48h sem nenhuma interação
+41258,JEFFERSON DE MORAES MARINHO,21744246300,em_atendimento,Isabela,7,15/10/2025 12:32,11,Não,Mais de 48h sem nenhuma interação
+41262,JSE OLIVEIRA DE ARAUJO,04820835300,em_atendimento,Carol,11,08/10/2025 17:28,18,Não,Mais de 48h sem nenhuma interação
+42058,YURI HOLANDA DA NOBREGA,61355496349,em_atendimento,Isabela,7,13/10/2025 11:53,13,Não,Mais de 48h sem nenhuma interação
+42060,ALINE GALVAO VILARINDO,87613310310,em_atendimento,Isabela,7,13/10/2025 12:46,13,Não,Mais de 48h sem nenhuma interação
+9117,MARILDE DO NASCIMENTO LUSTOSA,01310057311,em_atendimento,Isabela,7,09/10/2025 15:48,17,Não,Mais de 48h sem nenhuma interação
+372,MARIA DE FATIMA DA,79132014368,em_atendimento,Isabela,7,09/10/2025 17:44,17,Não,Mais de 48h sem nenhuma interação
+41266,FRANCISCO DE ASSIS DE,35405961353,em_atendimento,Isabela,7,15/10/2025 12:34,11,Não,Mais de 48h sem nenhuma interação
+34652,FRANCISCO DE PAIVA FREITAS,77645669349,em_atendimento,Isabela,7,09/10/2025 15:50,17,Não,Mais de 48h sem nenhuma interação
+34642,ARTENISA DE SOUSA MARTINS,34139265353,em_atendimento,Isabela,7,09/10/2025 15:45,17,Não,Mais de 48h sem nenhuma interação
+40917,ARABELA CARVALHO DO REGO,21740453387,em_atendimento,Maria Clara,6,20/10/2025 12:44,6,Não,Mais de 48h sem nenhuma interação
+41269,MARLENE MARIA DA COSTA,07916361353,em_atendimento,Carol,11,08/10/2025 18:45,18,Não,Mais de 48h sem nenhuma interação
+42065,MARIA DE JESUS DA,30612381315,em_atendimento,Isabela,7,13/10/2025 19:17,13,Não,Mais de 48h sem nenhuma interação
+42067,MARIA ZEZITA CARDOSO DO,39568083391,em_atendimento,Isabela,7,10/10/2025 17:43,16,Não,Mais de 48h sem nenhuma interação
+41276,MARIA DE FATIMA PEDROSA,13353802304,em_atendimento,Isabela,7,08/10/2025 17:07,18,Não,Mais de 48h sem nenhuma interação
+42070,DOUGLAS DE MELO SILVA,05951616344,em_atendimento,Isabela,7,10/10/2025 17:38,16,Não,Mais de 48h sem nenhuma interação
+35043,PEDRO RODRIGUES DOS SANTOS,00895189348,em_atendimento,Matheus,9,15/10/2025 15:11,11,Não,Mais de 48h sem nenhuma interação
+42077,MICHAEL MARQUES SANTANA -POLICIAL,04045004394,em_atendimento,Isabela,7,10/10/2025 13:50,16,Não,Mais de 48h sem nenhuma interação
+42074,JOAO VICTOR MAXIMIANO MACHADO,06589349371,em_atendimento,Isabela,7,10/10/2025 16:56,16,Não,Mais de 48h sem nenhuma interação
+42071,GENESIS IAGO DOS SANTOS,12984691474,em_atendimento,Isabela,7,10/10/2025 17:24,16,Não,Mais de 48h sem nenhuma interação
+42076,MARIA CLARA SOARES DE,04917757339,em_atendimento,Isabela,7,10/10/2025 17:29,16,Não,Mais de 48h sem nenhuma interação
+42075,JULIANA AMARAL RIBEIRO -POLICIAL,01154414337,em_atendimento,Isabela,7,10/10/2025 17:32,16,Não,Mais de 48h sem nenhuma interação
+42072,INACIO HERIVELTO DE SOUSA,02978084359,em_atendimento,Isabela,7,10/10/2025 17:35,16,Não,Mais de 48h sem nenhuma interação
+11804,MARIA DAS GRACAS LINHARES,36212806349,em_atendimento,Isabela,7,22/10/2025 19:08,4,Não,Mais de 48h sem nenhuma interação
+35157,MARLI RODRIGUES SOARES -POLICIAL,28624432391,em_atendimento,Isabela,7,22/10/2025 19:48,4,Não,Mais de 48h sem nenhuma interação
+42080,MARIA DAS GRACAS AGUIAR,52085520359,em_atendimento,Isabela,7,10/10/2025 17:29,16,Não,Mais de 48h sem nenhuma interação
+42081,ADELINO PESSOA DOS SANTOS,09958673304,em_atendimento,Isabela,7,10/10/2025 17:30,16,Não,Mais de 48h sem nenhuma interação
+41281,DELMIRA DE JESUS SILVA,24043923368,em_atendimento,Isabela,7,15/10/2025 12:22,11,Não,Mais de 48h sem nenhuma interação
+41282,CARLOTA DE SOUSA MENESES,13384554353,em_atendimento,Carol,11,09/10/2025 14:19,17,Não,Mais de 48h sem nenhuma interação
+42082,VALTER BARBOSA DA SILVA,33086281391,em_atendimento,Isabela,7,10/10/2025 17:31,16,Não,Mais de 48h sem nenhuma interação
+41285,TERESINHA ROSA DE MACEDO,13306553387,em_atendimento,Carol,11,09/10/2025 19:03,17,Não,Mais de 48h sem nenhuma interação
+42083,ERNANI RIOS DOS SANTOS,39398960397,em_atendimento,Isabela,7,10/10/2025 17:32,16,Não,Mais de 48h sem nenhuma interação
+42084,LUIS PAULO MACIEL LOPES,41170091334,em_atendimento,Isabela,7,13/10/2025 18:56,13,Não,Mais de 48h sem nenhuma interação
+42085,ALDO DE SOUSA LIRA,41189892391,em_atendimento,Isabela,7,10/10/2025 18:27,16,Não,Mais de 48h sem nenhuma interação
+40054,RAIMUNDA NONATA DE SOUSA,35010681315,em_atendimento,Carol,11,08/10/2025 14:32,18,Não,Mais de 48h sem nenhuma interação
+42086,MARIA DO ROSARIO DA,09984461300,em_atendimento,Isabela,7,13/10/2025 19:20,13,Não,Mais de 48h sem nenhuma interação
+24940,MAGDA RAQUEL DE OLIVEIRA,28734254315,em_atendimento,Isabela,7,17/10/2025 16:03,9,Não,Mais de 48h sem nenhuma interação
+41287,MARIZA DE SOUSA ARAUJO,35010665387,em_atendimento,Isabela,7,09/10/2025 16:40,17,Não,Mais de 48h sem nenhuma interação
+41288,MARIA DO SOCORRO DE,15265722300,em_atendimento,Maria Clara,6,17/10/2025 12:39,9,Não,Mais de 48h sem nenhuma interação
+42088,JOSE ANTONIO EDUARDO DA,28669240378,em_atendimento,Isabela,7,13/10/2025 19:44,13,Não,Mais de 48h sem nenhuma interação
+42087,JOSE MARTINS DE CARVALHO,04712226315,em_atendimento,Isabela,7,13/10/2025 19:47,13,Não,Mais de 48h sem nenhuma interação
+42092,TASSIO MASCARENHAS DE CARVALHO,01148374302,em_atendimento,Isabela,7,14/10/2025 19:26,12,Não,Mais de 48h sem nenhuma interação
+24619,LUCIA MARIA MIRANDA OLIMPIO,15174239372,em_atendimento,Isabela,7,17/10/2025 14:03,9,Não,Mais de 48h sem nenhuma interação
+25142,GISELE ALVES MARTINS,45089922349,em_atendimento,Isabela,7,20/10/2025 12:42,6,Não,Mais de 48h sem nenhuma interação
+15720,FREDERICO HERBERT PAGELS DE,04828844368,em_atendimento,Mariany,10,16/10/2025 13:58,10,Não,Mais de 48h sem nenhuma interação
+40983,JOSE VIEIRA DA SILVA,45071039320,em_atendimento,Isabela,7,15/10/2025 12:35,11,Não,Mais de 48h sem nenhuma interação
+42093,THIAGO MOREIRA CARDOSO,82063044287,em_atendimento,Isabela,7,21/10/2025 19:49,5,Não,Mais de 48h sem nenhuma interação
+40098,ARTEMISIA MARIA CORREA BONA,20093098391,em_atendimento,Vanessa,8,06/10/2025 18:37,20,Não,Mais de 48h sem nenhuma interação
+41858,CONCEICAO DE MARIA DA,07708165334,em_atendimento,Isabela,7,15/10/2025 12:12,11,Não,Mais de 48h sem nenhuma interação
+41292,MAURA HELENA DE SOUSA,56661460334,em_atendimento,Carol,11,08/10/2025 19:14,18,Não,Mais de 48h sem nenhuma interação
+40292,GLEICY KELLY RIBEIRO BRITO,92814859315,em_atendimento,Maria Clara,6,20/10/2025 13:03,6,Não,Mais de 48h sem nenhuma interação
+40709,THIAGO MORAIS DA COSTA,87934817304,em_atendimento,Patrine,5,15/10/2025 12:38,11,Não,Mais de 48h sem nenhuma interação
+41295,DEISE ELAINE FERREIRA DE,01563180324,em_atendimento,Isabela,7,15/10/2025 12:16,11,Não,Mais de 48h sem nenhuma interação
+42096,ANGELO JOSE FONTENELE DOS,00932484310,em_atendimento,Isabela,7,14/10/2025 19:29,12,Não,Mais de 48h sem nenhuma interação
+41296,ANTONIO EDINALDO PEREIRA DOS,75505100325,em_atendimento,Isabela,7,15/10/2025 12:26,11,Não,Mais de 48h sem nenhuma interação
+41303,MARIA DE FATIMA SA,79851606391,em_atendimento,Isabela,7,15/10/2025 18:27,11,Não,Mais de 48h sem nenhuma interação
+41265,KLEBER DE SOUSA VERAS,47079568315,em_atendimento,Isabela,7,07/10/2025 19:30,19,Não,Mais de 48h sem nenhuma interação
+41275,RITA DE CASSIA CASTELO,12230669168,em_atendimento,Carol,11,08/10/2025 17:34,18,Não,Mais de 48h sem nenhuma interação
+41283,SONIA MARIA CAMPELO -PROFESSOR-40HS,34975268353,em_atendimento,Carol,11,08/10/2025 17:55,18,Não,Mais de 48h sem nenhuma interação
+41300,PAULO LOPES DOS ANJOS,23939451304,em_atendimento,Carol,11,09/10/2025 15:17,17,Não,Mais de 48h sem nenhuma interação
+42102,ENEDINA PEREIRA DOS SANTOS,32804040372,em_atendimento,Isabela,7,13/10/2025 19:04,13,Não,Mais de 48h sem nenhuma interação
+40197,EDIVALDO GONCALVES DE GOIS,47936371320,em_atendimento,Maria Clara,6,09/10/2025 19:34,17,Não,Mais de 48h sem nenhuma interação
+40198,DAVID MELO SOBRINHO,43957196353,em_atendimento,Maria Clara,6,20/10/2025 14:02,6,Não,Mais de 48h sem nenhuma interação
+41344,LIEDA LINO DE CARVALHO,06670490372,em_atendimento,Patrine,5,06/10/2025 13:44,20,Não,Mais de 48h sem nenhuma interação
+34619,GISLENE MARIA RODRIGUES DE,33799385304,em_atendimento,Isabela,7,09/10/2025 19:15,17,Não,Mais de 48h sem nenhuma interação
+42104,RITA HERMELINA MELO FARIAS,06639720353,em_atendimento,Isabela,7,13/10/2025 18:58,13,Não,Mais de 48h sem nenhuma interação
+40256,IVETE VIEIRA DE SOUSA,37372190363,em_atendimento,Maria Clara,6,20/10/2025 13:00,6,Não,Mais de 48h sem nenhuma interação
+42105,MARIA DALVA MOURA LAVOR,18463401368,em_atendimento,Isabela,7,13/10/2025 18:59,13,Não,Mais de 48h sem nenhuma interação
+40985,MARGARIDA MARIA SILVA MIRANDA,18565620344,em_atendimento,Maria Clara,6,15/10/2025 12:24,11,Não,Mais de 48h sem nenhuma interação
+40990,ANTONIA SOARES DE OLIVEIRA,47445700382,em_atendimento,Maria Clara,6,15/10/2025 12:16,11,Não,Mais de 48h sem nenhuma interação
+42108,AURINDA FONSECA DE OLIVEIRA,57827362320,em_atendimento,DANIEL,14,15/10/2025 12:52,11,Não,Mais de 48h sem nenhuma interação
+24083,MARIA APARECIDA DE SA,24522287372,em_atendimento,Carol,11,07/10/2025 16:28,19,Sim,Mais de 7 dias parado (limite máximo)
+40997,MILCA BARBOSA SA DIAS,77032420397,em_atendimento,Isabela,7,15/10/2025 12:58,11,Não,Mais de 48h sem nenhuma interação
+40999,GENILDA PEREIRA DE SOUSA,83144315320,em_atendimento,Maria Clara,6,15/10/2025 12:23,11,Não,Mais de 48h sem nenhuma interação
+41002,GEANE DA CRUZ ALVES,43305547391,em_atendimento,Maria Clara,6,15/10/2025 12:11,11,Não,Mais de 48h sem nenhuma interação
+42111,JOAO VIEIRA PASSOS FILHO,10558608353,em_atendimento,Isabela,7,14/10/2025 17:24,12,Não,Mais de 48h sem nenhuma interação
+41008,NIVALDO FELIX CAMELO,85866482304,em_atendimento,Isabela,7,15/10/2025 18:18,11,Não,Mais de 48h sem nenhuma interação
+37240,ROSIMAR SALES PESSOA,37351729387,em_atendimento,Isabela,7,17/10/2025 14:09,9,Não,Mais de 48h sem nenhuma interação
+37226,MARLI COELHO PEREIRA,39739414320,em_atendimento,Isabela,7,17/10/2025 14:05,9,Não,Mais de 48h sem nenhuma interação
+24985,JOAO GIL BARBOSA -CONSULTOR,15192326320,em_atendimento,Mariany,10,20/10/2025 19:34,6,Não,Mais de 48h sem nenhuma interação
+37283,ORLANDO RIOS DOS SANTOS,28775023334,em_atendimento,Isabela,7,17/10/2025 15:55,9,Não,Mais de 48h sem nenhuma interação
+41011,FRANCISCO DAS CHAGAS NUNES,91631343300,em_atendimento,Isabela,7,15/10/2025 16:32,11,Não,Mais de 48h sem nenhuma interação
+42113,MARIA DO SOCORRO BRILHANTE,47415835387,em_atendimento,Isabela,7,14/10/2025 19:38,12,Não,Mais de 48h sem nenhuma interação
+41013,MARIA GRACIELA HARO DE,43927181315,em_atendimento,Isabela,7,15/10/2025 17:42,11,Não,Mais de 48h sem nenhuma interação
+37336,ANTONIO ERIVALDO DE SOUSA,34982159300,em_atendimento,Isabela,7,17/10/2025 17:35,9,Não,Mais de 48h sem nenhuma interação
+41015,MARCOS VINICIUS MARTINS DE,00362916330,em_atendimento,Isabela,7,15/10/2025 17:43,11,Não,Mais de 48h sem nenhuma interação
+25524,ANTONIA DE SOUSA ANDRADE,30692784349,em_atendimento,Vanessa,8,07/10/2025 13:21,19,Não,Mais de 48h sem nenhuma interação
+41021,ELIOMAR DOS SANTOS RODRIGUES,00247547301,em_atendimento,Isabela,7,15/10/2025 17:03,11,Não,Mais de 48h sem nenhuma interação
+25547,VIRGINIA SILVA DE CARVALHO,56525133300,em_atendimento,Isabela,7,20/10/2025 15:53,6,Não,Mais de 48h sem nenhuma interação
+41401,FERNANDA COELHO NOBREGA MARTIN,22666435334,em_atendimento,Isabela,7,15/10/2025 18:06,11,Não,Mais de 48h sem nenhuma interação
+42114,EDVA LIMA CAVALCANTE,45342610397,em_atendimento,Carol,11,15/10/2025 18:41,11,Não,Mais de 48h sem nenhuma interação
+25774,JOSE RIBAMAR DE SOUSA,45414599300,em_atendimento,Isabela,7,20/10/2025 16:16,6,Não,Mais de 48h sem nenhuma interação
+24852,ANA MARIA SOARES DO,15242307315,em_atendimento,Isabela,7,17/10/2025 15:53,9,Não,Mais de 48h sem nenhuma interação
+25044,ANTONIA MARIA DA SILVA,39408833368,em_atendimento,Patrine,5,06/10/2025 12:11,20,Não,Mais de 48h sem nenhuma interação
+25047,HELIO GONCALVES GUIMARAES,42911125304,em_atendimento,Maria Clara,6,06/10/2025 18:10,20,Não,Mais de 48h sem nenhuma interação
+41022,PAULO CESAR RODRIGUES RIBEIRO,20790724391,em_atendimento,Carol,11,16/10/2025 18:00,10,Não,Mais de 48h sem nenhuma interação
+40659,REGINA MARIA CONDEZ,97088684349,em_atendimento,Patrine,5,15/10/2025 14:15,11,Não,Mais de 48h sem nenhuma interação
+37337,FRANCISCO DE ASSIS DA,37304224304,em_atendimento,Maria Clara,6,06/10/2025 18:23,20,Não,Mais de 48h sem nenhuma interação
+40154,RAIMUNDA NONATA DOS SANTOS,14547716315,em_atendimento,Carol,11,08/10/2025 14:26,18,Sim,Mais de 7 dias parado (limite máximo)
+40170,CANDIDA MARIA DE SOUSA,32820615368,em_atendimento,Maria Clara,6,06/10/2025 18:03,20,Não,Mais de 48h sem nenhuma interação
+42137,FRANCISCO DAS CHAGAS BRITO,47069090315,em_atendimento,Isabela,7,15/10/2025 11:55,11,Não,Mais de 48h sem nenhuma interação
+40169,ANTONIO LUIS BARBOSA DA,28796110325,em_atendimento,Maria Clara,6,20/10/2025 14:34,6,Não,Mais de 48h sem nenhuma interação
+3,ANTONIO CARLOS DOS SANTOS,21200637372,em_atendimento,Patrine,5,06/10/2025 18:05,20,Não,Mais de 48h sem nenhuma interação
+6,SIMONE MARIA CARDOSO CHAVES,37359266300,em_atendimento,Maria Clara,6,06/10/2025 18:08,20,Não,Mais de 48h sem nenhuma interação
+7,EVANEIDE FREITAS DOS SANTOS,35014040349,em_atendimento,Patrine,5,06/10/2025 18:58,20,Não,Mais de 48h sem nenhuma interação
+25166,ELIENE MARIA DA SILVA,49858645368,em_atendimento,Patrine,5,07/10/2025 12:09,19,Sim,Mais de 7 dias parado (limite máximo)
+9,LEDIVALDO UCHOA ALVES AGTESE-AGENTE,22644911320,em_atendimento,Isabela,7,06/10/2025 18:10,20,Não,Mais de 48h sem nenhuma interação
+25310,ARICELINE GUIMARAES COSTA,45408386368,em_atendimento,Maria Clara,6,07/10/2025 12:49,19,Não,Mais de 48h sem nenhuma interação
+37347,LUCIANA MARIA MOTA DA,45400350372,em_atendimento,Maria Clara,6,07/10/2025 12:00,19,Não,Mais de 48h sem nenhuma interação
+11,MARIA DO SOCORRO SILVA,34744711391,em_atendimento,Patrine,5,06/10/2025 19:00,20,Não,Mais de 48h sem nenhuma interação
+37400,ANA LUCIA ALMEIDA PESSOA,34166939300,em_atendimento,Maria Clara,6,07/10/2025 18:17,19,Não,Mais de 48h sem nenhuma interação
+37365,FRANCISCO EDCARLOS COUTINHO,32243448300,em_atendimento,Vanessa,8,07/10/2025 15:45,19,Sim,Mais de 7 dias parado (limite máximo)
+40177,ROSEMARY VASCONCELOS LEAL DO,50412019353,em_atendimento,Maria Clara,6,07/10/2025 16:42,19,Não,Mais de 48h sem nenhuma interação
+40176,ELISANGELA BARBOSA DOS SANTOS,47094834349,em_atendimento,Maria Clara,6,07/10/2025 12:53,19,Não,Mais de 48h sem nenhuma interação
+37210,FRANCISCO DAS CHAGAS SILVA,28743318304,em_atendimento,Isabela,7,17/10/2025 13:56,9,Não,Mais de 48h sem nenhuma interação
+25509,GILDO VELOSO ESTEVAO,49811398372,em_atendimento,Maria Clara,6,07/10/2025 17:55,19,Não,Mais de 48h sem nenhuma interação
+16,SEBASTIAO DA SILVA -AGENTE,34224912368,em_atendimento,Patrine,5,06/10/2025 19:09,20,Não,Mais de 48h sem nenhuma interação
+13,AMAURI DAMASCENO ALVES,10607242353,em_atendimento,Patrine,5,06/10/2025 19:03,20,Não,Mais de 48h sem nenhuma interação
+14,IVONE MIRANDA PEREIRA -AGENTE,35024313372,em_atendimento,Patrine,5,06/10/2025 18:14,20,Não,Mais de 48h sem nenhuma interação
+25979,JOSE SABINO DA SILVA,22144625387,em_atendimento,Maria Clara,6,08/10/2025 19:20,18,Não,Mais de 48h sem nenhuma interação
+26038,FRANCINETH MEDEIROS SALES,79907733334,em_atendimento,Maria Clara,6,09/10/2025 12:03,17,Não,Mais de 48h sem nenhuma interação
+26088,MARIO LUCIO DE MORAES,15109666334,em_atendimento,Maria Clara,6,09/10/2025 12:26,17,Não,Mais de 48h sem nenhuma interação
+20,CARLOS ALBERTO DOS SANTOS,37275305372,em_atendimento,Patrine,5,06/10/2025 18:05,20,Sim,Mais de 7 dias parado (limite máximo)
+26178,CARLOS EUGENIO ARAUJO SILVA,20011270306,em_atendimento,Maria Clara,6,09/10/2025 13:32,17,Não,Mais de 48h sem nenhuma interação
+26189,MARIA GORETE FEITOSA DO,53487117304,em_atendimento,Isabela,7,20/10/2025 16:34,6,Não,Mais de 48h sem nenhuma interação
+26036,TERESINHA DE JESUS DE,18540996391,em_atendimento,Maria Clara,6,09/10/2025 12:08,17,Não,Mais de 48h sem nenhuma interação
+21,FRANCISCO DAS CHAGAS ALVES,11231785349,em_atendimento,Patrine,5,06/10/2025 18:36,20,Não,Mais de 48h sem nenhuma interação
+23,MARIA LIDUINA DE OLIVEIRA,37275704315,em_atendimento,Patrine,5,06/10/2025 18:38,20,Não,Mais de 48h sem nenhuma interação
+26372,ANTONIO RIBEIRO SOBRINHO FILHO,46327304320,em_atendimento,Maria Clara,6,09/10/2025 19:50,17,Não,Mais de 48h sem nenhuma interação
+24,MARIA FRANCINETE SOUSA E,35346680306,em_atendimento,Patrine,5,07/10/2025 11:50,19,Não,Mais de 48h sem nenhuma interação
+25,MARIA JOSE DE LIMA,18302467391,em_atendimento,Patrine,5,07/10/2025 11:55,19,Sim,Mais de 7 dias parado (limite máximo)
+32,ELIEZER ALVES DA COSTA,23951605391,em_atendimento,Maria Clara,6,07/10/2025 11:30,19,Não,Mais de 48h sem nenhuma interação
+35,LUCIDIO NUNES MOREIRA JUNIOR,35023546349,em_atendimento,Patrine,5,07/10/2025 12:24,19,Não,Mais de 48h sem nenhuma interação
+41,GASPAR DE FARIA NETO,28755901387,em_atendimento,Matheus,9,07/10/2025 19:14,19,Sim,Mais de 7 dias parado (limite máximo)
+42,SONIA MARIA LEAL BARBOSA,33751340378,em_atendimento,Patrine,5,07/10/2025 12:26,19,Não,Mais de 48h sem nenhuma interação
+42115,IRISMAR GOMES DA SILVA,81320612334,em_atendimento,Isabela,7,13/10/2025 19:47,13,Não,Mais de 48h sem nenhuma interação
+26190,SIDIANE ALVES CARDOSO,83000984372,em_atendimento,Isabela,7,20/10/2025 16:36,6,Não,Mais de 48h sem nenhuma interação
+26297,CARLOS ALBERTO MENDES,39783251368,em_atendimento,Isabela,7,20/10/2025 19:22,6,Não,Mais de 48h sem nenhuma interação
+49,EDILMA SALES FRANCO FERREIRA,28673786304,em_atendimento,Isabela,7,07/10/2025 18:56,19,Não,Mais de 48h sem nenhuma interação
+50,MARIA DAS GRACAS DA,15225100368,em_atendimento,Patrine,5,07/10/2025 11:45,19,Não,Mais de 48h sem nenhuma interação
+37420,ALINE GOMES CHAVES,85528153387,em_atendimento,Maria Clara,6,08/10/2025 13:13,18,Não,Mais de 48h sem nenhuma interação
+37492,MARIA DE FATIMA FRANCO,23329262320,em_atendimento,Maria Clara,6,08/10/2025 19:09,18,Não,Mais de 48h sem nenhuma interação
+37422,JOVEMARY SILVA LEAL,43282555334,em_atendimento,Isabela,7,20/10/2025 13:24,6,Não,Mais de 48h sem nenhuma interação
+51,ROSILDA MARIA DOS SANTOS,28797922315,em_atendimento,Maria Clara,6,06/10/2025 18:54,20,Não,Mais de 48h sem nenhuma interação
+37512,ELAYNNY GREGORIA LIMA VERDE,77972236372,em_atendimento,Maria Clara,6,09/10/2025 11:59,17,Não,Mais de 48h sem nenhuma interação
+37523,NAIR LEAL DA SILVA,34929746353,em_atendimento,Maria Clara,6,09/10/2025 12:34,17,Não,Mais de 48h sem nenhuma interação
+37554,RAIMUNDO JOSE SOARES DA,38688115320,em_atendimento,Maria Clara,6,09/10/2025 13:32,17,Não,Mais de 48h sem nenhuma interação
+37561,CARMEM MARIA CARVALHO IVO,46290265334,em_atendimento,Maria Clara,6,09/10/2025 13:45,17,Não,Mais de 48h sem nenhuma interação
+37566,MARIA HELENA ARAUJO PEREIRA,87208946353,em_atendimento,Maria Clara,6,09/10/2025 17:02,17,Não,Mais de 48h sem nenhuma interação
+52,FRANCISCA MARIA RODRIGUES DE,47431954387,em_atendimento,Patrine,5,06/10/2025 19:07,20,Não,Mais de 48h sem nenhuma interação
+37565,JOAO ROSA PAES LANDIM,22629149315,em_atendimento,Isabela,7,20/10/2025 16:42,6,Não,Mais de 48h sem nenhuma interação
+37572,IVANILDA DA COSTA SOUZA,89010450368,em_atendimento,Isabela,7,20/10/2025 19:14,6,Não,Mais de 48h sem nenhuma interação
+53,IRANEIDE MARIA BORGES SANTOS,32236433387,em_atendimento,Patrine,5,07/10/2025 12:30,19,Não,Mais de 48h sem nenhuma interação
+37590,ANTONIO VANDERLAN FERNANDES DE,38645017334,em_atendimento,Isabela,7,20/10/2025 19:22,6,Não,Mais de 48h sem nenhuma interação
+59,MARIA DE LOURDES MOURA,18222277391,em_atendimento,Patrine,5,07/10/2025 11:52,19,Não,Mais de 48h sem nenhuma interação
+37328,BALTAZAR DOS SANTOS COSTA,16101731391,em_atendimento,Maria Clara,6,06/10/2025 17:51,20,Não,Mais de 48h sem nenhuma interação
+8,GERSON FERREIRA -AGENTE OPERACIONAL,34117210300,em_atendimento,Patrine,5,06/10/2025 18:07,20,Não,Mais de 48h sem nenhuma interação
+30,ANTONIO LUIZ PEREIRA,06739148368,em_atendimento,Isabela,7,06/10/2025 18:12,20,Não,Mais de 48h sem nenhuma interação
+60,ANA AMELIA DE OLIVEIRA,18617620382,em_atendimento,Isabela,7,08/10/2025 19:01,18,Não,Mais de 48h sem nenhuma interação
+40186,ADILSON PAULINO RATSBONE,13551303878,em_atendimento,Maria Clara,6,09/10/2025 12:14,17,Não,Mais de 48h sem nenhuma interação
+40194,LUCIANA DE ARAUJO SILVA,82487251387,em_atendimento,Maria Clara,6,09/10/2025 19:16,17,Não,Mais de 48h sem nenhuma interação
+40211,JURANDI RIBEIRO DA SILVA,76211703368,em_atendimento,Maria Clara,6,20/10/2025 13:26,6,Não,Mais de 48h sem nenhuma interação
+38,MARIA VERONICA BATISTA XAVIER,33936978468,em_atendimento,Isabela,7,06/10/2025 18:22,20,Não,Mais de 48h sem nenhuma interação
+62,JOAO CAPISTANO DE OLIVEIRA,28780248349,em_atendimento,Patrine,5,07/10/2025 11:56,19,Sim,Mais de 7 dias parado (limite máximo)
+42116,LEIA SOUSA ROCHA,91154367304,em_atendimento,Isabela,7,14/10/2025 19:36,12,Não,Mais de 48h sem nenhuma interação
+64,MARISA DA SILVA AMARAL,28806476300,em_atendimento,Maria Clara,6,06/10/2025 19:11,20,Não,Mais de 48h sem nenhuma interação
+40703,FRANCISCO DAS CHAGAS LIARTE,82772371387,em_atendimento,Patrine,5,15/10/2025 12:30,11,Não,Mais de 48h sem nenhuma interação
+40702,RENATA SORAY DA SILVA,91233356372,em_atendimento,Patrine,5,15/10/2025 12:27,11,Não,Mais de 48h sem nenhuma interação
+65,SUELY DE MARIA SOUSA,30664055320,em_atendimento,Mariany,10,07/10/2025 17:51,19,Não,Mais de 48h sem nenhuma interação
+75,CREUZA PEREIRA DA SILVA,23987847387,em_atendimento,Patrine,5,06/10/2025 18:40,20,Não,Mais de 48h sem nenhuma interação
+40705,JACELINE CELONE LIBANIO DE,78838436304,em_atendimento,Patrine,5,15/10/2025 12:25,11,Não,Mais de 48h sem nenhuma interação
+70,MARCO ANTONIO BORGES DE,40857433504,em_atendimento,Patrine,5,07/10/2025 12:37,19,Não,Mais de 48h sem nenhuma interação
+37576,JULIANA TEIXEIRA DE ARAUJO,77382595315,em_atendimento,Maria Clara,6,13/10/2025 12:10,13,Não,Mais de 48h sem nenhuma interação
+74,ANTONIO CARLOS FREIRE,15332683120,em_atendimento,Patrine,5,07/10/2025 12:37,19,Sim,Mais de 7 dias parado (limite máximo)
+39013,ANTONIA FERREIRA E SILVA,23999810300,em_atendimento,Isabela,7,17/10/2025 14:10,9,Não,Mais de 48h sem nenhuma interação
+96,MARIA DO ROSARIO GOMES,27380688391,em_atendimento,Patrine,5,07/10/2025 13:09,19,Sim,Mais de 7 dias parado (limite máximo)
+97,CONCEICAO DE MARIA DE,33842760353,em_atendimento,Isabela,7,09/10/2025 12:36,17,Não,Mais de 48h sem nenhuma interação
+100,JOSE LUIZ FERREIRA DA,72405848791,em_atendimento,Maria Clara,6,07/10/2025 12:03,19,Não,Mais de 48h sem nenhuma interação
+104,ADRIANA DE OLIVEIRA LIMA,82939896372,em_atendimento,Patrine,5,07/10/2025 13:12,19,Sim,Mais de 7 dias parado (limite máximo)
+107,KELMA FABIANA RIBEIRO SILVA,76263231300,em_atendimento,Patrine,5,07/10/2025 12:44,19,Sim,Mais de 7 dias parado (limite máximo)
+112,FRANCISCA LOPES DA SILVA,96161647320,em_atendimento,Patrine,5,07/10/2025 13:00,19,Não,Mais de 48h sem nenhuma interação
+113,MARIA DAS GRACAS OLIVEIRA,34071032391,em_atendimento,Patrine,5,07/10/2025 13:17,19,Não,Mais de 48h sem nenhuma interação
+116,JEOFRAN GONCALVES SANTOS,34267611300,em_atendimento,Patrine,5,07/10/2025 12:52,19,Sim,Mais de 7 dias parado (limite máximo)
+120,CLEVERLANDO LUSTOSA PEREIRA,56570295349,em_atendimento,Patrine,5,07/10/2025 13:03,19,Sim,Mais de 7 dias parado (limite máximo)
+121,MARIA DOS REMEDIOS SILVA,53510607368,em_atendimento,Patrine,5,07/10/2025 13:19,19,Sim,Mais de 7 dias parado (limite máximo)
+122,LEVI NEGREIROS PEREIRA,37338323372,em_atendimento,Patrine,5,07/10/2025 13:20,19,Sim,Mais de 7 dias parado (limite máximo)
+130,CLAUDIA REGINA FERREIRA DA,53488601315,em_atendimento,Patrine,5,07/10/2025 13:24,19,Sim,Mais de 7 dias parado (limite máximo)
+132,MARIA DOS REMEDIOS PEREIRA,00491313381,em_atendimento,Patrine,5,07/10/2025 13:25,19,Sim,Mais de 7 dias parado (limite máximo)
+133,SILVANA MARIA REMANSO MARQUES,35404914300,em_atendimento,Patrine,5,07/10/2025 12:12,19,Não,Mais de 48h sem nenhuma interação
+134,VILMA MARIA DE SOUSA,37314130353,em_atendimento,Patrine,5,07/10/2025 12:14,19,Não,Mais de 48h sem nenhuma interação
+140,FABRICIA KARLA FONSECA MIRANDA,56548508300,em_atendimento,Patrine,5,07/10/2025 14:20,19,Não,Mais de 48h sem nenhuma interação
+141,DEBORA MARTINS VASCONCELOS,47368691353,em_atendimento,Maria Clara,6,07/10/2025 12:23,19,Não,Mais de 48h sem nenhuma interação
+42118,LIVIO ROBERTO CASTELO BRANCO,99563002334,em_atendimento,Isabela,7,14/10/2025 19:31,12,Não,Mais de 48h sem nenhuma interação
+152,SOLANGE LUIS DE OLIVEIRA,87321726800,em_atendimento,Patrine,5,07/10/2025 14:00,19,Sim,Mais de 7 dias parado (limite máximo)
+38552,JOELMA COSTA DOS SANTOS,78467284315,em_atendimento,Mariany,10,20/10/2025 18:54,6,Não,Mais de 48h sem nenhuma interação
+159,ROBERTO LUIS RIBEIRO FRANCO,69501700330,em_atendimento,Matheus,9,07/10/2025 13:54,19,Não,Mais de 48h sem nenhuma interação
+42119,SELMA SILVA DO NASCIMENTO,26148806800,em_atendimento,Isabela,7,14/10/2025 19:32,12,Não,Mais de 48h sem nenhuma interação
+172,SILVANA MARIA SOARES RAMOS,28782313334,em_atendimento,Patrine,5,07/10/2025 12:16,19,Não,Mais de 48h sem nenhuma interação
+181,GRACILIA DE CARVALHO ARAUJO,76034631300,em_atendimento,Mariany,10,07/10/2025 13:43,19,Não,Mais de 48h sem nenhuma interação
+42079,ALLAN KARDEC VIANA BRITO,05288642389,em_atendimento,Isabela,7,10/10/2025 16:58,16,Não,Mais de 48h sem nenhuma interação
+42061,FRANCILANE LIMA DE SOUSA,01338191322,em_atendimento,Isabela,7,13/10/2025 12:45,13,Não,Mais de 48h sem nenhuma interação
+42059,GUSTAVO WILSON DE SOUSA,88027996368,em_atendimento,Isabela,7,13/10/2025 18:45,13,Não,Mais de 48h sem nenhuma interação
+42066,TAIZ CAVALCANTE DE SOUSA,83118608315,em_atendimento,Isabela,7,13/10/2025 19:15,13,Não,Mais de 48h sem nenhuma interação
+183,FRANCIANA BELEENSE DE SALES,52746160382,em_atendimento,Patrine,5,07/10/2025 17:25,19,Sim,Mais de 7 dias parado (limite máximo)
+184,SHEILA MARIA DE SOUSA,22781668320,em_atendimento,Isabela,7,07/10/2025 17:45,19,Não,Mais de 48h sem nenhuma interação
+204,ADRIANO DA SILVA LIMA,02695245335,em_atendimento,Isabela,7,07/10/2025 19:03,19,Não,Mais de 48h sem nenhuma interação
+40628,SAMMYA SILENY ALVES DE,99924722353,em_atendimento,Patrine,5,15/10/2025 15:06,11,Não,Mais de 48h sem nenhuma interação
+40626,JORCELIA MARIA RODRIGUES LEITE,99653966391,em_atendimento,Maria Clara,6,16/10/2025 12:18,10,Não,Mais de 48h sem nenhuma interação
+40624,ERISVALDO ALVES DE ARAUJO,01685581307,em_atendimento,Maria Clara,6,16/10/2025 12:19,10,Não,Mais de 48h sem nenhuma interação
+40622,IVANEIS BARBOSA E SILVA,85145009372,em_atendimento,Maria Clara,6,16/10/2025 12:22,10,Não,Mais de 48h sem nenhuma interação
+40621,ALDIANA PARAGUAI DA PAIXAO,02402383380,em_atendimento,Maria Clara,6,16/10/2025 17:24,10,Não,Mais de 48h sem nenhuma interação
+40620,CARLA SAMARA BARROS ALVES,03910126308,em_atendimento,Maria Clara,6,16/10/2025 17:26,10,Não,Mais de 48h sem nenhuma interação
+40642,ALEXANDRA ALMEIDA DA SILVA,01266965351,em_atendimento,Maria Clara,6,16/10/2025 17:32,10,Não,Mais de 48h sem nenhuma interação
+40640,LUANA CRISTINA PEREIRA COSTA,01082658383,em_atendimento,Maria Clara,6,16/10/2025 17:34,10,Não,Mais de 48h sem nenhuma interação
+40633,MAYSA KELLEN BATISTA NOGUEIRA,04086891379,em_atendimento,Maria Clara,6,16/10/2025 17:53,10,Não,Mais de 48h sem nenhuma interação
+40675,FRANCISCO FREDERICO DA SILVA,39673553300,em_atendimento,Patrine,5,15/10/2025 13:05,11,Não,Mais de 48h sem nenhuma interação
+40674,IVAN PESSOA CABRAL -3o.,28744250363,em_atendimento,Patrine,5,15/10/2025 13:06,11,Não,Mais de 48h sem nenhuma interação
+40658,CASSIANO RICARDO PASSOS MATTOS,82363137353,em_atendimento,Patrine,5,15/10/2025 13:17,11,Não,Mais de 48h sem nenhuma interação
+40645,TALITA SELLENE CARVALHO DE,88877892315,em_atendimento,Maria Clara,6,16/10/2025 17:30,10,Não,Mais de 48h sem nenhuma interação
+248,SOLANO DE SOUSA E,19979614315,em_atendimento,Isabela,7,21/10/2025 19:36,5,Não,Mais de 48h sem nenhuma interação
+40680,JEANNE MARIA SILVA NASCIMENTO,34944010397,em_atendimento,Patrine,5,15/10/2025 12:52,11,Não,Mais de 48h sem nenhuma interação
+40685,MARIA MADALENA NUNES MACHADO,13009516304,em_atendimento,Patrine,5,15/10/2025 13:10,11,Não,Mais de 48h sem nenhuma interação
+40690,MARIA DE FATIMA VIEIRA,23985771391,em_atendimento,Patrine,5,15/10/2025 13:11,11,Não,Mais de 48h sem nenhuma interação
+251,MARIA DA CONCEICAO LOPES,47419750378,em_atendimento,Maria Clara,6,07/10/2025 16:39,19,Não,Mais de 48h sem nenhuma interação
+40691,MARIA DA CONCEICAO SILVA,55215661391,em_atendimento,Patrine,5,15/10/2025 12:39,11,Não,Mais de 48h sem nenhuma interação
+40695,JORGE LUIZ MENDES,30603579353,em_atendimento,Patrine,5,15/10/2025 12:42,11,Não,Mais de 48h sem nenhuma interação
+40692,NASABETE DE SOUSA BORGES,18151221372,em_atendimento,Patrine,5,15/10/2025 13:12,11,Não,Mais de 48h sem nenhuma interação
+40706,SEBASTIAO FABIO DOS SANTOS,81788657349,em_atendimento,Patrine,5,15/10/2025 13:13,11,Não,Mais de 48h sem nenhuma interação
+40707,RENATO DE LIMA LOPES,39643077349,em_atendimento,Patrine,5,15/10/2025 13:15,11,Não,Mais de 48h sem nenhuma interação
+5,SANDRA DE JESUS OLIVEIRA,27362744315,em_atendimento,Patrine,5,06/10/2025 18:44,20,Não,Mais de 48h sem nenhuma interação
+12879,ELIAS RODRIGUES DE OLIVEIRA,13002198315,em_atendimento,Mariany,10,10/10/2025 14:52,16,Não,Mais de 48h sem nenhuma interação
+42050,CAIO GUILHERME OLIVEIRA SILVA,07588648333,em_atendimento,Isabela,7,10/10/2025 18:01,16,Não,Mais de 48h sem nenhuma interação
+42054,FRANCO ADRIANO DE SOUSA,01592526365,em_atendimento,Isabela,7,10/10/2025 18:11,16,Não,Mais de 48h sem nenhuma interação
+13879,JOVITA LAGES REGO DO,13111825353,em_atendimento,Patrine,5,13/10/2025 12:57,13,Não,Mais de 48h sem nenhuma interação
+41345,MARIA DE JESUS ARAUJO,48204773315,em_atendimento,Administrador Sistema,1,06/10/2025 10:05,20,Sim,Mais de 7 dias parado (limite máximo)
+37581,RAIMUNDO PEREIRA DE SANTANA,30700345353,em_atendimento,Isabela,7,20/10/2025 19:18,6,Não,Mais de 48h sem nenhuma interação
+37280,MARIA CLEONICE DE SOUSA,23963166304,em_atendimento,Maria Clara,6,13/10/2025 12:47,13,Não,Mais de 48h sem nenhuma interação
+12739,FRANCISCO NUNES BARBOSA -GERENTE,16051610391,em_atendimento,Matheus,9,14/10/2025 13:53,12,Não,Mais de 48h sem nenhuma interação
+12849,JOAQUIM CARDOSO CARVALHO -GERENTE,21676160310,em_atendimento,Matheus,9,14/10/2025 13:58,12,Não,Mais de 48h sem nenhuma interação
+265,LUCINEIDE RODRIGUES FONSECA,34139460300,em_atendimento,Patrine,5,07/10/2025 12:19,19,Não,Mais de 48h sem nenhuma interação
+42097,LIGIA MARIA LOPES -PROFESSOR-40HS,22794816349,em_atendimento,Isabela,7,10/10/2025 13:49,16,Não,Mais de 48h sem nenhuma interação
+42053,THAYNARA DE ARAUJO VIDAL,07367047361,em_atendimento,Isabela,7,10/10/2025 17:20,16,Não,Mais de 48h sem nenhuma interação
+37645,CLAUDIANE SANTOS SILVA,89949498368,em_atendimento,Maria Clara,6,13/10/2025 18:33,13,Não,Mais de 48h sem nenhuma interação
+40181,LUIZ CARLOS GOMES ARAUJO,47045477368,em_atendimento,Maria Clara,6,08/10/2025 14:03,18,Não,Mais de 48h sem nenhuma interação
+161,DEBORA LIDIANE CASTRO DE,79742203334,em_atendimento,Mariany,10,10/10/2025 14:19,16,Não,Mais de 48h sem nenhuma interação
+40969,MARIA CELESTE DE CARVALHO,24000590391,em_atendimento,Isabela,7,15/10/2025 18:24,11,Não,Mais de 48h sem nenhuma interação
+42120,CLEONISIO PEREIRA DO NASCIMENT,00254388329,em_atendimento,Isabela,7,14/10/2025 19:33,12,Não,Mais de 48h sem nenhuma interação
+42121,KARLINE DE CARVALHO NUNES,01872429335,em_atendimento,Patrine,5,15/10/2025 12:08,11,Não,Mais de 48h sem nenhuma interação
+42078,VELLINY LOUISE DA SILVA,60231014376,em_atendimento,Isabela,7,10/10/2025 17:27,16,Não,Mais de 48h sem nenhuma interação
+42039,ARI PEREIRA DE ARAUJO,02030111392,em_atendimento,Isabela,7,10/10/2025 18:29,16,Não,Mais de 48h sem nenhuma interação
+42047,ANTONIO JUNIEL MACHADO DA,02861634383,em_atendimento,Isabela,7,13/10/2025 11:45,13,Não,Mais de 48h sem nenhuma interação
+35015,JOSE ROBERTO PEREIRA DA,57740097349,em_atendimento,Isabela,7,22/10/2025 17:48,4,Não,Mais de 48h sem nenhuma interação
+42073,ISAIAS SOARES DE CARVALHO,04494981311,em_atendimento,Isabela,7,10/10/2025 17:34,16,Não,Mais de 48h sem nenhuma interação
+42043,RAIMUNDO MOURA DE LAVOR,01380768390,em_atendimento,Isabela,7,13/10/2025 11:42,13,Não,Mais de 48h sem nenhuma interação
+40192,MARIA GENTILEZA LIMA DE,18341713349,em_atendimento,Maria Clara,6,13/10/2025 12:08,13,Não,Mais de 48h sem nenhuma interação
+12802,JOSE AGOSTINHO DE SOUSA,22692690397,em_atendimento,Patrine,5,13/10/2025 12:46,13,Não,Mais de 48h sem nenhuma interação
+34974,ROBERTO DE MOURA E,28737687387,em_atendimento,Isabela,7,22/10/2025 17:36,4,Não,Mais de 48h sem nenhuma interação
+35097,FRANCISCO ROBERT SEABRA -AGENTE,16071212391,em_atendimento,Isabela,7,22/10/2025 18:15,4,Não,Mais de 48h sem nenhuma interação
+42068,ANDRE LUIS DE SANTANA,06320956364,em_atendimento,Isabela,7,10/10/2025 17:37,16,Não,Mais de 48h sem nenhuma interação
+34122,VANESSA CAROLINE FERREIRA DE,04274606384,em_atendimento,Vanessa,8,06/10/2025 18:59,20,Não,Mais de 48h sem nenhuma interação
+42048,EDILSON ROCHA DE SOUSA,04229712359,em_atendimento,Isabela,7,10/10/2025 18:14,16,Não,Mais de 48h sem nenhuma interação
+42122,SANDRA RAQUEL MACEDO ALMEIDA,00711220360,em_atendimento,Isabela,7,14/10/2025 19:37,12,Não,Mais de 48h sem nenhuma interação
+42044,ANDRE ERNANDES DA CRUZ,04499544394,em_atendimento,Isabela,7,13/10/2025 11:46,13,Não,Mais de 48h sem nenhuma interação
+42062,MARIA GORETH DE OLIVEIRA,27396266300,em_atendimento,Isabela,7,13/10/2025 12:43,13,Não,Mais de 48h sem nenhuma interação
+13864,MARIA DO ROSARIO LEAL,37695886491,em_atendimento,Patrine,5,13/10/2025 12:51,13,Não,Mais de 48h sem nenhuma interação
+42057,ANTONIO XIMENES DE ARAGAO,18095607304,em_atendimento,Isabela,7,13/10/2025 19:16,13,Não,Mais de 48h sem nenhuma interação
+34997,JOSE LEAL BARROS,15631346320,em_atendimento,Carol,11,13/10/2025 11:54,13,Não,Mais de 48h sem nenhuma interação
+42064,BALTAZAR DIAS MONTEIRO -,18168574320,em_atendimento,Isabela,7,13/10/2025 12:44,13,Não,Mais de 48h sem nenhuma interação
+35098,LUIZ ALBERTO E SILVA,19963556353,em_atendimento,Isabela,7,22/10/2025 18:16,4,Não,Mais de 48h sem nenhuma interação
+42126,ANA PATRICIA ROCHA OLIVEIRA,01928396321,em_atendimento,Patrine,5,15/10/2025 12:06,11,Não,Mais de 48h sem nenhuma interação
+42094,JULIO RODRIGUES JULIO -SOLDADO,04905120381,em_atendimento,Isabela,7,13/10/2025 18:54,13,Não,Mais de 48h sem nenhuma interação
+42069,BARBARA MORAIS COSTA -POLICIAL,06217824329,em_atendimento,Isabela,7,13/10/2025 19:14,13,Não,Mais de 48h sem nenhuma interação
+42127,ITALA LOYANE DE ARAUJO,02720074390,em_atendimento,Maria Clara,6,15/10/2025 13:19,11,Não,Mais de 48h sem nenhuma interação
+42090,ALEXSANDRO ULISSIS FERREIRA NU,46247408315,em_atendimento,Isabela,7,13/10/2025 19:45,13,Não,Mais de 48h sem nenhuma interação
+26,NADI DOS SANTOS CALIXTO,30714036315,em_atendimento,Maria Clara,6,06/10/2025 18:46,20,Não,Mais de 48h sem nenhuma interação
+38495,CLEITON OLIVEIRA DA SILVA,44620594334,em_atendimento,Carol,11,06/10/2025 19:17,20,Sim,Mais de 7 dias parado (limite máximo)
+40288,ROSIMERY MARTINS DE LIMA,56601174300,em_atendimento,Matheus,9,14/10/2025 12:13,12,Não,Mais de 48h sem nenhuma interação
+11420,LIBANIA DE CARVALHO LEMOS,81137192372,em_atendimento,Matheus,9,14/10/2025 17:12,12,Não,Mais de 48h sem nenhuma interação
+42151,IARA DE MACEDO BRITO,62772872300,em_atendimento,Patrine,5,22/10/2025 19:32,4,Não,Mais de 48h sem nenhuma interação
+42128,ROSANE MARQUES DAMASCENO -,02096457335,em_atendimento,Patrine,5,15/10/2025 12:05,11,Não,Mais de 48h sem nenhuma interação
+11393,LARISSA DE MORAIS MELO,96179481334,em_atendimento,Vanessa,8,14/10/2025 18:29,12,Não,Mais de 48h sem nenhuma interação
+39662,MARIA ANGELICA DIOGO RODRIGUES,13416944372,em_atendimento,Isabela,7,22/10/2025 19:49,4,Não,Mais de 48h sem nenhuma interação
+42095,MATHEUS ROMERIO SOUZA DOS,06981885352,em_atendimento,Isabela,7,14/10/2025 19:28,12,Não,Mais de 48h sem nenhuma interação
+12060,CARLA SIMONE MIRANDA BORGES,22803491320,em_atendimento,Isabela,7,22/10/2025 19:52,4,Não,Mais de 48h sem nenhuma interação
+33259,MARIA CONCEICAO SILVA VIEIRA,11212012372,em_atendimento,Carol,11,24/10/2025 11:47,2,Não,Mais de 48h sem nenhuma interação
+42138,FABIO LAGO DE LIMA,00917322398,em_atendimento,Patrine,5,15/10/2025 12:02,11,Não,Mais de 48h sem nenhuma interação
+42063,RAIMUNDO ARAUJO FILHO -,15641619353,em_atendimento,Patrine,5,15/10/2025 12:12,11,Não,Mais de 48h sem nenhuma interação
+41304,FLAVIO DE TARSO PAIVA,29774063368,em_atendimento,Isabela,7,15/10/2025 12:13,11,Não,Mais de 48h sem nenhuma interação
+40700,GEOSELANE MARIA ALVES DOS,70032220359,em_atendimento,Patrine,5,15/10/2025 12:26,11,Não,Mais de 48h sem nenhuma interação
+40711,HYGOR DE FRANCA LAVOR,01405625325,em_atendimento,Patrine,5,15/10/2025 12:33,11,Não,Mais de 48h sem nenhuma interação
+40942,KLAUS HENRIQUE MARTINS DE,03991477300,em_atendimento,Isabela,7,15/10/2025 12:34,11,Não,Mais de 48h sem nenhuma interação
+40677,MARIA EUDA MACHADO MELO,34962000306,em_atendimento,Patrine,5,15/10/2025 13:02,11,Não,Mais de 48h sem nenhuma interação
+41305,AUTEMAR COSTA PEREIRA,39736830349,em_atendimento,Isabela,7,15/10/2025 12:18,11,Não,Mais de 48h sem nenhuma interação
+463,MACIEL BARRETO DE SOUSA,05186671380,em_atendimento,Maria Clara,6,08/10/2025 13:36,18,Não,Mais de 48h sem nenhuma interação
+41294,MARIA LUCIA DE ARAUJO,21690928387,em_atendimento,Isabela,7,15/10/2025 12:18,11,Não,Mais de 48h sem nenhuma interação
+40784,DARLANY KARLLA SOARES BEZERRA,05318174310,em_atendimento,Isabela,7,15/10/2025 12:26,11,Não,Mais de 48h sem nenhuma interação
+41297,RAFAEL CARVALHO CRUZ -,06059575331,em_atendimento,Maria Clara,6,15/10/2025 12:39,11,Não,Mais de 48h sem nenhuma interação
+29754,JONIELTON PINHEIRO BACELAR,00686465342,em_atendimento,Isabela,7,15/10/2025 13:10,11,Não,Mais de 48h sem nenhuma interação
+40856,MARIA DA CONCEICAO SILVA,34318038300,em_atendimento,Isabela,7,15/10/2025 12:45,11,Não,Mais de 48h sem nenhuma interação
+40686,TERESA CRISTINA CESAR COELHO,20472048368,em_atendimento,Patrine,5,15/10/2025 13:37,11,Não,Mais de 48h sem nenhuma interação
+40671,MARIA JOANA FERREIRA DIAS,06613276391,em_atendimento,Patrine,5,15/10/2025 13:42,11,Sim,Mais de 7 dias parado (limite máximo)
+38941,FRANCISCO ROBERT CAMPOS -1o.,13387634315,em_atendimento,Carol,11,20/10/2025 18:59,6,Não,Mais de 48h sem nenhuma interação
+42131,MARIA DE LOURDES MARTINS,09738606349,em_atendimento,Isabela,7,21/10/2025 19:52,5,Não,Mais de 48h sem nenhuma interação
+9189,MARIA IRENE DE ARAUJO,18237126300,em_atendimento,Isabela,7,09/10/2025 16:07,17,Não,Mais de 48h sem nenhuma interação
+40922,SIMONE RESENDE DE OLIVEIRA,30523621353,em_atendimento,Maria Clara,6,15/10/2025 14:18,11,Não,Mais de 48h sem nenhuma interação
+11218,WILTON MENDES GONCALVES,34257586320,em_atendimento,Matheus,9,15/10/2025 14:42,11,Sim,Mais de 7 dias parado (limite máximo)
+40639,JONIELSON SOARES ARAUJO -,04693042358,em_atendimento,Patrine,5,15/10/2025 14:30,11,Não,Mais de 48h sem nenhuma interação
+40635,RENNAN ALMEIDA PACHECO DE,04241838383,em_atendimento,Patrine,5,15/10/2025 14:31,11,Não,Mais de 48h sem nenhuma interação
+11152,ZELIA MARIA SANTOS DE,13176439334,em_atendimento,Matheus,9,15/10/2025 14:39,11,Sim,Mais de 7 dias parado (limite máximo)
+820,MARIANO FERREIRA DE MIRANDA,22791035320,em_atendimento,Isabela,7,15/10/2025 16:42,11,Não,Mais de 48h sem nenhuma interação
+40649,WAGNER VASCONCELOS MARTINS,21736154320,em_atendimento,Patrine,5,15/10/2025 14:35,11,Não,Mais de 48h sem nenhuma interação
+40871,ANDREIA NOGUEIRA SOARES GOMES,39508196300,em_atendimento,Maria Clara,6,15/10/2025 17:31,11,Não,Mais de 48h sem nenhuma interação
+40627,LEONARDO FERNANDES MENDES -,05912618390,em_atendimento,Patrine,5,15/10/2025 15:08,11,Não,Mais de 48h sem nenhuma interação
+41028,ACY ROSANGELA DA SILVA,23998075372,em_atendimento,Isabela,7,15/10/2025 17:02,11,Não,Mais de 48h sem nenhuma interação
+41017,RONDYNELE IVO VELOSO,65427297391,em_atendimento,Isabela,7,15/10/2025 16:33,11,Não,Mais de 48h sem nenhuma interação
+40884,ROSILDA BORGES DOS SANTOS,46316396368,em_atendimento,Isabela,7,15/10/2025 18:47,11,Não,Mais de 48h sem nenhuma interação
+42132,FRANCISCO LUIZ DOS SANTOS,06627803372,em_atendimento,Isabela,7,15/10/2025 19:49,11,Não,Mais de 48h sem nenhuma interação
+89,THETRALDA MARIA MARCOS SANTANA,23948175349,em_atendimento,Mariany,10,15/10/2025 17:04,11,Não,Mais de 48h sem nenhuma interação
+41016,DAYANE COSTA ARAUJO SILVA,56624239387,em_atendimento,Carol,11,16/10/2025 18:35,10,Não,Mais de 48h sem nenhuma interação
+40862,CRISTIANE DE CARVALHO SOUSA,82574391349,em_atendimento,Maria Clara,6,15/10/2025 17:37,11,Não,Mais de 48h sem nenhuma interação
+41260,ALZENIRA DE ALENCAR ROCHA,44345917700,em_atendimento,Matheus,9,15/10/2025 17:39,11,Não,Mais de 48h sem nenhuma interação
+40889,LAERCIO FERREIRA DE ALMEIDA,67290140320,em_atendimento,Isabela,7,15/10/2025 18:53,11,Não,Mais de 48h sem nenhuma interação
+224,RAIMUNDO FRANCISCO PIRES DE,41169697372,em_atendimento,Isabela,7,15/10/2025 17:46,11,Não,Mais de 48h sem nenhuma interação
+40359,JANIARA PAMELLA DA SILVA,00100282342,em_atendimento,Isabela,7,15/10/2025 19:04,11,Não,Mais de 48h sem nenhuma interação
+40625,FRANCIVALDO LEITE BARROS -,86106007349,em_atendimento,Maria Clara,6,16/10/2025 12:20,10,Não,Mais de 48h sem nenhuma interação
+40641,JEFFERSON DAVID EVANGELISTA DE,95622306353,em_atendimento,Maria Clara,6,16/10/2025 17:33,10,Não,Mais de 48h sem nenhuma interação
+15831,JANAINA KEILA PEREIRA DAMASCEN,65008618334,em_atendimento,Mariany,10,16/10/2025 14:16,10,Não,Mais de 48h sem nenhuma interação
+1649,VALDOMIRO DA SILVA ARAGAO,35337206320,em_atendimento,Patrine,5,16/10/2025 16:42,10,Sim,Mais de 7 dias parado (limite máximo)
+40644,ALBANO DA SILVA MELO,02708534300,em_atendimento,Maria Clara,6,16/10/2025 17:31,10,Não,Mais de 48h sem nenhuma interação
+40623,ANTONIA EVANIA VIEIRA DA,02684919330,em_atendimento,Maria Clara,6,16/10/2025 17:23,10,Não,Mais de 48h sem nenhuma interação
+40619,JURANDIR DE JESUS CAMPELO,82830380363,em_atendimento,Maria Clara,6,16/10/2025 17:27,10,Não,Mais de 48h sem nenhuma interação
+34965,FRANCISCO DAS CHAGAS RAMOS,01458666883,em_atendimento,Matheus,9,17/10/2025 13:48,9,Sim,Mais de 7 dias parado (limite máximo)
+180,MATIAS JOSE FERREIRA FILHO,31527280349,em_atendimento,Carol,11,17/10/2025 14:52,9,Não,Mais de 48h sem nenhuma interação
+31992,MARIA DO DESTERRO RIBEIRO,18086985334,em_atendimento,Isabela,7,17/10/2025 13:59,9,Não,Mais de 48h sem nenhuma interação
+36180,CLEMILTON AQUINO ALMEIDA CEL-CORONEL,36136794349,em_atendimento,Mariany,10,17/10/2025 16:54,9,Não,Mais de 48h sem nenhuma interação
+40153,FELINTO ELISIO RIBEIRO FILHO,22478060310,em_atendimento,Isabela,7,17/10/2025 14:02,9,Não,Mais de 48h sem nenhuma interação
+41215,CARMEN MARIA DOS SANTOS,12404116851,em_atendimento,Isabela,7,17/10/2025 14:08,9,Não,Mais de 48h sem nenhuma interação
+24958,JOSE EVANJELISTA TORRES LOPES,27381650363,em_atendimento,Isabela,7,17/10/2025 17:22,9,Não,Mais de 48h sem nenhuma interação
+37256,ROSA DIAS FIGUEIREDO,09605282372,em_atendimento,Isabela,7,17/10/2025 14:13,9,Não,Mais de 48h sem nenhuma interação
+25036,DIANA HELENA BARROS DA,35007923320,em_atendimento,Isabela,7,17/10/2025 17:37,9,Não,Mais de 48h sem nenhuma interação
+38871,ROSEMARY GOMES AGUIAR PEDREIRA,37257382387,em_atendimento,Carol,11,20/10/2025 16:12,6,Não,Mais de 48h sem nenhuma interação
+26092,JOSE ADRIANO PEREIRA LIMA,34239065372,em_atendimento,Isabela,7,20/10/2025 16:34,6,Não,Mais de 48h sem nenhuma interação
+40987,ANA CLAUDIA CARDOSO DE,83913246304,em_atendimento,Isabela,7,20/10/2025 19:19,6,Não,Mais de 48h sem nenhuma interação
+40053,BALTAZAR MELO SOBRINHO -PROFESSOR-40HS,03895718300,em_atendimento,Maria Clara,6,20/10/2025 13:50,6,Não,Mais de 48h sem nenhuma interação
+40201,CARLA ROSSANA PIAUILINO NEGREI,85130664353,em_atendimento,Maria Clara,6,20/10/2025 14:07,6,Não,Mais de 48h sem nenhuma interação
+40260,LIVIA RODRIGUES CHAVES,00380795345,em_atendimento,Maria Clara,6,20/10/2025 12:50,6,Não,Mais de 48h sem nenhuma interação
+38988,IVONILDE BARROS DE ALMEIDA,09585656353,em_atendimento,Carol,11,20/10/2025 18:47,6,Não,Mais de 48h sem nenhuma interação
+723,RONALDO DOS SANTOS LEAL,06233373808,em_atendimento,Patrine,5,21/10/2025 12:50,5,Não,Mais de 48h sem nenhuma interação
+25246,GIRLENE LIMA TAPETY,55344291353,em_atendimento,Isabela,7,20/10/2025 12:55,6,Não,Mais de 48h sem nenhuma interação
+40350,JOSEANE GALENO DE CARVALHO,87473208349,em_atendimento,Maria Clara,6,20/10/2025 13:24,6,Não,Mais de 48h sem nenhuma interação
+25942,ERISLEIDE SANTOS DE SOUSA,47408260382,em_atendimento,Isabela,7,20/10/2025 16:19,6,Não,Mais de 48h sem nenhuma interação
+37373,ROSANA MIRANDA COSTA LEAL,48185337349,em_atendimento,Isabela,7,20/10/2025 12:56,6,Não,Mais de 48h sem nenhuma interação
+40020,MARIA DALVA FERREIRA LIMA,15194639368,em_atendimento,Maria Clara,6,20/10/2025 14:23,6,Não,Mais de 48h sem nenhuma interação
+26202,JOSE FRANCISCO SENA,44689853304,em_atendimento,Isabela,7,20/10/2025 16:37,6,Não,Mais de 48h sem nenhuma interação
+25327,JEANNE TEIXEIRA COSTA CHAVES,46271660363,em_atendimento,Isabela,7,20/10/2025 13:13,6,Não,Mais de 48h sem nenhuma interação
+26331,MARIA DO LIVRAMENTO DA,48187275391,em_atendimento,Isabela,7,20/10/2025 19:27,6,Não,Mais de 48h sem nenhuma interação
+35158,VICENTE DE PAULA DIONISIO,13270486391,em_atendimento,Matheus,9,20/10/2025 18:21,6,Não,Mais de 48h sem nenhuma interação
+42030,IEDA LUIZA DA SILVA,01034569376,em_atendimento,Maria Clara,6,22/10/2025 12:16,4,Não,Mais de 48h sem nenhuma interação
+25460,NIEDJA DE CARVALHO MENDONCA,72378255349,em_atendimento,Isabela,7,20/10/2025 13:23,6,Não,Mais de 48h sem nenhuma interação
+25510,MARIA DO PERPETUO SOCORRO,74665863334,em_atendimento,Isabela,7,20/10/2025 15:53,6,Não,Mais de 48h sem nenhuma interação
+38879,MARIA GLAUDIA MATIAS DOS,34795251304,em_atendimento,Carol,11,20/10/2025 16:08,6,Não,Mais de 48h sem nenhuma interação
+40171,LUIZ GONZAGA DE OLIVEIRA,39690121391,em_atendimento,Maria Clara,6,07/10/2025 11:50,19,Não,Mais de 48h sem nenhuma interação
+9947,MARTA LUCIA DE PAIVA,24066249353,em_atendimento,Maria Clara,6,07/10/2025 12:33,19,Não,Mais de 48h sem nenhuma interação
+26306,LUIZA VIEIRA DA COSTA,73757810368,em_atendimento,Isabela,7,20/10/2025 19:24,6,Não,Mais de 48h sem nenhuma interação
+42117,AURIDEIA PEREIRA FRANCO,97128074368,em_atendimento,Isabela,7,21/10/2025 19:49,5,Não,Mais de 48h sem nenhuma interação
+42034,ANA ARAUJO DE SOUSA,36164968372,em_atendimento,Isabela,7,21/10/2025 19:51,5,Não,Mais de 48h sem nenhuma interação
+34,MATHUSALEM GONCALVES DOS SANTO,39710203304,em_atendimento,Patrine,5,07/10/2025 12:23,19,Não,Mais de 48h sem nenhuma interação
+13395,JORGE LUIS VIEIRA LACERDA,35401052391,em_atendimento,Carol,11,22/10/2025 12:07,4,Não,Mais de 48h sem nenhuma interação
+27,SILVIO JOSE RODRIGUES CASTRO,37275291304,em_atendimento,Patrine,5,07/10/2025 11:59,19,Sim,Mais de 7 dias parado (limite máximo)
+4512,FRANCISCO ARAUJO DA SILVA,15961613372,em_atendimento,Carol,11,21/10/2025 17:47,5,Não,Mais de 48h sem nenhuma interação
+4505,JAYRA KELLY DA SILVA,65458770382,em_atendimento,Carol,11,21/10/2025 18:10,5,Não,Mais de 48h sem nenhuma interação
+31795,FRANCISCO TEIXEIRA DE OLIVEIRA,22817093372,em_atendimento,Carol,11,22/10/2025 12:11,4,Não,Mais de 48h sem nenhuma interação
+33208,VALDIMIR RODRIGUES CHAVES,34270825391,em_atendimento,Carol,11,22/10/2025 15:02,4,Não,Mais de 48h sem nenhuma interação
+4533,SUZANA GLEBBY FERREIRA SOARES,81540825787,em_atendimento,Carol,11,22/10/2025 15:13,4,Não,Mais de 48h sem nenhuma interação
+4530,JOAO MARQUES DA COSTA,22805672372,em_atendimento,Carol,11,22/10/2025 15:25,4,Não,Mais de 48h sem nenhuma interação
+31880,DOMINGOS MOREIRA -,20805071334,em_atendimento,Mariany,10,17/10/2025 13:23,9,Não,Mais de 48h sem nenhuma interação
+613,NAGILO PEREIRA DE OLIVEIRA,15220311387,em_atendimento,Isabela,7,15/10/2025 16:26,11,Não,Mais de 48h sem nenhuma interação
+10,MARIA DE FATIMA COELHO,38647940300,em_atendimento,Mariany,10,15/10/2025 12:43,11,Não,Mais de 48h sem nenhuma interação
+12,MARIA DAS DORES PIMENTEL,21756872368,em_atendimento,Isabela,7,21/10/2025 19:31,5,Não,Mais de 48h sem nenhuma interação
+2,ANTONIO GUIMARAES DO VALE,34944990391,em_atendimento,Isabela,7,21/10/2025 19:32,5,Não,Mais de 48h sem nenhuma interação
+674,JOSE FELIX RESENDE DA,13223712372,em_atendimento,Matheus,9,08/10/2025 12:41,18,Sim,Mais de 7 dias parado (limite máximo)
+129,ANA VIRGINIA DE OLIVEIRA,41230655387,em_atendimento,Isabela,7,15/10/2025 11:58,11,Não,Mais de 48h sem nenhuma interação
+71,EDINA CARDOSO DE ARAUJO,30514436387,em_atendimento,Patrine,5,07/10/2025 12:07,19,Sim,Mais de 7 dias parado (limite máximo)
+127,NATANIEL MARTINS DE RESENDE,18478484353,em_atendimento,Patrine,5,07/10/2025 12:11,19,Não,Mais de 48h sem nenhuma interação
+40175,ANTONIA MAGNA MOREIRA E,50470841168,em_atendimento,Maria Clara,6,07/10/2025 12:28,19,Não,Mais de 48h sem nenhuma interação
+170,CILENE LOPES MADEIRA,62414070315,em_atendimento,Maria Clara,6,07/10/2025 12:34,19,Não,Mais de 48h sem nenhuma interação
+67,ERMERSON DE OLIVEIRA SOUSA,18202560306,em_atendimento,Patrine,5,07/10/2025 12:35,19,Não,Mais de 48h sem nenhuma interação
+37374,FRANCISCO NUNES DE MELO,39808220363,em_atendimento,Maria Clara,6,07/10/2025 12:55,19,Não,Mais de 48h sem nenhuma interação
+110,RAIMUNDA MARIA DOS SANTOS,66751438320,em_atendimento,Patrine,5,07/10/2025 12:56,19,Sim,Mais de 7 dias parado (limite máximo)
+114,ALZELENE DA SILVA ALVES,83124306368,em_atendimento,Patrine,5,07/10/2025 13:00,19,Sim,Mais de 7 dias parado (limite máximo)
+128,FRANCISCO CARLOS DA COSTA,18328407353,em_atendimento,Patrine,5,07/10/2025 13:34,19,Sim,Mais de 7 dias parado (limite máximo)
+35069,TERESINHA DE JESUS CARDOSO,13307363387,em_atendimento,Mariany,10,07/10/2025 16:06,19,Não,Mais de 48h sem nenhuma interação
+25488,ROBERTA PASSOS DA SILVA,79231934368,em_atendimento,Maria Clara,6,07/10/2025 17:01,19,Não,Mais de 48h sem nenhuma interação
+144,MARIA DO CARMO DA,49761960382,em_atendimento,Patrine,5,07/10/2025 13:52,19,Sim,Mais de 7 dias parado (limite máximo)
+39631,MARIA DA CONCEICAO SILVA,06096550355,em_atendimento,Mariany,10,07/10/2025 17:24,19,Não,Mais de 48h sem nenhuma interação
+37387,JACIRA TAVARES DE AGUIAR,33735476368,em_atendimento,Maria Clara,6,07/10/2025 13:23,19,Sim,Mais de 7 dias parado (limite máximo)
+80,GILBERTO DA SILVA NASCIMENTO,28764293300,em_atendimento,Isabela,7,07/10/2025 17:35,19,Não,Mais de 48h sem nenhuma interação
+41264,VALTENSY ALVES BARBOSA -2o.,39430839349,em_atendimento,Carol,11,09/10/2025 15:54,17,Não,Mais de 48h sem nenhuma interação
+538,CAIO VINICIUS SOUSA E,03248114380,em_atendimento,Maria Clara,6,08/10/2025 13:49,18,Não,Mais de 48h sem nenhuma interação
+25257,SAMARA REGINA SANTIAGO PEIXOTO,69776504353,em_atendimento,Maria Clara,6,07/10/2025 12:51,19,Não,Mais de 48h sem nenhuma interação
+41255,SILVERA PEREIRA MARQUES -PENSAO,09960813304,em_atendimento,Isabela,7,07/10/2025 19:31,19,Não,Mais de 48h sem nenhuma interação
+37397,MARLENE DA SILVA GUIMARAES,45161003391,em_atendimento,Maria Clara,6,07/10/2025 16:41,19,Não,Mais de 48h sem nenhuma interação
+178,RITA DE CASSIA BATISTA,38660571304,em_atendimento,Patrine,5,07/10/2025 17:34,19,Sim,Mais de 7 dias parado (limite máximo)
+39652,ANA CRISTINA M DE,18205410372,em_atendimento,Mariany,10,07/10/2025 18:05,19,Não,Mais de 48h sem nenhuma interação
+41333,GERALDINA CARVALHO NOBRE -PENSAO,13834118320,em_atendimento,Isabela,7,07/10/2025 19:22,19,Não,Mais de 48h sem nenhuma interação
+41340,ABINAEUDES REIS SANTOS,02530755302,em_atendimento,Isabela,7,07/10/2025 19:19,19,Não,Mais de 48h sem nenhuma interação
+95,MARIA TERESA FREIRE -PROFESSOR,24051900363,em_atendimento,Isabela,7,07/10/2025 17:38,19,Não,Mais de 48h sem nenhuma interação
+12327,PEDRO IDALINO DE ARAUJO,10552081353,em_atendimento,Mariany,10,07/10/2025 18:28,19,Não,Mais de 48h sem nenhuma interação
+11401,JOSSANIA DOS SANTOS SOUSA,01665976357,em_atendimento,Maria Clara,6,07/10/2025 17:58,19,Não,Mais de 48h sem nenhuma interação
+41267,RAIMUNDO JOSE CARNEIRO -AGENTE,07875606349,em_atendimento,Carol,11,08/10/2025 17:41,18,Não,Mais de 48h sem nenhuma interação
+301,SONIA MARIA RODRIGUES -,24071250372,em_atendimento,Patrine,5,07/10/2025 18:27,19,Sim,Mais de 7 dias parado (limite máximo)
+7600,PEDRO PEREIRA DA SILVA,07778350378,em_atendimento,Matheus,9,07/10/2025 19:27,19,Não,Mais de 48h sem nenhuma interação
+41268,MARIA MARLENE PEREIRA DA,21965927300,em_atendimento,Carol,11,08/10/2025 17:52,18,Não,Mais de 48h sem nenhuma interação
+41328,IGO RAFAEL DE ANDRADE,09452205458,em_atendimento,Isabela,7,07/10/2025 19:09,19,Não,Mais de 48h sem nenhuma interação
+73,FRANCISCO JOSE DA LUZ,10604588372,em_atendimento,Matheus,9,07/10/2025 19:19,19,Sim,Mais de 7 dias parado (limite máximo)
+33037,SANDRA FRANCISCA BACELAR RIOS,85214671334,em_atendimento,Carol,11,07/10/2025 17:24,19,Sim,Mais de 7 dias parado (limite máximo)
+932,PAULO DE TASSO CARVALHO,48212865304,em_atendimento,Isabela,7,17/10/2025 12:23,9,Não,Mais de 48h sem nenhuma interação
+935,JOSIAS DA SILVA AVELINO,71075402387,em_atendimento,Isabela,7,17/10/2025 12:10,9,Não,Mais de 48h sem nenhuma interação
+41274,MARCOS ANTONIO LIMA GONCALVES,35318759300,em_atendimento,Carol,11,08/10/2025 17:31,18,Não,Mais de 48h sem nenhuma interação
+41291,AMELIA REJANE DE CARVALHO,62297040300,em_atendimento,Isabela,7,09/10/2025 16:38,17,Não,Mais de 48h sem nenhuma interação
+37424,ROSANA CARVALHO BASTOS DO,64950204300,em_atendimento,Maria Clara,6,08/10/2025 13:33,18,Não,Mais de 48h sem nenhuma interação
+37431,FRANCISCO BARBOSA DE CARVALHO,13188852304,em_atendimento,Maria Clara,6,08/10/2025 13:44,18,Não,Mais de 48h sem nenhuma interação
+33184,THYAGO AUGUSTO COSTA DA,02989861327,em_atendimento,Carol,11,22/10/2025 14:12,4,Não,Mais de 48h sem nenhuma interação
+33183,ANDRE ALVES BARRETO 1,03001716339,em_atendimento,Carol,11,22/10/2025 14:32,4,Não,Mais de 48h sem nenhuma interação
+33195,JOAO MELQUIADES NUNES FILHO,28804783320,em_atendimento,Carol,11,23/10/2025 14:37,3,Não,Mais de 48h sem nenhuma interação
+33200,PEDRO LEAL FILHO,15083357372,em_atendimento,Carol,11,23/10/2025 14:08,3,Não,Mais de 48h sem nenhuma interação
+4521,SILVANA CARLA NUNES NOBREGA,34234691372,em_atendimento,Carol,11,23/10/2025 14:11,3,Não,Mais de 48h sem nenhuma interação
+33199,ALEXANDRE DA SILVA GOMES,28671473368,em_atendimento,Carol,11,23/10/2025 14:16,3,Não,Mais de 48h sem nenhuma interação
+33197,ELIANI GOMES ALVES,28815955372,em_atendimento,Carol,11,23/10/2025 14:20,3,Não,Mais de 48h sem nenhuma interação
+33196,JOSELITO RIBEIRO DE ARAUJO,16093763315,em_atendimento,Carol,11,23/10/2025 14:32,3,Não,Mais de 48h sem nenhuma interação
+41284,RAIMUNDA SOARES DE ARAUJO,13866389353,em_atendimento,Carol,11,08/10/2025 17:27,18,Não,Mais de 48h sem nenhuma interação
+25955,WILBEN SOARES VILARINHO,35322098372,em_atendimento,Maria Clara,6,08/10/2025 19:18,18,Não,Mais de 48h sem nenhuma interação
+40193,MARCIA REIJANE OLIVEIRA RAMOS,39568687300,em_atendimento,Maria Clara,6,09/10/2025 19:14,17,Não,Mais de 48h sem nenhuma interação
+41253,FRANCISCO DE ASSIS MOURA,02273810334,em_atendimento,Carol,11,09/10/2025 15:43,17,Não,Mais de 48h sem nenhuma interação
+41273,FRANCILIO HELDER VIEIRA ARAUJO,77462173387,em_atendimento,Carol,11,08/10/2025 18:48,18,Não,Mais de 48h sem nenhuma interação
+25986,HILDAGIA ARAUJO SOUSA,78239680372,em_atendimento,Maria Clara,6,08/10/2025 19:22,18,Não,Mais de 48h sem nenhuma interação
+41272,MARIA HELENA DIAS -AGENTE,15132943349,em_atendimento,Isabela,7,09/10/2025 12:23,17,Não,Mais de 48h sem nenhuma interação
+8840,MARIA DE FATIMA PEREIRA,64223710397,em_atendimento,Isabela,7,09/10/2025 19:00,17,Não,Mais de 48h sem nenhuma interação
+41278,LUCINEIDE DE SA CARVALHO,18349960310,em_atendimento,Carol,11,08/10/2025 19:08,18,Não,Mais de 48h sem nenhuma interação
+33566,FRANCISCO DE ASSIS GOMES,34771328315,em_atendimento,Vanessa,8,07/10/2025 14:37,19,Sim,Mais de 7 dias parado (limite máximo)
+41243,FERNANDO SERGIO DE MOURA,04861608317,em_atendimento,Isabela,7,09/10/2025 16:44,17,Não,Mais de 48h sem nenhuma interação
+26033,ROSANA MARIA FERREIRA,38667126349,em_atendimento,Maria Clara,6,09/10/2025 12:32,17,Não,Mais de 48h sem nenhuma interação
+41236,TEODORA MARIA DA CONCEICAO,07788975320,em_atendimento,Carol,11,09/10/2025 18:49,17,Não,Mais de 48h sem nenhuma interação
+41231,MIRIAN CARVALHO DE ARAUJO,22815732300,em_atendimento,Carol,11,09/10/2025 19:05,17,Não,Mais de 48h sem nenhuma interação
+41306,MARLENE CUSTODIO VIEIRA 07,14456923172,em_atendimento,Carol,11,09/10/2025 15:34,17,Não,Mais de 48h sem nenhuma interação
+41290,PAULO AVELAR LIBORIO SANTOS,35070137468,em_atendimento,Isabela,7,09/10/2025 16:36,17,Não,Mais de 48h sem nenhuma interação
+41298,EDILEUSA LIMA E SILVA,18554261372,em_atendimento,Carol,11,09/10/2025 15:30,17,Não,Mais de 48h sem nenhuma interação
+41259,MARIA TERESA SOUSA MENDES,22048189334,em_atendimento,Carol,11,09/10/2025 15:46,17,Não,Mais de 48h sem nenhuma interação
+41235,JUNIA MARIA DIAS DE,34801910378,em_atendimento,Carol,11,09/10/2025 18:50,17,Não,Mais de 48h sem nenhuma interação
+39458,BENEDITO RIBEIRO DOS SANTOS,09604928368,em_atendimento,Isabela,7,09/10/2025 15:54,17,Não,Mais de 48h sem nenhuma interação
+41293,CLEIDIANE BEZERRA DA SILVA,03862007340,em_atendimento,Isabela,7,09/10/2025 16:42,17,Não,Mais de 48h sem nenhuma interação
+41239,ANTONIA DAMIANA BATISTA DE,69655855368,em_atendimento,Carol,11,09/10/2025 18:46,17,Não,Mais de 48h sem nenhuma interação
+41242,STANLEY ROSSINE GONCALVES ANDR,01802351337,em_atendimento,Carol,11,09/10/2025 18:12,17,Não,Mais de 48h sem nenhuma interação
+41233,HELDER BORGES DE ALMEIDA,55320848315,em_atendimento,Carol,11,09/10/2025 18:59,17,Não,Mais de 48h sem nenhuma interação
+41240,WILLAME MORAES COSTA DEL.POL-DELEGADO,38305755304,em_atendimento,Carol,11,09/10/2025 19:04,17,Não,Mais de 48h sem nenhuma interação
+41343,MARILHA FREITAS DE OLIVEIRA,88451216315,em_atendimento,Administrador Sistema,1,10/10/2025 09:10,16,Não,Mais de 48h sem nenhuma interação
+6329,PATRICK SANTOS LIMA 1,02243390361,em_atendimento,Isabela,7,06/10/2025 18:47,20,Sim,Mais de 7 dias parado (limite máximo)
+40344,ROMUEL LIMA DOS SANTOS,02993647393,em_atendimento,Isabela,7,15/10/2025 19:09,11,Não,Mais de 48h sem nenhuma interação
+35173,MARIA GORETE ALVES DOS,18371191391,em_atendimento,Isabela,7,22/10/2025 19:50,4,Não,Mais de 48h sem nenhuma interação
+41349,GENILSON LOPES DE CARVALHO,05912565335,em_atendimento,Isabela,7,15/10/2025 17:04,11,Não,Mais de 48h sem nenhuma interação
+41348,MARCUS MARCYEL VIEIRA GOMES,97475238334,em_atendimento,Carol,11,22/10/2025 12:23,4,Não,Mais de 48h sem nenhuma interação
+34034,MAYRON VITOR DE ARAUJO,49782958824,em_atendimento,Carol,11,20/10/2025 19:07,6,Não,Mais de 48h sem nenhuma interação
+41327,GEISSA DUARTE DE AGUIAR,05712626357,em_atendimento,Isabela,7,07/10/2025 19:07,19,Não,Mais de 48h sem nenhuma interação
+41332,LUCILENE MENDES VIEIRA -PENSAO,86387057191,em_atendimento,Isabela,7,09/10/2025 19:41,17,Não,Mais de 48h sem nenhuma interação
+11372,JOSE BRAZ DA SILVA,46249532315,em_atendimento,Mariany,10,07/10/2025 14:50,19,Não,Mais de 48h sem nenhuma interação
+34994,MILTON SOARES DE JESUS,88120279387,em_atendimento,Mariany,10,07/10/2025 14:18,19,Não,Mais de 48h sem nenhuma interação
+41375,FERNANDO MIKAEL NUNES LIMA,02107525307,em_atendimento,Isabela,7,15/10/2025 16:53,11,Não,Mais de 48h sem nenhuma interação
+41257,JEFFERSON LEITE DIAS,22760180387,em_atendimento,Carol,11,08/10/2025 17:39,18,Não,Mais de 48h sem nenhuma interação
+40178,MARIA DA CRUZ BESERRA,39728846304,em_atendimento,Maria Clara,6,07/10/2025 16:47,19,Não,Mais de 48h sem nenhuma interação
+2585,JOAO DE DEUS MACEDO,00701778300,em_atendimento,Isabela,7,09/10/2025 13:49,17,Não,Mais de 48h sem nenhuma interação
+8927,RAIMUNDO NONATO DA SILVA,20544774353,em_atendimento,Isabela,7,09/10/2025 19:12,17,Não,Mais de 48h sem nenhuma interação
+79,CORINA SOUZA MAGALHAES,62169211349,em_atendimento,Maria Clara,6,07/10/2025 11:47,19,Não,Mais de 48h sem nenhuma interação
+35212,RAIMUNDO LUIS CUTRIM COSTA,09926356320,em_atendimento,Mariany,10,07/10/2025 18:22,19,Não,Mais de 48h sem nenhuma interação
+37426,EVREE JANNE MENDES GONCALVES,76916189304,em_atendimento,Maria Clara,6,08/10/2025 13:31,18,Não,Mais de 48h sem nenhuma interação
+5749,BENEDITO MARISCAL DE ARAUJO,34933450382,em_atendimento,Patrine,5,07/10/2025 19:55,19,Sim,Mais de 7 dias parado (limite máximo)
+253,AGEVINA REGINA FRANCISCA DO,27336506372,em_atendimento,Isabela,7,21/10/2025 19:38,5,Não,Mais de 48h sem nenhuma interação
+41381,JOAO BOSCO DA SILVEIRA,27418251300,em_atendimento,Patrine,5,15/10/2025 12:00,11,Não,Mais de 48h sem nenhuma interação
+41382,JORGE DA SILVA DOURADO,39565556353,em_atendimento,Isabela,7,15/10/2025 17:48,11,Não,Mais de 48h sem nenhuma interação
+34893,MARIA FRANCISCA ALVES DOS,20021470359,em_atendimento,Patrine,5,22/10/2025 20:11,4,Não,Mais de 48h sem nenhuma interação
+40731,MAGDA ROGERIA PEREIRA VIANA,51750740320,em_atendimento,Isabela,7,15/10/2025 12:44,11,Não,Mais de 48h sem nenhuma interação
+40736,ELY APARECIDA NUNES DA,80168370344,em_atendimento,Isabela,7,15/10/2025 12:39,11,Não,Mais de 48h sem nenhuma interação
+41383,MARIA MARLENE DA MOTA,48296341387,em_atendimento,Isabela,7,17/10/2025 13:18,9,Não,Mais de 48h sem nenhuma interação
+34983,LUCELIA MELO AGUIAR,37298321315,em_atendimento,Isabela,7,22/10/2025 17:37,4,Não,Mais de 48h sem nenhuma interação
+34988,ROBERIO FRANCISCO DE ARAUJO,18581846300,em_atendimento,Mariany,10,07/10/2025 14:32,19,Não,Mais de 48h sem nenhuma interação
+40762,LOURIVAL FRANCISCO DA SILVA,67460526304,em_atendimento,Maria Clara,6,16/10/2025 14:14,10,Não,Mais de 48h sem nenhuma interação
+33190,DEODORO PEREIRA DOS SANTOS,18560580344,em_atendimento,Carol,11,21/10/2025 18:18,5,Não,Mais de 48h sem nenhuma interação
+41387,RAIMUNDO BATISTA DE FRANCA,01394543301,em_atendimento,Isabela,7,15/10/2025 12:12,11,Não,Mais de 48h sem nenhuma interação
+40764,JOHNNY ANDERSON RAMOS DA,02025063393,em_atendimento,Isabela,7,08/10/2025 16:40,18,Não,Mais de 48h sem nenhuma interação
+40068,MARIA DAS DORES FERREIRA,34976337391,em_atendimento,Carol,11,07/10/2025 16:31,19,Não,Mais de 48h sem nenhuma interação
+8681,MARIA DE FATIMA ARAUJO,33724415320,em_atendimento,Isabela,7,09/10/2025 17:11,17,Não,Mais de 48h sem nenhuma interação
+34555,SAMARA DA CONCEICAO SILVA,65600258372,em_atendimento,Isabela,7,09/10/2025 17:18,17,Não,Mais de 48h sem nenhuma interação
+34588,MARIA DOS SANTOS CARVALHO,37401912368,em_atendimento,Isabela,7,09/10/2025 17:15,17,Não,Mais de 48h sem nenhuma interação
+39364,JOAO HENRIQUE GOMES FERREIRA,67134815315,em_atendimento,Mariany,10,07/10/2025 16:36,19,Não,Mais de 48h sem nenhuma interação
+40768,RONDINELLE DOS SANTOS MADUREIR,02722316307,em_atendimento,Isabela,7,15/10/2025 12:49,11,Não,Mais de 48h sem nenhuma interação
+40771,LINDESON VIEIRA ARAUJO 1,02169993320,em_atendimento,Maria Clara,6,15/10/2025 18:23,11,Não,Mais de 48h sem nenhuma interação
+40775,KAROLINE DE CARVALHO TORRES,04770756305,em_atendimento,Maria Clara,6,15/10/2025 18:13,11,Não,Mais de 48h sem nenhuma interação
+40777,LEONARDO DO NASCIMENTO QUEIROZ,06138572327,em_atendimento,Isabela,7,07/10/2025 12:53,19,Sim,Mais de 7 dias parado (limite máximo)
+40781,CLAUDIO VIEIRA LOPES -SOLDADO,03897665344,em_atendimento,Maria Clara,6,15/10/2025 18:08,11,Não,Mais de 48h sem nenhuma interação
+40783,JOAO FRANCISCO DOS SANTOS,05672565379,em_atendimento,Maria Clara,6,15/10/2025 18:10,11,Não,Mais de 48h sem nenhuma interação
+40798,EVANILDO CARVALHO SILVA -SOLDADO,04959219394,em_atendimento,Maria Clara,6,15/10/2025 17:58,11,Não,Mais de 48h sem nenhuma interação
+40830,WELLINGTON DOS SANTOS ALVES,55443761315,em_atendimento,Isabela,7,15/10/2025 12:38,11,Não,Mais de 48h sem nenhuma interação
+41330,JULIO CANDIDO DA SILVA,04640880383,em_atendimento,Isabela,7,07/10/2025 19:13,19,Não,Mais de 48h sem nenhuma interação
+8752,HELONEDES DOS SANTOS SOUSA,35102713353,em_atendimento,Isabela,7,09/10/2025 17:44,17,Não,Mais de 48h sem nenhuma interação
+8825,CHRISTIAN ROSEMARY COSTA PIERO,36207802349,em_atendimento,Isabela,7,09/10/2025 18:50,17,Não,Mais de 48h sem nenhuma interação
+8838,AURENICE DE CARVALHO LOPES,48235890330,em_atendimento,Isabela,7,09/10/2025 19:00,17,Não,Mais de 48h sem nenhuma interação
+8832,EDILENA SOUSA SILVA -,84791969391,em_atendimento,Isabela,7,09/10/2025 18:51,17,Não,Mais de 48h sem nenhuma interação
+8855,DINAIR OLIVEIRA SOUSA NERI,65106890306,em_atendimento,Isabela,7,09/10/2025 19:03,17,Não,Mais de 48h sem nenhuma interação
+8898,ELVINA PEREIRA DE MORAIS,59156457391,em_atendimento,Isabela,7,09/10/2025 19:06,17,Não,Mais de 48h sem nenhuma interação
+32196,MARIA DO SOCORRO PATRIOLINO,15109410372,em_atendimento,Isabela,7,09/10/2025 19:05,17,Não,Mais de 48h sem nenhuma interação
+32199,ANA RITA DE JESUS,47051930400,em_atendimento,Isabela,7,09/10/2025 17:47,17,Não,Mais de 48h sem nenhuma interação
+32198,ORLENE MARTINS DO NASCIMENTO,06668011349,em_atendimento,Isabela,7,09/10/2025 13:46,17,Não,Mais de 48h sem nenhuma interação
+32235,MARIA LUCIA RIBEIRO DOS,28626559372,em_atendimento,Isabela,7,09/10/2025 13:59,17,Não,Mais de 48h sem nenhuma interação
+32238,MARIA RAIMUNDA DE BRITO,16095820391,em_atendimento,Isabela,7,09/10/2025 14:01,17,Não,Mais de 48h sem nenhuma interação
+34598,OCILIA BATISTA PAIVA -,81223986349,em_atendimento,Isabela,7,09/10/2025 17:49,17,Não,Mais de 48h sem nenhuma interação
+34601,VANILDES MACEDO FALCAO CUNHA,64171868300,em_atendimento,Isabela,7,09/10/2025 18:54,17,Não,Mais de 48h sem nenhuma interação
+34599,VANUSA DE SOUSA LIMA,47054743334,em_atendimento,Isabela,7,09/10/2025 17:54,17,Não,Mais de 48h sem nenhuma interação
+34617,SANDRA MARIA VIEIRA NOGUEIRA,34964703304,em_atendimento,Isabela,7,09/10/2025 19:08,17,Não,Mais de 48h sem nenhuma interação
+34635,MARIA DOS REMEDIOS DO,01174091380,em_atendimento,Isabela,7,09/10/2025 14:06,17,Não,Mais de 48h sem nenhuma interação
+39095,RAIMUNDA CHAVELINE BARROS -,62511750368,em_atendimento,Isabela,7,09/10/2025 17:55,17,Não,Mais de 48h sem nenhuma interação
+39104,ROSANGELA LOPES DOS SANTOS,97875775353,em_atendimento,Isabela,7,09/10/2025 19:11,17,Não,Mais de 48h sem nenhuma interação
+40835,VITORIA MARIA DA CUNHA,13040340387,em_atendimento,Isabela,7,09/10/2025 19:06,17,Não,Mais de 48h sem nenhuma interação
+40836,ADAIL DE ARAUJO MELO,03972277369,em_atendimento,Isabela,7,09/10/2025 13:17,17,Não,Mais de 48h sem nenhuma interação
+9085,NILSA ALICE RODRIGUES COUTINHO,06098135878,em_atendimento,Isabela,7,09/10/2025 14:17,17,Não,Mais de 48h sem nenhuma interação
+36052,MARIA DAS GRACAS RODRIGUES,24111651372,em_atendimento,Carol,11,17/10/2025 18:08,9,Não,Mais de 48h sem nenhuma interação
+34637,LUIZA ARISTIDES SOARES DE,32723938204,em_atendimento,Isabela,7,09/10/2025 14:10,17,Não,Mais de 48h sem nenhuma interação
+34639,FABIOLA NUNES DE SOUSA,93591373320,em_atendimento,Isabela,7,09/10/2025 14:11,17,Não,Mais de 48h sem nenhuma interação
+34653,RAIMUNDA PEREIRA DE FRANCA,00906636329,em_atendimento,Isabela,7,09/10/2025 15:52,17,Não,Mais de 48h sem nenhuma interação
+34654,MARIA LUCIA DE SOUSA,52069842304,em_atendimento,Isabela,7,09/10/2025 15:52,17,Não,Mais de 48h sem nenhuma interação
+39460,MARIA DE FATIMA DA,53577973315,em_atendimento,Isabela,7,09/10/2025 16:02,17,Não,Mais de 48h sem nenhuma interação
+37402,FRANCISCA CELIA MORAES VIANA,11275007830,em_atendimento,Maria Clara,6,07/10/2025 18:19,19,Não,Mais de 48h sem nenhuma interação
+9697,MARIA ZETE PINTO DE,71413464300,em_atendimento,Matheus,9,08/10/2025 14:42,18,Sim,Mais de 7 dias parado (limite máximo)
+34759,MARIA DAS MERCES RIBEIRO,39792714391,em_atendimento,Patrine,5,08/10/2025 14:41,18,Sim,Mais de 7 dias parado (limite máximo)
+40850,LUCIA DE FATIMA M,35367903304,em_atendimento,Isabela,7,15/10/2025 18:55,11,Não,Mais de 48h sem nenhuma interação
+41391,AUGUSTO CESAR COSTA FLORES,00439885396,em_atendimento,Isabela,7,15/10/2025 16:45,11,Não,Mais de 48h sem nenhuma interação
+10867,PEDRO SOARES DA SILVA,08401534305,em_atendimento,Patrine,5,22/10/2025 20:13,4,Não,Mais de 48h sem nenhuma interação
+39581,ANTONIO CARLOS CRUZ CARVALHO,77024745304,em_atendimento,Patrine,5,22/10/2025 20:14,4,Não,Mais de 48h sem nenhuma interação
+39598,CASSANDRA DA SILVA CABRAL,87622254304,em_atendimento,Mariany,10,07/10/2025 14:09,19,Não,Mais de 48h sem nenhuma interação
+40869,GALDENIA RODRIGUES DE SOUSA,60385202369,em_atendimento,Maria Clara,6,15/10/2025 17:32,11,Não,Mais de 48h sem nenhuma interação
+40864,JOSEFA MARIA DOS SANTOS,04987647370,em_atendimento,Maria Clara,6,15/10/2025 17:36,11,Não,Mais de 48h sem nenhuma interação
+40860,ALDENORA GOMES DE LIMA,81891512315,em_atendimento,Patrine,5,22/10/2025 20:32,4,Não,Mais de 48h sem nenhuma interação
+40876,MIGUEL SINHUE FONSECA ROSAL,18241476353,em_atendimento,Maria Clara,6,15/10/2025 17:27,11,Não,Mais de 48h sem nenhuma interação
+41395,PEDRO GALVAO DO NASCIMENTO,30020832320,em_atendimento,Isabela,7,15/10/2025 18:32,11,Não,Mais de 48h sem nenhuma interação
+11216,EDNA MARIA DE ALENCAR,35282665387,em_atendimento,Matheus,9,15/10/2025 14:48,11,Sim,Mais de 7 dias parado (limite máximo)
+41393,EVA MARIA DA CONCEICAO,01181047307,em_atendimento,Isabela,7,15/10/2025 16:37,11,Não,Mais de 48h sem nenhuma interação
+41392,JOSELITA PEREIRA DE SOUSA,30613116372,em_atendimento,Isabela,7,15/10/2025 17:39,11,Não,Mais de 48h sem nenhuma interação
+11287,MARCO ANTONIO BEZERRA,39754006334,em_atendimento,Isabela,7,22/10/2025 17:39,4,Não,Mais de 48h sem nenhuma interação
+11308,ANTONIO MARCOS NUNES DE,81232349453,em_atendimento,Isabela,7,22/10/2025 17:44,4,Não,Mais de 48h sem nenhuma interação
+39028,MARIA MARGARETE VAZ DE,47404558387,em_atendimento,Carol,11,20/10/2025 18:21,6,Não,Mais de 48h sem nenhuma interação
+11411,HELDER LARRY MARTINS NOGUEIRA,71669566315,em_atendimento,Matheus,9,15/10/2025 15:00,11,Não,Mais de 48h sem nenhuma interação
+35032,MARCOS PAULO VIANA FURTADO,00182716341,em_atendimento,Isabela,7,22/10/2025 17:54,4,Não,Mais de 48h sem nenhuma interação
+40885,ANA ROSA SOUSA DE,22797815300,em_atendimento,Maria Clara,6,15/10/2025 12:49,11,Não,Mais de 48h sem nenhuma interação
+40886,EDMILSON GOMES PEREIRA,09688722391,em_atendimento,Isabela,7,22/10/2025 17:34,4,Não,Mais de 48h sem nenhuma interação
+40888,JULIANA FLAVIA DE MELO,01886572313,em_atendimento,Isabela,7,22/10/2025 18:06,4,Não,Mais de 48h sem nenhuma interação
+39629,JALEANE LISBOA MACHADO,00713917113,em_atendimento,Isabela,7,22/10/2025 18:08,4,Não,Mais de 48h sem nenhuma interação
+11629,VALDENIA GOMES DE MESQUITA,34042458300,em_atendimento,Isabela,7,22/10/2025 18:13,4,Não,Mais de 48h sem nenhuma interação
+40174,JOANA CANDIDA ALVES,56611129391,em_atendimento,Maria Clara,6,20/10/2025 14:09,6,Não,Mais de 48h sem nenhuma interação
+35068,MARIA DO SOCORRO BESERRA,15981975334,em_atendimento,Mariany,10,07/10/2025 15:59,19,Não,Mais de 48h sem nenhuma interação
+39651,CLEIDE MARIA OLIVEIRA PAZ,15270769115,em_atendimento,Isabela,7,22/10/2025 19:12,4,Não,Mais de 48h sem nenhuma interação
+39653,ALZENIRA SILVA PAZ -NIVEL,28741706315,em_atendimento,Isabela,7,22/10/2025 19:41,4,Não,Mais de 48h sem nenhuma interação
+39667,NORA NEIDE DA SILVA,20078730368,em_atendimento,Isabela,7,23/10/2025 12:35,3,Não,Mais de 48h sem nenhuma interação
+40894,JOSE AURELIO PIRES FERNANDES,10619950382,em_atendimento,Isabela,7,22/10/2025 19:14,4,Não,Mais de 48h sem nenhuma interação
+40895,AURINETE CASTRO DA SILVA,30480990344,em_atendimento,Isabela,7,22/10/2025 19:41,4,Não,Mais de 48h sem nenhuma interação
+1181,ALAN ALMEIDA MOREIRA,04226221338,em_atendimento,Patrine,5,06/10/2025 18:24,20,Não,Mais de 48h sem nenhuma interação
+40901,LAUDIMIR DA COSTA FERREIRA,22723692353,em_atendimento,Maria Clara,6,20/10/2025 13:14,6,Não,Mais de 48h sem nenhuma interação
+40325,EVALTE DIAS DE OLIVEIRA,44451636353,em_atendimento,Maria Clara,6,20/10/2025 12:52,6,Não,Mais de 48h sem nenhuma interação
+40682,ANA CAROLINE FERREIRA AGUIAR,02980732346,em_atendimento,Patrine,5,15/10/2025 13:28,11,Não,Mais de 48h sem nenhuma interação
+37300,NAURA MARIA FERREIRA,27455300387,em_atendimento,Isabela,7,17/10/2025 16:00,9,Não,Mais de 48h sem nenhuma interação
+40910,MANOEL DA GUIA CRUZ,53683137304,em_atendimento,Isabela,7,15/10/2025 12:28,11,Não,Mais de 48h sem nenhuma interação
+41219,REGINALDO BRANDAO DA SILVA,25528129885,em_atendimento,Carol,11,09/10/2025 15:20,17,Não,Mais de 48h sem nenhuma interação
+41113,PAULO HENRIQUE DOS SANTOS,34320628349,em_atendimento,Vanessa,8,06/10/2025 18:43,20,Não,Mais de 48h sem nenhuma interação
+41398,CLAUDIMAR SOARES DA ROCHA,49846930372,em_atendimento,Patrine,5,15/10/2025 12:44,11,Não,Mais de 48h sem nenhuma interação
+40923,EDINALDO CANDIDO DA SILVA,48192511391,em_atendimento,Isabela,7,24/10/2025 18:59,2,Não,Mais de 48h sem nenhuma interação
+38970,LUIZ GONZAGA DA SILVA,45390800320,em_atendimento,Carol,11,20/10/2025 18:58,6,Não,Mais de 48h sem nenhuma interação
+41399,FRANCISCO DAS CHAGAS FERREIRA,42119553300,em_atendimento,Isabela,7,15/10/2025 12:08,11,Não,Mais de 48h sem nenhuma interação
+40925,CARLOS ALBERTO DE SOUSA,56648936304,em_atendimento,Matheus,9,16/10/2025 13:07,10,Sim,Mais de 7 dias parado (limite máximo)
+782,ALTEVI JESUINO DA SILVA,29772613387,em_atendimento,Isabela,7,15/10/2025 18:45,11,Não,Mais de 48h sem nenhuma interação
+35919,BERTOLDO DOMINGUES DOS SANTOS,13011413304,em_atendimento,Carol,11,17/10/2025 18:41,9,Não,Mais de 48h sem nenhuma interação
+23469,FLORENTINO INACIO DE OLIVEIRA,22693297320,em_atendimento,Patrine,5,15/10/2025 15:17,11,Não,Mais de 48h sem nenhuma interação
+39864,JOSE DA COSTA RABELO,79531407304,em_atendimento,Mariany,10,17/10/2025 12:34,9,Não,Mais de 48h sem nenhuma interação
+40934,EMILIA MARIA DA ROCHA,39810860315,em_atendimento,Maria Clara,6,17/10/2025 12:50,9,Não,Mais de 48h sem nenhuma interação
+24599,MARIA DA FATIMA FERNANDES,37383566300,em_atendimento,Isabela,7,17/10/2025 13:58,9,Não,Mais de 48h sem nenhuma interação
+4943,ALMILENA COSTA DO NASCIMENTO,28774728334,em_atendimento,Isabela,7,07/10/2025 17:29,19,Não,Mais de 48h sem nenhuma interação
+5836,LUIZ ALVES DA SILVA,39740102387,em_atendimento,Isabela,7,08/10/2025 16:41,18,Não,Mais de 48h sem nenhuma interação
+24960,ADRIANO RODRIGUES DA SILVA,41163834300,em_atendimento,Isabela,7,17/10/2025 17:25,9,Não,Mais de 48h sem nenhuma interação
+6075,NIVALDO SANTOS E SILVA,47080957320,em_atendimento,Mariany,10,17/10/2025 12:32,9,Não,Mais de 48h sem nenhuma interação
+40939,ALUISIO PEREIRA DA SILVA,42092264320,em_atendimento,Isabela,7,15/10/2025 18:38,11,Não,Mais de 48h sem nenhuma interação
+37342,SONIA MARIA LACERDA DE,30687276349,em_atendimento,Isabela,7,17/10/2025 17:44,9,Não,Mais de 48h sem nenhuma interação
+25148,FRANCISCO JOSE FERREIRA SILVA,44694865315,em_atendimento,Isabela,7,20/10/2025 12:43,6,Não,Mais de 48h sem nenhuma interação
+40950,MARIA GORETTE MAIA DOS,44674899320,em_atendimento,Isabela,7,15/10/2025 18:28,11,Não,Mais de 48h sem nenhuma interação
+37413,FRANCISCO DAS CHAGAS MOREIRA,14550539372,em_atendimento,Isabela,7,20/10/2025 13:23,6,Não,Mais de 48h sem nenhuma interação
+26314,JANE REGO DE LIMA,34187936300,em_atendimento,Isabela,7,20/10/2025 19:26,6,Não,Mais de 48h sem nenhuma interação
+32660,CLAUDIA CASSIANO DE SENE,36176818320,em_atendimento,Maria Clara,6,13/10/2025 12:13,13,Não,Mais de 48h sem nenhuma interação
+33209,AUGUSTO DE JESUS NOLETO,09618945391,em_atendimento,Carol,11,22/10/2025 14:57,4,Não,Mais de 48h sem nenhuma interação
+33210,JOSE WILSON OLIVEIRA DE,07757603315,em_atendimento,Carol,11,22/10/2025 14:46,4,Não,Mais de 48h sem nenhuma interação
+33266,IARA NUNES DA ROCHA,15963322391,em_atendimento,Carol,11,23/10/2025 15:09,3,Não,Mais de 48h sem nenhuma interação
+3640,ALAN KARDECK ALVES,44686226368,em_atendimento,Isabela,7,17/10/2025 12:52,9,Não,Mais de 48h sem nenhuma interação
+34586,MIGUELINA GOMES DE MACEDO,49712217353,em_atendimento,Isabela,7,09/10/2025 17:13,17,Não,Mais de 48h sem nenhuma interação
+40719,ROBERTO WILIAM NEGREIROS DE,23985895368,em_atendimento,Isabela,7,15/10/2025 12:36,11,Não,Mais de 48h sem nenhuma interação
+41041,CELIA MARIA RIBEIRO LOPES,56059876315,em_atendimento,Isabela,7,15/10/2025 13:04,11,Não,Mais de 48h sem nenhuma interação
+42028,MANOEL DE JESUS COSTA,45403333304,em_atendimento,DANIEL,14,15/10/2025 12:57,11,Não,Mais de 48h sem nenhuma interação
+9048,ROSALINA VIEIRA DE ALENCAR,80878830391,em_atendimento,Isabela,7,09/10/2025 14:05,17,Não,Mais de 48h sem nenhuma interação
+9087,CARLA MARIA PEREIRA GALVAO,29606810372,em_atendimento,Isabela,7,09/10/2025 14:19,17,Não,Mais de 48h sem nenhuma interação
+11295,MARCELO OLIVEIRA DA COSTA,84810807304,em_atendimento,Isabela,7,22/10/2025 17:41,4,Não,Mais de 48h sem nenhuma interação
+11336,CESAR CARLOS CARVALHO OLIVEIRA,56662246387,em_atendimento,Mariany,10,07/10/2025 14:34,19,Não,Mais de 48h sem nenhuma interação
+11610,MARIA DE JESUS DE,19888104349,em_atendimento,Mariany,10,07/10/2025 14:29,19,Não,Mais de 48h sem nenhuma interação
+37299,MARIA ALICE CRAVEIRO DE,22753273391,em_atendimento,Isabela,7,17/10/2025 16:00,9,Não,Mais de 48h sem nenhuma interação
+37363,AURILENE DE JESUS SILVA,69814708372,em_atendimento,Maria Clara,6,07/10/2025 12:31,19,Não,Mais de 48h sem nenhuma interação
+40074,FATIMA MARIA OLIVEIRA ROSA,03179844892,em_atendimento,Maria Clara,6,20/10/2025 14:12,6,Não,Mais de 48h sem nenhuma interação
+40076,JOAO DA CRUZ PEREIRA,22573658368,em_atendimento,Maria Clara,6,20/10/2025 14:13,6,Não,Mais de 48h sem nenhuma interação
+33211,MARIA DE FATIMA ARAUJO,03600340395,em_atendimento,Carol,11,22/10/2025 14:40,4,Não,Mais de 48h sem nenhuma interação
+34972,MARIA AUXILIADORA DE OLIVEIRA,23121742353,em_atendimento,Isabela,7,22/10/2025 17:34,4,Não,Mais de 48h sem nenhuma interação
+34980,ARILSON ALVES DE ARAUJO,47068892353,em_atendimento,Mariany,10,07/10/2025 17:25,19,Não,Mais de 48h sem nenhuma interação
+35092,JOAQUIM ROSA SOBRINHO -AGENTE,09622241387,em_atendimento,Matheus,9,15/10/2025 15:58,11,Não,Mais de 48h sem nenhuma interação
+35036,LIZANDRO DOS SANTOS CAVALCANTE,45093342300,em_atendimento,Isabela,7,22/10/2025 17:54,4,Não,Mais de 48h sem nenhuma interação
+38863,MARIA DO ROSARIO DE,67840086349,em_atendimento,Carol,11,20/10/2025 16:13,6,Não,Mais de 48h sem nenhuma interação
+40957,PAULO SERGIO DA SILVA,13854445334,em_atendimento,Isabela,7,15/10/2025 18:31,11,Não,Mais de 48h sem nenhuma interação
+38917,JOSE ANTONIO CARVALHO,13236172304,em_atendimento,Carol,11,20/10/2025 19:08,6,Não,Mais de 48h sem nenhuma interação
+39463,FRANCISCA MARIA DA SILVA,66405602320,em_atendimento,Patrine,5,09/10/2025 14:30,17,Sim,Mais de 7 dias parado (limite máximo)
+38972,ANA LUCIA MENEZES DOS,18374344334,em_atendimento,Carol,11,20/10/2025 18:54,6,Não,Mais de 48h sem nenhuma interação
+38998,ANTONIO SERGIO RODRIGUES DA,04734130353,em_atendimento,Carol,11,20/10/2025 18:35,6,Não,Mais de 48h sem nenhuma interação
+40961,MARIA LUCIA VIEIRA MACEDO,19961383320,em_atendimento,Patrine,5,06/10/2025 18:17,20,Sim,Mais de 7 dias parado (limite máximo)
+683,JOAO DE DEUS ANDRADE,34311378300,em_atendimento,Mariany,10,15/10/2025 17:23,11,Não,Mais de 48h sem nenhuma interação
+39158,MARCOS ANTONIO GOMES DE,94990824334,em_atendimento,Carol,11,07/10/2025 14:12,19,Não,Mais de 48h sem nenhuma interação
+41116,SIDNEY LEVINO DA COSTA,42891736320,em_atendimento,Isabela,7,15/10/2025 12:59,11,Não,Mais de 48h sem nenhuma interação
+39175,WELLINGTON SIMPLICIO DA SILVEI,33728623334,em_atendimento,Patrine,5,16/10/2025 15:24,10,Não,Mais de 48h sem nenhuma interação
+1740,MARIA DE LOURDES RODRIGUES,13179250330,em_atendimento,Patrine,5,17/10/2025 13:38,9,Não,Mais de 48h sem nenhuma interação
+40975,MARIA DA GLORIA MENDES,31924069334,em_atendimento,Maria Clara,6,15/10/2025 12:30,11,Não,Mais de 48h sem nenhuma interação
+41400,CLEIDIMAR SANTOS PEREIRA SOUSA,61877905372,em_atendimento,Isabela,7,15/10/2025 12:10,11,Não,Mais de 48h sem nenhuma interação
+40982,ANA LUCIA FRANCA FERRO,26071061334,em_atendimento,Maria Clara,6,15/10/2025 12:20,11,Não,Mais de 48h sem nenhuma interação
+39262,DENISE LIMA DA SILVA,01789136342,em_atendimento,Patrine,5,21/10/2025 12:59,5,Não,Mais de 48h sem nenhuma interação
+9625,ROZILEIDE RODRIGUES DE OLIVEIR,24061123300,em_atendimento,Patrine,5,08/10/2025 14:00,18,Sim,Mais de 7 dias parado (limite máximo)
+25359,PAULO NEY CORDEIRO DE,42934290344,em_atendimento,Isabela,7,20/10/2025 13:16,6,Não,Mais de 48h sem nenhuma interação
+25348,MARIA DO SOCORRO BERNARDES,33866643349,em_atendimento,Isabela,7,20/10/2025 13:15,6,Não,Mais de 48h sem nenhuma interação
+33206,MARCOS ANTONIO NERI DO,33775168320,em_atendimento,Carol,11,22/10/2025 15:17,4,Não,Mais de 48h sem nenhuma interação
+33204,JOSE FERNANDO RODRIGUES BARROS,13305956372,em_atendimento,Carol,11,22/10/2025 15:39,4,Não,Mais de 48h sem nenhuma interação
+33203,FRANCISCA DAS CHAGAS OLIVEIRA,34979670334,em_atendimento,Carol,11,23/10/2025 13:39,3,Não,Mais de 48h sem nenhuma interação
+8966,MARIA LUZIA MARREIROS FARIAS,88372570310,em_atendimento,Isabela,7,09/10/2025 19:16,17,Não,Mais de 48h sem nenhuma interação
+37411,ALFREDO BARBOSA,34977759320,em_atendimento,Isabela,7,20/10/2025 13:21,6,Não,Mais de 48h sem nenhuma interação
+9641,ARCANJA MARIA DE LIMA,16036174349,em_atendimento,Matheus,9,07/10/2025 13:42,19,Sim,Mais de 7 dias parado (limite máximo)
+39613,ANTONIO ALVES DE SOUSA,78649790330,em_atendimento,Mariany,10,07/10/2025 14:15,19,Não,Mais de 48h sem nenhuma interação
+11368,LUIS CARVALHO JUNIOR,39566366353,em_atendimento,Mariany,10,07/10/2025 14:38,19,Não,Mais de 48h sem nenhuma interação
+11383,MARIA TEREZA CARDOSO DE,75799499387,em_atendimento,Isabela,7,22/10/2025 17:50,4,Não,Mais de 48h sem nenhuma interação
+39630,CIBELE CAVALCANTE LEMOS SOARES,05501953358,em_atendimento,Mariany,10,07/10/2025 14:55,19,Não,Mais de 48h sem nenhuma interação
+39628,MARCOS RAUL DA SILVA,00640942350,em_atendimento,Mariany,10,07/10/2025 17:24,19,Não,Mais de 48h sem nenhuma interação
+39633,JOAO BATISTA MARTINS -AGENTE,15972020378,em_atendimento,Matheus,9,15/10/2025 15:34,11,Não,Mais de 48h sem nenhuma interação
+39641,JOSE ROBERT DE OLIVEIRA,02979810304,em_atendimento,Mariany,10,07/10/2025 17:45,19,Não,Mais de 48h sem nenhuma interação
+39644,ELDINA LUIZA MARTINS PARAGUASS,33808570334,em_atendimento,Mariany,10,07/10/2025 17:53,19,Não,Mais de 48h sem nenhuma interação
+39645,RITA DE CASSIA ARAGAO,13278460391,em_atendimento,Mariany,10,07/10/2025 17:57,19,Não,Mais de 48h sem nenhuma interação
+11741,SEBASTIAO PAIVA DIAS -AGENTE,09757007315,em_atendimento,Mariany,10,07/10/2025 17:50,19,Não,Mais de 48h sem nenhuma interação
+35135,DALSON CARVALHO CUNHA -ANALISTA,09631607372,em_atendimento,Matheus,9,20/10/2025 18:30,6,Não,Mais de 48h sem nenhuma interação
+39534,CARMEN ZELIA RIBEIRO DE,09653813315,em_atendimento,Mariany,10,07/10/2025 18:07,19,Não,Mais de 48h sem nenhuma interação
+13217,FRANCISCO TADEU FRANCA DINIZ,28638263368,em_atendimento,Carol,11,22/10/2025 12:29,4,Não,Mais de 48h sem nenhuma interação
+35552,FRANCISCO LUIS FERREIRA -3o.,45130051300,em_atendimento,Vanessa,8,07/10/2025 14:10,19,Sim,Mais de 7 dias parado (limite máximo)
+39737,CARLOS PEREIRA DA SILVA,33817219334,em_atendimento,Mariany,10,15/10/2025 17:47,11,Não,Mais de 48h sem nenhuma interação
+37225,CLARA NILDES DE SOUSA,09637575391,em_atendimento,Isabela,7,17/10/2025 14:04,9,Não,Mais de 48h sem nenhuma interação
+39838,CAIO IBIAPINA SILVA MARQUES,05853977326,em_atendimento,Carol,11,07/10/2025 12:04,19,Não,Mais de 48h sem nenhuma interação
+41153,JULIO CESAR DE ARAUJO,39572390368,em_atendimento,Maria Clara,6,15/10/2025 12:43,11,Não,Mais de 48h sem nenhuma interação
+41214,MARIA DE LOURDES SOARES,06644937349,em_atendimento,Carol,11,09/10/2025 15:25,17,Não,Mais de 48h sem nenhuma interação
+42091,FRANCISCO DAS CHAGAS SANTANA,70333009304,em_atendimento,Isabela,7,13/10/2025 19:46,13,Não,Mais de 48h sem nenhuma interação
+37416,LUZIA DO SOCORRO SOUSA,29071011372,em_atendimento,Maria Clara,6,08/10/2025 13:07,18,Não,Mais de 48h sem nenhuma interação
+8954,ANA ANTONIA SOARES VIANA,37436082353,em_atendimento,Isabela,7,09/10/2025 19:16,17,Não,Mais de 48h sem nenhuma interação
+25996,MANOEL MORAIS EVANGELISTA,78942012353,em_atendimento,Isabela,7,20/10/2025 16:27,6,Não,Mais de 48h sem nenhuma interação
+40108,MARIA LUCIA GONZAGA -PROFESSOR-40HS,28739272320,em_atendimento,Maria Clara,6,20/10/2025 14:17,6,Não,Mais de 48h sem nenhuma interação
+37208,MARIA JURACI DE MORAES,10556060334,em_atendimento,Isabela,7,17/10/2025 13:53,9,Não,Mais de 48h sem nenhuma interação
+37239,MARIA AMELIA DE SOUSA,32757425315,em_atendimento,Isabela,7,17/10/2025 14:07,9,Não,Mais de 48h sem nenhuma interação
+24588,JODELMAR BRANDAO ROCHA,19994800310,em_atendimento,Isabela,7,17/10/2025 13:55,9,Não,Mais de 48h sem nenhuma interação
+37237,SANDRA MARIA CAMPELO,37378015334,em_atendimento,Vanessa,8,07/10/2025 16:06,19,Não,Mais de 48h sem nenhuma interação
+40167,MARINALVA GOMES PEREIRA,62299654372,em_atendimento,Isabela,7,17/10/2025 16:03,9,Não,Mais de 48h sem nenhuma interação
+24906,REGINA CELES CARNEIRO DE,18503128349,em_atendimento,Carol,11,08/10/2025 17:20,18,Não,Mais de 48h sem nenhuma interação
+37306,FRANCISCA MARIA ANDRADE TORRES,15089495300,em_atendimento,Isabela,7,17/10/2025 17:21,9,Não,Mais de 48h sem nenhuma interação
+41440,FRANCISCA MARIA DE SOUSA,28781783353,em_atendimento,Patrine,5,15/10/2025 12:34,11,Não,Mais de 48h sem nenhuma interação
+2548,GENIOLGA CAVALCANTE VAZ DE,18492584300,em_atendimento,Vanessa,8,06/10/2025 18:32,20,Não,Mais de 48h sem nenhuma interação
+37514,EVANILDE MARIA DE SOUSA,73220965334,em_atendimento,Maria Clara,6,09/10/2025 12:22,17,Não,Mais de 48h sem nenhuma interação
+37516,TERESA MARIA PEREIRA DA,48184373368,em_atendimento,Isabela,7,20/10/2025 16:19,6,Não,Mais de 48h sem nenhuma interação
+39625,FLAVIO JOSE PEREIRA DA,92215262400,em_atendimento,Isabela,7,17/10/2025 12:51,9,Não,Mais de 48h sem nenhuma interação
+40184,ELISANGELA BORGES DE CARVALHO,59010070344,em_atendimento,Maria Clara,6,08/10/2025 19:00,18,Não,Mais de 48h sem nenhuma interação
+40189,ROSANE MARIA DO NASCIMENTO,72542888353,em_atendimento,Maria Clara,6,09/10/2025 13:49,17,Não,Mais de 48h sem nenhuma interação
+40212,FERNANDO FERNANDES DE SA,64351840382,em_atendimento,Maria Clara,6,20/10/2025 13:21,6,Não,Mais de 48h sem nenhuma interação
+41241,EMANUELLE ALENCAR SOARES ARAUJ,66980925334,em_atendimento,Maria Clara,6,15/10/2025 12:34,11,Não,Mais de 48h sem nenhuma interação
+40340,ROBERIO RIBEIRO DA TRINDADE,00598659382,em_atendimento,Maria Clara,6,20/10/2025 12:54,6,Não,Mais de 48h sem nenhuma interação
+41324,WASHINGTON CHAVES GOMES CC01,35108339372,em_atendimento,Carol,11,13/10/2025 11:38,13,Não,Mais de 48h sem nenhuma interação
+40343,ERIKA SINARA FERREIRA LUSTOSA,04250983382,em_atendimento,Maria Clara,6,17/10/2025 12:53,9,Não,Mais de 48h sem nenhuma interação
+40673,FRANCISCO DIAS CARNEIRO -SUBTENENTE,26567717149,em_atendimento,Patrine,5,15/10/2025 13:08,11,Não,Mais de 48h sem nenhuma interação
+40984,LUIZA PEREIRA DOS SANTOS,28773365300,em_atendimento,Maria Clara,6,17/10/2025 12:43,9,Não,Mais de 48h sem nenhuma interação
+41004,NORMA GOMES DA SILVA,73020133300,em_atendimento,Maria Clara,6,15/10/2025 12:17,11,Não,Mais de 48h sem nenhuma interação
+41222,JACQUELANE MARIA ANDRADE CARVA,70716692368,em_atendimento,Carol,11,09/10/2025 15:19,17,Não,Mais de 48h sem nenhuma interação
+277,HERMELINDA MOURA DE ARAUJO,42878500334,em_atendimento,Isabela,7,09/10/2025 17:39,17,Não,Mais de 48h sem nenhuma interação
+8798,MARIA LUCILENE GOMES DE,68465580391,em_atendimento,Isabela,7,09/10/2025 17:48,17,Não,Mais de 48h sem nenhuma interação
+9017,ANTONIA SILVA DE SOUSA,00983915342,em_atendimento,Isabela,7,09/10/2025 14:00,17,Não,Mais de 48h sem nenhuma interação
+292,EDIVANIA DA COSTA SANTANA,89034821315,em_atendimento,Isabela,7,09/10/2025 14:02,17,Não,Mais de 48h sem nenhuma interação
+9047,FLAVIA GUEDES PEREIRA DE,13279254353,em_atendimento,Isabela,7,09/10/2025 14:03,17,Não,Mais de 48h sem nenhuma interação
+9143,ROSA MARIA DOS SANTOS,70978956320,em_atendimento,Isabela,7,09/10/2025 15:59,17,Não,Mais de 48h sem nenhuma interação
+42089,SILVIO REGIS DE JESUS,47047810382,em_atendimento,Isabela,7,10/10/2025 18:19,16,Não,Mais de 48h sem nenhuma interação
+11285,GILSON ALVES DA COSTA,42101646315,em_atendimento,Isabela,7,22/10/2025 17:38,4,Não,Mais de 48h sem nenhuma interação
+36257,ELZA HELENA DE CARVALHO,07815263372,em_atendimento,Mariany,10,20/10/2025 14:18,6,Não,Mais de 48h sem nenhuma interação
+11405,MARIA NAZARE DE LIMA,65906080325,em_atendimento,Isabela,7,22/10/2025 17:54,4,Não,Mais de 48h sem nenhuma interação
+31777,MARIA DE FATIMA DE,09914072453,em_atendimento,Mariany,10,07/10/2025 16:10,19,Não,Mais de 48h sem nenhuma interação
+25384,IDOLANDIA DE SOUSA ALENCAR,71502670330,em_atendimento,Isabela,7,20/10/2025 13:17,6,Não,Mais de 48h sem nenhuma interação

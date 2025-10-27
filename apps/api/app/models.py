@@ -189,6 +189,7 @@ class Contract(Base):
     corretor_nome = Column(String(255), nullable=True)  # Nome do corretor
     corretor_comissao_valor = Column(Numeric(14,2), nullable=True)  # Valor da comissão do corretor
     corretor_expense_id = Column(Integer, ForeignKey("finance_expenses.id", ondelete="SET NULL"), nullable=True)  # FK para despesa criada
+    imposto_expense_id = Column(Integer, ForeignKey("finance_expenses.id", ondelete="SET NULL"), nullable=True)  # FK para despesa de imposto
 
     case = relationship("Case")
     attachments = relationship("ContractAttachment", back_populates="contract", cascade="all, delete-orphan")
@@ -536,6 +537,32 @@ class CommissionPayout(Base):
     __table_args__ = (
         Index('ix_commission_beneficiary', 'beneficiary_user_id'),
         Index('ix_commission_date', 'created_at'),
+    )
+
+class SLAExecution(Base):
+    """
+    Histórico de execuções do sistema de SLA de 48h úteis.
+    Registra cada vez que o scheduler processa casos expirados.
+    """
+    __tablename__ = "sla_executions"
+
+    id = Column(Integer, primary_key=True)
+    executed_at = Column(DateTime, default=now_brt, nullable=False)
+    execution_type = Column(String(20), nullable=False)  # 'scheduled' | 'manual'
+    cases_expired_count = Column(Integer, default=0, nullable=False)
+    cases_released = Column(JSON, default=list)  # [{"case_id": X, "client_name": Y, "assigned_user": Z, "reason": "expired"}, ...]
+    executed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    duration_seconds = Column(Numeric(10, 2), nullable=True)
+    details = Column(JSON, default=dict)  # Estatísticas adicionais
+
+    # Relacionamentos
+    executed_by = relationship("User", foreign_keys=[executed_by_user_id])
+
+    # Índices
+    __table_args__ = (
+        Index('ix_sla_executions_executed_at', 'executed_at'),
+        Index('ix_sla_executions_execution_type', 'execution_type'),
+        Index('ix_sla_executions_user_id', 'executed_by_user_id'),
     )
 
 class ExternalClientIncome(Base):

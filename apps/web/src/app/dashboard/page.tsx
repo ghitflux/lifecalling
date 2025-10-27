@@ -104,10 +104,12 @@ export default function DashboardPage() {
 
   const [from, setFrom] = useState<string>(() => {
     const now = new Date();
-    const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return iso(startOfDayBrasilia(past));
+    return iso(startOfMonthBrasilia(now));
   });
-  const [to, setTo] = useState<string>(() => iso(new Date()));
+  const [to, setTo] = useState<string>(() => {
+    const now = new Date();
+    return iso(endOfMonthBrasilia(now));
+  });
   const [bucket, setBucket] = useState<AnalyticsBucket>("day");
 
   // Estado para o filtro unificado por mês
@@ -537,7 +539,7 @@ export default function DashboardPage() {
           <KPICard
             title="Consultoria Líquida Total"
             value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle="Consultorias líquidas (após impostos)"
+            subtitle="86% da Receita Total"
             gradientVariant="cyan"
             trend={financeTrends.consultoria}
             icon={Briefcase}
@@ -558,7 +560,7 @@ export default function DashboardPage() {
           <KPICard
             title="Lucro Líquido"
             value={`R$ ${(metrics.netProfit ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle="Receita Total - Despesas"
+            subtitle="Consultoria Líquida - Despesas"
             gradientVariant="violet"
             trend={financeTrends.lucro}
             icon={TrendingUp}
@@ -579,7 +581,7 @@ export default function DashboardPage() {
           <KPICard
             title="Despesas"
             value={`R$ ${(metrics.totalExpenses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle="Despesas Totais"
+            subtitle="Despesas (sem impostos)"
             gradientVariant="rose"
             trend={financeTrends.despesas}
             icon={TrendingDown}
@@ -598,7 +600,7 @@ export default function DashboardPage() {
           <KPICard
             title="Impostos"
             value={`R$ ${(metrics.totalTax ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle="Impostos Totais"
+            subtitle="14% da Receita Total"
             gradientVariant="amber"
             trend={financeTrends.imposto}
             icon={TrendingDown}

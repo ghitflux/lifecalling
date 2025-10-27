@@ -11,13 +11,14 @@ import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento, useAssignCase } from "@/lib/hooks";
+import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento, useAssignCase, useReturnToPipeline } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
 import { RefreshCw, ArrowLeft } from "lucide-react";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
+import { getComments } from "@/lib/comments";
 
 interface CaseDetail {
   id: number;
@@ -107,6 +108,7 @@ export default function CaseDetailPage() {
   const [observacoes, setObservacoes] = useState("");
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [sentToCalculista, setSentToCalculista] = useState(false);
 
   // Estados para dados bancários
@@ -124,6 +126,9 @@ export default function CaseDetailPage() {
 
   // Hook para marcar sem contato
   const markNoContact = useMarkNoContact();
+
+  // Hook para devolver para esteira
+  const returnToPipeline = useReturnToPipeline();
 
   // Hook para enviar para fechamento
   const sendToFechamento = useSendToFechamento();
@@ -210,6 +215,13 @@ export default function CaseDetailPage() {
   // Hook para eventos do caso
   const { data: caseEvents = [] } = useCaseEvents(caseId);
 
+  // Query para comentários do caso
+  const { data: comments = [] } = useQuery({
+    queryKey: ["comments", caseId],
+    queryFn: () => getComments(caseId),
+    enabled: !!caseId
+  });
+
   const handleSendToCalculista = async () => {
     try {
       setSentToCalculista(true);
@@ -230,6 +242,36 @@ export default function CaseDetailPage() {
       await markNoContact.mutateAsync(caseId);
     } catch (error) {
       console.error("Erro ao marcar sem contato:", error);
+    }
+  };
+
+  const handleReturnToPipeline = async () => {
+    try {
+      // Validar condições antes de chamar a API
+      if (!attachments || attachments.length < 1) {
+        toast.error("É necessário pelo menos 1 anexo para devolver o caso para a esteira");
+        return;
+      }
+
+      if (!clientPhones || clientPhones.length < 1) {
+        toast.error("É necessário pelo menos 1 telefone registrado para o cliente para devolver o caso para a esteira");
+        return;
+      }
+
+      if (!currentUserId) {
+        toast.error("Erro: usuário não identificado");
+        return;
+      }
+
+      const userComments = comments.filter(c => c.author_id === currentUserId);
+      if (userComments.length < 1) {
+        toast.error("É necessário pelo menos 1 comentário do usuário proprietário para devolver o caso para a esteira");
+        return;
+      }
+
+      await returnToPipeline.mutateAsync(caseId);
+    } catch (error) {
+      console.error("Erro ao devolver para esteira:", error);
     }
   };
 
@@ -259,6 +301,7 @@ export default function CaseDetailPage() {
       try {
         const response = await api.get("/auth/me");
         setUserRole(response.data.role);
+        setCurrentUserId(response.data.id);
       } catch (error) {
         console.error("Erro ao buscar role do usuário:", error);
       }
@@ -530,13 +573,29 @@ export default function CaseDetailPage() {
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button
-            variant="secondary"
-            onClick={handleMarkNoContact}
-            disabled={markNoContact.isPending}
-          >
-            {markNoContact.isPending ? "Marcando..." : "Sem Contato"}
-          </Button>
+          {/* Botão Devolver para Esteira - aparece apenas para o proprietário do caso */}
+          {caseDetail.assigned_user_id === currentUserId && 
+           caseDetail.status !== "novo" && (
+            <Button
+              variant="secondary"
+              onClick={handleReturnToPipeline}
+              disabled={returnToPipeline.isPending}
+            >
+              {returnToPipeline.isPending ? "Devolvendo..." : "Devolver para Esteira"}
+            </Button>
+          )}
+          {/* Botão Sem Contato - aparece apenas quando não é o proprietário ou caso já está novo */}
+          {(!caseDetail.assigned_user_id || 
+            caseDetail.assigned_user_id !== currentUserId || 
+            caseDetail.status === "novo") && (
+            <Button
+              variant="secondary"
+              onClick={handleMarkNoContact}
+              disabled={markNoContact.isPending}
+            >
+              {markNoContact.isPending ? "Marcando..." : "Sem Contato"}
+            </Button>
+          )}
           {caseDetail.status === "calculo_aprovado" && (
             <Button
               onClick={handleSendToFechamento}

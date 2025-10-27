@@ -10,7 +10,7 @@ from datetime import datetime
 from ..rbac import require_roles
 from ..security import get_current_user
 from ..db import SessionLocal
-from ..models import Comment, Case, User
+from ..models import Comment, Case, User, now_brt
 from ..schemas.comments import CommentCreate, CommentOut, Channel
 from ..services.events import create_comment_events
 from ..events import eventbus
@@ -48,7 +48,7 @@ async def create_comment(
             channel=data.channel,
             content=data.content,
             parent_id=data.parent_id,
-            created_at=datetime.utcnow()
+            created_at=now_brt()
         )
         db.add(comment)
         db.flush()

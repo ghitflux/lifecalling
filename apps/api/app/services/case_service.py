@@ -10,7 +10,7 @@ import shutil
 from ..rbac import require_roles
 from ..security import get_current_user
 from ..db import SessionLocal
-from ..models import Case, Client, CaseEvent
+from ..models import Case, Client, CaseEvent, now_brt
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
 from ..config import settings
@@ -242,11 +242,11 @@ def assign_case(case_id: int, user=Depends(require_roles("admin", "supervisor", 
             raise HTTPException(404)
 
         # Verificar se o caso já está atribuído e não expirou
-        if c.assigned_user_id and c.assignment_expires_at and c.assignment_expires_at > datetime.utcnow():
+        if c.assigned_user_id and c.assignment_expires_at and c.assignment_expires_at > now_brt():
             raise HTTPException(400, "Caso já está atribuído a outro usuário")
 
         # Configurar atribuição com lock de 72 horas
-        now = datetime.utcnow()
+        now = now_brt()
         c.assigned_user_id = user.id
         c.status = "em_atendimento"
         c.last_update_at = now
@@ -305,7 +305,7 @@ def change_assignee(case_id: int, payload: AssigneeUpdate, user=Depends(require_
         old_user_name = case.assigned_user.name if case.assigned_user else None
 
         # Atualizar atribuição
-        now = datetime.utcnow()
+        now = now_brt()
         case.assigned_user_id = new_user.id
         case.assigned_at = now
         case.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
@@ -380,7 +380,7 @@ def patch_case(case_id: int, data: CasePatch, user=Depends(require_roles("admin"
             c.client.chave_pix = data.chave_pix
         if data.tipo_chave_pix is not None:
             c.client.tipo_chave_pix = data.tipo_chave_pix
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
         db.add(CaseEvent(case_id=c.id, type="case.updated", payload=data.model_dump(), created_by=user.id))
         db.commit()
         return {"ok": True}
@@ -489,7 +489,7 @@ def list_cases(
                 if mine:
                     qry = qry.filter(Case.assigned_user_id == user.id)
                 elif assigned == 0:
-                    now = datetime.utcnow()
+                    now = now_brt()
                     qry = qry.filter(
                         or_(
                             Case.assigned_user_id.is_(None),
@@ -627,14 +627,14 @@ def release_case(case_id: int, user=Depends(require_roles("admin", "supervisor",
             c.assignment_history = []
 
         c.assignment_history.append(
-            {"user_id": user.id, "user_name": user.name, "released_at": datetime.utcnow().isoformat(), "action": "released"}
+            {"user_id": user.id, "user_name": user.name, "released_at": now_brt().isoformat(), "action": "released"}
         )
 
         c.assigned_user_id = None
         c.status = "disponivel"
         c.assigned_at = None
         c.assignment_expires_at = None
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
 
         db.add(CaseEvent(case_id=c.id, type="case.released", payload={"by": user.id}, created_by=user.id))
         db.commit()
@@ -652,7 +652,7 @@ def check_case_expiry(case_id: int, user=Depends(require_roles("admin", "supervi
         if not c:
             raise HTTPException(404)
 
-        now = datetime.utcnow()
+        now = now_brt()
         is_expired = c.assignment_expires_at and c.assignment_expires_at <= now
 
         if is_expired and c.assigned_user_id:
@@ -688,7 +688,7 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
         sim = Simulation(case_id=c.id, status="draft", created_by=user.id)
         db.add(sim)
         c.status = "calculista_pendente"
-        c.last_update_at = datetime.utcnow()
+        c.last_update_at = now_brt()
 
         db.add(CaseEvent(case_id=c.id, type="case.to_calculista", payload={"simulation_id": None}, created_by=user.id))
         db.commit()
@@ -701,11 +701,13 @@ async def to_calculista(case_id: int, user=Depends(require_roles("admin", "super
 def run_scheduler_maintenance(user=Depends(require_roles("admin", "supervisor"))):
     with SessionLocal() as db:
         scheduler = CaseScheduler(db)
-        stats = scheduler.process_expired_cases()
+        stats = scheduler.process_expired_cases(
+            execution_type="manual", user_id=user.id
+        )
         return {
             "maintenance_completed": True,
             "stats": stats,
-            "executed_at": datetime.utcnow().isoformat(),
+            "executed_at": now_brt().isoformat(),
             "executed_by": user.id,
         }
 

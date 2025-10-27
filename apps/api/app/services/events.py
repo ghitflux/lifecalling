@@ -4,7 +4,7 @@ Centraliza a lógica de registro de eventos no histórico.
 """
 from sqlalchemy.orm import Session
 from datetime import datetime
-from ..models import CaseEvent
+from ..models import CaseEvent, now_brt
 from typing import Any, Dict
 
 
@@ -33,7 +33,7 @@ def create_case_event(
         type=event_type,
         payload=payload,
         created_by=actor_id,
-        created_at=datetime.utcnow()
+        created_at=now_brt()
     )
     db.add(event)
     db.flush()

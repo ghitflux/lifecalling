@@ -289,15 +289,29 @@ def users_performance(
             ).scalar() or 0
 
             # Produção total (consultoria líquida) do usuário
-            producao_total = db.query(
-                func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0)
-            ).join(
-                Case, Case.id == Contract.case_id
+            # NOVO: Calcula receitas - despesas (Impostos + Comissão)
+            from ..models import FinanceIncome, FinanceExpense
+            from sqlalchemy import func
+
+            # Receitas do usuário
+            receitas = db.query(
+                func.coalesce(func.sum(FinanceIncome.amount), 0)
             ).filter(
-                Case.assigned_user_id == user.id,
-                Contract.status == "ativo",
-                Contract.signed_at >= thirty_days_ago
+                FinanceIncome.agent_user_id == user.id,
+                FinanceIncome.date >= thirty_days_ago
             ).scalar() or 0
+
+            # Despesas do usuário (Impostos + Comissão)
+            despesas = db.query(
+                func.coalesce(func.sum(FinanceExpense.amount), 0)
+            ).filter(
+                FinanceExpense.agent_user_id == user.id,
+                FinanceExpense.expense_type.in_(["Impostos", "Comissão"]),
+                FinanceExpense.date >= thirty_days_ago
+            ).scalar() or 0
+
+            # Produção líquida = receitas - despesas
+            producao_total = float(receitas) - float(despesas)
 
             performance_data.append({
                 "user_id": user.id,

@@ -87,3 +87,7 @@ export * from "./src/CampaignCard";
 export * from "./src/UnifiedFilter";
 export * from "./src/DateRangeFilter";
 export * from "./src/Select";
+
+// SLA Audit Components
+export * from "./src/SLAExecutionsTable";
+export * from "./src/SLAExecutionDetailsModal";

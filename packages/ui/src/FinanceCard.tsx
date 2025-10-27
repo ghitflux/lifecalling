@@ -236,8 +236,7 @@ export function FinanceCard({
   const [showReopenConfirm, setShowReopenConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
-  // Estados para consultoria editável e distribuição
-  const [consultoriaLiquidaEditavel, setConsultoriaLiquidaEditavel] = React.useState<string>("");
+  // Estados para distribuição
   const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
   const [selectedAtendenteId, setSelectedAtendenteId] = React.useState<number | null>(null);
 
@@ -247,15 +246,6 @@ export function FinanceCard({
   const [temCorretor, setTemCorretor] = React.useState<boolean>(false);
   const [corretorNome, setCorretorNome] = React.useState<string>("");
   const [corretorComissao, setCorretorComissao] = React.useState<string>("");
-
-  // Inicializar consultoria editável com valor da simulação
-  React.useEffect(() => {
-    if (simulationResult?.custoConsultoriaLiquido) {
-      setConsultoriaLiquidaEditavel(
-        formatCurrency(simulationResult.custoConsultoriaLiquido)
-      );
-    }
-  }, [simulationResult]);
 
   // Inicializar consultoria bruta quando o modal abre
   React.useEffect(() => {
@@ -1137,7 +1127,7 @@ export function FinanceCard({
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground font-semibold">Consultoria Líquida:</span>
+                      <span className="text-muted-foreground font-semibold">Consultoria Líquida (calculada):</span>
                       <span className="font-semibold text-success">
                         {formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100))}
                       </span>
@@ -1147,84 +1137,7 @@ export function FinanceCard({
               </div>
             )}
 
-            {/* Distribuição da Consultoria Líquida */}
-            <div className="space-y-3 pt-2 border-t">
-              <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
-
-              {/* Grid 2 Colunas: Atendente + Percentual */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Seleção de Atendente */}
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">
-                    Atendente
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={selectedAtendenteId || ""}
-                    onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
-                  >
-                    <option value="">Selecione um atendente</option>
-                    {availableUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Percentual para Atendente */}
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">
-                    Percentual para Atendente
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={percentualAtendente}
-                    onChange={(e) => setPercentualAtendente(Number(e.target.value))}
-                  >
-                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
-                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
-                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
-                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
-                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
-                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
-                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
-                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
-                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
-                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
-                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Preview da Distribuição */}
-              {consultoriaBruta && (
-                <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
-                    <span className="font-medium text-success">
-                      {formatCurrency(
-                        (parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100) * percentualAtendente) / 100
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
-                    <span className="font-medium text-info">
-                      {formatCurrency(
-                        (parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100) * (100 - percentualAtendente)) / 100
-                      )}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t flex justify-between font-semibold">
-                    <span>Total Líquido:</span>
-                    <span>{formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100))}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Comissão de Corretor (Opcional) */}
+            {/* Comissão de Corretor (Opcional) - ANTES DA DISTRIBUIÇÃO */}
             <div className="space-y-3 pt-2 border-t">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -1277,6 +1190,88 @@ export function FinanceCard({
               )}
             </div>
 
+            {/* Distribuição da Consultoria Líquida - DEPOIS DO CORRETOR */}
+            <div className="space-y-3 pt-2 border-t">
+              <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
+
+              {/* Grid 2 Colunas: Atendente + Percentual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Seleção de Atendente */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={selectedAtendenteId || ""}
+                    onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
+                  >
+                    <option value="">Selecione um atendente</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Percentual para Atendente */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Percentual para Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={percentualAtendente}
+                    onChange={(e) => setPercentualAtendente(Number(e.target.value))}
+                  >
+                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
+                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
+                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
+                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
+                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
+                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
+                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
+                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
+                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
+                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
+                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Preview da Distribuição */}
+              {consultoriaBruta && (() => {
+                // 1. Calcular consultoria líquida (Bruta - Imposto)
+                const liquidaAposImposto = parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100);
+                
+                // 2. Deduzir comissão do corretor (se houver)
+                const comissaoValor = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
+                const liquidaParaDistribuir = liquidaAposImposto - comissaoValor;
+
+                return (
+                  <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
+                      <span className="font-medium text-success">
+                        {formatCurrency((liquidaParaDistribuir * percentualAtendente) / 100)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
+                      <span className="font-medium text-info">
+                        {formatCurrency((liquidaParaDistribuir * (100 - percentualAtendente)) / 100)}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t flex justify-between font-semibold">
+                      <span>Total Líquido:</span>
+                      <span>{formatCurrency(liquidaParaDistribuir)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" onClick={() => {
                 setShowDisburseConfirm(false);
@@ -1287,7 +1282,7 @@ export function FinanceCard({
                 onClick={() => {
                   const brutaValue = parseCurrencyToNumber(consultoriaBruta);
                   const comissaoValue = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
-                  
+
                   onDisburse?.(
                     id,
                     percentualAtendente,
