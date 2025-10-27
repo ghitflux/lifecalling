@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query  # pyright: ignore[
 from sqlalchemy.orm import Session  # pyright: ignore[reportMissingImports]
 from sqlalchemy import func, or_, distinct  # pyright: ignore[reportMissingImports]
 from typing import List
+import csv
+import io
 from ..db import SessionLocal
 from ..rbac import require_roles
 from ..models import (
@@ -329,6 +331,257 @@ def get_clients_stats(
         "clients_with_contracts": clients_with_contracts,
         "conversion_rate": conversion_rate
     }
+
+
+@r.get("/export")
+def export_clients_csv(
+    q: str | None = None,
+    banco: str | None = None,
+    status: str | None = None,
+    orgao: str | None = None,
+    sem_contratos: bool | None = None,
+    fields: str = Query(default="nome,cpf,matricula,orgao", description="Campos separados por vírgula"),
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
+    """
+    Exporta clientes filtrados para CSV.
+    Aceita os mesmos filtros do endpoint de listagem.
+    
+    Args:
+        q: Busca por nome, CPF ou matrícula
+        banco: Filtrar por banco/entidade
+        status: Filtrar por status do caso
+        orgao: Filtrar por órgão pagador
+        sem_contratos: Filtrar apenas clientes sem financiamentos
+        fields: Campos a exportar, separados por vírgula
+    """
+    # Parse dos campos
+    selected_fields = [f.strip() for f in fields.split(',') if f.strip()]
+    
+    # Query base dos clientes - similar a list_clients mas sem paginação
+    clients_query = db.query(
+        Client.id,
+        Client.name,
+        Client.cpf,
+        Client.matricula,
+        Client.orgao,
+        Client.telefone_preferencial,
+        Client.numero_cliente,
+        Client.observacoes,
+        Client.banco,
+        Client.agencia,
+        Client.conta,
+        Client.chave_pix,
+        Client.tipo_chave_pix,
+        Client.orgao_pgto_code,
+        Client.orgao_pgto_name,
+        Client.status_desconto,
+        Client.status_legenda,
+        func.count(Case.id).label("casos_count")
+    ).outerjoin(
+        Case, Case.client_id == Client.id
+    )
+    
+    # Aplicar filtros
+    if q:
+        like = f"%{q}%"
+        clients_query = clients_query.filter(
+            or_(
+                Client.name.ilike(like),
+                Client.cpf.ilike(like),
+                Client.matricula.ilike(like)
+            )
+        )
+    
+    if banco:
+        clients_query = clients_query.join(
+            PayrollLine,
+            PayrollLine.cpf == Client.cpf
+        ).filter(PayrollLine.entity_name == banco)
+    
+    if status:
+        clients_query = clients_query.filter(Case.status == status)
+    
+    if orgao:
+        clients_query = clients_query.filter(Client.orgao == orgao)
+    
+    if sem_contratos:
+        clients_query = clients_query.filter(
+            ~db.query(PayrollLine.id).filter(
+                PayrollLine.cpf == Client.cpf,
+                PayrollLine.matricula == Client.matricula
+            ).exists()
+        )
+    
+    # Agrupar por cliente
+    clients_query = clients_query.group_by(
+        Client.id, Client.name, Client.cpf, Client.matricula, Client.orgao,
+        Client.telefone_preferencial, Client.numero_cliente, Client.observacoes,
+        Client.banco, Client.agencia, Client.conta, Client.chave_pix,
+        Client.tipo_chave_pix, Client.orgao_pgto_code, Client.orgao_pgto_name,
+        Client.status_desconto, Client.status_legenda
+    ).order_by(Client.id.desc())
+    
+    clients_data = clients_query.all()
+    
+    # Buscar contadores de forma otimizada - uma única query por tipo
+    client_ids = list(set([c.id for c in clients_data]))
+    client_cpfs = list(set([c.cpf for c in clients_data if c.cpf]))
+    
+    # Mapear contratos por CPF (uma única query)
+    contratos_by_cpf = {}
+    if client_cpfs:
+        contratos_data = db.query(
+            PayrollLine.cpf,
+            func.count(PayrollLine.id).label('count')
+        ).filter(
+            PayrollLine.cpf.in_(client_cpfs)
+        ).group_by(PayrollLine.cpf).all()
+        contratos_by_cpf = {row.cpf: row.count for row in contratos_data}
+    
+    # Mapear casos ativos por client_id (uma única query)
+    casos_ativos_by_id = {}
+    if client_ids:
+        active_statuses = [
+            "novo", "disponivel", "em_atendimento", "calculista",
+            "calculista_pendente", "financeiro", "fechamento_pendente"
+        ]
+        casos_ativos_data = db.query(
+            Case.client_id,
+            func.count(Case.id).label('count')
+        ).filter(
+            Case.client_id.in_(client_ids),
+            Case.status.in_(active_statuses)
+        ).group_by(Case.client_id).all()
+        casos_ativos_by_id = {row.client_id: row.count for row in casos_ativos_data}
+    
+    # Mapear casos finalizados por client_id (uma única query)
+    casos_finalizados_by_id = {}
+    if client_ids:
+        completed_statuses = [
+            "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"
+        ]
+        casos_finalizados_data = db.query(
+            Case.client_id,
+            func.count(Case.id).label('count')
+        ).filter(
+            Case.client_id.in_(client_ids),
+            Case.status.in_(completed_statuses)
+        ).group_by(Case.client_id).all()
+        casos_finalizados_by_id = {row.client_id: row.count for row in casos_finalizados_data}
+    
+    # Processar dados
+    results = []
+    for client_data in clients_data:
+        # Buscar contadores dos dicionários pré-calculados
+        contratos_count = contratos_by_cpf.get(client_data.cpf, 0)
+        casos_ativos = casos_ativos_by_id.get(client_data.id, 0)
+        casos_finalizados = casos_finalizados_by_id.get(client_data.id, 0)
+        
+        # Formatar CPF
+        cpf_formatted = ""
+        if client_data.cpf:
+            cpf_clean = client_data.cpf
+            if len(cpf_clean) == 11:
+                cpf_formatted = f"{cpf_clean[:3]}.{cpf_clean[3:6]}.{cpf_clean[6:9]}-{cpf_clean[9:]}"
+            else:
+                cpf_formatted = cpf_clean
+        
+        results.append({
+            "id": client_data.id,
+            "nome": client_data.name or "",
+            "cpf": cpf_formatted,
+            "matricula": client_data.matricula or "",
+            "orgao": client_data.orgao or "",
+            "telefone_preferencial": client_data.telefone_preferencial or "",
+            "numero_cliente": client_data.numero_cliente or "",
+            "observacoes": client_data.observacoes or "",
+            "banco": client_data.banco or "",
+            "agencia": client_data.agencia or "",
+            "conta": client_data.conta or "",
+            "chave_pix": client_data.chave_pix or "",
+            "tipo_chave_pix": client_data.tipo_chave_pix or "",
+            "orgao_pgto_code": client_data.orgao_pgto_code or "",
+            "orgao_pgto_name": client_data.orgao_pgto_name or "",
+            "status_desconto": client_data.status_desconto or "",
+            "status_legenda": client_data.status_legenda or "",
+            "total_casos": client_data.casos_count,
+            "total_contratos": contratos_count,
+            "total_financiamentos": contratos_count,
+            "casos_ativos": casos_ativos,
+            "casos_finalizados": casos_finalizados,
+        })
+    
+    # Gerar CSV
+    output = io.StringIO()
+    
+    # Definir nomes amigáveis para campos
+    field_mapping = {
+        "id": "ID",
+        "nome": "Nome",
+        "cpf": "CPF",
+        "matricula": "Matrícula",
+        "orgao": "Órgão",
+        "telefone_preferencial": "Telefone",
+        "numero_cliente": "Número Cliente",
+        "observacoes": "Observações",
+        "banco": "Banco",
+        "agencia": "Agência",
+        "conta": "Conta",
+        "chave_pix": "Chave PIX",
+        "tipo_chave_pix": "Tipo Chave PIX",
+        "orgao_pgto_code": "Cód. Órgão Pagador",
+        "orgao_pgto_name": "Nome Órgão Pagador",
+        "status_desconto": "Status Desconto",
+        "status_legenda": "Descrição Status",
+        "total_casos": "Total Casos",
+        "total_contratos": "Total Contratos",
+        "total_financiamentos": "Total Financiamentos",
+        "casos_ativos": "Casos Ativos",
+        "casos_finalizados": "Casos Finalizados",
+    }
+    
+    # Filtrar campos solicitados
+    available_fields = [f for f in field_mapping.keys() if f in selected_fields]
+    if not available_fields:
+        available_fields = ["nome", "cpf", "matricula", "orgao"]
+    
+    # Adicionar BOM para Excel (UTF-8 BOM)
+    output.write('\ufeff')
+    
+    # Escrever CSV
+    writer = csv.DictWriter(output, fieldnames=available_fields)
+    
+    # Escrever cabeçalho com nomes amigáveis
+    header_row = {}
+    for field in available_fields:
+        header_row[field] = field_mapping.get(field, field)
+    writer.writerow(header_row)
+    
+    # Escrever dados
+    for row in results:
+        # Preparar row com apenas os campos solicitados
+        filtered_row = {}
+        for field in available_fields:
+            filtered_row[field] = row.get(field, "")
+        writer.writerow(filtered_row)
+    
+    csv_content = output.getvalue()
+    
+    # Retornar como streaming response
+    from fastapi.responses import Response
+    
+    return Response(
+        content=csv_content.encode('utf-8'),
+        media_type='text/csv; charset=utf-8',
+        headers={
+            "Content-Disposition": 'attachment; filename="clientes_export.csv"'
+        }
+    )
 
 
 @r.get("/{client_id}")
