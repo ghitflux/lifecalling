@@ -11,7 +11,9 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../../.."), // Point to the workspace root to avoid multiple lockfiles warning
   },
   async rewrites() {
-    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    // Para SSR/rewrites do servidor Next.js, usar API_BASE_URL (interno do Docker)
+    // Para o browser (client-side), NEXT_PUBLIC_API_BASE_URL é usado automaticamente
+    const API = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
     if (!API) return [];
 
