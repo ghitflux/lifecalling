@@ -665,7 +665,7 @@ async def disburse_simple(
             # ✅ VALIDAÇÃO: Verificar se comissão não excede consultoria bruta
             if (data.tem_corretor and data.corretor_comissao_valor and
                     data.corretor_comissao_valor > 0):
-                if data.corretor_comissao_valor > consultoria_bruta:
+                if data.corretor_comissao_valor > consultoria_liquida:
                     raise HTTPException(
                         400,
                         f"Comissão do corretor "
@@ -943,10 +943,12 @@ async def reopen_case(
                 deleted_incomes = db.query(FinanceIncome).filter(
                     FinanceIncome.income_name.like(f"%(Contrato #{contract.id})%"),
                     FinanceIncome.income_type.in_([
-                        "Consultoria Bruta - Atendente",  # Formato NOVO
-                        "Consultoria Bruta - Balcão",     # Formato NOVO
-                        "Consultoria - Atendente",         # Formato ANTIGO (compatibilidade)
-                        "Consultoria - Balcão"             # Formato ANTIGO (compatibilidade)
+                        "Consultoria Líquida - Atendente",  # Formato ATUAL
+                        "Consultoria Líquida - Balcão",     # Formato ATUAL
+                        "Consultoria Bruta - Atendente",    # Formato ANTIGO
+                        "Consultoria Bruta - Balcão",       # Formato ANTIGO
+                        "Consultoria - Atendente",          # Formato ANTIGO (compatibilidade)
+                        "Consultoria - Balcão"              # Formato ANTIGO (compatibilidade)
                     ])
                 ).delete(synchronize_session=False)
 
