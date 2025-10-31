@@ -388,6 +388,10 @@ def finance_metrics(
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
             except Exception:
                 end_filter = now_brt()
         else:
@@ -735,7 +739,16 @@ async def disburse_simple(
                 ct.imposto_expense_id = tax_expense.id
 
             # 5. Criar Receitas (Atendente + Balcão)
-            if consultoria_liquida and consultoria_liquida > 0:
+            #  LOG DIAGNÓSTICO: Verificar valores antes de criar receitas
+            print(f"[DEBUG] === VERIFICAÇÃO DE RECEITAS PARA CASO {c.id} ===")
+            print(f"[DEBUG] Consultoria Bruta: R$ {consultoria_bruta:.2f}")
+            print(f"[DEBUG] Imposto: R$ {imposto_valor:.2f}")
+            print(f"[DEBUG] Consultoria Líquida: R$ {consultoria_liquida:.2f}")
+            print(f"[DEBUG] Tem Corretor: {data.tem_corretor}")
+            print(f"[DEBUG] Comissão Corretor: R$ {data.corretor_comissao_valor or 0:.2f}")
+            print(f"[DEBUG] Condição consultoria_liquida > 0: {consultoria_liquida > 0 if consultoria_liquida else False}")
+
+            if consultoria_liquida and consultoria_liquida > 0.01:
                 from ..models import FinanceIncome, User
 
                 client_name = (
@@ -1036,6 +1049,10 @@ def get_commissions(
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
                 query = query.filter(
                     CommissionPayout.created_at <= end_filter
                 )
@@ -1253,6 +1270,10 @@ def list_expenses(
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
                 query = query.filter(FinanceExpense.date <= end_filter)
             except Exception:
                 pass
@@ -1702,6 +1723,10 @@ def list_incomes(
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
                 query = query.filter(FinanceIncome.date <= end_filter)
             except Exception:
                 pass
@@ -2361,6 +2386,8 @@ def get_transactions(
             if end_date:
                 try:
                     end = datetime.fromisoformat(end_date)
+                    #  Incluir o dia completo (23:59:59.999999)
+                    end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
                 except Exception:
                     pass
 
@@ -2616,6 +2643,10 @@ def export_finance_report(
             if end_date:
                 try:
                     end_filter = datetime.fromisoformat(end_date)
+
+                    # Incluir o dia completo (23:59:59.999999)
+
+                    end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
                 except Exception:
                     end_filter = now_brt()
             else:
