@@ -7,7 +7,11 @@ import io
 from ..db import SessionLocal
 from ..rbac import require_roles
 from ..models import (
-    Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone
+    Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone, ClientAddress
+)
+from ..schemas import (
+    ClientAddressCreate, ClientAddressUpdate, ClientAddressResponse,
+    BulkCadastroRow, BulkCadastroImportResponse
 )
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
@@ -1475,3 +1479,276 @@ def bulk_delete_clients(
         "success_count": len(results["deleted"]),
         "failed_count": len(results["failed"])
     }
+
+
+# ========== ENDPOINTS DE ENDEREÇO ==========
+
+@r.get("/{client_id}/addresses", response_model=List[ClientAddressResponse])
+def get_client_addresses(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"
+    ))
+):
+    """
+    Retorna todos os endereços de um cliente.
+    Lista ordenada por endereço principal primeiro.
+    """
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar endereços
+    addresses = db.query(ClientAddress).filter_by(client_id=client_id).order_by(
+        ClientAddress.is_primary.desc(),
+        ClientAddress.created_at.desc()
+    ).all()
+
+    return addresses
+
+
+@r.post("/{client_id}/addresses", response_model=ClientAddressResponse)
+def add_client_address(
+    client_id: int,
+    data: ClientAddressCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Adiciona um novo endereço ao cliente.
+    Se is_primary=True, desmarca os demais endereços como não primários.
+    """
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Se for endereço primário, desmarcar os outros
+    if data.is_primary:
+        db.query(ClientAddress).filter_by(
+            client_id=client_id, is_primary=True
+        ).update({"is_primary": False})
+
+    # Criar novo endereço
+    address = ClientAddress(
+        client_id=client_id,
+        **data.model_dump()
+    )
+    db.add(address)
+    db.commit()
+    db.refresh(address)
+
+    return address
+
+
+@r.put("/{client_id}/addresses/{address_id}", response_model=ClientAddressResponse)
+def update_client_address(
+    client_id: int,
+    address_id: int,
+    data: ClientAddressUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Atualiza um endereço existente do cliente.
+    Se is_primary=True, desmarca os demais endereços como não primários.
+    """
+    # Buscar endereço
+    address = db.query(ClientAddress).filter_by(
+        id=address_id, client_id=client_id
+    ).first()
+    if not address:
+        raise HTTPException(404, "Endereço não encontrado")
+
+    # Se for marcar como primário, desmarcar os outros
+    if data.is_primary and not address.is_primary:
+        db.query(ClientAddress).filter_by(
+            client_id=client_id, is_primary=True
+        ).update({"is_primary": False})
+
+    # Atualizar campos
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(address, field, value)
+
+    address.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(address)
+
+    return address
+
+
+@r.delete("/{client_id}/addresses/{address_id}")
+def delete_client_address(
+    client_id: int,
+    address_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Remove um endereço do cliente.
+    Não permite remover o endereço primário se for o único.
+    """
+    # Buscar endereço
+    address = db.query(ClientAddress).filter_by(
+        id=address_id, client_id=client_id
+    ).first()
+    if not address:
+        raise HTTPException(404, "Endereço não encontrado")
+
+    # Verificar se é o único endereço primário
+    if address.is_primary:
+        total_addresses = db.query(ClientAddress).filter_by(
+            client_id=client_id
+        ).count()
+        if total_addresses > 1:
+            raise HTTPException(
+                400,
+                "Não é possível remover o endereço principal. "
+                "Defina outro endereço como principal primeiro."
+            )
+
+    # Deletar endereço
+    db.delete(address)
+    db.commit()
+
+    return {"ok": True, "message": "Endereço removido com sucesso"}
+
+
+# ========== ENDPOINT DE IMPORTAÇÃO EM MASSA ==========
+
+@r.post("/bulk-update-cadastro", response_model=BulkCadastroImportResponse)
+async def bulk_update_cadastro(
+    rows: List[BulkCadastroRow],
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """
+    Importação em massa de dados cadastrais (telefones e endereços).
+
+    Aceita uma lista de registros com:
+    - cpf (obrigatório)
+    - telefone (opcional)
+    - cidade (opcional)
+    - estado (opcional)
+
+    Para cada CPF:
+    - Busca o cliente na base
+    - Adiciona telefone ao histórico (se fornecido e não duplicado)
+    - Cria/atualiza endereço (se cidade/estado fornecidos)
+
+    Retorna relatório com:
+    - Total de linhas processadas
+    - Sucessos e detalhes
+    - Erros e motivos
+    - CPFs não encontrados
+    """
+    result = {
+        "total_rows": len(rows),
+        "success_count": 0,
+        "error_count": 0,
+        "not_found_count": 0,
+        "errors": [],
+        "success_details": []
+    }
+
+    for idx, row in enumerate(rows):
+        try:
+            # Buscar cliente por CPF
+            client = db.query(Client).filter_by(cpf=row.cpf).first()
+
+            if not client:
+                result["not_found_count"] += 1
+                result["errors"].append({
+                    "row": idx + 1,
+                    "cpf": row.cpf,
+                    "error": "CPF não encontrado na base de dados"
+                })
+                continue
+
+            updates_made = []
+
+            # Adicionar telefone se fornecido
+            if row.telefone:
+                # Verificar se telefone já existe
+                existing_phone = db.query(ClientPhone).filter_by(
+                    client_id=client.id,
+                    phone=row.telefone
+                ).first()
+
+                if not existing_phone:
+                    # Adicionar novo telefone (não marcado como primário)
+                    new_phone = ClientPhone(
+                        client_id=client.id,
+                        phone=row.telefone,
+                        is_primary=False
+                    )
+                    db.add(new_phone)
+                    updates_made.append(f"Telefone {row.telefone} adicionado")
+                else:
+                    updates_made.append(f"Telefone {row.telefone} já existia")
+
+            # Criar/atualizar endereço se cidade ou estado fornecidos
+            if row.cidade or row.estado:
+                # Buscar endereço principal existente
+                address = db.query(ClientAddress).filter_by(
+                    client_id=client.id,
+                    is_primary=True
+                ).first()
+
+                if address:
+                    # Atualizar endereço existente
+                    if row.cidade:
+                        address.cidade = row.cidade
+                    if row.estado:
+                        address.estado = row.estado
+                    address.updated_at = datetime.utcnow()
+                    updates_made.append("Endereço atualizado")
+                else:
+                    # Criar novo endereço
+                    address = ClientAddress(
+                        client_id=client.id,
+                        cidade=row.cidade,
+                        estado=row.estado,
+                        is_primary=True
+                    )
+                    db.add(address)
+                    updates_made.append("Endereço criado")
+
+            if updates_made:
+                result["success_count"] += 1
+                result["success_details"].append({
+                    "row": idx + 1,
+                    "cpf": row.cpf,
+                    "client_name": client.name,
+                    "updates": updates_made
+                })
+            else:
+                result["success_count"] += 1
+                result["success_details"].append({
+                    "row": idx + 1,
+                    "cpf": row.cpf,
+                    "client_name": client.name,
+                    "updates": ["Nenhuma alteração necessária"]
+                })
+
+            # Commit a cada 50 registros
+            if (idx + 1) % 50 == 0:
+                db.commit()
+
+        except Exception as e:
+            result["error_count"] += 1
+            result["errors"].append({
+                "row": idx + 1,
+                "cpf": row.cpf,
+                "error": str(e)
+            })
+            db.rollback()
+            continue
+
+    # Commit final
+    db.commit()
+
+    return result

@@ -69,6 +69,27 @@ class ClientPhone(Base):
         UniqueConstraint('client_id', 'phone', name='uq_client_phone'),
     )
 
+class ClientAddress(Base):
+    """
+    Endereços de um cliente.
+    Permite armazenar múltiplos endereços com marcação de endereço principal.
+    """
+    __tablename__ = "client_addresses"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    cep = Column(String(8), nullable=True)
+    logradouro = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(100), nullable=True)
+    bairro = Column(String(100), nullable=True)
+    cidade = Column(String(100), nullable=True)
+    estado = Column(String(2), nullable=True)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
+
+    client = relationship("Client")
+
 class Case(Base):
     __tablename__ = "cases"
     id = Column(Integer, primary_key=True)

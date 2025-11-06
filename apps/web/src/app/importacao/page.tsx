@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
 import { ProgressBar } from "@/components/ProgressBar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import BulkCadastroImport from "@/components/BulkCadastroImport";
 
 export default function ImportacaoPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -234,8 +236,16 @@ export default function ImportacaoPage() {
         </div>
       </div>
 
-      {/* Upload Section */}
-      <Card className="p-6">
+      {/* Tabs */}
+      <Tabs defaultValue="contracheques" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="contracheques">Importação de Contracheques</TabsTrigger>
+          <TabsTrigger value="cadastro">Atualização Cadastral</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="contracheques" className="space-y-6">
+          {/* Upload Section */}
+          <Card className="p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Upload className="h-5 w-5" />
           Upload de Arquivo
@@ -367,6 +377,12 @@ export default function ImportacaoPage() {
           <p>• Importações criam casos automaticamente na esteira com status &quot;novo&quot;</p>
         </div>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="cadastro" className="space-y-6">
+          <BulkCadastroImport />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

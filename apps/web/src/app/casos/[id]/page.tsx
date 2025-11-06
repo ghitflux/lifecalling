@@ -205,6 +205,17 @@ export default function CaseDetailPage() {
     },
   });
 
+  // Buscar endereços do cliente
+  const { data: clientAddresses = [] } = useQuery({
+    queryKey: ["clientAddresses", caseDetail?.client?.id],
+    queryFn: async () => {
+      if (!caseDetail?.client?.id) return [];
+      const response = await api.get(`/clients/${caseDetail.client.id}/addresses`);
+      return response.data;
+    },
+    enabled: !!caseDetail?.client?.id
+  });
+
   // Identificar o financiamento mais recente
   const mostRecentFinanciamentoId = useMemo(() => {
     if (!caseDetail?.client?.financiamentos?.length) return null;
@@ -834,6 +845,31 @@ export default function CaseDetailPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Endereço */}
+            {clientAddresses && clientAddresses.length > 0 && (
+              <div className="border-t pt-4">
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  📍 Endereço
+                </h3>
+                {clientAddresses.slice(0, 1).map((address: any) => (
+                  <div key={address.id} className="space-y-2 text-sm">
+                    {address.cidade && address.estado && (
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground">Cidade/Estado:</span>
+                        <span className="font-medium">{address.cidade}, {address.estado}</span>
+                      </div>
+                    )}
+                    {address.cep && (
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground">CEP:</span>
+                        <span className="font-medium">{address.cep}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
