@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento, useAssignCase, useReturnToPipeline } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
+import { Calendar, Database } from "lucide-react";
 import AttachmentUploader from "@/components/cases/AttachmentUploader";
 import { Snippet } from "@nextui-org/snippet";
 import { RefreshCw, ArrowLeft } from "lucide-react";
@@ -54,6 +55,10 @@ interface CaseDetail {
       entity_name: string;
       status_code: string;
       status_description: string;
+      referencia?: string;
+      ref_month?: number;
+      ref_year?: number;
+      created_at?: string;
     }>;
   };
   simulation?: {
@@ -199,6 +204,19 @@ export default function CaseDetailPage() {
       return failureCount < 2;
     },
   });
+
+  // Identificar o financiamento mais recente
+  const mostRecentFinanciamentoId = useMemo(() => {
+    if (!caseDetail?.client?.financiamentos?.length) return null;
+    const withDates = caseDetail.client.financiamentos.filter(f => f.created_at);
+    if (!withDates.length) return null;
+
+    return withDates.reduce((most, current) => {
+      const mostDate = new Date(most.created_at!);
+      const currentDate = new Date(current.created_at!);
+      return currentDate > mostDate ? current : most;
+    }).id;
+  }, [caseDetail?.client?.financiamentos]);
 
   // Hook para carregar anexos do caso
   const { data: attachments, isLoading: attachmentsLoading } = useAttachments(caseId);
@@ -725,73 +743,57 @@ export default function CaseDetailPage() {
               <div className="border-t pt-4">
                 <h3 className="font-medium mb-3">Informações Financeiras ({caseDetail.client.financiamentos.length})</h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                  {caseDetail.client.financiamentos.map((fin, index) => (
-                    <div
-                      key={fin.id}
-                      className="rounded-lg border border-border/40 bg-muted/40 p-3 text-sm space-y-3"
-                    >
-                      {/* Matrícula do Financiamento */}
-                      {fin.matricula && fin.matricula !== caseDetail.client.matricula && (
-                        <div className="pb-2 border-b border-warning/30 bg-warning/5 -m-3 mb-0 p-2 rounded-t-lg">
-                          <div className="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                              <circle cx="9" cy="7" r="4"/>
-                              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                            </svg>
-                            <div className="text-xs font-medium text-warning">
-                              Matrícula diferente: {fin.matricula}
+                  {caseDetail.client.financiamentos.map((fin) => {
+                    // Construir referência se não existir
+                    const referencia = fin.referencia || (fin.ref_month && fin.ref_year ? `${String(fin.ref_month).padStart(2, '0')}/${fin.ref_year}` : null);
+                    const isMostRecent = fin.id === mostRecentFinanciamentoId;
+
+                    return (
+                      <div
+                        key={fin.id}
+                        className={'rounded-lg border p-4 text-sm space-y-3 ' + (isMostRecent ? 'border-success/60 bg-success/5' : 'border-border/40 bg-muted/40')}
+                      >
+                        {isMostRecent && (
+                          <div className="pb-2 -m-4 mb-0 p-3 rounded-t-lg bg-success/10 border-b border-success/30">
+                            <div className="flex items-center gap-2">
+                              <Database className="h-3.5 w-3.5 text-success" />
+                              <div className="text-xs font-medium text-success">Importação mais recente</div>
                             </div>
                           </div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-xs text-muted-foreground">Status do Financiamento</div>
-                          <div className="font-medium">{fin.status_description}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Total</div>
-                          <div className="font-medium">{fin.total_parcelas} parcelas</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Pago</div>
-                          <div className="font-medium">{fin.parcelas_pagas} parcelas</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Valor</div>
-                          <div className="font-medium">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(parseFloat(fin.valor_parcela_ref))}
+                        )}
+                        {fin.matricula && fin.matricula !== caseDetail.client.matricula && (
+                          <div className="pb-2 border-b border-warning/30 bg-warning/5 -m-4 mb-0 p-3 rounded-t-lg">
+                            <div className="flex items-center gap-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                              </svg>
+                              <div className="text-xs font-medium text-warning">Matrícula diferente: {fin.matricula}</div>
+                            </div>
                           </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><div className="text-xs text-muted-foreground">Status do Financiamento</div><div className="font-medium">{fin.status_description}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Total</div><div className="font-medium">{fin.total_parcelas} parcelas</div></div>
+                          <div><div className="text-xs text-muted-foreground">Pago</div><div className="font-medium">{fin.parcelas_pagas} parcelas</div></div>
+                          <div><div className="text-xs text-muted-foreground">Valor</div><div className="font-medium">{new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(parseFloat(fin.valor_parcela_ref))}</div></div>
+                          <div className="col-span-2"><div className="text-xs text-muted-foreground">Órgão Pagamento</div><div className="font-medium">{fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Referência</div><div className="font-medium flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-blue-500" />{referencia || '-'}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Importado em</div><div className="font-medium text-xs flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-purple-500" />{fin.created_at ? new Date(fin.created_at).toLocaleDateString('pt-BR') : '-'}</div></div>
                         </div>
-                        <div className="col-span-2">
-                          <div className="text-xs text-muted-foreground">Órgão Pagamento</div>
-                          <div className="font-medium">
-                            {fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}
-                          </div>
-                        </div>
-                        {/* Data de Referência removida - propriedade não existe em PayrollLine */}
-                        {/* <div>
-                          <div className="text-xs text-muted-foreground">Data de Referência</div>
-                          <div className="font-medium">
-                            {fin.referencia || '-'}
-                          </div>
-                        </div> */}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                
+
                 {/* Informações adicionais da simulação */}
                 {caseDetail.simulation && caseDetail.simulation.totals && (
                   <div className="mt-4 pt-3 border-t">
+                    <h3 className="font-medium mb-3 text-sm">Resumo da Simulação</h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded border border-success/40 bg-success-subtle p-2">
+                      <div className="rounded border border-success/40 bg-success/5 p-3">
                         <div className="text-xs text-muted-foreground">Valor Liberado Total</div>
                         <div className="font-medium">
                           {new Intl.NumberFormat('pt-BR', {
@@ -801,8 +803,8 @@ export default function CaseDetailPage() {
                         </div>
                       </div>
                       {caseDetail.simulation.totals.seguroObrigatorio && (
-                        <div className="rounded border border-info/40 bg-info-subtle p-2">
-                          <div className="text-xs text-muted-foreground">Valor do Seguro Obrigatório</div>
+                        <div className="rounded border border-info/40 bg-info/5 p-3">
+                          <div className="text-xs text-muted-foreground">Seguro Obrigatório</div>
                           <div className="font-medium">
                             {new Intl.NumberFormat('pt-BR', {
                               style: 'currency',
@@ -811,7 +813,7 @@ export default function CaseDetailPage() {
                           </div>
                         </div>
                       )}
-                      <div className="rounded border border-warning/40 bg-warning-subtle p-2">
+                      <div className="rounded border border-warning/40 bg-warning/5 p-3">
                         <div className="text-xs text-muted-foreground">Custo Consultoria</div>
                         <div className="font-medium">
                           {new Intl.NumberFormat('pt-BR', {
@@ -820,17 +822,15 @@ export default function CaseDetailPage() {
                           }).format(caseDetail.simulation.totals.custoConsultoria)}
                         </div>
                       </div>
-                      {caseDetail.simulation.totals.custoConsultoriaLiquido && (
-                        <div className="rounded border border-accent/40 bg-accent-subtle p-2">
-                          <div className="text-xs text-muted-foreground">Custo Líquido da Consultoria (86%)</div>
-                          <div className="font-medium">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(caseDetail.simulation.totals.custoConsultoriaLiquido)}
-                          </div>
+                      <div className="rounded border border-accent/40 bg-accent/5 p-3">
+                        <div className="text-xs text-muted-foreground">Consultoria Líquida</div>
+                        <div className="font-medium">
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(caseDetail.simulation.totals.custoConsultoriaLiquido || (caseDetail.simulation.totals.custoConsultoria * 0.86))}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )}
