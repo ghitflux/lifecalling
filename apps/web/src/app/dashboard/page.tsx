@@ -118,9 +118,17 @@ export default function DashboardPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Estados para DateRangeFilter - iniciam vazios (filtro personalizado limpo)
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  // Estados para DateRangeFilter - inicializam com o mês atual (mesma lógica do módulo financeiro)
+  const [startDate, setStartDate] = useState<string>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split("T")[0];
+  });
 
   // Função para lidar com mudança de mês
   const handleMonthChange = (month: string) => {
@@ -214,21 +222,13 @@ export default function DashboardPage() {
   const { data: series } = useAnalyticsSeries({ from, to }, bucket, selectedMonth);
   const seriesData = useMemo(() => series?.series ?? [], [series]);
 
-  // Métricas financeiras - usar filtro personalizado se definido, senão usar mês atual
+  // Métricas financeiras - sempre usar start_date e end_date (mesma lógica do módulo financeiro)
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["financeMetrics", startDate, endDate, selectedMonth],
+    queryKey: ["financeMetrics", startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
-
-      // Se há filtro personalizado (startDate e endDate), usar ele
-      if (startDate && endDate) {
-        params.append("start_date", startDate);
-        params.append("end_date", endDate);
-      } else {
-        // Senão, usar o mês selecionado (padrão: mês atual)
-        params.append("month", selectedMonth);
-      }
-
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
       const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
     }
@@ -241,56 +241,37 @@ export default function DashboardPage() {
     return generateRealTrendData(seriesData, kpis, metrics);
   }, [seriesData, kpis, metrics]);
 
-  // Calcular período anterior para comparação
-  const calculatePreviousPeriod = () => {
-    if (startDate && endDate) {
-      // Se há filtro personalizado, calcular período anterior baseado nas datas
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const diffTime = end.getTime() - start.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      const prevEnd = new Date(start.getTime() - 1); // Um dia antes do período atual
-      const prevStart = new Date(prevEnd.getTime() - (diffDays * 24 * 60 * 60 * 1000));
-
-      return {
-        type: 'date_range',
-        startDate: prevStart.toISOString().split('T')[0],
-        endDate: prevEnd.toISOString().split('T')[0]
-      };
-    } else {
-      // Se não há filtro personalizado, usar mês anterior
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth();
-      const currentYear = currentDate.getFullYear();
-
-      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-      return {
-        type: 'month',
-        month: `${previousYear}-${String(previousMonth + 1).padStart(2, '0')}`
-      };
+  // Calcular período anterior para comparação (mesma lógica do módulo financeiro)
+  const calculatePreviousPeriod = (startDateStr: string, endDateStr: string) => {
+    if (!startDateStr || !endDateStr) {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { startDate: first.toISOString().split("T")[0], endDate: last.toISOString().split("T")[0] };
     }
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { startDate: first.toISOString().split("T")[0], endDate: last.toISOString().split("T")[0] };
+    }
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - diffDays * 24 * 60 * 60 * 1000);
+    return { startDate: prevStart.toISOString().split("T")[0], endDate: prevEnd.toISOString().split("T")[0] };
   };
 
-  const previousPeriod = calculatePreviousPeriod();
+  const previousPeriod = calculatePreviousPeriod(startDate, endDate);
 
-  // Buscar métricas do período anterior para comparação
+  // Buscar métricas do período anterior para comparação (mesma lógica do módulo financeiro)
   const { data: previousMetricsData } = useQuery({
-    queryKey: ["financeMetrics", "previous", previousPeriod],
+    queryKey: ["financeMetrics", "previous", previousPeriod.startDate, previousPeriod.endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
-
-      if (previousPeriod.type === 'date_range') {
-        params.append("start_date", previousPeriod.startDate!);
-        params.append("end_date", previousPeriod.endDate ?? "");
-      } else {
-        if (previousPeriod.month) {
-          params.append("month", previousPeriod.month);
-        }
-      }
-
+      params.append("start_date", previousPeriod.startDate);
+      params.append("end_date", previousPeriod.endDate);
       const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
     }

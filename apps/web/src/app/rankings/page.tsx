@@ -194,11 +194,96 @@ export default function RankingsPage() {
     }
   };
 
-  // Formatação de dados para a tabela
+  // Filtrar pódio (apenas atendentes, excluir usuários específicos)
+  const filteredPodiumData = useMemo(() => {
+    if (!podiumData?.podium) return null;
+
+    const filtered = podiumData.podium.filter((agent: any) => {
+      const nameLower = agent.name?.toLowerCase() || "";
+
+      // Lista de usuários/padrões a excluir (tanto por nome exato quanto por padrão)
+      const excludedPatterns = [
+        "peltson",
+        "balcão",
+        "balcao",
+        "administrador",
+        "admin",
+        "calculista",
+        "supervisor",
+        "sistema",
+        "fechamento"
+      ];
+
+      // Excluir se o nome contém qualquer padrão excluído
+      if (excludedPatterns.some(pattern => nameLower.includes(pattern))) {
+        return false;
+      }
+
+      // Excluir roles não-atendentes
+      const excludedRoles = ["admin", "supervisor", "calculista"];
+      if (agent.role && excludedRoles.includes(agent.role.toLowerCase())) {
+        return false;
+      }
+
+      // Se tem role, só aceitar "atendente"
+      if (agent.role && agent.role.toLowerCase() !== "atendente") {
+        return false;
+      }
+
+      return true; // Passou em todos os filtros
+    });
+
+    // Reajustar posições após filtro
+    return {
+      ...podiumData,
+      podium: filtered.map((agent: any, idx: number) => ({
+        ...agent,
+        position: idx + 1
+      }))
+    };
+  }, [podiumData]);
+
+  // Formatação de dados para a tabela (filtrado: apenas atendentes, excluir usuários específicos)
   const tableData = useMemo(() => {
     if (!rankingData?.items) return [];
 
-    return rankingData.items.map((agent: any, idx: number) => ({
+    // Filtrar apenas atendentes e excluir usuários específicos
+    const filteredItems = rankingData.items.filter((agent: any) => {
+      const nameLower = agent.name?.toLowerCase() || "";
+
+      // Lista de usuários/padrões a excluir (tanto por nome exato quanto por padrão)
+      const excludedPatterns = [
+        "peltson",
+        "balcão",
+        "balcao",
+        "administrador",
+        "admin",
+        "calculista",
+        "supervisor",
+        "sistema",
+        "fechamento"
+      ];
+
+      // Excluir se o nome contém qualquer padrão excluído
+      if (excludedPatterns.some(pattern => nameLower.includes(pattern))) {
+        return false;
+      }
+
+      // Excluir roles não-atendentes
+      const excludedRoles = ["admin", "supervisor", "calculista"];
+      if (agent.role && excludedRoles.includes(agent.role.toLowerCase())) {
+        return false;
+      }
+
+      // Se tem role, só aceitar "atendente"
+      if (agent.role && agent.role.toLowerCase() !== "atendente") {
+        return false;
+      }
+
+      return true; // Passou em todos os filtros
+    });
+
+    return filteredItems.map((agent: any, idx: number) => ({
       pos: idx + 1,
       user_id: agent.user_id,
       name: agent.name,
@@ -284,49 +369,49 @@ export default function RankingsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Reorganizar para colocar o 1º lugar no meio */}
-            {podiumData?.podium?.length > 0 && (
+            {filteredPodiumData?.podium?.length > 0 && (
               <>
                 {/* 2º Lugar (esquerda) */}
-                {podiumData.podium.find((item: any) => item.position === 2) && (
+                {filteredPodiumData.podium.find((item: any) => item.position === 2) && (
                   <div className="order-1 md:order-1">
                     <PodiumCard
                       key={2}
                       position={2}
-                      userName={podiumData.podium.find((item: any) => item.position === 2).name}
-                      contracts={podiumData.podium.find((item: any) => item.position === 2).contracts}
-                      consultoriaLiq={podiumData.podium.find((item: any) => item.position === 2).consultoria_liq}
+                      userName={filteredPodiumData.podium.find((item: any) => item.position === 2).name}
+                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 2).contracts}
+                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 2).consultoria_liq}
                     />
                   </div>
                 )}
-                
+
                 {/* 1º Lugar (meio) */}
-                {podiumData.podium.find((item: any) => item.position === 1) && (
+                {filteredPodiumData.podium.find((item: any) => item.position === 1) && (
                   <div className="order-2 md:order-2">
                     <PodiumCard
                       key={1}
                       position={1}
-                      userName={podiumData.podium.find((item: any) => item.position === 1).name}
-                      contracts={podiumData.podium.find((item: any) => item.position === 1).contracts}
-                      consultoriaLiq={podiumData.podium.find((item: any) => item.position === 1).consultoria_liq}
+                      userName={filteredPodiumData.podium.find((item: any) => item.position === 1).name}
+                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 1).contracts}
+                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 1).consultoria_liq}
                     />
                   </div>
                 )}
-                
+
                 {/* 3º Lugar (direita) */}
-                {podiumData.podium.find((item: any) => item.position === 3) && (
+                {filteredPodiumData.podium.find((item: any) => item.position === 3) && (
                   <div className="order-3 md:order-3">
                     <PodiumCard
                       key={3}
                       position={3}
-                      userName={podiumData.podium.find((item: any) => item.position === 3).name}
-                      contracts={podiumData.podium.find((item: any) => item.position === 3).contracts}
-                      consultoriaLiq={podiumData.podium.find((item: any) => item.position === 3).consultoria_liq}
+                      userName={filteredPodiumData.podium.find((item: any) => item.position === 3).name}
+                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 3).contracts}
+                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 3).consultoria_liq}
                     />
                   </div>
                 )}
               </>
             )}
-            {(!podiumData?.podium || podiumData.podium.length === 0) && (
+            {(!filteredPodiumData?.podium || filteredPodiumData.podium.length === 0) && (
               <div className="col-span-3 text-center py-12 text-muted-foreground">
                 Nenhum dado disponível para o período selecionado
               </div>
