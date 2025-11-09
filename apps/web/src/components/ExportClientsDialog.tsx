@@ -22,7 +22,6 @@ interface ExportClientsDialogProps {
     searchTerm: string;
     selectedBanco: string | null;
     selectedStatus: string | null;
-    selectedOrgao: string | null;
     semContratos: boolean;
   };
 }
@@ -138,9 +137,6 @@ export function ExportClientsDialog({
       }
       if (filters.selectedStatus) {
         params.append("status", filters.selectedStatus);
-      }
-      if (filters.selectedOrgao) {
-        params.append("orgao", filters.selectedOrgao);
       }
       if (filters.semContratos) {
         params.append("sem_contratos", "true");

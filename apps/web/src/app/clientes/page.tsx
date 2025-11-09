@@ -356,7 +356,6 @@ export default function Clientes() {
           searchTerm,
           selectedBanco,
           selectedStatus,
-          selectedOrgao,
           semContratos,
         }}
       />
