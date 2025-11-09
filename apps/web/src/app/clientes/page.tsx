@@ -122,7 +122,7 @@ export default function Clientes() {
           title="Total de Contratos"
           value={stats?.total_contracts || 0}
           subtitle={`${stats?.clients_with_contracts || 0} clientes com contrato`}
-          icon={Briefcase}
+          icon={FileText}
           color="info"
         />
       </div>
