@@ -244,7 +244,7 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
     # Verificação adicional: garantir que NÃO exista NENHUM caso ativo do CPF
     any_active_case = db.query(Case).filter(
         Case.client_id.in_(client_ids_list),
-        Case.status.in_(["novo", "disponivel", "em_atendimento", "calculista", "calculista_pendente", "calculo_aprovado", "financeiro", "fechamento_pendente", "fechamento_aprovado"])
+        Case.status.in_(["novo", "disponivel", "em_atendimento", "calculista", "calculista_pendente", "calculo_aprovado", "financeiro", "fechamento_pendente", "fechamento_aprovado", "contrato_efetivado"])
     ).first()
 
     if any_active_case:
@@ -434,7 +434,7 @@ async def import_payroll_file(
                     # Status considerados "abertos" (não criar novos casos se já houver um aberto)
                     OPEN_STATUSES = ["novo", "disponivel", "em_atendimento", "calculista",
                                      "calculista_pendente", "financeiro", "fechamento_pendente",
-                                     "calculo_aprovado", "fechamento_aprovado"]
+                                     "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"]
 
                     # Status que podem ser reabertos (EXCLUÍDO: caso_cancelado)
                     # Casos cancelados deliberadamente NÃO devem ser reabertos
