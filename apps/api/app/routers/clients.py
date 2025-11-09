@@ -15,6 +15,35 @@ from ..schemas import (
 )
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
+import re
+
+
+
+
+def normalize_bank_name(name: str) -> str:
+    """Normaliza nome de banco para agrupar variações."""
+    if not name:
+        return name
+    normalized = name.upper().strip()
+    # Remover sufixos societários
+    normalized = normalized.replace(' S.A.', '').replace(' S/A', '').replace(' S.A', '')
+    # Remover palavras comuns
+    normalized = normalized.replace(' CARTAO', '').replace(' CARTÃO', '').replace(' BRASIL', '')
+    # Padronizar bancos específicos
+    if 'SANTANDER' in normalized and not normalized.startswith('BANCO'):
+        normalized = 'BANCO SANTANDER'
+    elif 'SANATANDER' in normalized:
+        normalized = 'BANCO SANTANDER'
+    elif 'DAYCOVAL' in normalized and not normalized.startswith('BANCO'):
+        normalized = 'BANCO DAYCOVAL'
+    elif 'DIGIO' in normalized and 'PREVIDENCIA' not in normalized:
+        normalized = 'BANCO DIGIO'
+    elif 'FUTURO PREVID' in normalized:
+        normalized = 'FUTURO PREVIDÊNCIA'
+    elif 'EQUATORIAL PREVID' in normalized:
+        normalized = 'EQUATORIAL PREVIDÊNCIA'
+    # Remover espaços duplos
+    return ' '.join(normalized.split())
 
 r = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -41,7 +70,6 @@ def list_clients(
     q: str | None = None,
     banco: str | None = None,
     status: str | None = None,
-    orgao: str | None = None,
     sem_contratos: bool | None = None,
     db: Session = Depends(get_db),
     user=Depends(require_roles(
@@ -59,7 +87,6 @@ def list_clients(
         q: Busca por nome, CPF ou matrícula
         banco: Filtrar por banco/entidade importada (entity_name de PayrollLine)
         status: Filtrar por status do caso
-        orgao: Filtrar por órgão pagador (orgao do cliente)
         sem_contratos: Se True, filtra apenas clientes sem financiamentos
     """
     # Query base dos clientes com contagem de casos
@@ -87,20 +114,23 @@ def list_clients(
 
     # Filtrar por banco (entidade importada de PayrollLine)
     if banco:
-        # Join com PayrollLine para filtrar por entity_name
-        clients_query = clients_query.join(
-            PayrollLine,
-            PayrollLine.cpf == Client.cpf
-        ).filter(PayrollLine.entity_name == banco)
+        # Buscar todas as entidades que correspondem ao nome normalizado
+        all_entities = db.query(PayrollLine.entity_name).filter(
+            PayrollLine.entity_name.isnot(None)
+        ).distinct().all()
+        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
+        
+        if matching_entities:
+            clients_query = clients_query.join(
+                PayrollLine,
+                PayrollLine.cpf == Client.cpf
+            ).filter(PayrollLine.entity_name.in_(matching_entities))
 
     # Filtrar por status do caso
     if status:
         clients_query = clients_query.filter(Case.status == status)
 
     # Filtrar por órgão pagador (orgao do cliente)
-    if orgao:
-        clients_query = clients_query.filter(Client.orgao == orgao)
-
     # Filtrar por clientes sem contratos
     if sem_contratos:
         # Clientes que NÃO têm financiamentos
@@ -173,21 +203,28 @@ def get_available_filters(
     status_list = db.query(Case.status).distinct().all()
     status_list = sorted([s[0] for s in status_list if s[0]])
 
-    # Contadores por filtro
-    bancos_with_count = []
+    # Agrupar entidades por nome normalizado
+    bancos_agrupados = {}
     for entidade in entidades_list:
-        # Contar clientes únicos (por CPF) que têm financiamentos dessa entidade
+        normalized = normalize_bank_name(entidade)
+        if normalized not in bancos_agrupados:
+            bancos_agrupados[normalized] = []
+        bancos_agrupados[normalized].append(entidade)
+    
+    # Contar clientes por banco agrupado
+    bancos_with_count = []
+    for normalized_name, entidades_grupo in sorted(bancos_agrupados.items()):
+        # Contar clientes únicos com financiamentos deste grupo de entidades
         count = (
             db.query(func.count(distinct(Client.id)))
-            .join(
-                PayrollLine,
-                PayrollLine.cpf == Client.cpf
-            )
-            .filter(PayrollLine.entity_name == entidade)
+            .join(PayrollLine, PayrollLine.cpf == Client.cpf)
+            .filter(PayrollLine.entity_name.in_(entidades_grupo))
             .scalar()
         )
         bancos_with_count.append({
-            "value": entidade, "label": entidade, "count": count
+            "value": normalized_name,
+            "label": normalized_name,
+            "count": count
         })
 
     status_with_count = []
@@ -216,21 +253,6 @@ def get_available_filters(
             "count": count
         })
 
-    # Listar órgãos únicos dos clientes (órgãos pagadores)
-    orgaos = db.query(Client.orgao).filter(
-        Client.orgao.isnot(None)
-    ).distinct().all()
-    orgaos_list = sorted([o[0] for o in orgaos if o[0]])
-
-    orgaos_with_count = []
-    for orgao in orgaos_list:
-        # Contar clientes únicos com esse órgão
-        count = db.query(func.count(Client.id)).filter(
-            Client.orgao == orgao
-        ).scalar()
-        orgaos_with_count.append({
-            "value": orgao, "label": orgao, "count": count
-        })
 
     # Contar clientes sem contratos (sem financiamentos)
     clientes_sem_contratos = (
@@ -249,7 +271,6 @@ def get_available_filters(
     return {
         "bancos": bancos_with_count,
         "status": status_with_count,
-        "orgaos": orgaos_with_count,
         "clientes_sem_contratos": clientes_sem_contratos
     }
 
@@ -342,7 +363,6 @@ def export_clients_csv(
     q: str | None = None,
     banco: str | None = None,
     status: str | None = None,
-    orgao: str | None = None,
     sem_contratos: bool | None = None,
     fields: str = Query(default="nome,cpf,matricula,orgao", description="Campos separados por vírgula"),
     db: Session = Depends(get_db),
@@ -359,7 +379,6 @@ def export_clients_csv(
         q: Busca por nome, CPF ou matrícula
         banco: Filtrar por banco/entidade
         status: Filtrar por status do caso
-        orgao: Filtrar por órgão pagador
         sem_contratos: Filtrar apenas clientes sem financiamentos
         fields: Campos a exportar, separados por vírgula
     """
@@ -401,17 +420,22 @@ def export_clients_csv(
             )
         )
     
+    # Filtrar por banco (entidade importada de PayrollLine)
     if banco:
-        clients_query = clients_query.join(
-            PayrollLine,
-            PayrollLine.cpf == Client.cpf
-        ).filter(PayrollLine.entity_name == banco)
+        # Buscar todas as entidades que correspondem ao nome normalizado
+        all_entities = db.query(PayrollLine.entity_name).filter(
+            PayrollLine.entity_name.isnot(None)
+        ).distinct().all()
+        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
+        
+        if matching_entities:
+            clients_query = clients_query.join(
+                PayrollLine,
+                PayrollLine.cpf == Client.cpf
+            ).filter(PayrollLine.entity_name.in_(matching_entities))
     
     if status:
         clients_query = clients_query.filter(Case.status == status)
-    
-    if orgao:
-        clients_query = clients_query.filter(Client.orgao == orgao)
     
     if sem_contratos:
         clients_query = clients_query.filter(
