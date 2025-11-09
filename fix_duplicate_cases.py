@@ -18,7 +18,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Usar banco local para testes
-DATABASE_URL = "postgresql://lifecalling:lifecalling@localhost:5433/lifecalling"
+import os
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://lifecalling:lifecalling@localhost:5433/lifecalling")
 
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
