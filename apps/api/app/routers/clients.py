@@ -25,10 +25,14 @@ def normalize_bank_name(name: str) -> str:
     if not name:
         return name
     normalized = name.upper().strip()
+
+    # BANCO DO BRASIL: tratar PRIMEIRO antes de remover BRASIL
+    if 'BANCO DO BRASIL' in normalized:
+        return 'BANCO DO BRASIL'
+
     # Remover sufixos societários
     normalized = normalized.replace(' S.A.', '').replace(' S/A', '').replace(' S.A', '')
-    # Remover palavras comuns
-    normalized = normalized.replace(' CARTAO', '').replace(' CARTÃO', '').replace(' BRASIL', '')
+
     # Padronizar bancos específicos
     if 'SANTANDER' in normalized and not normalized.startswith('BANCO'):
         normalized = 'BANCO SANTANDER'
@@ -39,9 +43,15 @@ def normalize_bank_name(name: str) -> str:
     elif 'DIGIO' in normalized and 'PREVIDENCIA' not in normalized:
         normalized = 'BANCO DIGIO'
     elif 'FUTURO PREVID' in normalized:
-        normalized = 'FUTURO PREVIDÊNCIA'
+        return 'FUTURO PREVIDÊNCIA'
     elif 'EQUATORIAL PREVID' in normalized:
-        normalized = 'EQUATORIAL PREVIDÊNCIA'
+        return 'EQUATORIAL PREVIDÊNCIA'
+
+    # Remover CARTÃO e BRASIL do final (após tratar casos especiais)
+    normalized = normalized.replace(' CARTAO', '').replace(' CARTÃO', '')
+    if normalized.endswith(' BRASIL'):
+        normalized = normalized[:-7]
+
     # Remover espaços duplos
     return ' '.join(normalized.split())
 
