@@ -177,7 +177,7 @@ export default function Clientes() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {filtersData.bancos.slice(0, 10).map((banco: any) => (
+                {filtersData.bancos.map((banco: any) => (
                   <Badge
                     key={banco.value}
                     variant={selectedBanco === banco.value ? "default" : "outline"}
@@ -255,7 +255,7 @@ export default function Clientes() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {filtersData.orgaos.slice(0, 10).map((orgao: any) => (
+                {filtersData.orgaos.map((orgao: any) => (
                   <Badge
                     key={orgao.value}
                     variant={selectedOrgao === orgao.value ? "default" : "outline"}
