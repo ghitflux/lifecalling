@@ -503,8 +503,8 @@ export default function Page() {
   // Função para download de anexos do caso
   const handleDownloadCaseAttachment = (attachmentId: number, filename?: string) => {
     if (!financeCardCaseId) return;
-    
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
     const downloadUrl = `${baseUrl}/cases/${financeCardCaseId}/attachments/${attachmentId}/download`;
     
     // Criar link temporário para download
@@ -1028,7 +1028,7 @@ export default function Page() {
                     onUploadAttachment={createUploadHandler(contractId, item.id)}
                     isUploadingAttachment={uploadingContractId === contractId}
                     onDownloadAttachment={(attachmentId: number, filename?: string) => {
-                      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+                      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
                       const downloadUrl = `${baseUrl}/cases/${item.id}/attachments/${attachmentId}/download`;
 
                       const link = document.createElement('a');
