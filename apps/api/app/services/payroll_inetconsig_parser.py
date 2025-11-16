@@ -36,18 +36,19 @@ HEADER_RE = re.compile(
 # Formato: STATUS MATRICULA NOME(30) CARGO(30) FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PAGTO CPF
 # Exemplo: "  1    000550-9  JOANA MARIA DOS SANTOS IBIAPIN 3-AGENTE SUPERIOR DE SERVICO   6490      001     088   024         458,04      001    47082976372"
 LINE_RE = re.compile(
-    r"^\s*([1-6S])\s+"                      # STATUS
-    r"([0-9X\-]+)\s+"                       # MATRICULA  
-    r"(.{1,35}?)\s{1,}"                      # NOME
-    r"(.{1,35}?)\s{1,}"                      # CARGO
-    r"(\d{4})\s+"                           # FIN
-    r"(\d{3})\s+"                           # ORGAO
-    r"(\d{3})\s+"                           # LANC
-    r"(\d{2,3})\s+"                         # TOTAL
-    r"(\d{2,3})\s+"                         # PAGO
-    r"([\d.,]+)\s+"                         # VALOR
-    r"(\d{3})\s+"                           # ORGAO PAGTO
-    r"(\d{11})\s*$"                         # CPF
+    r"^\s*([1-6S])\s+"                      # STATUS (1 char)
+    r"([0-9X-]+)\s+"                        # MATRICULA
+    r"(.{1,35}?)\s{2,}"                     # NOME (até 35 chars, seguido de 2+ espaços)
+    r"(.{1,35}?)\s{2,}"                     # CARGO (até 35 chars, seguido de 2+ espaços)
+    r"(\d{4})\s+"                           # FIN (4 dígitos fixos)
+    r"(\d{3})\s+"                           # ORGAO (3 dígitos)
+    r"(\d{3})\s+"                           # LANC (3 dígitos)
+    r"(\d{2,3})\s+"                         # TOTAL parcelas (2-3 dígitos)
+    r"(\d{2,3})\s+"                         # PAGO parcelas (2-3 dígitos)
+    r"([\d.,]+)\s+"                         # VALOR (formato brasileiro)
+    r"(\d{3})\s+"                           # ORGAO PAGTO (3 dígitos)
+    r"(\d{11})\s*$",                        # CPF (11 dígitos)
+    re.MULTILINE
 )
 
 
@@ -141,10 +142,10 @@ def parse_header(content: str) -> Dict:
 
 def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
     """
-    Parser híbrido (split + posicional) para extrair campos:
-    MATRICULA, NOME, FIN, ORGAO, LANC, TOTAL, PAGO, VALOR, ORGAO PGTO, CPF
+    Parser posicional para extrair campos de arquivo iNETConsig.
+    Layout de tamanho fixo (não separa por regex, mas por posição de coluna).
 
-    Layout: STATUS MATRICULA NOME CARGO FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PGTO CPF
+    Campos: STATUS MATRICULA NOME CARGO FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PGTO CPF
     """
     lines = []
     line_number = 0
@@ -164,7 +165,7 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
     # Cache para nomes de órgãos pagadores
     orgao_names = {}
 
-    logger.info("Iniciando parse híbrido (split + posicional)")
+    logger.info("Iniciando parse posicional (tamanho fixo)")
 
     for raw_line in content.splitlines():
         # Extrair nomes de órgãos pagadores das linhas de rodapé
@@ -190,7 +191,7 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
         ]):
             continue
 
-        # Verificar se é uma linha de dados (começa com espaços + dígito)
+        # Verificar se é uma linha de dados (começa com espaços + dígito/S)
         if not raw_line.strip() or not re.match(r'^\s*[1-6S]\s+', raw_line):
             continue
 
@@ -198,113 +199,114 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
         stats["total_lines_processed"] += 1
 
         try:
-            # Extrair CPF (últimos 11 caracteres antes do \n)
-            cpf = normalize_cpf(raw_line[-11:].strip())
+            # Linha de tamanho fixo: extrair campos por posição
+            line_length = len(raw_line)
+
+            # Se linha muito curta, skip
+            if line_length < 100:
+                logger.warning(f"Linha {line_number}: Linha muito curta ({line_length} chars)")
+                stats["invalid_lines"] += 1
+                continue
+
+            # STATUS está sempre no primeiro caractere não-espaço (posição 0-2)
+            status_match = re.match(r'\s*([1-6S])', raw_line)
+            if not status_match:
+                stats["invalid_lines"] += 1
+                continue
+
+            status_code = status_match.group(1)
+
+            # CPF é sempre os últimos 11 caracteres
+            cpf_str = raw_line[-11:].strip()
+            cpf = normalize_cpf(cpf_str)
 
             if not cpf or len(cpf) != 11:
-                logger.warning(f"Linha {line_number}: CPF inválido")
+                logger.warning(f"Linha {line_number}: CPF inválido '{cpf_str}'")
                 stats["invalid_lines"] += 1
                 continue
 
-            # Remover CPF e trabalhar com o restante
+            # Restante da linha (sem CPF)
             remaining = raw_line[:-11].rstrip()
 
-            # Split tokens
+            # Dividir por tokens (usando split simples)
             tokens = remaining.split()
 
-            
-# Usar abordagem posicional (por coluna fixa) ao invés de REGEX
-            # Formato iNETConsig tem colunas fixas
-            # STATUS(1) + espaço + MATRICULA(8) + espaço + NOME(30) + CARGO(30) + FIN(4) + ORGAO(3) + LANC(3) + TOTAL(2-3) + PAGO(2-3) + VALOR + ORGAO_PAGTO(3) + CPF(11)
-            
-            # Se linha tem menos de 80 caracteres, provavelmente é cabeçalho/subtotal
-            if len(line) < 80:
-                logger.debug(f"Linha {line_number}: Linha muito curta ({len(line)} chars)")
+            if len(tokens) < 10:
+                logger.warning(f"Linha {line_number}: Poucos tokens ({len(tokens)})")
                 stats["invalid_lines"] += 1
                 continue
-            
+
+            # Extrair tokens na ordem esperada
+            # STATUS MATRICULA NOME CARGO FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PGTO
+            status_code = tokens[0]  # Já extraído acima, mas confirmamos
+            matricula = tokens[1]
+
+            # Procurar o FIN: é o primeiro token com 4 dígitos após MATRICULA
+            fin_idx = -1
+            for i in range(2, len(tokens)):
+                if re.match(r'^\d{4}$', tokens[i]):  # FIN é 4 dígitos
+                    fin_idx = i
+                    break
+
+            if fin_idx == -1:
+                logger.warning(f"Linha {line_number}: FIN não encontrado entre tokens")
+                stats["invalid_lines"] += 1
+                continue
+
+            # Agora sabemos que:
+            # tokens[0] = STATUS
+            # tokens[1] = MATRICULA
+            # tokens[2:fin_idx-?] = NOME e CARGO
+            # tokens[fin_idx] = FIN
+            # tokens[fin_idx+1] = ORGAO
+            # tokens[fin_idx+2] = LANC
+            # tokens[fin_idx+3] = TOTAL
+            # tokens[fin_idx+4] = PAGO (ou pulado se não houver)
+            # tokens[fin_idx+4 ou 5] = VALOR
+            # tokens[-2] = ORGAO PAGTO
+            # tokens[-1] já foi removido (CPF)
+
             try:
-                # Extrair por posição fixa (mais robusto que REGEX para formato fixo)
-                # Posições baseadas no padrão iNETConsig
-                status_code = line[0:2].strip()  # STATUS
-                
-                # Procurar MATRICULA (após STATUS, até próximo espaço duplo)
-                rest = line[2:]
-                tokens = rest.split()
-                
-                if len(tokens) < 11:  # Mínimo de campos: MATRICULA + NOME/CARGO + 9 campos numéricos
-                    logger.debug(f"Linha {line_number}: Poucos tokens ({len(tokens)})")
-                    stats["invalid_lines"] += 1
-                    continue
-                
-                matricula = tokens[0]
-                
-                # Os últimos 7 tokens devem ser: FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PAGTO CPF
-                # (ou 6 se LANC estiver vazio)
-                if len(tokens) < 10:
-                    logger.debug(f"Linha {line_number}: Sem campos numéricos suficientes")
-                    stats["invalid_lines"] += 1
-                    continue
-                
-                # Pegar os últimos 7 tokens como campos numéricos/monetários
-                numeric_tokens = tokens[-7:]
-                
-                # Validar que os últimos 7 tokens parecem campos esperados
-                # Último deve ser CPF (11 dígitos)
-                cpf_str = numeric_tokens[-1]
-                if not cpf_str.isdigit() or len(cpf_str) != 11:
-                    logger.debug(f"Linha {line_number}: CPF inválido: {cpf_str}")
-                    stats["invalid_lines"] += 1
-                    continue
-                
-                # Penúltimo deve ser ORGAO_PAGTO (3 dígitos)
-                orgao_pagamento = numeric_tokens[-2]
-                if not orgao_pagamento.isdigit() or len(orgao_pagamento) != 3:
-                    logger.debug(f"Linha {line_number}: ORGAO_PAGTO inválido: {orgao_pagamento}")
-                    stats["invalid_lines"] += 1
-                    continue
-                
-                # Antes disso VALOR (número com vírgula/ponto)
-                valor_str = numeric_tokens[-3]
-                
-                # PAGO e TOTAL (2-3 dígitos)
-                parcelas_pagas_str = numeric_tokens[-4]
-                total_parcelas_str = numeric_tokens[-5]
-                
-                # LANC (3 dígitos)
-                lanc = numeric_tokens[-6]
-                
-                # ORGAO (3 dígitos)
-                orgao = numeric_tokens[-7]
-                
-                # FIN - procurar como 4 dígitos antes de ORGAO
-                # Procurar nos tokens meio que FIN aparece (geralmente alguns tokens antes)
-                fin_code = None
-                for i in range(len(tokens) - 8, -1, -1):
-                    tok = tokens[i]
-                    if tok.isdigit() and len(tok) == 4:
-                        fin_code = tok
-                        break
-                
-                if not fin_code:
-                    logger.debug(f"Linha {line_number}: FIN não encontrado")
-                    stats["invalid_lines"] += 1
-                    continue
-                
-                # Tudo entre MATRICULA e FIN é NOME + CARGO
-                nome_cargo_tokens = []
-                for tok in tokens[1:]:
-                    if tok == fin_code:
-                        break
-                    nome_cargo_tokens.append(tok)
-                
-                nome_cargo_str = " ".join(nome_cargo_tokens) if nome_cargo_tokens else ""
-                nome = truncate_name(nome_cargo_str, max_words=4) if nome_cargo_str else ""
-                
+                fin_code = tokens[fin_idx]
+                orgao = tokens[fin_idx + 1] if fin_idx + 1 < len(tokens) else "0"
+                lanc = tokens[fin_idx + 2] if fin_idx + 2 < len(tokens) else "0"
+                total_parcelas_str = tokens[fin_idx + 3] if fin_idx + 3 < len(tokens) else "0"
+
+                # Verificar se o próximo é PAGO (2-3 dígitos) ou VALOR
+                idx = fin_idx + 4
+                if idx < len(tokens) and re.match(r'^\d{1,3}$', tokens[idx]) and ',' not in tokens[idx] and '.' not in tokens[idx]:
+                    parcelas_pagas_str = tokens[idx]
+                    idx += 1
+                else:
+                    parcelas_pagas_str = total_parcelas_str
+
+                valor_str = tokens[idx] if idx < len(tokens) else "0"
+
+                # ORGAO_PAGTO é o penúltimo token restante
+                orgao_pagamento = tokens[-2] if len(tokens) >= 2 else "0"
+
             except (IndexError, ValueError) as e:
-                logger.debug(f"Linha {line_number}: Erro ao parsear: {e}")
+                logger.warning(f"Linha {line_number}: Erro ao extrair campos estruturados: {e}")
                 stats["invalid_lines"] += 1
                 continue
+
+            # NOME e CARGO: tudo entre MATRICULA e FIN
+            if fin_idx > 2:
+                nome_cargo_part = " ".join(tokens[2:fin_idx])
+                # Tentar separar NOME de CARGO (cargo geralmente começa com número ou "-")
+                parts_list = re.split(r'(\d+-)', nome_cargo_part)
+                if len(parts_list) > 1:
+                    nome = parts_list[0].strip()
+                    cargo = (parts_list[1] + parts_list[2]).strip() if len(parts_list) > 2 else ""
+                else:
+                    nome = nome_cargo_part
+                    cargo = ""
+            else:
+                nome = ""
+                cargo = ""
+
+            # Limitar nome a 4 primeiras palavras
+            nome = truncate_name(nome, max_words=4) if nome else ""
 
             if not matricula:
                 logger.warning(f"Linha {line_number}: Matrícula vazia")
@@ -350,7 +352,7 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
                 "nome": nome,
                 "cargo": "",  # Não usado
 
-                # Status do desconto (usar o real, não fixar)
+                # Status do desconto
                 "status_code": status_code,
                 "status_description": STATUS_LEGEND.get(status_code, "Status Desconhecido"),
 
