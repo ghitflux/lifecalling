@@ -950,7 +950,7 @@ export default function CaseDetailPage() {
                         size="sm"
                         className="h-7 w-7 p-0 hover:bg-primary/10"
                         onClick={() => {
-                          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+                          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
                           window.open(`${baseUrl}/cases/${caseId}/attachments/${attachment.id}/download`, '_blank');
                         }}
                         title="Ver/Baixar anexo"
