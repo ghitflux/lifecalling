@@ -222,60 +222,34 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
             status_code = tokens[0]
             matricula = tokens[1]
 
-            # Agora pegar os últimos campos numéricos (da direita para esquerda)
-            # ignorando STATUS e MATRICULA
-            remaining_tokens = tokens[2:]  # Pula STATUS e MATRICULA
-            numeric_tokens = []
-
-            for token in reversed(remaining_tokens):
-                # É numérico ou valor monetário (com vírgula)
-                if token.replace(',', '').replace('.', '').replace('-', '').isdigit():
-                    numeric_tokens.append(token)
-                    if len(numeric_tokens) >= 7:
-                        break
-
-            # Aceitar 6 ou 7 campos numéricos (LANC é opcional)
-            if len(numeric_tokens) < 6:
-                logger.warning(f"Linha {line_number}: Poucos campos numéricos ({len(numeric_tokens)}) - esperado 6-7")
+            # Usar a REGEX LINE_RE que é mais precisa (posicional)
+            # Tentar fazer match com a linha
+            match = LINE_RE.match(line)
+            
+            if not match:
+                # Se não fizer match com REGEX, pular linha (pode ser subtotal ou cabeçalho)
+                logger.debug(f"Linha {line_number}: Não corresponde ao padrão esperado (pode ser subtotal ou cabeçalho)")
                 stats["invalid_lines"] += 1
                 continue
 
-            # Inverter para ficar na ordem correta (da esquerda para direita)
-            numeric_tokens.reverse()
+            # Extrair dados dos grupos da REGEX
+            groups = match.groups()
+            status_code = groups[0]
+            matricula = groups[1]
+            nome = groups[2].strip() if groups[2] else ""
+            cargo = groups[3].strip() if groups[3] else ""
+            fin_code = groups[4]
+            orgao = groups[5]
+            lanc = groups[6]
+            total_parcelas_str = groups[7]
+            parcelas_pagas_str = groups[8]
+            valor_str = groups[9]
+            orgao_pagamento = groups[10]
+            cpf_str = groups[11]
 
-            # Layout pode ser: FIN ORGAO LANC TOTAL PAGO VALOR ORGAO_PGTO (7 campos)
-            # ou: FIN ORGAO TOTAL PAGO VALOR ORGAO_PGTO (6 campos, sem LANC)
-            if len(numeric_tokens) == 7:
-                fin_code = numeric_tokens[0]              # FIN (4 dígitos)
-                orgao = numeric_tokens[1]                 # ORGAO (3 dígitos)
-                lanc = numeric_tokens[2]                  # LANC (3 dígitos)
-                total_parcelas_str = numeric_tokens[3]    # TOTAL parcelas
-                parcelas_pagas_str = numeric_tokens[4]    # PAGO parcelas
-                valor_str = numeric_tokens[5]             # VALOR (com vírgula)
-                orgao_pagamento = numeric_tokens[6]       # ORGAO PGTO (3 dígitos)
-            else:  # 6 campos
-                fin_code = numeric_tokens[0]              # FIN (4 dígitos)
-                orgao = numeric_tokens[1]                 # ORGAO (3 dígitos)
-                lanc = "000"                              # LANC não presente
-                total_parcelas_str = numeric_tokens[2]    # TOTAL parcelas
-                parcelas_pagas_str = numeric_tokens[3]    # PAGO parcelas
-                valor_str = numeric_tokens[4]             # VALOR (com vírgula)
-                orgao_pagamento = numeric_tokens[5]       # ORGAO PGTO (3 dígitos)
+            # Limitar nome a 4 primeiras palavras
+            nome = truncate_name(nome, max_words=4) if nome else ""
 
-            # O restante (entre MATRICULA e FIN) é NOME + CARGO
-            try:
-                fin_idx = remaining_tokens.index(fin_code)
-                nome_cargo_tokens = remaining_tokens[:fin_idx]
-                nome_completo = " ".join(nome_cargo_tokens) if nome_cargo_tokens else ""
-            except ValueError:
-                logger.warning(f"Linha {line_number}: FIN code não encontrado nos tokens")
-                stats["invalid_lines"] += 1
-                continue
-
-            # Limitar nome a 4 primeiras palavras (sem cargo)
-            nome = truncate_name(nome_completo, max_words=4) if nome_completo else ""
-
-            # Validações
             if not matricula:
                 logger.warning(f"Linha {line_number}: Matrícula vazia")
                 stats["invalid_lines"] += 1
