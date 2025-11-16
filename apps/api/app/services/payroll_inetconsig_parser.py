@@ -27,8 +27,9 @@ STATUS_LEGEND = {
 
 # Regex para capturar header do arquivo iNETConsig
 # Exemplo: "Entidade: 1042-BANCO SANTANDER S.A                                            Referência: 07/2025   Data da Geração: 31/07/2025"
+# Suporta múltiplas variações de encoding (UTF-8, Latin-1, com acentos corrompidos)
 HEADER_RE = re.compile(
-    r"Entidade:\s*(\d+)-(.+?)\s+Refer[eêè]?ncia:\s*(\d{2})/(\d{4})\s+Data da Gera[cçç]?[aã]?o:\s*(\d{2})/(\d{2})/(\d{4})",
+    r"Entidade:\s*(\d+)-(.+?)\s+Refer\w*ncia:\s*(\d{2})/(\d{4})\s+Data da Gera\w*o:\s*(\d{2})/(\d{2})/(\d{4})",
     re.IGNORECASE
 )
 
