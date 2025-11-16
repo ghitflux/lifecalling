@@ -86,3 +86,8 @@ __pycache__/
 DEPLOY_VPS_CREDENTIALS.md
 *credentials*.md
 *CREDENTIALS*.md
+
+# Documentation files (except README.md)
+*.md
+!README.md
+!**/README.md

@@ -54,7 +54,7 @@ type AnalyticsBucket = "day" | "week" | "month";
 const iso = dateToISO;
 
 // Funções para converter dados reais em formato de mini-chart
-const generateRealTrendData = (seriesData: any[], kpis: any) => {
+const generateRealTrendData = (seriesData: any[], kpis: any, metrics?: any) => {
   // Dados financeiros baseados em séries reais
   const receita = convertFinanceToMiniChart(seriesData, 'finance_receita', kpis?.receita_auto_mtd || 0);
   const despesas = convertFinanceToMiniChart(seriesData, 'finance_despesas', 0);
@@ -75,6 +75,12 @@ const generateRealTrendData = (seriesData: any[], kpis: any) => {
   // Dados de contratos baseados em KPIs reais
   const contratos = generateFallbackTrendData(kpis?.contracts_mtd || 0, kpis?.trends?.contracts_mtd || 0);
 
+  // Dados de impostos baseados em séries reais
+  const imposto = convertFinanceToMiniChart(seriesData, 'finance_impostos', metrics?.totalTax || 0);
+
+  // Dados de comissões baseados em métricas financeiras
+  const comissoes = convertFinanceToMiniChart(seriesData, 'finance_comissoes', metrics?.totalCommissions || 0);
+
   return {
     receita,
     despesas,
@@ -88,6 +94,8 @@ const generateRealTrendData = (seriesData: any[], kpis: any) => {
     aprovadas,
     conversao,
     contratos,
+    imposto,
+    comissoes,
   };
 };
 
@@ -96,10 +104,12 @@ export default function DashboardPage() {
 
   const [from, setFrom] = useState<string>(() => {
     const now = new Date();
-    const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return iso(startOfDayBrasilia(past));
+    return iso(startOfMonthBrasilia(now));
   });
-  const [to, setTo] = useState<string>(() => iso(new Date()));
+  const [to, setTo] = useState<string>(() => {
+    const now = new Date();
+    return iso(endOfMonthBrasilia(now));
+  });
   const [bucket, setBucket] = useState<AnalyticsBucket>("day");
 
   // Estado para o filtro unificado por mês
@@ -108,9 +118,17 @@ export default function DashboardPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Estados para DateRangeFilter - iniciam vazios (filtro personalizado limpo)
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  // Estados para DateRangeFilter - inicializam com o mês atual (mesma lógica do módulo financeiro)
+  const [startDate, setStartDate] = useState<string>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split("T")[0];
+  });
 
   // Função para lidar com mudança de mês
   const handleMonthChange = (month: string) => {
@@ -204,26 +222,13 @@ export default function DashboardPage() {
   const { data: series } = useAnalyticsSeries({ from, to }, bucket, selectedMonth);
   const seriesData = useMemo(() => series?.series ?? [], [series]);
 
-  // Gerar dados reais para mini-charts
-  const realTrendData = useMemo(() => {
-    return generateRealTrendData(seriesData, kpis);
-  }, [seriesData, kpis]);
-
-  // Métricas financeiras - usar filtro personalizado se definido, senão usar mês atual
+  // Métricas financeiras - sempre usar start_date e end_date (mesma lógica do módulo financeiro)
   const { data: metricsData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["financeMetrics", startDate, endDate, selectedMonth],
+    queryKey: ["financeMetrics", startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
-
-      // Se há filtro personalizado (startDate e endDate), usar ele
-      if (startDate && endDate) {
-        params.append("start_date", startDate);
-        params.append("end_date", endDate);
-      } else {
-        // Senão, usar o mês selecionado (padrão: mês atual)
-        params.append("month", selectedMonth);
-      }
-
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
       const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
     }
@@ -231,56 +236,42 @@ export default function DashboardPage() {
 
   const metrics = metricsData || {};
 
-  // Calcular período anterior para comparação
-  const calculatePreviousPeriod = () => {
-    if (startDate && endDate) {
-      // Se há filtro personalizado, calcular período anterior baseado nas datas
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const diffTime = end.getTime() - start.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Gerar dados reais para mini-charts
+  const realTrendData = useMemo(() => {
+    return generateRealTrendData(seriesData, kpis, metrics);
+  }, [seriesData, kpis, metrics]);
 
-      const prevEnd = new Date(start.getTime() - 1); // Um dia antes do período atual
-      const prevStart = new Date(prevEnd.getTime() - (diffDays * 24 * 60 * 60 * 1000));
-
-      return {
-        type: 'date_range',
-        startDate: prevStart.toISOString().split('T')[0],
-        endDate: prevEnd.toISOString().split('T')[0]
-      };
-    } else {
-      // Se não há filtro personalizado, usar mês anterior
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth();
-      const currentYear = currentDate.getFullYear();
-
-      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-      return {
-        type: 'month',
-        month: `${previousYear}-${String(previousMonth + 1).padStart(2, '0')}`
-      };
+  // Calcular período anterior para comparação (mesma lógica do módulo financeiro)
+  const calculatePreviousPeriod = (startDateStr: string, endDateStr: string) => {
+    if (!startDateStr || !endDateStr) {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { startDate: first.toISOString().split("T")[0], endDate: last.toISOString().split("T")[0] };
     }
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { startDate: first.toISOString().split("T")[0], endDate: last.toISOString().split("T")[0] };
+    }
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - diffDays * 24 * 60 * 60 * 1000);
+    return { startDate: prevStart.toISOString().split("T")[0], endDate: prevEnd.toISOString().split("T")[0] };
   };
 
-  const previousPeriod = calculatePreviousPeriod();
+  const previousPeriod = calculatePreviousPeriod(startDate, endDate);
 
-  // Buscar métricas do período anterior para comparação
+  // Buscar métricas do período anterior para comparação (mesma lógica do módulo financeiro)
   const { data: previousMetricsData } = useQuery({
-    queryKey: ["financeMetrics", "previous", previousPeriod],
+    queryKey: ["financeMetrics", "previous", previousPeriod.startDate, previousPeriod.endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
-
-      if (previousPeriod.type === 'date_range') {
-        params.append("start_date", previousPeriod.startDate!);
-        params.append("end_date", previousPeriod.endDate ?? "");
-      } else {
-        if (previousPeriod.month) {
-          params.append("month", previousPeriod.month);
-        }
-      }
-
+      params.append("start_date", previousPeriod.startDate);
+      params.append("end_date", previousPeriod.endDate);
       const response = await api.get(`/finance/metrics?${params.toString()}`);
       return response.data;
     }
@@ -299,13 +290,17 @@ export default function DashboardPage() {
   // Calcular tendências reais para métricas financeiras
   const financeTrends = {
     receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
-    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
-    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
+    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    despesas: calculateTrend(
+      (metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0),
+      (previousMetrics.totalExpenses || 0) + (previousMetrics.totalTax || 0) - (previousMetrics.totalManualTaxes || 0)
+    ),
     imposto: calculateTrend(
-      (metrics.totalConsultoriaLiq || 0) * 0.14,
-      (previousMetrics.totalConsultoriaLiq || 0) * 0.14
-    )
+      metrics.totalTax || 0, // Agora usa apenas impostos manuais
+      previousMetrics.totalTax || 0
+    ),
+    comissoes: calculateTrend(metrics.totalCommissions || 0, previousMetrics.totalCommissions || 0)
   };
 
   const exportToCSV = () => {
@@ -333,7 +328,7 @@ export default function DashboardPage() {
       ],
       ["Atendimento Aberto", kpis.att_open ?? 0],
       ["Atendimento em Progresso", kpis.att_in_progress ?? 0],
-      ["SLA 72h", `${Math.round((kpis.att_sla_72h ?? 0) * 100)}%`],
+      ["SLA 48h úteis", `${Math.round((kpis.att_sla_72h ?? 0) * 100)}%`],
       ["TMA (min)", Math.round(kpis.att_tma_min ?? 0)],
       ["Simulações Criadas", kpis.sim_created ?? 0],
       ["Simulações Aprovadas", kpis.sim_approved ?? 0],
@@ -402,52 +397,35 @@ export default function DashboardPage() {
         finance_receita: number;
         finance_despesas: number;
         finance_resultado: number;
+        finance_comissoes: number;
+        finance_impostos: number;
       }>;
     return seriesData.map((item: any) => ({
       date: item.date,
       finance_receita: (item.finance_receita ?? 0) as number,
       finance_despesas: (item.finance_despesas ?? 0) as number,
       finance_resultado: (item.finance_resultado ?? 0) as number,
+      finance_comissoes: (item.finance_comissoes ?? 0) as number,
+      finance_impostos: (item.finance_impostos ?? 0) as number,
     }));
   }, [seriesData]);
 
   const financePie = useMemo(() => {
-    if (!seriesData.length) return [] as { name: string; value: number }[];
-    const receita = seriesData.reduce(
-      (acc: number, item: any) => acc + ((item.finance_receita ?? 0) as number),
-      0
-    );
-    const despesas = seriesData.reduce(
-      (acc: number, item: any) =>
-        acc + ((item.finance_despesas ?? 0) as number),
-      0
-    );
-    const resultado = seriesData.reduce(
-      (acc: number, item: any) =>
-        acc + ((item.finance_resultado ?? 0) as number),
-      0
-    );
+    const receita = metrics.totalRevenue || 0;
+    const despesas = (metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0);
+    const resultado = receita - despesas;
+
     return [
       { name: "Receita", value: receita },
       { name: "Despesas", value: despesas },
-      { name: "Resultado", value: resultado !== 0 ? resultado : receita - despesas },
+      { name: "Resultado", value: resultado }
     ];
-  }, [seriesData]);
+  }, [metrics]);
 
   // Calcular saldo disponível (Receita - Despesas)
   const saldoDisponivel = useMemo(() => {
-    if (!seriesData.length) return 0;
-    const receita = seriesData.reduce(
-      (acc: number, item: any) => acc + ((item.finance_receita ?? 0) as number),
-      0
-    );
-    const despesas = seriesData.reduce(
-      (acc: number, item: any) =>
-        acc + ((item.finance_despesas ?? 0) as number),
-      0
-    );
-    return receita - despesas;
-  }, [seriesData]);
+    return metrics.netProfit || 0;
+  }, [metrics]);
 
   return (
     <div className="p-6 space-y-6">
@@ -523,7 +501,7 @@ export default function DashboardPage() {
           <KPICard
             title="Receita Total"
             value={`R$ ${(metrics.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"receita do período"}
+            subtitle="Todas Receitas"
             gradientVariant="emerald"
             trend={financeTrends.receita}
             icon={DollarSign}
@@ -540,28 +518,30 @@ export default function DashboardPage() {
             }
           />
           <KPICard
-            title="Despesas"
-            value={`R$ ${(metrics.totalExpenses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"gastos do período"}
-            gradientVariant="rose"
-            trend={financeTrends.despesas}
-            icon={TrendingDown}
+            title="Consultoria Líquida Total"
+            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle="86% da Receita Total"
+            gradientVariant="cyan"
+            trend={financeTrends.consultoria}
+            icon={Briefcase}
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={realTrendData.despesas}
+                data={realTrendData.consultoria}
                 dataKey="value"
                 xKey="day"
-                stroke="#f43f5e"
+                stroke="#06b6d4"
                 height={80}
-                valueType="currency"
+                tooltipFormatter={(value) =>
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                }
               />
             }
           />
           <KPICard
             title="Lucro Líquido"
             value={`R$ ${(metrics.netProfit ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"lucro do período"}
+            subtitle="Consultoria Líquida - Despesas"
             gradientVariant="violet"
             trend={financeTrends.lucro}
             icon={TrendingUp}
@@ -580,49 +560,46 @@ export default function DashboardPage() {
             }
           />
           <KPICard
-            title="Receita Consultoria"
-            value={`R$ ${(metrics.totalConsultoriaLiq ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"consultoria líquida"}
-            gradientVariant="sky"
-            trend={financeTrends.consultoria}
-            icon={Briefcase}
+            title="Despesas"
+            value={`R$ ${(metrics.totalExpenses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle="Despesas (sem impostos)"
+            gradientVariant="rose"
+            trend={financeTrends.despesas}
+            icon={TrendingDown}
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={realTrendData.consultoria}
+                data={realTrendData.despesas}
                 dataKey="value"
                 xKey="day"
-                stroke="#38bdf8"
+                stroke="#f43f5e"
                 height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
+                valueType="currency"
               />
             }
           />
           <KPICard
-            title="Imposto"
-            value={`R$ ${((metrics.totalConsultoriaLiq ?? 0) * 0.14).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={"14% sobre consultoria"}
+            title="Impostos"
+            value={`R$ ${(metrics.totalTax ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+            subtitle="14% da Receita Total"
             gradientVariant="amber"
             trend={financeTrends.imposto}
-            icon={Receipt}
+            icon={TrendingDown}
             isLoading={metricsLoading}
             miniChart={
               <MiniAreaChart
-                data={realTrendData.consultoria}
+                data={realTrendData.imposto || []}
                 dataKey="value"
                 xKey="day"
                 stroke="#f59e0b"
                 height={80}
-                tooltipFormatter={(value) =>
-                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                }
+                valueType="currency"
               />
             }
           />
         </div>
       </div>
+
 
       {/* 2. GRÁFICOS FINANCEIROS */}
       <div className="space-y-3">
@@ -641,7 +618,9 @@ export default function DashboardPage() {
             lines={[
               { dataKey: "finance_receita", name: "Receita", color: "#10b981" },
               { dataKey: "finance_despesas", name: "Despesas", color: "#ef4444" },
-              { dataKey: "finance_resultado", name: "Resultado", color: "#f59e0b" },
+              { dataKey: "finance_comissoes", name: "Comissões", color: "#3b82f6" },
+              { dataKey: "finance_impostos", name: "Impostos", color: "#f59e0b" },
+              { dataKey: "finance_resultado", name: "Resultado", color: "#8b5cf6" },
             ]}
             xAxisKey="date"
             valueType="currency"
@@ -732,9 +711,9 @@ export default function DashboardPage() {
                 }
               />
               <KPICard
-                title="SLA 72h"
+                title="SLA 48h úteis"
                 value={`${Math.round((kpis?.att_sla_72h ?? 0) * 100)}%`}
-                subtitle={"dentro do prazo"}
+                subtitle={"dentro do prazo (excluindo fins de semana)"}
                 gradientVariant="emerald"
                 trend={kpis?.trends?.att_sla_72h ?? 0}
                 icon={CheckCircle}

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import json
-from .routers import auth, cases, imports, ws as wsmod, clients, users, comments
+from .routers import auth, cases, imports, ws as wsmod, clients, users, comments, admin, sla_audit
 
 from .routers import closing, finance, dashboard, contract_attachments, analytics, rankings, campanhas, campaigns
 from .db import Base, engine
@@ -47,8 +47,22 @@ app.add_middleware(
     expose_headers=["Set-Cookie"],  # Expõe cookies para o frontend
 )
 
+# Configuração do Scheduler de SLA
+from .scheduler_config import init_scheduler, shutdown_scheduler
+
+@app.on_event("startup")
+async def startup_event():
+    """Inicializa o scheduler de SLA no startup da aplicação"""
+    init_scheduler()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Desliga o scheduler gracefully no shutdown da aplicação"""
+    shutdown_scheduler()
+
 # Routers
 app.include_router(auth.r)
+app.include_router(admin.r)
 app.include_router(rankings.r)
 app.include_router(campanhas.r)
 app.include_router(campaigns.r)
@@ -65,6 +79,7 @@ app.include_router(analytics.r)
 app.include_router(imports.r)
 app.include_router(clients.r)
 app.include_router(comments.r)
+app.include_router(sla_audit.r)
 app.include_router(wsmod.ws_router)
 
 # Health check endpoint

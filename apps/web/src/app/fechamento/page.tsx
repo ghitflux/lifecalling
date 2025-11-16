@@ -14,13 +14,14 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-  Pagination
+  Pagination,
+  DateRangeFilter
 } from "@lifecalling/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, Target, FileCheck, Eye, Search } from "lucide-react";
+import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, TrendingDown, Target, FileCheck, Eye, Search } from "lucide-react";
 
 function FechamentoContent() {
   useLiveCaseEvents();
@@ -31,6 +32,18 @@ function FechamentoContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [activeTab, setActiveTab] = useState("pendentes");
+
+  // Estados para filtro de período
+  const [startDate, setStartDate] = useState<string>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split("T")[0];
+  });
 
   // Hook para buscar dados com filtros
   const { data: queueData, isLoading, error, refetch } = useClosingQueue({
@@ -52,13 +65,20 @@ function FechamentoContent() {
 
 
 
-  // Hook para buscar dados de KPI do fechamento do mês atual
-  const currentMonth = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
+  // Hook para buscar dados de KPI do fechamento do período selecionado
+  const { data: kpis, isLoading: isLoadingKpis } = useClosingKpis({ from: startDate, to: endDate });
 
-  const { data: kpis, isLoading: isLoadingKpis } = useClosingKpis({ month: currentMonth });
+  // Query para métricas financeiras (mesmo endpoint do Financeiro)
+  const { data: financeMetrics, isLoading: financeMetricsLoading } = useQuery({
+    queryKey: ["financeMetrics", startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
+      return response.data;
+    }
+  });
 
   // Dados combinados com fallback para dados padrão
   const combinedKpis = useMemo(() => {
@@ -230,7 +250,32 @@ function FechamentoContent() {
         </div>
       </div>
 
-
+      {/* Filtro de Período */}
+      <div className="flex flex-col gap-4">
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={(start, end) => {
+            if (start && end) {
+              const s = new Date(start);
+              const e = new Date(end);
+              if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+                setStartDate(start);
+                setEndDate(end);
+              }
+            }
+          }}
+          onClear={() => {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setStartDate(firstDay.toISOString().split("T")[0]);
+            setEndDate(lastDay.toISOString().split("T")[0]);
+          }}
+          label="Filtrar período:"
+          className="mb-4"
+        />
+      </div>
 
       {/* KPIs do Módulo de Fechamento */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
@@ -246,96 +291,30 @@ function FechamentoContent() {
           miniChart={<MiniAreaChart data={getTrendChartData.casos_pendentes} dataKey="value" xKey="day" stroke="#f59e0b" height={60} />}
         />
 
+        {/* Card Consultoria Líquida */}
         <KPICard
-          title="Consultoria Líquida"
-          value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
-          subtitle="Casos efetivados pelo financeiro"
+          title="Consultoria Líquida Total"
+          subtitle="86% da Receita Total"
+          value={`R$ ${(financeMetrics?.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          isLoading={financeMetricsLoading}
+          gradientVariant="cyan"
           trend={combinedKpis.trends?.consultoria_liquida || 0}
-          icon={DollarSign}
-          color="warning"
-          gradientVariant="amber"
-          isLoading={isLoadingKpis && !kpis}
-          miniChart={<MiniAreaChart data={getTrendChartData.consultoria_liquida} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
         />
 
-        {/* Meta Mensal Card - Custom with Progress Bar */}
-        <div className={`rounded-lg border p-6 transition-all duration-200 hover:shadow-md ${
-          combinedKpis.meta_mensal >= 0
-            ? 'border-success/40 bg-success-subtle hover:border-success/60'
-            : 'border-danger/40 bg-danger-subtle hover:border-danger/60'
-        }`}>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Target className={`h-5 w-5 ${
-                    combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
-                  }`} />
-                  <h3 className={`text-sm font-medium ${
-                    combinedKpis.meta_mensal >= 0 ? 'text-success-foreground' : 'text-danger-foreground'
-                  }`}>
-                    Meta Mensal
-                  </h3>
-                </div>
-                <div className={`text-2xl font-bold ${
-                  combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
-                }`}>
-                  {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  10% de (consultoria líquida - despesas)
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1">
-                {(combinedKpis.trends?.meta_mensal || 0) >= 0 ? (
-                  <TrendingUp className="h-3 w-3 text-success" />
-                ) : (
-                  <TrendingUp className="h-3 w-3 text-danger rotate-180" />
-                )}
-                <span className={`text-xs ${
-                  (combinedKpis.trends?.meta_mensal || 0) >= 0 ? 'text-success' : 'text-danger'
-                }`}>
-                  {Math.abs(combinedKpis.trends?.meta_mensal || 0).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progresso da Meta</span>
-                <span className={`font-medium ${
-                  combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'
-                }`}>
-                  {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0
-                    ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
-                    : 0}%
-                </span>
-              </div>
-              <ProgressBar
-                value={combinedKpis.meta_mensal >= 0 ? combinedKpis.meta_mensal : 0}
-                max={combinedKpis.consultoria_liquida * 0.1}
-                variant={
-                  combinedKpis.meta_mensal >= 0
-                    ? combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.8
-                      ? "success"
-                      : combinedKpis.meta_mensal >= (combinedKpis.consultoria_liquida * 0.1) * 0.5
-                        ? "warning"
-                        : "danger"
-                    : "danger"
-                }
-                size="md"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span className={combinedKpis.meta_mensal >= 0 ? 'text-success/80' : 'text-danger/80'}>
-                  Atual: {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Card Resultado Francisco */}
+        <KPICard
+          title="Resultado Francisco"
+          subtitle="10% × (Lucro Líquido - Receitas Peltson)"
+          value={`${(combinedKpis.meta_mensal || 0) >= 0 ? 'R$ ' : '-R$ '}${Math.abs(combinedKpis.meta_mensal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          isLoading={isLoadingKpis}
+          gradientVariant={(combinedKpis.meta_mensal || 0) >= 0 ? "emerald" : "rose"}
+          icon={(combinedKpis.meta_mensal || 0) >= 0 ? TrendingUp : TrendingDown}
+          trend={combinedKpis.trends?.meta_mensal || 0}
+          className={(combinedKpis.meta_mensal || 0) >= 0
+            ? "border-2 border-emerald-500/60 shadow-emerald-500/20"
+            : "border-2 border-rose-500/60 shadow-rose-500/20"
+          }
+        />
       </div>
 
 

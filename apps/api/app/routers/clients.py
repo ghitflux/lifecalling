@@ -2,13 +2,58 @@ from fastapi import APIRouter, Depends, HTTPException, Query  # pyright: ignore[
 from sqlalchemy.orm import Session  # pyright: ignore[reportMissingImports]
 from sqlalchemy import func, or_, distinct  # pyright: ignore[reportMissingImports]
 from typing import List
+import csv
+import io
 from ..db import SessionLocal
 from ..rbac import require_roles
 from ..models import (
-    Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone
+    Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone, ClientAddress
+)
+from ..schemas import (
+    ClientAddressCreate, ClientAddressUpdate, ClientAddressResponse,
+    BulkCadastroRow, BulkCadastroImportResponse
 )
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
+import re
+
+
+
+
+def normalize_bank_name(name: str) -> str:
+    """Normaliza nome de banco para agrupar variações."""
+    if not name:
+        return name
+    normalized = name.upper().strip()
+
+    # BANCO DO BRASIL: tratar PRIMEIRO antes de remover BRASIL
+    if 'BANCO DO BRASIL' in normalized:
+        return 'BANCO DO BRASIL'
+
+    # Remover sufixos societários
+    normalized = normalized.replace(' S.A.', '').replace(' S/A', '').replace(' S.A', '')
+
+    # Padronizar bancos específicos
+    if 'SANTANDER' in normalized and not normalized.startswith('BANCO'):
+        normalized = 'BANCO SANTANDER'
+    elif 'SANATANDER' in normalized:
+        normalized = 'BANCO SANTANDER'
+    elif 'DAYCOVAL' in normalized and not normalized.startswith('BANCO'):
+        normalized = 'BANCO DAYCOVAL'
+    elif 'DIGIO' in normalized and 'PREVIDENCIA' not in normalized:
+        normalized = 'BANCO DIGIO'
+    elif 'FUTURO PREVID' in normalized:
+        return 'FUTURO PREVIDÊNCIA'
+    elif 'EQUATORIAL PREVID' in normalized:
+        return 'EQUATORIAL PREVIDÊNCIA'
+
+    # Remover CARTÃO e BRASIL do final (após tratar casos especiais)
+    normalized = normalized.replace(' CARTAO', '').replace(' CARTÃO', '')
+    if normalized.endswith(' BRASIL'):
+        normalized = normalized[:-7]
+
+    # Remover espaços duplos
+    return ' '.join(normalized.split())
 
 r = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -35,7 +80,6 @@ def list_clients(
     q: str | None = None,
     banco: str | None = None,
     status: str | None = None,
-    orgao: str | None = None,
     sem_contratos: bool | None = None,
     db: Session = Depends(get_db),
     user=Depends(require_roles(
@@ -53,7 +97,6 @@ def list_clients(
         q: Busca por nome, CPF ou matrícula
         banco: Filtrar por banco/entidade importada (entity_name de PayrollLine)
         status: Filtrar por status do caso
-        orgao: Filtrar por órgão pagador (orgao do cliente)
         sem_contratos: Se True, filtra apenas clientes sem financiamentos
     """
     # Query base dos clientes com contagem de casos
@@ -81,20 +124,23 @@ def list_clients(
 
     # Filtrar por banco (entidade importada de PayrollLine)
     if banco:
-        # Join com PayrollLine para filtrar por entity_name
-        clients_query = clients_query.join(
-            PayrollLine,
-            PayrollLine.cpf == Client.cpf
-        ).filter(PayrollLine.entity_name == banco)
+        # Buscar todas as entidades que correspondem ao nome normalizado
+        all_entities = db.query(PayrollLine.entity_name).filter(
+            PayrollLine.entity_name.isnot(None)
+        ).distinct().all()
+        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
+        
+        if matching_entities:
+            clients_query = clients_query.join(
+                PayrollLine,
+                PayrollLine.cpf == Client.cpf
+            ).filter(PayrollLine.entity_name.in_(matching_entities))
 
     # Filtrar por status do caso
     if status:
         clients_query = clients_query.filter(Case.status == status)
 
     # Filtrar por órgão pagador (orgao do cliente)
-    if orgao:
-        clients_query = clients_query.filter(Client.orgao == orgao)
-
     # Filtrar por clientes sem contratos
     if sem_contratos:
         # Clientes que NÃO têm financiamentos
@@ -167,21 +213,28 @@ def get_available_filters(
     status_list = db.query(Case.status).distinct().all()
     status_list = sorted([s[0] for s in status_list if s[0]])
 
-    # Contadores por filtro
-    bancos_with_count = []
+    # Agrupar entidades por nome normalizado
+    bancos_agrupados = {}
     for entidade in entidades_list:
-        # Contar clientes únicos (por CPF) que têm financiamentos dessa entidade
+        normalized = normalize_bank_name(entidade)
+        if normalized not in bancos_agrupados:
+            bancos_agrupados[normalized] = []
+        bancos_agrupados[normalized].append(entidade)
+    
+    # Contar clientes por banco agrupado
+    bancos_with_count = []
+    for normalized_name, entidades_grupo in sorted(bancos_agrupados.items()):
+        # Contar clientes únicos com financiamentos deste grupo de entidades
         count = (
             db.query(func.count(distinct(Client.id)))
-            .join(
-                PayrollLine,
-                PayrollLine.cpf == Client.cpf
-            )
-            .filter(PayrollLine.entity_name == entidade)
+            .join(PayrollLine, PayrollLine.cpf == Client.cpf)
+            .filter(PayrollLine.entity_name.in_(entidades_grupo))
             .scalar()
         )
         bancos_with_count.append({
-            "value": entidade, "label": entidade, "count": count
+            "value": normalized_name,
+            "label": normalized_name,
+            "count": count
         })
 
     status_with_count = []
@@ -210,21 +263,6 @@ def get_available_filters(
             "count": count
         })
 
-    # Listar órgãos únicos dos clientes (órgãos pagadores)
-    orgaos = db.query(Client.orgao).filter(
-        Client.orgao.isnot(None)
-    ).distinct().all()
-    orgaos_list = sorted([o[0] for o in orgaos if o[0]])
-
-    orgaos_with_count = []
-    for orgao in orgaos_list:
-        # Contar clientes únicos com esse órgão
-        count = db.query(func.count(Client.id)).filter(
-            Client.orgao == orgao
-        ).scalar()
-        orgaos_with_count.append({
-            "value": orgao, "label": orgao, "count": count
-        })
 
     # Contar clientes sem contratos (sem financiamentos)
     clientes_sem_contratos = (
@@ -243,7 +281,6 @@ def get_available_filters(
     return {
         "bancos": bancos_with_count,
         "status": status_with_count,
-        "orgaos": orgaos_with_count,
         "clientes_sem_contratos": clientes_sem_contratos
     }
 
@@ -329,6 +366,260 @@ def get_clients_stats(
         "clients_with_contracts": clients_with_contracts,
         "conversion_rate": conversion_rate
     }
+
+
+@r.get("/export")
+def export_clients_csv(
+    q: str | None = None,
+    banco: str | None = None,
+    status: str | None = None,
+    sem_contratos: bool | None = None,
+    fields: str = Query(default="nome,cpf,matricula,orgao", description="Campos separados por vírgula"),
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente",
+        "fechamento"
+    ))
+):
+    """
+    Exporta clientes filtrados para CSV.
+    Aceita os mesmos filtros do endpoint de listagem.
+    
+    Args:
+        q: Busca por nome, CPF ou matrícula
+        banco: Filtrar por banco/entidade
+        status: Filtrar por status do caso
+        sem_contratos: Filtrar apenas clientes sem financiamentos
+        fields: Campos a exportar, separados por vírgula
+    """
+    # Parse dos campos
+    selected_fields = [f.strip() for f in fields.split(',') if f.strip()]
+    
+    # Query base dos clientes - similar a list_clients mas sem paginação
+    clients_query = db.query(
+        Client.id,
+        Client.name,
+        Client.cpf,
+        Client.matricula,
+        Client.orgao,
+        Client.telefone_preferencial,
+        Client.numero_cliente,
+        Client.observacoes,
+        Client.banco,
+        Client.agencia,
+        Client.conta,
+        Client.chave_pix,
+        Client.tipo_chave_pix,
+        Client.orgao_pgto_code,
+        Client.orgao_pgto_name,
+        Client.status_desconto,
+        Client.status_legenda,
+        func.count(Case.id).label("casos_count")
+    ).outerjoin(
+        Case, Case.client_id == Client.id
+    )
+    
+    # Aplicar filtros
+    if q:
+        like = f"%{q}%"
+        clients_query = clients_query.filter(
+            or_(
+                Client.name.ilike(like),
+                Client.cpf.ilike(like),
+                Client.matricula.ilike(like)
+            )
+        )
+    
+    # Filtrar por banco (entidade importada de PayrollLine)
+    if banco:
+        # Buscar todas as entidades que correspondem ao nome normalizado
+        all_entities = db.query(PayrollLine.entity_name).filter(
+            PayrollLine.entity_name.isnot(None)
+        ).distinct().all()
+        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
+        
+        if matching_entities:
+            clients_query = clients_query.join(
+                PayrollLine,
+                PayrollLine.cpf == Client.cpf
+            ).filter(PayrollLine.entity_name.in_(matching_entities))
+    
+    if status:
+        clients_query = clients_query.filter(Case.status == status)
+    
+    if sem_contratos:
+        clients_query = clients_query.filter(
+            ~db.query(PayrollLine.id).filter(
+                PayrollLine.cpf == Client.cpf,
+                PayrollLine.matricula == Client.matricula
+            ).exists()
+        )
+    
+    # Agrupar por cliente
+    clients_query = clients_query.group_by(
+        Client.id, Client.name, Client.cpf, Client.matricula, Client.orgao,
+        Client.telefone_preferencial, Client.numero_cliente, Client.observacoes,
+        Client.banco, Client.agencia, Client.conta, Client.chave_pix,
+        Client.tipo_chave_pix, Client.orgao_pgto_code, Client.orgao_pgto_name,
+        Client.status_desconto, Client.status_legenda
+    ).order_by(Client.id.desc())
+    
+    clients_data = clients_query.all()
+    
+    # Buscar contadores de forma otimizada - uma única query por tipo
+    client_ids = list(set([c.id for c in clients_data]))
+    client_cpfs = list(set([c.cpf for c in clients_data if c.cpf]))
+    
+    # Mapear contratos por CPF (uma única query)
+    contratos_by_cpf = {}
+    if client_cpfs:
+        contratos_data = db.query(
+            PayrollLine.cpf,
+            func.count(PayrollLine.id).label('count')
+        ).filter(
+            PayrollLine.cpf.in_(client_cpfs)
+        ).group_by(PayrollLine.cpf).all()
+        contratos_by_cpf = {row.cpf: row.count for row in contratos_data}
+    
+    # Mapear casos ativos por client_id (uma única query)
+    casos_ativos_by_id = {}
+    if client_ids:
+        active_statuses = [
+            "novo", "disponivel", "em_atendimento", "calculista",
+            "calculista_pendente", "financeiro", "fechamento_pendente"
+        ]
+        casos_ativos_data = db.query(
+            Case.client_id,
+            func.count(Case.id).label('count')
+        ).filter(
+            Case.client_id.in_(client_ids),
+            Case.status.in_(active_statuses)
+        ).group_by(Case.client_id).all()
+        casos_ativos_by_id = {row.client_id: row.count for row in casos_ativos_data}
+    
+    # Mapear casos finalizados por client_id (uma única query)
+    casos_finalizados_by_id = {}
+    if client_ids:
+        completed_statuses = [
+            "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"
+        ]
+        casos_finalizados_data = db.query(
+            Case.client_id,
+            func.count(Case.id).label('count')
+        ).filter(
+            Case.client_id.in_(client_ids),
+            Case.status.in_(completed_statuses)
+        ).group_by(Case.client_id).all()
+        casos_finalizados_by_id = {row.client_id: row.count for row in casos_finalizados_data}
+    
+    # Processar dados
+    results = []
+    for client_data in clients_data:
+        # Buscar contadores dos dicionários pré-calculados
+        contratos_count = contratos_by_cpf.get(client_data.cpf, 0)
+        casos_ativos = casos_ativos_by_id.get(client_data.id, 0)
+        casos_finalizados = casos_finalizados_by_id.get(client_data.id, 0)
+        
+        # Formatar CPF
+        cpf_formatted = ""
+        if client_data.cpf:
+            cpf_clean = client_data.cpf
+            if len(cpf_clean) == 11:
+                cpf_formatted = f"{cpf_clean[:3]}.{cpf_clean[3:6]}.{cpf_clean[6:9]}-{cpf_clean[9:]}"
+            else:
+                cpf_formatted = cpf_clean
+        
+        results.append({
+            "id": client_data.id,
+            "nome": client_data.name or "",
+            "cpf": cpf_formatted,
+            "matricula": client_data.matricula or "",
+            "orgao": client_data.orgao or "",
+            "telefone_preferencial": client_data.telefone_preferencial or "",
+            "numero_cliente": client_data.numero_cliente or "",
+            "observacoes": client_data.observacoes or "",
+            "banco": client_data.banco or "",
+            "agencia": client_data.agencia or "",
+            "conta": client_data.conta or "",
+            "chave_pix": client_data.chave_pix or "",
+            "tipo_chave_pix": client_data.tipo_chave_pix or "",
+            "orgao_pgto_code": client_data.orgao_pgto_code or "",
+            "orgao_pgto_name": client_data.orgao_pgto_name or "",
+            "status_desconto": client_data.status_desconto or "",
+            "status_legenda": client_data.status_legenda or "",
+            "total_casos": client_data.casos_count,
+            "total_contratos": contratos_count,
+            "total_financiamentos": contratos_count,
+            "casos_ativos": casos_ativos,
+            "casos_finalizados": casos_finalizados,
+        })
+    
+    # Gerar CSV
+    output = io.StringIO()
+    
+    # Definir nomes amigáveis para campos
+    field_mapping = {
+        "id": "ID",
+        "nome": "Nome",
+        "cpf": "CPF",
+        "matricula": "Matrícula",
+        "orgao": "Órgão",
+        "telefone_preferencial": "Telefone",
+        "numero_cliente": "Número Cliente",
+        "observacoes": "Observações",
+        "banco": "Banco",
+        "agencia": "Agência",
+        "conta": "Conta",
+        "chave_pix": "Chave PIX",
+        "tipo_chave_pix": "Tipo Chave PIX",
+        "orgao_pgto_code": "Cód. Órgão Pagador",
+        "orgao_pgto_name": "Nome Órgão Pagador",
+        "status_desconto": "Status Desconto",
+        "status_legenda": "Descrição Status",
+        "total_casos": "Total Casos",
+        "total_contratos": "Total Contratos",
+        "total_financiamentos": "Total Financiamentos",
+        "casos_ativos": "Casos Ativos",
+        "casos_finalizados": "Casos Finalizados",
+    }
+    
+    # Filtrar campos solicitados
+    available_fields = [f for f in field_mapping.keys() if f in selected_fields]
+    if not available_fields:
+        available_fields = ["nome", "cpf", "matricula", "orgao"]
+    
+    # Adicionar BOM para Excel (UTF-8 BOM)
+    output.write('\ufeff')
+    
+    # Escrever CSV
+    writer = csv.DictWriter(output, fieldnames=available_fields)
+    
+    # Escrever cabeçalho com nomes amigáveis
+    header_row = {}
+    for field in available_fields:
+        header_row[field] = field_mapping.get(field, field)
+    writer.writerow(header_row)
+    
+    # Escrever dados
+    for row in results:
+        # Preparar row com apenas os campos solicitados
+        filtered_row = {}
+        for field in available_fields:
+            filtered_row[field] = row.get(field, "")
+        writer.writerow(filtered_row)
+    
+    csv_content = output.getvalue()
+    
+    # Retornar como streaming response
+    from fastapi.responses import Response
+    
+    return Response(
+        content=csv_content.encode('utf-8'),
+        media_type='text/csv; charset=utf-8',
+        headers={
+            "Content-Disposition": 'attachment; filename="clientes_export.csv"'
+        }
+    )
 
 
 @r.get("/{client_id}")
@@ -774,6 +1065,98 @@ def delete_client(
     return {"ok": True, "message": "Cliente excluído com sucesso"}
 
 
+@r.get("/{client_id}/delete-stats")
+def get_client_delete_stats(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
+    """
+    Retorna estatísticas de exclusão de um cliente.
+    Usado pelo frontend para mostrar confirmação detalhada antes da exclusão.
+    """
+    from ..models import (
+        Attachment, CaseEvent, Simulation, Contract, Payment,
+        CommissionPayout, FinanceExpense, FinanceIncome
+    )
+
+    # Buscar cliente
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar casos associados
+    cases = db.query(Case).filter_by(client_id=client.id).all()
+    case_ids = [case.id for case in cases]
+
+    # Contar estatísticas
+    stats = {
+        "client_name": client.name,
+        "client_cpf": client.cpf,
+        "cases_count": len(cases),
+        "contracts_count": 0,
+        "commission_payouts_count": 0,
+        "finance_expenses_count": 0,
+        "finance_incomes_count": 0,
+        "simulations_count": 0,
+        "attachments_count": 0,
+        "events_count": 0
+    }
+
+    if case_ids:
+        # Contar contratos
+        contracts = db.query(Contract).filter(
+            Contract.case_id.in_(case_ids)
+        ).all()
+        stats["contracts_count"] = len(contracts)
+
+        # Contar comissões
+        stats["commission_payouts_count"] = db.query(CommissionPayout).filter(
+            CommissionPayout.case_id.in_(case_ids)
+        ).count()
+
+        # Contar despesas vinculadas
+        commission_expense_ids = [
+            c.expense_id for c in db.query(CommissionPayout).filter(
+                CommissionPayout.case_id.in_(case_ids),
+                CommissionPayout.expense_id.isnot(None)
+            ).all()
+        ]
+        if commission_expense_ids:
+            stats["finance_expenses_count"] = db.query(FinanceExpense).filter(
+                FinanceExpense.id.in_(commission_expense_ids)
+            ).count()
+
+        # Contar simulações
+        stats["simulations_count"] = db.query(Simulation).filter(
+            Simulation.case_id.in_(case_ids)
+        ).count()
+
+        # Contar anexos
+        stats["attachments_count"] = db.query(Attachment).filter(
+            Attachment.case_id.in_(case_ids)
+        ).count()
+
+        # Contar eventos
+        stats["events_count"] = db.query(CaseEvent).filter(
+            CaseEvent.case_id.in_(case_ids)
+        ).count()
+
+    # Contar receitas vinculadas ao CPF
+    stats["finance_incomes_count"] = db.query(FinanceIncome).filter(
+        FinanceIncome.client_cpf == client.cpf
+    ).count()
+
+    return {
+        "ok": True,
+        "stats": stats,
+        "warning": (
+            "Esta ação é IRREVERSÍVEL e afetará o histórico financeiro, "
+            "rankings de atendentes e relatórios do sistema."
+        )
+    }
+
+
 @r.delete("/{client_id}/cascade")
 def delete_client_cascade(
     client_id: int,
@@ -782,7 +1165,17 @@ def delete_client_cascade(
 ):
     """
     Deleta um cliente e todos os casos associados (apenas admin).
-    Exclusão em cascata - remove casos, anexos, eventos, simulações.
+    Exclusão em cascata - remove casos, contratos, comissões, receitas e despesas.
+
+    Ordem de exclusão:
+    1. CommissionPayout (para liberar FK de Contract/Case)
+    2. FinanceExpense (vinculadas ao CommissionPayout)
+    3. Contract (agora sem bloqueio FK)
+    4. case.last_simulation_id = None (para liberar FK de Simulations)
+    5. Simulations (agora sem bloqueio FK)
+    6. Attachments, CaseEvents, Case
+    7. FinanceIncome (vinculadas ao CPF do cliente)
+    8. ClientPhone, Client
     """
     # Buscar cliente
     client = db.query(Client).get(client_id)
@@ -792,21 +1185,38 @@ def delete_client_cascade(
     # Buscar casos associados
     cases = db.query(Case).filter_by(client_id=client.id).all()
 
+    # Estatísticas de exclusão
+    stats = {
+        "cases": 0,
+        "contracts": 0,
+        "commission_payouts": 0,
+        "finance_expenses": 0,
+        "finance_incomes": 0,
+        "simulations": 0,
+        "attachments": 0,
+        "events": 0
+    }
+
     # Deletar em cascata
     for case in cases:
-        # Deletar anexos
-        from ..models import Attachment
-        db.query(Attachment).filter_by(case_id=case.id).delete()
+        # PASSO 1: Deletar CommissionPayout (ANTES do Contract)
+        from ..models import CommissionPayout, FinanceExpense
+        commission = db.query(CommissionPayout).filter_by(case_id=case.id).first()
+        if commission:
+            # PASSO 2: Deletar FinanceExpense vinculada ao CommissionPayout
+            if commission.expense_id:
+                expense = db.query(FinanceExpense).filter_by(
+                    id=commission.expense_id
+                ).first()
+                if expense:
+                    db.delete(expense)
+                    stats["finance_expenses"] += 1
 
-        # Deletar eventos
-        from ..models import CaseEvent
-        db.query(CaseEvent).filter_by(case_id=case.id).delete()
+            # Deletar CommissionPayout
+            db.delete(commission)
+            stats["commission_payouts"] += 1
 
-        # Deletar simulações
-        from ..models import Simulation
-        db.query(Simulation).filter_by(case_id=case.id).delete()
-
-        # Deletar contrato se existir
+        # PASSO 3: Deletar Contract (agora sem bloqueio FK)
         from ..models import Contract
         contract = db.query(Contract).filter_by(case_id=case.id).first()
         if contract:
@@ -822,24 +1232,61 @@ def delete_client_cascade(
 
             # Deletar contrato
             db.delete(contract)
+            stats["contracts"] += 1
 
-        # Deletar caso
+        # PASSO 4: Limpar referência last_simulation_id ANTES de deletar simulações
+        # (evitar erro de FK constraint)
+        if case.last_simulation_id:
+            case.last_simulation_id = None
+            db.flush()  # Commit imediato da mudança
+
+        # PASSO 5: Deletar simulações (agora sem bloqueio FK)
+        from ..models import Simulation
+        simulations_count = db.query(Simulation).filter_by(case_id=case.id).count()
+        db.query(Simulation).filter_by(case_id=case.id).delete()
+        stats["simulations"] += simulations_count
+
+        # PASSO 6: Deletar anexos
+        from ..models import Attachment
+        attachments_count = db.query(Attachment).filter_by(case_id=case.id).count()
+        db.query(Attachment).filter_by(case_id=case.id).delete()
+        stats["attachments"] += attachments_count
+
+        # PASSO 7: Deletar eventos
+        from ..models import CaseEvent
+        events_count = db.query(CaseEvent).filter_by(case_id=case.id).count()
+        db.query(CaseEvent).filter_by(case_id=case.id).delete()
+        stats["events"] += events_count
+
+        # PASSO 8: Deletar caso
         db.delete(case)
+        stats["cases"] += 1
 
-    # Deletar telefones do cliente
+    # PASSO 9: Deletar FinanceIncome vinculadas ao CPF do cliente
+    from ..models import FinanceIncome
+    incomes = db.query(FinanceIncome).filter(
+        FinanceIncome.client_cpf == client.cpf
+    ).all()
+    for income in incomes:
+        db.delete(income)
+        stats["finance_incomes"] += 1
+
+    # PASSO 10: Deletar telefones do cliente
     db.query(ClientPhone).filter_by(client_id=client.id).delete()
 
-    # Deletar cliente
+    # PASSO 11: Deletar cliente
     db.delete(client)
     db.commit()
 
     return {
         "ok": True,
         "message": (
-            f"Cliente e {len(cases)} caso(s) associado(s) "
-            f"excluído(s) com sucesso"
+            f"Cliente '{client.name}' excluído com sucesso junto com "
+            f"{stats['cases']} caso(s), {stats['contracts']} contrato(s), "
+            f"{stats['commission_payouts']} comissão(ões), "
+            f"{stats['finance_incomes']} receita(s) financeira(s)"
         ),
-        "deleted_cases": len(cases)
+        "deleted": stats
     }
 
 
@@ -1066,3 +1513,276 @@ def bulk_delete_clients(
         "success_count": len(results["deleted"]),
         "failed_count": len(results["failed"])
     }
+
+
+# ========== ENDPOINTS DE ENDEREÇO ==========
+
+@r.get("/{client_id}/addresses", response_model=List[ClientAddressResponse])
+def get_client_addresses(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(
+        "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"
+    ))
+):
+    """
+    Retorna todos os endereços de um cliente.
+    Lista ordenada por endereço principal primeiro.
+    """
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Buscar endereços
+    addresses = db.query(ClientAddress).filter_by(client_id=client_id).order_by(
+        ClientAddress.is_primary.desc(),
+        ClientAddress.created_at.desc()
+    ).all()
+
+    return addresses
+
+
+@r.post("/{client_id}/addresses", response_model=ClientAddressResponse)
+def add_client_address(
+    client_id: int,
+    data: ClientAddressCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Adiciona um novo endereço ao cliente.
+    Se is_primary=True, desmarca os demais endereços como não primários.
+    """
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Se for endereço primário, desmarcar os outros
+    if data.is_primary:
+        db.query(ClientAddress).filter_by(
+            client_id=client_id, is_primary=True
+        ).update({"is_primary": False})
+
+    # Criar novo endereço
+    address = ClientAddress(
+        client_id=client_id,
+        **data.model_dump()
+    )
+    db.add(address)
+    db.commit()
+    db.refresh(address)
+
+    return address
+
+
+@r.put("/{client_id}/addresses/{address_id}", response_model=ClientAddressResponse)
+def update_client_address(
+    client_id: int,
+    address_id: int,
+    data: ClientAddressUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Atualiza um endereço existente do cliente.
+    Se is_primary=True, desmarca os demais endereços como não primários.
+    """
+    # Buscar endereço
+    address = db.query(ClientAddress).filter_by(
+        id=address_id, client_id=client_id
+    ).first()
+    if not address:
+        raise HTTPException(404, "Endereço não encontrado")
+
+    # Se for marcar como primário, desmarcar os outros
+    if data.is_primary and not address.is_primary:
+        db.query(ClientAddress).filter_by(
+            client_id=client_id, is_primary=True
+        ).update({"is_primary": False})
+
+    # Atualizar campos
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(address, field, value)
+
+    address.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(address)
+
+    return address
+
+
+@r.delete("/{client_id}/addresses/{address_id}")
+def delete_client_address(
+    client_id: int,
+    address_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Remove um endereço do cliente.
+    Não permite remover o endereço primário se for o único.
+    """
+    # Buscar endereço
+    address = db.query(ClientAddress).filter_by(
+        id=address_id, client_id=client_id
+    ).first()
+    if not address:
+        raise HTTPException(404, "Endereço não encontrado")
+
+    # Verificar se é o único endereço primário
+    if address.is_primary:
+        total_addresses = db.query(ClientAddress).filter_by(
+            client_id=client_id
+        ).count()
+        if total_addresses > 1:
+            raise HTTPException(
+                400,
+                "Não é possível remover o endereço principal. "
+                "Defina outro endereço como principal primeiro."
+            )
+
+    # Deletar endereço
+    db.delete(address)
+    db.commit()
+
+    return {"ok": True, "message": "Endereço removido com sucesso"}
+
+
+# ========== ENDPOINT DE IMPORTAÇÃO EM MASSA ==========
+
+@r.post("/bulk-update-cadastro", response_model=BulkCadastroImportResponse)
+async def bulk_update_cadastro(
+    rows: List[BulkCadastroRow],
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor"))
+):
+    """
+    Importação em massa de dados cadastrais (telefones e endereços).
+
+    Aceita uma lista de registros com:
+    - cpf (obrigatório)
+    - telefone (opcional)
+    - cidade (opcional)
+    - estado (opcional)
+
+    Para cada CPF:
+    - Busca o cliente na base
+    - Adiciona telefone ao histórico (se fornecido e não duplicado)
+    - Cria/atualiza endereço (se cidade/estado fornecidos)
+
+    Retorna relatório com:
+    - Total de linhas processadas
+    - Sucessos e detalhes
+    - Erros e motivos
+    - CPFs não encontrados
+    """
+    result = {
+        "total_rows": len(rows),
+        "success_count": 0,
+        "error_count": 0,
+        "not_found_count": 0,
+        "errors": [],
+        "success_details": []
+    }
+
+    for idx, row in enumerate(rows):
+        try:
+            # Buscar cliente por CPF
+            client = db.query(Client).filter_by(cpf=row.cpf).first()
+
+            if not client:
+                result["not_found_count"] += 1
+                result["errors"].append({
+                    "row": idx + 1,
+                    "cpf": row.cpf,
+                    "error": "CPF não encontrado na base de dados"
+                })
+                continue
+
+            updates_made = []
+
+            # Adicionar telefone se fornecido
+            if row.telefone:
+                # Verificar se telefone já existe
+                existing_phone = db.query(ClientPhone).filter_by(
+                    client_id=client.id,
+                    phone=row.telefone
+                ).first()
+
+                if not existing_phone:
+                    # Adicionar novo telefone (não marcado como primário)
+                    new_phone = ClientPhone(
+                        client_id=client.id,
+                        phone=row.telefone,
+                        is_primary=False
+                    )
+                    db.add(new_phone)
+                    updates_made.append(f"Telefone {row.telefone} adicionado")
+                else:
+                    updates_made.append(f"Telefone {row.telefone} já existia")
+
+            # Criar/atualizar endereço se cidade ou estado fornecidos
+            if row.cidade or row.estado:
+                # Buscar endereço principal existente
+                address = db.query(ClientAddress).filter_by(
+                    client_id=client.id,
+                    is_primary=True
+                ).first()
+
+                if address:
+                    # Atualizar endereço existente
+                    if row.cidade:
+                        address.cidade = row.cidade
+                    if row.estado:
+                        address.estado = row.estado
+                    address.updated_at = datetime.utcnow()
+                    updates_made.append("Endereço atualizado")
+                else:
+                    # Criar novo endereço
+                    address = ClientAddress(
+                        client_id=client.id,
+                        cidade=row.cidade,
+                        estado=row.estado,
+                        is_primary=True
+                    )
+                    db.add(address)
+                    updates_made.append("Endereço criado")
+
+            if updates_made:
+                result["success_count"] += 1
+                result["success_details"].append({
+                    "row": idx + 1,
+                    "cpf": row.cpf,
+                    "client_name": client.name,
+                    "updates": updates_made
+                })
+            else:
+                result["success_count"] += 1
+                result["success_details"].append({
+                    "row": idx + 1,
+                    "cpf": row.cpf,
+                    "client_name": client.name,
+                    "updates": ["Nenhuma alteração necessária"]
+                })
+
+            # Commit a cada 50 registros
+            if (idx + 1) % 50 == 0:
+                db.commit()
+
+        except Exception as e:
+            result["error_count"] += 1
+            result["errors"].append({
+                "row": idx + 1,
+                "cpf": row.cpf,
+                "error": str(e)
+            })
+            db.rollback()
+            continue
+
+    # Commit final
+    db.commit()
+
+    return result

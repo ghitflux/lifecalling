@@ -536,6 +536,34 @@ def _get_series_cached(start_key: str, end_key: str, bucket: str) -> Dict[str, A
         ):
             register(period, "finance_despesas", total, as_float=True)
 
+        # Comissões específicas
+        period_commissions = func.date_trunc(bucket, FinanceExpense.date).label("period")
+        for period, total in (
+            db.query(period_commissions, func.coalesce(func.sum(FinanceExpense.amount), 0))
+            .filter(
+                FinanceExpense.date >= start,
+                FinanceExpense.date < end,
+                FinanceExpense.expense_type == "Comissão"
+            )
+            .group_by(period_commissions)
+            .order_by(period_commissions)
+        ):
+            register(period, "finance_comissoes", total, as_float=True)
+
+        # Impostos específicos
+        period_taxes = func.date_trunc(bucket, FinanceExpense.date).label("period")
+        for period, total in (
+            db.query(period_taxes, func.coalesce(func.sum(FinanceExpense.amount), 0))
+            .filter(
+                FinanceExpense.date >= start,
+                FinanceExpense.date < end,
+                FinanceExpense.expense_type == "Impostos"
+            )
+            .group_by(period_taxes)
+            .order_by(period_taxes)
+        ):
+            register(period, "finance_impostos", total, as_float=True)
+
     for entry in buckets.values():
         receita = entry.get("finance_receita", 0.0)
         despesas = entry.get("finance_despesas", 0.0)

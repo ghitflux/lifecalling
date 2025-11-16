@@ -190,7 +190,7 @@ export default function FechamentoDetalhesPage() {
 
   // Função para download de anexos
   const handleDownloadAttachment = (attachmentId: number, filename?: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
     const downloadUrl = `${baseUrl}/cases/${caseId}/attachments/${attachmentId}/download`;
     
     // Criar link temporário para download
@@ -205,7 +205,7 @@ export default function FechamentoDetalhesPage() {
 
   // Função para download de anexos do contrato
   const handleDownloadContractAttachment = (contractId: number, attachmentId: number, filename?: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
     const downloadUrl = `${baseUrl}/contracts/${contractId}/attachments/${attachmentId}/download`;
     
     // Criar link temporário para download

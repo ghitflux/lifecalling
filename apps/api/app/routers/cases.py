@@ -4,17 +4,19 @@ from fastapi import (  # pyright: ignore[reportMissingImports]
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from typing import List
 from datetime import datetime, timedelta
+from ..utils.business_days import add_business_hours
 import os
 import shutil
 from decimal import Decimal
 
-from sqlalchemy import or_  # pyright: ignore[reportMissingImports]
+from sqlalchemy import or_, func  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 from ..rbac import require_roles
 from ..security import get_current_user, verify_csrf
 from ..db import SessionLocal, get_db
 from ..models import (
-    Case, Client, CaseEvent, Contract, ContractAttachment, now_brt
+    Case, Client, CaseEvent, Contract, ContractAttachment, Attachment,
+    ClientPhone, Comment, now_brt
 )
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
@@ -328,7 +330,7 @@ def assign_case(
         c.status = "em_atendimento"
         c.last_update_at = now
         c.assigned_at = now
-        c.assignment_expires_at = now + timedelta(hours=72)
+        c.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
 
         if not c.assignment_history:
             c.assignment_history = []
@@ -389,7 +391,7 @@ def change_assignee(
         now = now_brt()
         case.assigned_user_id = new_user.id
         case.assigned_at = now
-        case.assignment_expires_at = now + timedelta(hours=72)
+        case.assignment_expires_at = add_business_hours(now, 48)  # 48h úteis (exclui sáb/dom)
         case.last_update_at = now
 
         if not case.assignment_history:
@@ -915,6 +917,7 @@ def list_cases(
 
             for c in rows:
                 try:
+                    entidade_value = getattr(c, "entidade", None)
                     item = {
                         "id": c.id,
                         "status": c.status or "novo",
@@ -929,8 +932,8 @@ def list_cases(
                         "created_at": (
                             c.created_at.isoformat() if c.created_at else None
                         ),
-                        "banco": getattr(c, "banco", None),
-                        "entidade": getattr(c, "entidade", None),
+                        "banco": entidade_value,  # Usar entidade como banco
+                        "entidade": entidade_value,
                         "referencia_competencia": getattr(
                             c, "referencia_competencia", None
                         ),
@@ -1286,6 +1289,113 @@ async def mark_no_contact(
     return {"success": True, "case_id": case_id, "status": "sem_contato"}
 
 
+@r.post("/{case_id}/return-to-pipeline")
+async def return_to_pipeline(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """Devolve um caso para a esteira com status 'novo' após validações."""
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        # Validar se o usuário é o proprietário do caso
+        if case.assigned_user_id != user.id:
+            raise HTTPException(
+                403,
+                "Apenas o usuário proprietário do caso pode devolvê-lo "
+                "para a esteira"
+            )
+
+        # Validar se o caso não está já com status 'novo'
+        if case.status == "novo":
+            raise HTTPException(
+                400,
+                "O caso já está com status 'novo' na esteira"
+            )
+
+        # Validar anexos - pelo menos 1 anexo
+        attachments_count = db.query(func.count(Attachment.id)).filter(
+            Attachment.case_id == case_id
+        ).scalar() or 0
+
+        if attachments_count < 1:
+            raise HTTPException(
+                400,
+                "É necessário pelo menos 1 anexo para devolver o caso "
+                "para a esteira"
+            )
+
+        # Validar telefones - pelo menos 1 telefone registrado para o cliente
+        phones_count = db.query(func.count(ClientPhone.id)).filter(
+            ClientPhone.client_id == case.client_id
+        ).scalar() or 0
+
+        if phones_count < 1:
+            raise HTTPException(
+                400,
+                "É necessário pelo menos 1 telefone registrado para o "
+                "cliente para devolver o caso para a esteira"
+            )
+
+        # Validar comentários - pelo menos 1 comentário do usuário proprietário
+        comments_count = db.query(func.count(Comment.id)).filter(
+            Comment.case_id == case_id,
+            Comment.author_id == user.id,
+            Comment.deleted_at.is_(None)
+        ).scalar() or 0
+
+        if comments_count < 1:
+            raise HTTPException(
+                400,
+                "É necessário pelo menos 1 comentário do usuário proprietário "
+                "para devolver o caso para a esteira"
+            )
+
+        # Todas as validações passaram - devolver para esteira
+        previous_status = case.status
+        case.status = "novo"
+        case.assigned_user_id = None
+        case.assigned_at = None
+        case.assignment_expires_at = None
+        case.last_update_at = now_brt()
+
+        # Criar evento de devolução
+        db.add(
+            CaseEvent(
+                case_id=case.id,
+                type="case.returned_to_pipeline",
+                payload={
+                    "message": "Caso devolvido para a esteira",
+                    "returned_by": user.name,
+                    "previous_status": previous_status,
+                    "reason": "Devolução pelo usuário proprietário"
+                },
+                created_by=user.id,
+            )
+        )
+
+        db.commit()
+
+    await eventbus.broadcast(
+        "case.updated",
+        {
+            "case_id": case_id,
+            "status": "novo",
+            "assigned_user_id": None,
+            "returned_by": user.name
+        }
+    )
+
+    return {
+        "success": True,
+        "case_id": case_id,
+        "status": "novo",
+        "message": "Caso devolvido para a esteira com sucesso"
+    }
+
+
 @r.post("/{case_id}/to-fechamento")
 async def to_fechamento(
     case_id: int,
@@ -1337,7 +1447,9 @@ def run_scheduler_maintenance(
     """Executa manutenção do scheduler."""
     with SessionLocal() as db:
         scheduler = CaseScheduler(db)
-        stats = scheduler.process_expired_cases()
+        stats = scheduler.process_expired_cases(
+            execution_type="manual", user_id=user.id
+        )
         return {
             "maintenance_completed": True,
             "stats": stats,
@@ -1585,7 +1697,7 @@ async def return_to_calculista(
     case_id: int,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Retorna um caso para o calculista."""
+    """Retorna um caso para o calculista e encerra contrato se existir."""
     with SessionLocal() as db:
         case = db.get(Case, case_id)
         if not case:
@@ -1595,6 +1707,22 @@ async def return_to_calculista(
         case.status = "devolvido_financeiro"
         case.last_update_at = now_brt()
 
+        # Se houver contrato associado, alterar status para encerrado
+        contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+        contract_was_updated = False
+        if contract:
+            print(f"[INFO] Contrato #{contract.id} encontrado com status '{contract.status}'")
+            # Alterar status apenas se não estiver já encerrado
+            if contract.status != "encerrado":
+                contract.status = "encerrado"
+                contract.updated_at = now_brt()
+                contract_was_updated = True
+                print(f"[INFO] Contrato #{contract.id} alterado para 'encerrado'")
+            else:
+                print(f"[INFO] Contrato #{contract.id} já estava encerrado")
+        else:
+            print(f"[INFO] Nenhum contrato encontrado para o caso #{case_id}")
+
         db.add(
             CaseEvent(
                 case_id=case.id,
@@ -1603,12 +1731,16 @@ async def return_to_calculista(
                     "returned_by": user.id,
                     "returned_by_name": user.name,
                     "previous_status": previous_status,
-                    "reason": "Devolvido do financeiro para recálculo"
+                    "reason": "Devolvido do financeiro para recálculo",
+                    "contract_id": contract.id if contract else None,
+                    "contract_previous_status": contract.status if contract else None,
+                    "contract_updated": contract_was_updated
                 },
                 created_by=user.id,
             )
         )
         db.commit()
+        print(f"[INFO] Caso #{case_id} devolvido ao calculista com sucesso")
 
     await eventbus.broadcast(
         "case.updated", {"case_id": case_id, "status": "devolvido_financeiro"}
@@ -1671,6 +1803,81 @@ async def change_case_status(
                 "new_status": data.new_status
             }
 
+        # ===== REVERSÃO INTELIGENTE DE STATUS =====
+        # Executar ações de reversão ANTES de mudar o status
+        from ..models import FinanceIncome, Simulation
+
+        # 1. Reversão para "calculista_pendente" a partir de financeiros
+        if (data.new_status == "calculista_pendente" and
+                previous_status in ["financeiro_pendente",
+                                    "contrato_efetivado"]):
+            # Excluir receitas financeiras automáticas geradas
+            deleted_incomes = db.query(FinanceIncome).filter(
+                FinanceIncome.case_id == case_id
+            ).delete(synchronize_session=False)
+
+            # Reverter simulação aprovada para draft
+            if case.last_simulation_id:
+                sim = db.get(Simulation, case.last_simulation_id)
+                if sim and sim.status == "approved":
+                    sim.status = "draft"
+
+            # Log da reversão
+            create_case_event(
+                db=db,
+                case_id=case_id,
+                actor_id=user.id,
+                event_type="case.finance_reversed",
+                payload={
+                    "deleted_incomes": deleted_incomes,
+                    "simulation_reverted":
+                        case.last_simulation_id is not None,
+                    "reason": (
+                        f"Status mudado de '{previous_status}' "
+                        f"para 'calculista_pendente'"
+                    )
+                }
+            )
+
+        # 2. Reversão para "em_atendimento" de "calculista_pendente"
+        elif (data.new_status == "em_atendimento" and
+                previous_status == "calculista_pendente"):
+            # Excluir simulações em draft (não aprovadas)
+            deleted_sims = db.query(Simulation).filter(
+                Simulation.case_id == case_id,
+                Simulation.status == "draft"
+            ).delete(synchronize_session=False)
+
+            if deleted_sims > 0:
+                create_case_event(
+                    db=db,
+                    case_id=case_id,
+                    actor_id=user.id,
+                    event_type="case.simulations_cleared",
+                    payload={
+                        "deleted_simulations": deleted_sims,
+                        "reason": "Caso retornado ao atendimento"
+                    }
+                )
+
+        # 3. Reversão para "novo" a partir de qualquer status
+        elif data.new_status == "novo":
+            # Limpar atribuição de usuário
+            if case.assigned_user_id:
+                old_assigned = case.assigned_user_id
+                case.assigned_user_id = None
+
+                create_case_event(
+                    db=db,
+                    case_id=case_id,
+                    actor_id=user.id,
+                    event_type="case.assignment_cleared",
+                    payload={
+                        "previous_assigned_user_id": old_assigned,
+                        "reason": "Status mudado para 'novo'"
+                    }
+                )
+
         # Atualizar status
         case.status = data.new_status
         case.last_update_at = now_brt()
@@ -1728,4 +1935,231 @@ async def change_case_status(
         ),
         "previous_status": previous_status,
         "new_status": data.new_status
+    }
+
+
+@r.post("/{case_id}/cancel")
+async def cancel_case(
+    case_id: int,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Cancela um caso (muda status para 'caso_cancelado') e encerra contrato se existir"""
+    with SessionLocal() as db:
+        case = db.get(Case, case_id)
+        if not case:
+            raise HTTPException(404, "Caso não encontrado")
+
+        previous_status = case.status
+        case.status = "caso_cancelado"
+        case.last_update_at = now_brt()
+
+        # Se houver contrato associado, alterar status para encerrado
+        contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+        contract_was_updated = False
+        if contract:
+            print(f"[INFO] Contrato #{contract.id} encontrado com status '{contract.status}'")
+            # Alterar status apenas se não estiver já encerrado
+            if contract.status != "encerrado":
+                contract.status = "encerrado"
+                contract.updated_at = now_brt()
+                contract_was_updated = True
+                print(f"[INFO] Contrato #{contract.id} alterado para 'encerrado'")
+            else:
+                print(f"[INFO] Contrato #{contract.id} já estava encerrado")
+        else:
+            print(f"[INFO] Nenhum contrato encontrado para o caso #{case_id}")
+
+        db.add(CaseEvent(
+            case_id=case.id,
+            type="case.cancelled",
+            payload={
+                "cancelled_by": user.id,
+                "cancelled_by_name": user.name,
+                "previous_status": previous_status,
+                "contract_id": contract.id if contract else None,
+                "contract_previous_status": contract.status if contract else None,
+                "contract_updated": contract_was_updated
+            },
+            created_by=user.id
+        ))
+        db.commit()
+        print(f"[INFO] Caso #{case_id} cancelado com sucesso")
+
+    await eventbus.broadcast(
+        "case.updated",
+        {"case_id": case_id, "status": "caso_cancelado"}
+    )
+
+    return {
+        "success": True,
+        "message": "Caso cancelado com sucesso"
+    }
+
+
+@r.delete("/{case_id}/cascade")
+def delete_case_cascade(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin"))
+):
+    """
+    Deleta um caso e todos os dados associados (apenas admin).
+    Exclusão em cascata - remove contratos, comissões, receitas, despesas e anexos.
+
+    Ordem de exclusão:
+    1. CommissionPayout (para liberar FK de Contract/Case)
+    2. FinanceExpense (vinculadas ao CommissionPayout)
+    3. FinanceIncome (vinculadas ao contrato)
+    4. Contract (agora sem bloqueio FK)
+    5. case.last_simulation_id = None (para liberar FK de Simulations)
+    6. Simulations (agora sem bloqueio FK)
+    7. Attachments, Comments, CaseEvents
+    8. Case
+    """
+    from ..models import (
+        Simulation, Attachment, CommissionPayout, FinanceExpense,
+        FinanceIncome, Comment
+    )
+
+    # Buscar caso
+    case = db.get(Case, case_id)
+    if not case:
+        raise HTTPException(404, "Caso não encontrado")
+
+    # Buscar cliente para informações do log
+    client = db.get(Client, case.client_id) if case.client_id else None
+
+    # Estatísticas de exclusão
+    stats = {
+        "case_id": case_id,
+        "contracts": 0,
+        "commission_payouts": 0,
+        "finance_expenses": 0,
+        "finance_incomes": 0,
+        "simulations": 0,
+        "attachments": 0,
+        "events": 0,
+        "comments": 0
+    }
+
+    # PASSO 1: Deletar CommissionPayout (ANTES do Contract)
+    commission = db.query(CommissionPayout).filter_by(case_id=case_id).first()
+    if commission:
+        # PASSO 2: Deletar FinanceExpense vinculada ao CommissionPayout
+        if commission.expense_id:
+            expense = db.query(FinanceExpense).filter_by(
+                id=commission.expense_id
+            ).first()
+            if expense:
+                db.delete(expense)
+                stats["finance_expenses"] += 1
+
+        # Deletar CommissionPayout
+        db.delete(commission)
+        stats["commission_payouts"] += 1
+
+    # PASSO 3: Buscar Contract
+    contract = db.query(Contract).filter_by(case_id=case_id).first()
+    if contract:
+        # PASSO 4: Deletar FinanceIncome vinculadas ao contrato
+        # Buscar receitas pelo padrão de nome ou pelo CPF do cliente
+        incomes_to_delete = []
+
+        # Opção 1: Buscar por nome do contrato (ex: "Consultoria - Contrato #123")
+        incomes_by_name = db.query(FinanceIncome).filter(
+            FinanceIncome.income_name.like(f"%Contrato #{contract.id}%")
+        ).all()
+        incomes_to_delete.extend(incomes_by_name)
+
+        # Opção 2: Se temos cliente, buscar também por CPF + data próxima
+        if client and contract.signed_at:
+            from datetime import timedelta
+            signed_date = contract.signed_at
+            date_range_start = signed_date - timedelta(days=7)
+            date_range_end = signed_date + timedelta(days=7)
+
+            incomes_by_cpf = db.query(FinanceIncome).filter(
+                FinanceIncome.client_cpf == client.cpf,
+                FinanceIncome.date >= date_range_start,
+                FinanceIncome.date <= date_range_end
+            ).all()
+            incomes_to_delete.extend(incomes_by_cpf)
+
+        # Remover duplicatas
+        unique_incomes = list({inc.id: inc for inc in incomes_to_delete}.values())
+        for income in unique_incomes:
+            db.delete(income)
+            stats["finance_incomes"] += 1
+
+        # PASSO 5: Deletar anexos do contrato
+        contract_attachments = db.query(ContractAttachment).filter_by(
+            contract_id=contract.id
+        ).all()
+        for att in contract_attachments:
+            # Tentar deletar arquivo físico
+            try:
+                if os.path.exists(att.path):
+                    os.remove(att.path)
+            except Exception as e:
+                print(f"Erro ao remover arquivo {att.path}: {e}")
+            db.delete(att)
+
+        # PASSO 6: Deletar pagamentos
+        from ..models import Payment
+        db.query(Payment).filter_by(contract_id=contract.id).delete()
+
+        # PASSO 7: Deletar contrato
+        db.delete(contract)
+        stats["contracts"] += 1
+
+    # PASSO 8: Limpar referência last_simulation_id ANTES de deletar simulações
+    # (evitar erro de FK constraint)
+    if case.last_simulation_id:
+        case.last_simulation_id = None
+        db.flush()  # Commit imediato da mudança
+
+    # PASSO 9: Deletar simulações (agora sem bloqueio FK)
+    simulations = db.query(Simulation).filter_by(case_id=case_id).all()
+    for sim in simulations:
+        db.delete(sim)
+        stats["simulations"] += 1
+
+    # PASSO 10: Deletar anexos do caso
+    attachments = db.query(Attachment).filter_by(case_id=case_id).all()
+    for att in attachments:
+        # Tentar deletar arquivo físico
+        try:
+            if os.path.exists(att.path):
+                os.remove(att.path)
+        except Exception as e:
+            print(f"Erro ao remover arquivo {att.path}: {e}")
+        db.delete(att)
+        stats["attachments"] += 1
+
+    # PASSO 11: Deletar comentários (se houver)
+    comments = db.query(Comment).filter_by(case_id=case_id).all()
+    for comment in comments:
+        db.delete(comment)
+        stats["comments"] += 1
+
+    # PASSO 12: Deletar eventos
+    events = db.query(CaseEvent).filter_by(case_id=case_id).all()
+    for event in events:
+        db.delete(event)
+        stats["events"] += 1
+
+    # PASSO 13: Deletar caso
+    db.delete(case)
+    db.commit()
+
+    return {
+        "ok": True,
+        "message": (
+            f"Caso #{case_id} excluído com sucesso junto com "
+            f"{stats['contracts']} contrato(s), "
+            f"{stats['commission_payouts']} comissão(ões), "
+            f"{stats['finance_incomes']} receita(s), "
+            f"{stats['simulations']} simulação(ões)"
+        ),
+        "deleted": stats
     }

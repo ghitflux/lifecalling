@@ -1,0 +1,21 @@
+FUND. INST BRASIL GEOG E ESTATISTICA                                                                                                              Pág:    1
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1049-BANCO DIGIO PREVIDENCIA COMPLEMENTAR           Referência: 09/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    0077513-1   Joao Da Cruz Sousa Araujo       1-tec infor geograficas      0000      001      84     00        150,00      001    07715137391
+  
+
+Legenda do Status
+---------------------------------------------------------------------------------
+ 1 - Lançado e Efetivado
+ 2 - Não Lançado por Falta de Margem Temporariamente
+ 3 - Não Lançado por Outros Motivos(Ex.Matricula não encontrada; Mudança de órgão)
+ 4 - Lançado com Valor Diferente
+ 5 - Não Lançado por Problemas Técnicos
+ 6 - Lançamento com Erros
+ S - Não Lançado: Compra de Dívida ou Suspensão SEAD
+

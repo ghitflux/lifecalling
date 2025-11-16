@@ -10,7 +10,7 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 from ..models import (
     ImportBatch, ImportRow, PayrollImportBatch, PayrollImportItem,
-    Client, Case, PayrollClient, PayrollContract
+    Client, Case, PayrollClient, PayrollContract, now_brt
 )
 
 logger = logging.getLogger(__name__)
@@ -231,7 +231,7 @@ class ImportValidator:
         """Valida população da esteira nas últimas X horas"""
         result = ImportValidationResult()
 
-        since_time = datetime.utcnow() - timedelta(hours=hours_back)
+        since_time = now_brt() - timedelta(hours=hours_back)
 
         # Importações recentes
         recent_imports = self.db.query(ImportBatch).filter(
@@ -278,7 +278,7 @@ class ImportValidator:
         """Retorna resumo da saúde das importações"""
 
         # Últimas 24 horas
-        since_24h = datetime.utcnow() - timedelta(hours=24)
+        since_24h = now_brt() - timedelta(hours=24)
 
         # Importações
         imports_24h = self.db.query(ImportBatch).filter(
@@ -338,5 +338,5 @@ class ImportValidator:
                 "total_cases": total_cases,
                 "availability_rate": (available_cases / total_cases * 100) if total_cases > 0 else 0
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now_brt().isoformat()
         }

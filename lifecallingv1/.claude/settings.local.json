@@ -60,9 +60,26 @@
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
       "Bash(git merge:*)",
-      "Bash(lifecalling_local_updated.sql)"
+      "Bash(lifecalling_local_updated.sql)",
+      "Bash(git restore:*)",
+      "Bash(pnpm install)",
+      "Bash(gzip:*)",
+      "Bash(docker volume rm:*)",
+      "Bash(gunzip:*)",
+      "Bash(git stash:*)",
+      "Bash(mkdir:*)",
+      "Bash(scp:*)",
+      "Bash(docker volume:*)",
+      "Bash(tar:*)",
+      "Bash(docker run --rm -v lifecalling_uploads:/target -v \"d:\\apps\\trae\\lifecallingv1\\backups\\temp_uploads\\_data\":/source alpine sh -c \"cp -r /source/* /target/\")",
+      "Bash(pnpm build:web:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(git remote add:*)",
+      "Bash(chcp:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "Enhanced Terminal"
 }

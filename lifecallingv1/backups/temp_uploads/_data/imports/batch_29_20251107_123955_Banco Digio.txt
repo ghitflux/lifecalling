@@ -1,0 +1,1110 @@
+Governo do Estado do Piauí                                                                                                              Pág:    1
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    005910-2  EDILASI GUERRA CUNHA           2-ASSISTENTE DE PESQUISA       0580      001     096   002          78,61      001    27401642387
+  1    008291-X  MARIA DAS GRACAS SOUSA SANTOS  1-AGENTE OPERACIONAL DE SERVIC 0580      001     096   001         284,16      001    30721253334
+  1    060587-5  NEI FRANKLIN ALVES CARVALHO    2-AGENTE TECNICO DE SERVICO    0580      001     096   003         116,05      001    43968872304
+  1    161578-5  JOSE HENRY CAVALCANTE          3-AGENTE SUPERIOR DE SERVICO   0580      001     096   004         100,35      001    09592547300
+  1    178932-5  MATIAS JOSE FERREIRA FILHO     2-AGENTE TECNICO DE SERVICO    0580      001     096   002         169,90      001    31527280349
+       Órgão Pagamento:  001-SEC DA ASSIST.SOC.E CIDADANIA   -  5 Lançamento(s)  -  Total R$ 749,07
+
+  1    016800-9  ALEXANDRA VIEIRA FELIPE        -                              0580      002     096   002         104,00      002    75704447368
+  1    046589-5  IONETE MARIA SILVA GONCALVES   -                              0580      002     096   001         210,00      002    37513168334
+  1    079881-9  MIGUELINA GOMES DE MACEDO PERE -                              0580      002     096   003         166,00      002    49712217353
+       Órgão Pagamento:  002-SEC. EST. ADMIN. E PREVIDEN.    -  3 Lançamento(s)  -  Total R$ 480,00
+
+  1    002612-3  WERNECK NUNES DE OLIVEIRA      3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     096   005         395,83      009    15099253334
+  1    002750-2  CLAUDIA MARIA SILVA DANTAS AVE 3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     096   004         179,69      009    24056944334
+  1    002759-6  MARIA DO ROSARIO DA SILVA      3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     096   002         220,83      009    15216004300
+  1    002821-5  MARTA SOLANGE MARTINS DE CASTR 3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     096   003         244,00      009    23982691320
+  1    003108-9  KATIA REGINA DE OLIVEIRA ATAID 3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     060   001         470,00      009    35093382353
+  1    003251-4  FRANCISCO DE FREITAS TELES FIL 3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     096   004         767,05      009    16082710304
+  1    303141-1  DANIEL LUIZ ARRUDA BATISTA DA  AUDGOV-AUDITOR GOVERNAMENTAL   0580      009     096   003         349,00      009    87702118334
+       Órgão Pagamento:  009-SEC DA FAZENDA                  -  7 Lançamento(s)  -  Total R$ 2.626,40
+
+  1    007221-4  CELITA MARIA PACHECO DE SOUSA  2-AGENTE TECNICO DE SERVIO ARE 0580      010     096   002         154,00      010    10528555391
+  1    243698-1  EDMUNDO XIMENES RODRIGUES NETO 12-PROFESSOR ADJUNTO DEDICACAO 0580      010     096   001         185,00      010    77972007349
+       Órgão Pagamento:  010-SEC DE GOVERNO                  -  2 Lançamento(s)  -  Total R$ 339,00
+
+  1    221719-8  IVONETE DA MOTA DIAS RAMOS     1-PROFESSOR 40H                0580      011     096   005          74,00      011    45364613372
+       Órgão Pagamento:  011-SEC. DE ESTADO DA EDUCACAO      -  1 Lançamento(s)  -  Total R$ 74,00
+
+  1    001282-3  MARIA AUXILIADORA DE JESUS CAB 3-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   005         334,00      012    13303813353
+  1    004943-3  FRANCISCA ELISEU ARAUJO DOS SA 1-AGENTE OPERACIONAL DE SERVIC 0580      012     096   004          81,69      012    28784332387
+  1    018930-8  RAIMUNDA DE SOUSA MENESES      1-AGENTE OPERACIONAL DE SERVIC 0580      012     096   001          86,63      012    34984160306
+  1    019210-4  JOSE FERREIRA RAMOS NETO       2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   002         170,00      012    27399907315
+  1    019234-1  KATIA MARIA PEREIRA            3-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   005          84,32      012    18254586349
+  1    019402-6  MARIA LUCIA SILVA ARAUJO       2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   001         790,00      012    36174564304
+  1    021626-7  EZEQUIEL JOAO DE SOUSA         1-AGENTE OPERACIONAL DE SERVIC 0580      012     096   003          82,40      012    34930795320
+  1    026485-7  FRANCINEIDE LOPES DE OLIVEIRA  2-AGENTE TECNICO DE SERVICO    0580      012     096   005          83,40      012    39395480300
+  1    036553-0  ANNALZIRA RODRIGUES SOARES     3-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   003         341,50      012    04722060363
+  1    036876-8  MARIA DE FATIMA PEDROSA MENDES 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   002         100,00      012    13053892391
+  1    041244-9  MARIA DA SOLIDADE SANTOS VIEIR 2-AGENTE TECNICO DE SERVICO    0580      012     096   004         110,00      012    19989369372
+  1    043149-4  MARIA DE FATIMA ROCHA          2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   004         104,35      012    18433367315
+  1    044422-7  OTAVIO GONZAGA FERREIRA        -AGENTE OPERACIONAL DE SERVICO 0580      012     084   005          79,02      012    00446110809
+  1    159600-4  URSIMAR FERREIRA DE OLIVEIRA   2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   004          82,00      012    30718643372
+  1    159623-3  MARIA DOS REMEDIOS FERREIRA SA 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   004         118,12      012    32223579353
+  1    168551-1  ADRIANA HIGUERA                3-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   001          91,30      012    70296561304
+  1    168665-8  LEILA MARIA FERREIRA PARENTE   2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   003          92,49      012    81968515372
+  1    169774-9  ANDREA FERNANDA LOPES DOS SANT 3-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   003         149,95      012    22772545334
+
+Governo do Estado do Piauí                                                                                                              Pág:    2
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    170421-4  VERALUCIA MACEDO BAIA          2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   005         301,00      012    39656730330
+  1    180475-8  GENIVAL JOAQUIM DE MOURA       2-MEDICO - PLANTO PRESENCIAL - 0580      012     096   001          93,00      012    41675592349
+  1    197586-2  MARGARONI ARAUJO RIPARDO       2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   004          77,21      012    07427677790
+  1    197602-8  LEILA MARIA FERREIRA PARENTE   2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   001          82,77      012    81968515372
+  1    197906-0  FRANCISCA RODRIGUES DE MOURA F 2-MEDICO - PLANTO PRESENCIAL - 0580      012     096   004         880,00      012    33796955304
+  1    208017-6  CRHYSTIANY KELLEN AIRES RIBEIR 1-AGENTE OPERACIONAL DE SERVIC 0580      012     096   003         143,67      012    85334600310
+  1    208065-6  ELOISA DA SILVA PEREIRA        1-AGENTE OPERACIONAL DE SERVIC 0580      012     096   003          89,30      012    01871940338
+  1    209020-1  MAURIENNI DA CRUZ LIMA         1-                             0580      012     096   002          72,45      012    66796989368
+  1    209886-5  PAULINA MARIA NETA             2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   005          78,52      012    73203270315
+  1    212936-1  JORDANA DAMASCENO FEITOSA      2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   003         233,59      012    84320281349
+  1    213562-X  NADHIA CARVALHO ANANIAS        1-AGENTE OPERACIONAL DE SERVIC 0580      012     096   002          79,48      012    03944936302
+  1    218773-6  RENATA ANDREIA FLORINDO MELO   2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   001          74,17      012    67149030300
+  1    218790-6  FRANCISCA MARIA OLIVEIRA BORGE 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   005         140,95      012    53489373391
+  1    228778-1  RAIMUNDA DE JESUS SILVA OLIVEI 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   004         300,11      012    66167574391
+  1    230089-3  FERNANDA RALINKA XAVIER ALMEID 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   002          98,00      012    03981179340
+  1    241655-7  SILVANA MARIA DE AMORIM SAMPAI 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   003         149,65      012    34311270372
+  1    260130-3  TEREZA FERREIRA DA SILVA       2-AGENTE OCUPACIONAL DE NIVEL  0580      012     072   001         274,00      012    00646721313
+  1    280209-X  FELISMINA MARIA PEREIRA        2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   004          88,00      012    76661857315
+  1    281233-9  ANA CRISTINA FERNANDES DE MOUR 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   002         274,01      012    88750370359
+  1    287058-4  VIRGINIAN CHRISTIANI LIMA VALE 2-MEDICO - PLANTO PRESENCIAL - 0580      012     096   005         326,00      012    38231573291
+       Órgão Pagamento:  012-SEC DE SAUDE                    -  38 Lançamento(s)  -  Total R$ 6.837,05
+
+  1    083290-1  MARCOS AURELIO DE OLIVEIRA CHA 3-AGENTE SUPERIOR DE SERVICO   0580      014     072   001          80,00      014    09152695387
+  1    084081-5  TEODORO BATISTA DE ARAUJO      1-AGENTE OPERACIONAL DE SERVIC 0580      014     096   002         108,36      014    71238646387
+       Órgão Pagamento:  014-SEC DE AGRICULTURA FAMILIAR     -  2 Lançamento(s)  -  Total R$ 188,36
+
+  1    013548-8  JOSIAS ALMEIDA DA PAIXAO       CC017-TECNICO NIVEL SUPERIOR   0580      015     096   004         152,88      015    28698908349
+  1    014487-8  LAURISTEVAO FERREIRA BORGES    11-1 SARGENTO                  0580      015     096   003         105,20      015    32867913349
+  1    079846-X  AMADEU GOMES DA SILVA FILHO    11-3 SARGENTO                  0580      015     096   003         111,95      015    34796290320
+  1    084806-9  RENATO RODRIGUES DE ALMEIDA    12-3 SARGENTO                  0580      015     096   001         113,88      015    73350338372
+  1    269221-0  FRANCISCO DAS CHAGAS BARROS DO 12-3 SARGENTO                  0580      015     096   002         136,62      015    03824706300
+  1    310136-3  VILMAR SANTOS MUNIZ            13-CABO                        0580      015     096   001         271,85      015    66759730372
+  1    311212-8  MARCUS MARCYEL VIEIRA GOMES    6-CAPITAO                      0580      015     096   003         835,00      015    97475238334
+       Órgão Pagamento:  015-GABINETE MILITAR/P.GOVERNO      -  7 Lançamento(s)  -  Total R$ 1.727,38
+
+  1    434755-2  GENILSON LOPES DE CARVALHO JUN -ANALISTA GOVERNAMENTAL        0580      017     096   003         100,00      017    05912565335
+       Órgão Pagamento:  017-PIAUI SEC PLANEJAMENTO SEPLAN   -  1 Lançamento(s)  -  Total R$ 100,00
+
+  1    006768-7  EDMAR SANTANA DE AQUINO        2-AGENTE TECNICO DE SERVIO ARE 0580      021     096   002         163,44      021    34990291387
+  1    006932-9  FRANCISCO FERNANDO DA ROCHA    1-AGENTE OPERACIONAL DE SERVIO 0580      021     096   004          83,19      021    28664701334
+  1    007335-X  NORMA PASSOS DE ALMEIDA E SOUS 4-ANALISTA CULTURAL AREA FIM   0580      021     096   002          96,44      021    28706153372
+       Órgão Pagamento:  021-SEC. DE ESTADO DE CULTURA       -  3 Lançamento(s)  -  Total R$ 343,07
+
+  1    006018-6  RAIMUNDO NONATO FERREIRA DA SI AG.POL-AGENTE DE POLICIA       0580      027     096   002         421,53      027    07784970382
+  1    009036-X  ANA LUCIA DE OLIVEIRA LOPES AP ESC.POL-ESCRIVAO DE POLICIA    0580      027     096   005         422,23      027    20070934304
+  1    009213-4  ELSA DIAS GUIMARAES            ESC.POL-ESCRIVAO DE POLICIA    0580      027     096   005         250,00      027    20803303300
+
+Governo do Estado do Piauí                                                                                                              Pág:    3
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    009413-7  WALTER WALLACE WAQUIM DE MENES AG.POL-AGENTE DE POLICIA       0580      027     096   003         382,00      027    30676800300
+  1    009425-X  VALDEZ SILVA VIEIRA            AG.POL-AGENTE DE POLICIA       0580      027     096   005         236,87      027    34795464391
+  1    009566-4  LOURIVAL ESTEVES SANTIAGO      AG.POL-AGENTE DE POLICIA       0580      027     096   004         425,55      027    30636167372
+  1    010014-5  ROSA ALVES DE ALMEIDA          AGTESE-AGENTE TECNICO DE SERVI 0580      027     096   004         101,95      027    10566228300
+  1    024276-4  FRANCISCO DE ASSIS VIEIRA      AG.POL-AGENTE DE POLICIA       0580      027     096   005         199,69      027    16112504391
+  1    047107-X  LOURIMAR DA ROCHA PITA         AG.POL-AGENTE DE POLICIA       0580      027     096   003         483,85      027    23987634391
+  1    047213-1  BERNARDO ALVES PEREIRA         AG.POL-AGENTE DE POLICIA       0580      027     060   001         314,90      027    04355059391
+  1    047218-2  JOSE RIBAMAR DE SOUSA BARROS   AG.POL-AGENTE DE POLICIA       0580      027     096   005         265,00      027    15224406315
+  1    079130-0  VALDINEIA LEMOS DE SOUSA       AGTESE-AGENTE TECNICO DE SERVI 0580      027     096   004          71,46      027    35289554300
+  1    086702-X  ETEVALDO DE ANDRADE FILHO      AG.POL-AGENTE DE POLICIA       0580      027     096   004         347,00      027    44606362391
+  1    108338-4  GILMAR NUNES DA SILVA          ESC.POL-ESCRIVAO DE POLICIA    0580      027     096   005         375,31      027    36163163320
+  1    108370-8  MARLON MAURIZ LIMA             AG.POL-AGENTE DE POLICIA CLASS 0580      027     084   001         107,00      027    39409155304
+  1    108465-8  ROBERTO CARLOS GOMES DA SILVA  AG.POL-AGENTE DE POLICIA       0580      027     096   003         105,93      027    44610440334
+  1    130161-6  GERMANO AUGUSTO CASTRO LIARTE  AG.POL-AGENTE DE POLICIA       0580      027     096   002         343,80      027    62518950397
+  1    166855-2  MARCUS ANTONIO PINHEIRO DE VAS PER.CRIM-PERITO CRIMINAL       0580      027     096   005         583,96      027    18605168315
+  1    199309-7  HIGGO MARTINS MOURA            DEL.POL-DELEGADO DE POLICIA    0580      027     096   004         646,00      027    84536195300
+  1    214281-3  GENIVAL JOAQUIM DE MOURA       PER.MED.LEG-PERITO MEDICO LEGA 0580      027     096   001         150,00      027    41675592349
+  1    258570-7  PAULO HENRIQUE PINHEIRO DE VAS PER.CRIM-PERITO CRIMINAL       0580      027     096   004         322,45      027    28745647372
+  1    286215-8  FRANCISCO MARCELO MONTE MACHAD AG.POL-AGENTE DE POLICIA       0580      027     096   001         225,00      027    00452198348
+  1    286763-0  ELENILTON DE MORAES REGO       AG.POL-AGENTE DE POLICIA       0580      027     096   001         185,00      027    01928301398
+  1    299123-3  ANA CAROLINA TOBLER GOMES      ESC.POL-ESCRIVAO DE POLICIA    0580      027     096   005         196,00      027    60027996301
+  1    311262-4  ROBERSON ALVES DOS SANTOS      AG.POL-AGENTE DE POLICIA       0580      027     096   005         430,00      027    02177009340
+  1    369192-6  PAULO LEITE CHAVES NETO        AG.POL-AGENTE DE POLICIA       0580      027     072   001         260,00      027    96536977300
+  1    369250-7  GUSTAVO HENRIQUE LIMA PALACIO  AG.POL-AGENTE DE POLICIA       0580      027     060   003         250,00      027    01008940380
+  1    386356-5  MARCOS HALAN MARINHO ALVES     DEL.POL-DELEGADO DE POLICIA    0580      027     096   003         541,09      027    03220839150
+       Órgão Pagamento:  027-SEC DE SEGURANCA PUBLICA        -  28 Lançamento(s)  -  Total R$ 8.643,57
+
+  1    012476-1  ANTONIO CORDEIRO RIBEIRO DA SI 2-CORONEL                      0580      028     096   002       1.354,00      028    21736502387
+  1    012672-1  LUIZ CLAUDIO DE SOUSA MEDEIROS 11-SUBTENENTE                  0580      028     096   005         135,98      028    30602033349
+  1    013096-6  MOISES LOPES DA COSTA          CC017-TECNICO NIVEL SUPERIOR   0580      028     096   003         260,00      028    34944885334
+  1    013137-7  LINO SOARES DE SOUSA           8-2 TENENTE                    0580      028     096   001         124,58      028    34995196315
+  1    013282-9  JOSE DA SILVA MATOS            11-SUBTENENTE                  0580      028     096   004         500,00      028    33746826349
+  1    013283-7  EDIVALDO GOMES DOS SANTOS      9-SUBTENENTE                   0580      028     096   003          85,43      028    35110279349
+  1    013365-5  WASHINGTON CHAVES GOMES        CC017-TECNICO NIVEL SUPERIOR   0580      028     096   005         139,80      028    35108339372
+  1    013440-6  BELTRAO BRITO GONZAGA          9-SUBTENENTE                   0580      028     096   003         108,14      028    22724010310
+  1    013445-7  SALMERON DA SILVA              CC007-DIRETOR                  0580      028     096   005         173,30      028    28735307315
+  1    013497-0  FRANCISCO DOS SANTOS SILVA     8-2 TENENTE                    0580      028     096   003         204,34      028    34927786315
+  1    013561-5  GILVAN SOUSA BARBOSA           12-2 SARGENTO                  0580      028     096   001          86,00      028    33748306334
+  1    013570-4  CARLOS CESAR VIEIRA            13-CABO                        0580      028     096   004          91,00      028    47439491300
+  1    013749-9  VLADIMIR PEREIRA LOPES         8-2 TENENTE                    0580      028     096   004         343,19      028    30637759320
+  1    013777-4  LUIS CARLOS DE AZEVEDO NUNES   8-2 TENENTE                    0580      028     096   002         298,52      028    32807554334
+  1    014374-0  MANOEL BEZERRA VIANA NETO      11-1 SARGENTO                  0580      028     096   001         510,00      028    26104849334
+  1    014660-9  FRANCISCO ELISMARIO VIEIRA DO  11-1 SARGENTO                  0580      028     096   004          86,00      028    41194420397
+  1    014800-8  ELIZEU GOMES VIEIRA            5-CAPITAO                      0580      028     060   004         155,65      028    43972705387
+  1    014899-7  ANTONIO LIMA DO NASCIMENTO FIL 8-2 TENENTE                    0580      028     096   002          90,06      028    39617521334
+  1    014919-5  DANIEL GARCES DA SILVA         12-3 SARGENTO                  0580      028     096   001         200,00      028    42107792372
+
+Governo do Estado do Piauí                                                                                                              Pág:    4
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    014931-4  LUCIANO DE MENDONCA BEVILAQUA  9-2 TENENTE                    0580      028     096   003         113,00      028    37268490330
+  1    015168-8  JOAO PEDRO RODRIGUES FERREIRA  CC007-DIRETOR                  0580      028     096   004         110,00      028    39571009334
+  1    015449-X  BERNARDINO SALES DOS SANTOS FI 12-1 SARGENTO                  0580      028     096   003          85,77      028    47009330387
+  1    015941-7  ANTONIO MARCOS DA SILVA        12-1 SARGENTO                  0580      028     096   003          75,55      028    49728571372
+  1    015962-0  MARCOS JOSE DE MOURA           12-3 SARGENTO                  0580      028     096   004         134,43      028    45140162334
+  1    016042-3  MARCOS ANTONIO HORTENCIO SANTO 3-TENENTE-CORONEL              0580      028     096   005         242,50      028    34801278353
+  1    046743-0  CLEAN CESAR GUIMARAES BEMVINDO 12-3 SARGENTO                  0580      028     096   001          91,57      028    35034661349
+  1    046744-8  GILBERTO VIEIRA DE MELO        12-3 SARGENTO                  0580      028     096   003          76,75      028    47935960372
+  1    079265-9  EVANDRO PEREIRA DA SILVA       12-1 SARGENTO                  0580      028     096   002         207,05      028    42052947353
+  1    079635-2  JOAO DE DEUS SOARES BEZERRA    12-3 SARGENTO                  0580      028     096   004         266,11      028    32820640397
+  1    079645-0  LUIZ CARLOS MENDES DA COSTA    12-3 SARGENTO                  0580      028     096   003         174,00      028    47896698315
+  1    079675-1  RENATO RODRIGUES DA SILVA      12-3 SARGENTO                  0580      028     096   004         184,00      028    48205125368
+  1    079865-7  GILVAN NUNES DA SILVA          12-3 SARGENTO                  0580      028     096   003         100,00      028    56547552349
+  1    079993-9  HILTON RIBEIRO CASTELO BRANCO  12-3 SARGENTO                  0580      028     096   005          84,58      028    48185051372
+  1    080255-7  ODVALY SOARES DA SILVA         12-3 SARGENTO                  0580      028     096   004         125,00      028    53753186368
+  1    080737-X  NEWMARCOS PESSOA BASILIO       3-CORONEL                      0580      028     096   004         256,70      028    42873037334
+  1    082532-8  ANTONIO SOARES NASCIMENTO      12-3 SARGENTO                  0580      028     096   005         153,00      028    46295739334
+  1    082561-1  MAURO JOSE DE SOUSA            12-3 SARGENTO                  0580      028     096   004         117,00      028    39459594387
+  1    082649-9  DEUZACI RODRIGUES DA ROCHA     CC007-DIRETOR                  0580      028     096   004          84,10      028    39371972300
+  1    084190-X  ANTONIO DE PADUA PEREIRA DE AR 12-3 SARGENTO                  0580      028     096   005          99,00      028    56654642368
+  1    084240-X  RAIMUNDO NONATO BORGES DO NASC 12-3 SARGENTO                  0580      028     096   004         120,09      028    47909730349
+  1    084379-2  CLEITON LUIS SERAINE CUSTODIO  12-SUBTENENTE                  0580      028     096   004          95,04      028    02052187766
+  1    084389-0  FELIX BISPO DOS SANTOS FILHO   12-CABO                        0580      028     096   004          82,78      028    35060727300
+  1    084709-7  ADRIANA LIMA DA SILVA          12-3 SARGENTO                  0580      028     096   005         105,00      028    47902051349
+  1    084759-3  REGIA SAMARA CRUZ RAMOS RODRIG 4-CAPITAO                      0580      028     096   005         195,00      028    70486360334
+  1    084893-0  VILSO LOPES DA SILVA           4-CAPITAO                      0580      028     096   003         147,59      028    48171727387
+  1    085379-8  PEDRO MOREIRA DA SILVA         4-CAPITAO                      0580      028     096   005         133,50      028    52671917368
+  1    085659-2  JOAREIS PEREIRA DE OLIVEIRA    12-3 SARGENTO                  0580      028     096   002          79,80      028    69743282300
+  1    085675-4  JOSE ETEYLSON MENDES PESSOA    13-CABO                        0580      028     096   004         200,00      028    45055335300
+  1    085826-9  MAURO SOARES DA SILVA          12-3 SARGENTO                  0580      028     096   002         179,49      028    74709542368
+  1    085893-5  ROGERIO FARIAS DOS SANTOS      12-3 SARGENTO                  0580      028     096   004         120,00      028    53698827387
+  1    085896-0  FRANCISCO CELIO DE MORAES      12-3 SARGENTO                  0580      028     096   003          80,90      028    49775103304
+  1    087974-6  HENRY JONY SAMPAIO MENESES     5-CAPITAO                      0580      028     096   004         170,00      028    47050896349
+  1    092352-4  ALVARO DOS SANTOS LEBRE        3-MAJOR                        0580      028     096   005         139,00      028    77035305300
+  1    093317-1  ETEVALDO ALVES DA SILVA        3-TENENTE-CORONEL              0580      028     096   002         167,00      028    67770045304
+  1    107567-5  DANIEL ALVES NUNES             12-3 SARGENTO                  0580      028     096   003         129,44      028    78818826387
+  1    107619-1  NIVALDO OLIVEIRA DE SOUSA      12-3 SARGENTO                  0580      028     096   003         104,47      028    76942201391
+  1    107681-7  RAIMUNDO QUARESMA VIEIRA E SIL 12-3 SARGENTO                  0580      028     096   004          71,66      028    71431330353
+  1    107697-3  ISAUMIR IRINEU DE SOUSA        12-3 SARGENTO                  0580      028     096   005         136,33      028    77028406334
+  1    107756-2  ANTONIO HENRIQUE CARNEIRO DA C 12-1 SARGENTO                  0580      028     096   003         124,37      028    69878854353
+  1    107760-X  CARLOS EUGENIO E SILVA         12-CABO                        0580      028     096   005          78,44      028    85533858334
+  1    107784-8  LINDOMAR JARDIM LOPES JUNIOR   12-3 SARGENTO                  0580      028     096   004          70,92      028    76930653349
+  1    107828-3  JOUBER DELANO FONSECA DE AMORI 11-1 SARGENTO                  0580      028     096   005          77,15      028    79758371304
+  1    107835-6  ANTONIO GALVAO DA COSTA        12-3 SARGENTO                  0580      028     060   005         464,26      028    71463739320
+  1    160311-6  KLEITON PEREIRA DOS SANTOS     12-3 SARGENTO                  0580      028     096   004         170,95      028    62400460353
+  1    160314-X  MARCELO BACELAR AMANCIO        12-3 SARGENTO                  0580      028     096   005          72,58      028    99240327304
+
+Governo do Estado do Piauí                                                                                                              Pág:    5
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    160600-0  MARIA DO SOCORRO SILVA BARBOSA 12-3 SARGENTO                  0580      028     096   003         211,30      028    84141913391
+  1    160644-1  RILSON CARLOS LIMA GUEDELHO    11-SUBTENENTE                  0580      028     096   003         117,00      028    00399878335
+  1    179465-5  RAPHAEL CARVALHO DA SILVA      12-CABO                        0580      028     096   004          98,43      028    01443900354
+  1    206324-7  EUNELIO ALVES MACEDO FILHO     13-CABO                        0580      028     096   002         387,17      028    03473531340
+  1    206333-6  JOSE ANTONIO DE MORAIS LIMA    13-CABO                        0580      028     096   005          82,61      028    00244431310
+  1    206450-2  JOSE ELITON FEITOSA DE MENEZES 11-1 SARGENTO                  0580      028     096   001       1.514,00      028    94515522353
+  1    206462-6  ANDERSON LUSTOSA DE CASTRO     12-3 SARGENTO                  0580      028     096   001       1.241,00      028    01635619319
+  1    206545-2  FRANCIVAL PEREIRA DE ARAUJO    12-3 SARGENTO                  0580      028     096   002          89,00      028    02364593336
+  1    206640-8  ARYELSON LIMA DE SOUZA         12-1 SARGENTO                  0580      028     096   002          80,60      028    02703379382
+  1    244198-5  IRAILSON ALVES CONSERVA        13-CABO                        0580      028     096   003         154,93      028    03514849498
+  1    244227-2  HERMES FERREIRA DE ANDRADE FIL 13-CABO                        0580      028     096   001         127,87      028    00453265332
+  1    244438-X  JOACIR JADER ALVES SOARES      12-1 SARGENTO                  0580      028     096   002         217,74      028    02486772332
+  1    288536-X  ARTHUR MENDES DE SOUSA         13-CABO                        0580      028     096   004          74,48      028    00661025373
+  1    288573-5  FLAVIO TORRES DE CARVALHO      13-CABO                        0580      028     096   004          81,93      028    00821091506
+  1    288882-3  JOSIVALDO SOUSA DO NASCIMENTO  13-CABO                        0580      028     096   004         163,66      028    02272110304
+  1    289020-8  ANTONIO COSTA NASCIMENTO       13-CABO                        0580      028     096   005       1.180,00      028    04630654330
+  1    289068-2  CRISTIAN RALF FREIRE BARBOSA   13-CABO                        0580      028     096   003          96,70      028    84061499572
+  1    289069-X  ARINALDO PEREIRA DOS SANTOS    13-CABO                        0580      028     096   004         148,21      028    03110505304
+  1    289110-7  FRANCISCO MAELSON DA SILVA     13-CABO                        0580      028     096   003         258,60      028    09601739432
+  1    297688-9  RAFAEL MAX SOARES MARINHO      13-CABO                        0580      028     096   005          83,17      028    03735326366
+  1    309943-1  ARTUR GOMES FERREIRA           13-CABO                        0580      028     096   004          82,11      028    05241822569
+  1    309946-6  CLEIDSON ALVES PEREIRA         13-CABO                        0580      028     096   005          81,89      028    01613835485
+  1    310026-0  GABRIEL LINCON DA SILVA DIAS   13-CABO                        0580      028     096   005         110,60      028    04683158370
+  1    310132-X  GERSON PABLO ALVES DA SILVA    13-CABO                        0580      028     096   004          94,89      028    04413883373
+  1    310168-1  JAIR LISBOA MACHADO            13-CABO                        0580      028     096   003          79,89      028    03043336380
+  1    310172-0  FERNANDO RODRIGUES DA MOTA     13-CABO                        0580      028     096   005         100,00      028    02736528344
+  1    310191-6  PEDRO ROGERIO LIMA DE OLIVEIRA 13-CABO                        0580      028     084   004         110,65      028    04227837308
+  1    310205-0  JULIO CESAR ALVES FEITOSA      13-CABO                        0580      028     096   005          72,00      028    00362954348
+  1    331334-4  ARYCLENES DE SOUSA COSTA       13-CABO                        0580      028     096   002         309,00      028    01076529356
+  1    331477-4  JACIANE PATRICIA SOARES        13-CABO                        0580      028     096   003         162,67      028    04683979306
+  1    331493-6  MITALY TUANY OLIVEIRA MACEDO M 13-CABO                        0580      028     096   004          75,00      028    04984249366
+  1    356795-8  ANDRE FRANCISCO DA SILVA SOUSA 13-CABO                        0580      028     096   001          79,34      028    04955312357
+  1    356848-2  IREVALDO LOPES AMARAL FREITAS  13-CABO                        0580      028     060   003          76,51      028    01706100396
+  1    382095-5  JORDANIO FERREIRA ARRAIS       13-SOLDADO                     0580      028     096   003          72,00      028    00949181390
+  1    382104-8  LUZILDA INGRED OLIVEIRA DO NAS 13-SOLDADO                     0580      028     072   001         300,00      028    06274798390
+  1    382271-X  MOISEIS BARROS DE SOUSA        13-SOLDADO                     0580      028     096   002         147,00      028    08471360357
+  1    382343-1  FELIPE DOS SANTOS              13-SOLDADO                     0580      028     096   004          79,00      028    05668356302
+  1    382374-1  ROMERITO PEREIRA DE CARVALHO   13-SOLDADO                     0580      028     096   004         116,61      028    01988914310
+  1    382428-4  FLAVIANO RODRIGUES MEDEIROS    13-SOLDADO                     0580      028     060   005          78,00      028    02472858540
+  1    382548-5  SERGIO VENICIUS NOLLETO DE MOR 13-SOLDADO                     0580      028     096   001         263,00      028    07296539356
+  1    382652-0  DAVI MARCELO AQUINO DE SOUSA   13-SOLDADO                     0580      028     096   001         387,50      028    06941229390
+  1    385709-3  LUANNA LIMA VIEIRA             13-SOLDADO                     0580      028     096   001       1.444,00      028    60633846341
+  1    385720-4  ADALBERTO SANTOS ANDRADE       13-SOLDADO                     0580      028     096   005          80,00      028    06387360307
+  1    385728-0  LUIZ FERREIRA CALACO FILHO     13-SOLDADO                     0580      028     096   004         376,00      028    44871711803
+  1    386087-6  MATEUS YAN DE ALENCAR FREITAS  -SOLDADO                       0580      028     096   005          97,40      028    07060512381
+  1    404735-4  RONIEL LIMA BARROS             -SOLDADO                       0580      028     096   002         150,02      028    04171045371
+
+Governo do Estado do Piauí                                                                                                              Pág:    6
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    404819-9  MATHEUS TEIXEIRA BATISTA       -SOLDADO                       0580      028     096   001         850,00      028    07198921396
+  1    404837-7  ANTONIO FELIPE SOARES GOMES    -SOLDADO                       0580      028     060   001          76,00      028    05285120306
+  1    404840-7  RODRIGO DE OLIVEIRA FRANCA     -SOLDADO                       0580      028     096   005          80,72      028    06203745359
+  1    404855-5  CARLOS AUGUSTO NASCIMENTO MACE 13-SOLDADO                     0580      028     096   004         164,27      028    61668883333
+  1    404907-1  MARCIO DAVID DA SILVA ARAUJO   -SOLDADO                       0580      028     096   003          77,42      028    04152736330
+  1    405443-1  HUMBERTO CASSIO LIMA DA SILVA  13-SOLDADO                     0580      028     096   002          83,40      028    07025626376
+  1    425488-X  GERMANO HOLANDA DE OLIVEIRA    7-2 TENENTE                    0580      028     096   004         630,00      028    06670642300
+  1    425513-5  LERYSSON BRUNO DE OLIVEIRA FAR 7-2 TENENTE                    0580      028     096   003         199,77      028    05632254321
+  1    425555-X  LIDIO REGO DE FIGUEREDO FILHO  7-2 TENENTE                    0580      028     096   002         478,39      028    03897228394
+  1    431406-9  ALAN ALENCAR FREIRE            -SOLDADO                       0580      028     096   002         261,30      028    03783257360
+  1    431414-0  AMANDA RIBEIRO DE ABREU        -SOLDADO                       0580      028     096   003         497,60      028    05681919358
+  1    431421-2  ANA PAULA TELES SARAIVA        -SOLDADO                       0580      028     096   003         130,65      028    06428305330
+  1    431423-9  ANANDA LIZES DE JESUS DAS CHAG -SOLDADO                       0580      028     096   001         385,35      028    05590687357
+  1    431432-8  ANDRE LUCAS FELICIO DE SOUSA   -SOLDADO                       0580      028     096   001         391,95      028    06307460369
+  1    431448-4  ANTONIO JOSE VITALINO DA SILVA -SOLDADO                       0580      028     096   004         324,46      028    05797061333
+  1    431462-0  AUGUSTO ALVES DO NASCIMENTO    -SOLDADO                       0580      028     096   001         773,40      028    04585908358
+  1    431464-6  BARBARA ARAUJO DE SOUZA E SILV -SOLDADO                       0580      028     096   001         513,80      028    06758499421
+  1    431493-0  CICERO DARQUIANO BEZERRA GOMES -SOLDADO                       0580      028     096   003         130,90      028    10959576436
+  1    431496-4  CLEILDO DO NASCIMENTO CUNHA    -SOLDADO                       0580      028     096   001         915,37      028    05806320324
+  1    431497-2  CLOVISON HENRIQUE DA SILVA ROD -SOLDADO                       0580      028     072   002         173,28      028    05376143384
+  1    431540-5  DOUGLAS DOS SANTOS GODINHO     -SOLDADO                       0580      028     096   001       1.157,85      028    06554051350
+  1    431547-2  EDUARDO BARBOSA DOS SANTOS     -SOLDADO                       0580      028     096   001         130,65      028    05200092310
+  1    431550-2  EDWILSON SANTOS ARAGAO JUNIOR  -SOLDADO                       0580      028     096   001       1.455,00      028    03110267535
+  1    431568-5  EVANILDO CARVALHO SILVA        -SOLDADO                       0580      028     096   002         156,78      028    04959219394
+  1    431574-0  FAUSTO AUGUSTINHO PEREIRA DA S -SOLDADO                       0580      028     096   002         757,00      028    60001778366
+  1    431578-2  FELIPE FRANCISCO LUZ DE MACEDO -SOLDADO                       0580      028     096   001         662,65      028    13364440450
+  1    431584-7  FERNANDO TORQUATO NORONHA      -SOLDADO                       0580      028     096   001         728,00      028    02650085304
+  1    431593-6  FRANCISCO BEZERRA RODRIGUES    -SOLDADO                       0580      028     096   001         740,00      028    02906425311
+  1    431595-2  ERMANO FERREIRA DA SILVA       -SOLDADO                       0580      028     096   001         270,00      028    00455111286
+  1    431596-X  FABRICIO FERREIRA DA COSTA     -SOLDADO                       0580      028     096   001       1.455,00      028    02509491563
+  1    431610-0  FRANCISCO LUA DE LIMA MARQUES  -SOLDADO                       0580      028     096   001         259,70      028    02048305326
+  1    431620-7  GABRIEL LIMA SOARES            -SOLDADO                       0580      028     096   003         472,00      028    60439086388
+  1    431624-0  GEISSA DUARTE DE AGUIAR        -SOLDADO                       0580      028     096   004         758,46      028    05712626357
+  1    431631-2  GEOVANE DE SOUZA AZEVEDO       -SOLDADO                       0580      028     096   003         130,80      028    10710807414
+  1    431635-5  GILMAR MENDES RIBEIRO          -SOLDADO                       0580      028     096   003          81,00      028    02739207310
+  1    431660-6  HELTON LEONEL FERREIRA E SILVA -SOLDADO                       0580      028     096   002         708,50      028    05682778308
+  1    431667-3  IGOR DA COSTA ALVES            -SOLDADO                       0580      028     096   001         514,60      028    06712047340
+  1    431669-0  IGO RAFAEL DE ANDRADE DOS SANT -SOLDADO                       0580      028     096   004         758,46      028    09452205458
+  1    431672-0  INGRIDY CELINE NASCIMENTO CRIS -SOLDADO                       0580      028     060   002         312,20      028    06006844311
+  1    431682-7  JACQUELINE ALBINO DA ROCHA     -SOLDADO                       0580      028     096   001         517,20      028    06252950300
+  1    431686-0  JADSON NATAN MOREIRA DOS SANTO -SOLDADO                       0580      028     096   002         261,30      028    86037477507
+  1    431717-3  JOAO LUIZ ALVES JUCA           -SOLDADO                       0580      028     060   004         311,50      028    05666699350
+  1    431722-0  JOANA MARQUES BANDEIRA         -SOLDADO                       0580      028     096   001       1.415,00      028    07380358316
+  1    431723-8  JOAO PAULO LIMA CHAVES         -SOLDADO                       0580      028     096   001       1.455,00      028    03973477310
+  1    431727-X  JOAO PEDRO DE AREIA PEDREIRA B -SOLDADO                       0580      028     096   002         720,00      028    04836346380
+  1    431741-6  JOSE FIRMINO DA SILVA JUNIOR   -SOLDADO                       0580      028     096   003         731,80      028    05282927306
+
+Governo do Estado do Piauí                                                                                                              Pág:    7
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    431742-4  JOSE EMELSON FEITOSA DA SILVA  -SOLDADO                       0580      028     096   001         516,80      028    07144919342
+  1    431751-3  JULIO CANDIDO DA SILVA NETO    -SOLDADO                       0580      028     096   005         447,00      028    04640880383
+  1    431753-0  JULIO CLEMENTINO DA COSTA      -SOLDADO                       0580      028     096   001         130,70      028    03229429346
+  1    431770-0  LAECIO RODRIGUES DO NASCIMENTO -SOLDADO                       0580      028     096   002         130,65      028    03464651339
+  1    431792-X  LIDIA DANIELE LAURENTINO GOMES -SOLDADO                       0580      028     096   001         742,00      028    05721690356
+  1    431805-6  LUCAS SOARES LIMA              -SOLDADO                       0580      028     096   003         131,00      028    05115096340
+  1    431809-9  LUCIANO PABLO DOS SANTOS PAIVA -SOLDADO                       0580      028     096   001         390,00      028    05975345359
+  1    431814-5  LUIS LUCAS MACEDO SILVA        -SOLDADO                       0580      028     096   001         758,46      028    05434279352
+  1    431818-8  MAIRTON VIEIRA CARMO           -SOLDADO                       0580      028     096   003         261,30      028    07724450366
+  1    431828-5  MARCUS BRENDON DE CARVALHO VER -SOLDADO                       0580      028     096   001       1.455,77      028    02531095314
+  1    431842-X  MARIA FERNANDA LEITE MOTA ANDR -SOLDADO                       0580      028     096   001       1.455,00      028    06697124342
+  1    431866-8  MAXWELL PEREIRA SOUSA          -SOLDADO                       0580      028     096   002         261,30      028    07847472376
+  1    431875-7  MIGUEL DO NASCIMENTO COSTA     -SOLDADO                       0580      028     096   001       1.291,00      028    06772516370
+  1    431898-6  PAULO VICTOR SOEIRO MACHADO CO -SOLDADO                       0580      028     096   001         773,00      028    07639523389
+  1    431901-0  PEDRO VICTOR LIRA DA SILVA     -SOLDADO                       0580      028     096   001         258,20      028    06516215340
+  1    431919-2  RAQUEL MARIA DELFINO MENDES    -SOLDADO                       0580      028     096   002         740,00      028    07207309376
+  1    431933-8  ROBERTO PEREIRA DA SILVA       -SOLDADO                       0580      028     096   001       1.291,00      028    05090081352
+  1    431941-9  RONALDO CESAR CARNEIRO DE SOUS -SOLDADO                       0580      028     072   003         145,10      028    03189425345
+  1    431958-3  SILJOHNE DE OLIVEIRA ROSA      -SOLDADO                       0580      028     096   002         262,00      028    07392747320
+  1    431959-1  SILVIA EMANUELLE OLIVEIRA DA S -SOLDADO                       0580      028     096   001         698,00      028    07377661313
+  1    431961-3  TALVANES TOMAS DA SILVA FILHO  -SOLDADO                       0580      028     096   003         268,00      028    06393069341
+  1    431966-4  TAMIRES RAQUEL DO NASCIMENTO   -SOLDADO                       0580      028     096   001         281,87      028    02927313377
+  1    431973-7  THAINA RODRIGUES DA SILVA DANT -SOLDADO                       0580      028     096   001         802,34      028    05743780307
+  1    431975-3  THAIRONE FIDALGO DE SOUSA      -SOLDADO                       0580      028     096   003         157,00      028    06177926312
+  1    431993-1  TOMAZ ALMEIDA DA SILVA NETO    -SOLDADO                       0580      028     096   001         519,00      028    07215830322
+  1    432005-X  VICTOR HENRIQUE DUARTE CARVALH -SOLDADO                       0580      028     096   002         313,60      028    06005796380
+  1    432023-9  WILAME PEREIRA MARCIEL         -SOLDADO                       0580      028     096   003         261,30      028    04879700398
+  1    432035-2  CARLOS EDUARDO COSTA DA SILVA  -SOLDADO                       0580      028     096   001       1.455,00      028    03661576399
+  1    432036-X  FRANCISCO CANTUARIA SOUSA      -SOLDADO                       0580      028     096   001         700,45      028    03037628375
+  1    432045-0  SAMUEL SILVA DE MACENO         -SOLDADO                       0580      028     096   001         755,16      028    02140749359
+  1    432049-2  JANAINA DA SILVA LEAL          -SOLDADO                       0580      028     096   003         214,00      028    06892129331
+       Órgão Pagamento:  028-POLICIA MILITAR DO PIAUI        -  188 Lançamento(s)  -  Total R$ 64.599,82
+
+  1    016418-6  LUCIA MARIA DOS SANTOS ANDRADE 2-ASSISTENTE / AGENTE DE TRANS 0580      030     096   002         106,13      030    18234968300
+  1    016625-1  MARIA DO ROSARIO DE FATIMA PIM 2-ASSISTENTE / AGENTE DE TRANS 0580      030     096   005         141,25      030    18398855304
+       Órgão Pagamento:  030-DETRAN PI                       -  2 Lançamento(s)  -  Total R$ 247,38
+
+  1    085961-3  EVALDINO CANUTO DE SOUZA       8-PROFESSOR ADJUNTO 40HS       0580      089     096   002         106,72      089    34144030300
+  1    177274-X  YOLANDA SYLVIA ALVES PARENTE   2-ADMINISTRATIVO - ASSISTENTE  0580      089     096   003         104,00      089    48202401372
+  1    268393-8  DOMINGOS SAVIO JACINTO E SILVA 8-PROFESSOR ASSISTENTE DEDICAC 0580      089     096   004         127,70      089    13238019368
+  1    280259-7  ANNETH CARDOSO BASILIO DA SILV 11-PROFESSOR ADJUNTO 40HS      0580      089     096   005         150,37      089    35313510363
+  1    280288-X  MANOEL RIBEIRO HOLANDA NETO    9-PROFESSOR ASSISTENTE DEDICAC 0580      089     096   003       1.719,93      089    86631535387
+  1    280649-5  TALES ANTAO DE ALENCAR CARVALH 8-PROFESSOR ASSISTENTE DEDICAC 0580      089     072   001         290,00      089    85692395304
+  1    280714-9  JAYRON VIANA DOS SANTOS        5-PROFESSOR AUXILIAR 40HS      0580      089     060   004         200,00      089    01834995302
+  1    332035-9  MERIK ROCHA SILVA              2SG-                           0580      089     096   003         209,04      089    00479005125
+  1    408251-6  FLAVIA GOMES DE ANDRADE        2-ADMINISTRATIVO - ASSISTENTE  0580      089     096   001          86,00      089    01869944356
+
+Governo do Estado do Piauí                                                                                                              Pág:    8
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+       Órgão Pagamento:  089-FUESPI-FUNDACAO U.E.DO PIAUI    -  9 Lançamento(s)  -  Total R$ 2.993,76
+
+  1    001830-9  REGINA LUCIA DA SILVA CRUZ     -                              0580      090     096   004         183,70      090    15139123304
+  1    011085-0  MARIA DOS SANTOS LEITE FERREIR -                              0580      090     084   004          87,00      090    13250728349
+  1    028148-4  FRANCISCA DAS CHAGAS DE CARVAL -                              0580      090     060   001         120,00      090    18542662334
+  1    028852-7  MARIA DE JESUS DO BONFIM DO NA -                              0580      090     096   004          77,00      090    13319183320
+  1    029340-7  MARIA DO SOCORRO SILVA BRITO   -                              0580      090     060   005         153,27      090    64488225349
+  1    029447-X  LAELIA CHAVES DE SOUSA LIMA    -                              0580      090     096   004          95,00      090    47897082334
+  1    039226-0  FRANCISCA ROSA BAETA           -                              0580      090     084   003         117,85      090    74813439349
+  1    040201-0  MARIA JOSE OLIVEIRA MOTA       -                              0580      090     096   004         123,23      090    73429490359
+  1    105555-X  MARIA DAS GRACAS FERNANDES DA  -                              0580      090     096   002         612,00      090    37359746353
+  1    107194-7  WALERIA URQUIZIA DE CASTRO MOT -                              0580      090     060   004         185,23      090    01080191364
+  1    111566-9  SANDRA MARIA VIEIRA NOGUEIRA F -                              0580      090     096   002         382,29      090    34964703304
+  1    114155-4  JOAO NILSON PEREIRA LIMA       -                              0580      090     060   005         167,95      090    43306519391
+  1    129118-1  ORLENE MARTINS DO NASCIMENTO   -                              0580      090     096   005         129,96      090    06668011349
+  1    129325-7  MARIA APARECIDA FERREIRA RODRI -                              0580      090     096   003          83,73      090    00642813370
+  1    131463-7  ANTONIO DANILO DE PINHO TEIXEI -                              0580      090     072   005         253,00      090    09994033387
+  1    138165-2  ELMIRA ROCHA                   -                              0580      090     096   002         149,00      090    97943304349
+  1    143520-5  DEJACY RIBEIRO DA SILVA        -                              0580      090     096   002         326,52      090    37231634320
+  1    158571-1  LUIZA ARISTIDES SOARES DE CARV -                              0580      090     096   003          94,20      090    32723938204
+  1    167056-5  DOMINGOS MOREIRA               -                              0580      090     096   003         295,24      090    20805071334
+  1    168979-7  MARIA DE JESUS BORGES DA SILVA -                              0580      090     096   004          71,40      090    02712846338
+  1    170525-3  ANTONIA MARIA ARAUJO COUTINHO  -                              0580      090     096   005          91,97      090    00513517308
+  1    178400-5  MARIA HELENA DA SILVA OLIVEIRA -                              0580      090     096   002         353,58      090    61876631368
+  1    196005-9  MARIA JOSE DE CASTRO BARBOSA   -                              0580      090     096   004         258,91      090    34305874334
+  1    210228-5  HELENEYDE DA SILVA SILVEIRA    -                              0580      090     096   001          76,84      090    45172641300
+  1    211813-X  FRANCISCO DAS CHAGAS ROBERTO D -                              0580      090     096   004          86,00      090    22719016349
+  1    219618-2  LUCILIA RODRIGUES DA SILVA     -PENSAO CIVIL                  0580      090     096   002         192,00      090    31529070368
+  1    224275-3  MARIA DE JESUS M MONTEIRO      -                              0580      090     096   004         214,56      090    01114781380
+  1    230902-5  JAQUELINE ANDREA PEREIRA DE OL -                              0580      090     060   001         481,00      090    63500540325
+  1    245299-5  CARLOS ALBERTO BATISTA DA COST -PENSAO CIVIL                  0580      090     096   002         178,51      090    07851090300
+  1    268758-5  HERDEN DINIZ BRASILEIRO        -PENSAO CIVIL                  0580      090     096   005         199,03      090    41227840349
+  1    271837-5  ANTONIO RODRIGUES DA ROCHA     -                              0580      090     084   001         649,00      090    18581129315
+  1    272406-5  FRANCISCA MARIA MONTE SILVA    -                              0580      090     096   004         243,60      090    30547458304
+  1    280549-9  SAMMARA DANIELLI CARVALHO DE M -                              0580      090     096   002         104,00      090    00723414327
+  1    281427-7  CICERA ALVES DO NASCIMENTO     -                              0580      090     096   005          97,00      090    13862812391
+  1    295599-7  MARIA DO CARMO MOURAO SANTOS   -PENSAO CIVIL                  0580      090     084   001         163,98      090    34189424315
+  1    296771-5  MARIA ANETE DE SOUSA PINTO     -PENSAO CIVIL                  0580      090     096   001          77,55      090    28626060300
+  1    308821-9  LUCIA DE FATIMA M BARBOSA      -                              0580      090     096   005         250,80      090    35367903304
+  1    310640-3  MARIA DO AMPARO PINHEIRO DE SO -PENSAO CIVIL                  0580      090     096   002         132,00      090    18182666368
+  1    315630-3  MARIA LUIZA DA SILVA           -PENSAO CIVIL                  0580      090     096   005         100,00      090    06631185300
+  1    329970-8  FATIMA BASTOS DE VASCONCELOS   -PENSAO CIVIL                  0580      090     096   004         251,38      090    87885123391
+  1    331070-1  HERAN RODRIGUES BASTOS DE SOUS -PENSAO CIVIL                  0580      090     096   003         154,00      090    14519216320
+  1    332310-2  VERA LUCIA LIMA CRUZIO         -PENSAO CIVIL                  0580      090     096   003         242,00      090    18251285372
+  1    333994-7  MARIA DO ROSARIO DE MIRANDA BE -PENSAO CIVIL                  0580      090     096   002         160,22      090    47439378334
+  1    340831-X  MEYRINALVA MOREIRA BRITO DE SO -PENSAO CIVIL                  0580      090     096   003          71,04      090    00257522352
+
+Governo do Estado do Piauí                                                                                                              Pág:    9
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    342162-7  FRANCISCA DAS CHAGAS FERREIRA  -PENSAO CIVIL                  0580      090     096   005         432,05      090    64715590387
+  1    343092-8  MARIA DA CONCEICAO PROBO DE LI -PENSAO CIVIL                  0580      090     096   002         116,00      090    34727639300
+  1    349483-7  HELENA LIMA DE CASTRO ARAUJO   -PENSAO CIVIL                  0580      090     096   005          93,36      090    27515680334
+  1    352711-5  MA DAS GRACAS SILVA MAIA       -PENSAO CIVIL                  0580      090     072   005          91,80      090    53707397300
+  1    356188-7  MARIA FRANCISCA DOS SANTOS RIB -PENSAO CIVIL                  0580      090     096   002          90,89      090    45393770359
+  1    356308-1  GLAUCIA IBIAPINA BRITO DE OLIV -PENSAO CIVIL                  0580      090     096   005         115,28      090    23929901315
+  1    357372-9  HEITOR HENRIQUE RODRIGUES COST -PENSAO CIVIL                  0580      090     096   005         136,84      090    05411851360
+  1    359829-2  MARTINHO FRANCISCO DO NASCIMEN -PENSAO CIVIL                  0580      090     096   001         100,00      090    35327715353
+  1    361194-9  FRANCISCO EUDES TELES DE BRITO -PENSAO CIVIL                  0580      090     096   002         257,80      090    09909613387
+  1    364092-2  YSLEY PEREIRA DE LIMA          -PENSAO CIVIL                  0580      090     096   005          71,45      090    02298308381
+  1    369456-9  MARIA ALVARENGA CAVALCANTE PES -PENSAO CIVIL                  0580      090     096   005         103,00      090    18125000330
+  1    374537-6  RITA CRISTINA COSTA PEDREIRA F -PENSAO CIVIL                  0580      090     096   002         170,00      090    38691752300
+  1    400746-8  MARIA DEUSENIR VIANA MONTEIRO  -PENSAO CIVIL                  0580      090     096   002       1.509,20      090    47367229320
+  1    419398-9  MARIA JOSE DA LUZ              -PENSAO CIVIL                  0580      090     096   005         276,64      090    32767439300
+  1    419430-6  MEYRE MAGNA SOUSA BARBOSA      -PENSAO CIVIL                  0580      090     096   005          71,00      090    74197932391
+  1    424586-5  TELMA MARIA SOUSA DA SILVA     -PENSAO CIVIL                  0580      090     096   003         295,00      090    44836112320
+  1    427149-1  LUCILENE MENDES VIEIRA         -PENSAO CIVIL                  0580      090     096   005         632,00      090    86387057191
+  1    430101-3  MASPOLI RAPOSO VIEIRA DA SILVA -PENSAO CIVIL                  0580      090     096   002       1.292,15      090    46156216715
+  1    433943-6  SANDRA REGINA LEMOS DE SOUSA   -PENSAO CIVIL                  0580      090     096   004         303,60      090    39775917387
+  1    433964-9  SONIA MARIA DA SILVA           -PENSAO CIVIL                  0580      090     072   003       1.201,70      090    13117025391
+  1    435196-7  MARIA DE FATIMA SOUSA          -PENSAO CIVIL                  0580      090     096   001         300,00      090    06637663387
+  1    435202-5  ANTONIO JOSE KALUME FILHO      -PENSAO CIVIL                  0580      090     096   001       1.162,82      090    21684383315
+  1    435249-1  TEREZINHA DE JESUS LIMA        -PENSAO CIVIL                  0580      090     096   001         527,65      090    78880696300
+       Órgão Pagamento:  090-PIAUIPREV PENSIONISTAS          -  67 Lançamento(s)  -  Total R$ 17.886,77
+
+  1    024348-5  MAURICIO BARBOSA DOS SANTOS    1-POLICIAL PENAL               0580      095     096   004         222,00      095    22630210359
+  1    024585-2  VANDERLENE GOMES BACELAR DE CA 1-POLICIAL PENAL               0580      095     096   004         113,56      095    27471306300
+  1    026148-3  AUTA MARIA COSTA DE SOUSA      1-POLICIAL PENAL               0580      095     096   003         176,00      095    27428567300
+  1    030401-8  MANOEL FORTES DE MESQUITA      1-POLICIAL PENAL               0580      095     096   003         745,50      095    18221874353
+  1    030551-X  FRANCISCO DAS CHAGAS RAMOS DE  1-POLICIAL PENAL               0580      095     096   005         242,00      095    01458666883
+  1    030681-9  JEFFERSON LEITE DIAS           1-POLICIAL PENAL               0580      095     096   002       1.540,00      095    22760180387
+  1    044115-5  FRANCIVALDO MARTINS DE LIMA    1-POLICIAL PENAL               0580      095     096   003         190,51      095    02846598860
+  1    086533-8  JOAQUIM PEREIRA DE SOUSA       1-POLICIAL PENAL               0580      095     072   002         249,63      095    03700998856
+  1    104165-7  ANTONIO WILSON RODRIGUES       -                              0580      095     096   002         167,21      095    35009551349
+  1    105579-8  FRANCISCO DE ASSIS SOUSA RODRI 1-POLICIAL PENAL               0580      095     060   001         220,22      095    84797932368
+  1    105600-0  MILTON SOARES DE JESUS         1-POLICIAL PENAL               0580      095     096   003         459,78      095    88120279387
+  1    113840-5  ALDENICE PEREIRA DE MELO       1-POLICIAL PENAL               0580      095     096   003         152,22      095    74798162353
+  1    113878-2  CESAR CARLOS CARVALHO OLIVEIRA 1-POLICIAL PENAL               0580      095     096   004         137,83      095    56662246387
+  1    113891-0  TIAGO RODRIGUES NOGUEIRA JUNIO 1-POLICIAL PENAL               0580      095     096   004         156,15      095    65785479320
+  1    113895-2  ANA LUISA BORGES BATISTA       1-POLICIAL PENAL               0580      095     096   005         440,00      095    42870704372
+  1    124198-2  JOSE BRAZ DA SILVA FILHO       1-POLICIAL PENAL               0580      095     096   002         135,00      095    46249532315
+  1    198368-7  CLAUDIO ASSUNCAO DE MELO       1-POLICIAL PENAL               0580      095     096   001         500,00      095    34961321320
+  1    207215-7  MARCOS PAULO VIANA FURTADO     1-POLICIAL PENAL               0580      095     096   004         390,00      095    00182716341
+  1    282829-4  GLEIDSON DA SILVA FIGUEIREDO   1-POLICIAL PENAL               0580      095     096   004         130,15      095    66766168315
+  1    286242-5  ALEX FRANCO PIAUILINO DE QUEIR 1-POLICIAL PENAL               0580      095     096   002         137,00      095    87686554368
+  1    354285-8  JOSE VITOR LEITE BORGES        9-POLICIAL PENAL               0580      095     096   004         115,11      095    03403856348
+
+Governo do Estado do Piauí                                                                                                              Pág:   10
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    369162-4  LAERCIO FERREIRA DE ALMEIDA    1-POLICIAL PENAL               0580      095     096   001         300,00      095    67290140320
+  1    433459-X  DOUGLAS AGUIAR FOLHA           -POLICIAL PENAL                0580      095     096   002       1.830,50      095    02910162354
+  1    433466-3  FERNANDO MIKAEL NUNES LIMA     -POLICIAL PENAL                0580      095     096   002       1.567,80      095    02107525307
+  1    433585-6  PAULO NAYGON LIMA FERREIRA     -POLICIAL PENAL                0580      095     096   002         700,00      095    03874122123
+       Órgão Pagamento:  095-SEC DA JUSTICA E DIR.HUMANOS    -  25 Lançamento(s)  -  Total R$ 11.018,17
+
+  1    002799-5  LUIZ ALBERTO E SILVA DE SOUSA  -ANALISTA AUXILIAR DO TESOURO  0580      097     096   002         186,72      097    19963556353
+  1    003033-3  ANTONIO FRANCISCO FERREIRA DA  -AGENTE DE TRIBUTOS DA FAZENDA 0580      097     096   002         100,00      097    39538150325
+  1    006272-3  ANA LUCIA DE FREITAS MELO AZEV -ASSISTENTE DE PESQUISA        0580      097     096   004         193,88      097    13287877372
+  1    006354-1  ABIMAEL LEITE CAMINHA          -ASSISTENTE DE PESQUISA        0580      097     096   004          84,03      097    13007866391
+  1    006408-4  LUZIA MARIA FIDALGO MORAIS     -AGENTE OPERACIONAL DE SERVICO 0580      097     072   003         171,00      097    18523900349
+  1    008066-7  MARIA ANGELICA DIOGO RODRIGUES -AGENTE TECNICO DE SERVICO     0580      097     096   002         106,04      097    13416944372
+  1    008963-0  ANTONIO LISBOA DE MIRANDA      -                              0580      097     096   004         219,00      097    09996230368
+  1    008983-4  FRANCISCO VITORINO PEREIRA DE  -                              0580      097     096   004         179,83      097    09947116387
+  1    009121-9  JUAREZ DE SOUSA PEREIRA        -AGENTE DE POLICIA             0580      097     060   003         245,00      097    06689370330
+  1    009250-9  RIVALDO MIRANDA DAS NEVES      -AGENTE DE POLICIA             0580      097     096   002          81,89      097    25981625368
+  1    009427-7  LUCIA MARIA DAS GRACAS ALMEIDA -AGENTE DE POLICIA             0580      097     096   005         152,26      097    34291792387
+  1    009625-3  VICENTE DE PAULO NASCIMENTO AR -AGENTE DE POLICIA             0580      097     096   002         200,00      097    22721045334
+  1    009656-3  CACILDA SANTOS BARBOSA         -ESCRIVAO DE POLICIA           0580      097     096   004         240,00      097    35326808315
+  1    010224-5  JOAO ALVES DE ARAUJO           -1o. SARGENTO                  0580      097     096   005         139,38      097    13852957320
+  1    010319-5  VILMAR NONATO DA SILVA         -                              0580      097     096   003         150,00      097    13866265387
+  1    010376-4  JOSE DOS SANTOS SOBRINHO       -                              0580      097     084   004          86,00      097    10622675320
+  1    010556-2  FRANCISCO JOSE DA SILVA        -                              0580      097     096   004         112,80      097    15139280310
+  1    010746-8  GERALDO QUEIROZ DE SOUSA       -3o. SARGENTO                  0580      097     084   003         129,08      097    04718828368
+  1    010760-3  MARIA AUXILIADORA BRAZIL GAMA  -                              0580      097     096   005          90,58      097    09649000330
+  1    010765-4  MARIA DO PERPETUO DO SOCORRO M -                              0580      097     060   005          97,97      097    04193490300
+  1    010836-7  PEDRO GRACIANO DE ALMEIDA      -MAJOR                         0580      097     060   004         220,00      097    06523110320
+  1    010960-6  LUIZ GONZAGA FERREIRA          -CORONEL                       0580      097     096   002         893,00      097    09906096349
+  1    011302-6  MANOEL DA SILVA FEITOSA        -2o. SARGENTO                  0580      097     096   003         113,85      097    13366009349
+  1    011499-5  ETIVALDO DE SOUSA BRITO        -3o. SARGENTO                  0580      097     096   004         228,99      097    13142267387
+  1    011645-9  RAIMUNDO ROMAO BATISTA         -1o. TENENTE                   0580      097     096   001          82,40      097    09984526372
+  1    011747-1  IBIAPINO VICENTE ALVES         -GERENTE DE FINANCAS E CONTABI 0580      097     096   003          93,20      097    16065158372
+  1    011940-7  RAIMUNDO NONATO DOS SANTOS     -CAPITAO                       0580      097     096   002         150,00      097    13872125320
+  1    011985-7  DELFINO DE ALMADA              -2o. TENENTE                   0580      097     096   004         146,51      097    18206034315
+  1    012029-4  ANTONIO ALEXANDRE FILHO        -GERENTE DE FINANCAS E CONTABI 0580      097     096   002         111,30      097    21700028391
+  1    012072-3  JOSE FRANCISCO CHAVES FIRMINO  -GERENTE DE FINANCAS E CONTABI 0580      097     096   004         100,00      097    23759313353
+  1    012075-8  ANTONIO LUIS BATISTA DE OLIVEI -                              0580      097     096   004          73,44      097    15056880353
+  1    012169-0  ANTONIO FERNANDES DA COSTA     -CAPITAO                       0580      097     096   005         134,00      097    34765956334
+  1    012334-0  RAIMUNDO NONATO DO NASCIMENTO  -GERENTE DE FINANCAS E CONTABI 0580      097     096   005         235,90      097    20815786387
+  1    012450-8  ELIAS ALVES DA SILVA           -                              0580      097     096   002         290,00      097    21740208315
+  1    012456-7  JOSE LEAO SALES LIMA           -                              0580      097     096   004         294,00      097    05201020372
+  1    012537-7  HENRIQUE FERREIRA DA SILVA     -2o. SARGENTO                  0580      097     096   001         102,00      097    21738840344
+  1    012600-4  MANOEL BEZERRA DOS SANTOS      -                              0580      097     096   001         867,00      097    18379133315
+  1    012617-9  RAIMUNDO NONATO DOS SANTOS     -3o. SARGENTO                  0580      097     096   004          84,40      097    18426166334
+  1    012638-1  JOSE MARIA FEITOSA DE ARAUJO   -3o. SARGENTO                  0580      097     096   004          88,04      097    41192451368
+  1    012640-3  MANOEL BATISTA NETO            -SOLDADO                       0580      097     096   005         138,00      097    33794618300
+
+Governo do Estado do Piauí                                                                                                              Pág:   11
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    012855-4  CARLOS AUGUSTO OLIVEIRA DOS PA -1o. SARGENTO                  0580      097     096   002         196,42      097    14545420397
+  1    012869-4  WILDSON LAGES                  -SUBTENENTE                    0580      097     096   005         189,00      097    64461106772
+  1    012870-8  JOSE DE RIBAMAR DE SOUSA       -CAPITAO                       0580      097     096   005         167,85      097    43935702353
+  1    012938-X  MARCOS ANTONIO PEREIRA DO NASC -MAJOR                         0580      097     096   002         158,00      097    22688315315
+  1    013014-1  FRANCISCO XAVIER SALES         -GERENTE DE FINANCAS E CONTABI 0580      097     096   002          73,00      097    15243745391
+  1    013369-8  JOSE GONCALVES DE CARVALHO     -                              0580      097     096   004          78,52      097    29876613391
+  1    013377-9  MARIA ASELIA RODRIGUES DO NASC -AGENTE TECNICO DE SERVICO     0580      097     060   003         100,00      097    30702933368
+  1    013426-X  FRANCISCO JOSE DO VALE SILVA   -2o. SARGENTO                  0580      097     096   002          78,00      097    45397856304
+  1    013547-0  RICARDO GOMES DOURADO FILHO    -3o. SARGENTO                  0580      097     096   003         113,20      097    30673305368
+  1    013622-X  FRANCISCO DE ASSIS SILVA FRAZ  -                              0580      097     096   003         106,00      097    33876924391
+  1    013756-1  JOSE DE RIBAMAR SANTOS FILHO   -SUBTENENTE                    0580      097     096   003          87,77      097    34951490315
+  1    013762-6  JOSE DOMINGOS SILVA COSTA      -3o. SARGENTO                  0580      097     096   004          76,60      097    21819009300
+  1    013776-6  FRANCISCO DE ASSIS CONCEICAO   -2o. SARGENTO                  0580      097     096   002         134,70      097    32809000344
+  1    014026-X  EDIVAN FERREIRA JURITI         -3o. SARGENTO                  0580      097     072   001         857,10      097    34277773320
+  1    014142-9  JOAO DA CRUZ SILVA DOS SANTOS  -1o. SARGENTO                  0580      097     096   004          95,93      097    30638186315
+  1    014210-7  JOSE CARLOS VIANA DE SOUSA     -3o. SARGENTO                  0580      097     096   002         750,00      097    47419164304
+  1    014218-2  FRANCISCO BARBOSA DE LIMA      -3o. SARGENTO                  0580      097     096   001         141,79      097    34256199349
+  1    014244-1  CARLOS AUGUSTO NEGREIROS DE ME -1o. SARGENTO                  0580      097     096   002          73,27      097    20113552300
+  1    014539-4  ROGERIO PEREIRA DE SOUZA       -2o. SARGENTO                  0580      097     096   001         299,50      097    38676648387
+  1    014624-2  CARLOS CESAR DE CARVALHO       -3o. SARGENTO                  0580      097     096   005         130,42      097    34070982353
+  1    014717-6  JESUS NAVEGANTE SILVA DO NASCI -AGENTE OPERACIONAL DE SERVICO 0580      097     096   001          76,25      097    12537209400
+  1    014879-2  ADILSON CESAR DA CRUZ SILVA    -3o. SARGENTO                  0580      097     096   003          71,24      097    35403179372
+  1    015038-0  RAIMUNDO LEAO DAMASCENO FILHO  -                              0580      097     096   002          91,00      097    35275677391
+  1    015328-1  MARCOS ANTONIO DA SILVA        -SUBTENENTE                    0580      097     096   002          92,00      097    43972373368
+  1    019022-5  MARIA DE FATIMA CARVALHO       -AGENTE OPERACIONAL DE SERVICO 0580      097     096   004         136,49      097    35102365304
+  1    020876-X  MARIA DAS GRACAS DO REGO PEREI -AGENTE TECNICO DE SERVICO     0580      097     072   003          88,00      097    10528024353
+  1    021084-6  FRANCISCO DE ASSIS BATISTA DOS -AGENTE OPERACIONAL DE SERVICO 0580      097     096   004          79,60      097    33827710391
+  1    021317-9  MARIA EUDA MACHADO MELO        -AGENTE TECNICO DE SERVICO     0580      097     096   003          97,93      097    34962000306
+  1    027248-5  MARIA DAS GRACAS ALCANTARA SOA -PROFESSOR DOUTOR DEDICACAO EX 0580      097     072   003         246,00      097    13264788349
+  1    030328-3  KAY FRANCIS LAURITZEN LUCENA D -POLICIAL PENAL                0580      097     096   002         284,76      097    33861021404
+  1    030859-5  RAIMUNDO BENTO DE SOUSA        -3o. SARGENTO                  0580      097     072   003         427,95      097    05200075300
+  1    032038-2  ANTONIO DA PAZ FERREIRA        -3o. SARGENTO                  0580      097     096   003         132,29      097    18556345387
+  1    032061-7  LOURIVAL DE SENA ROSA          -SOLDADO                       0580      097     096   004         161,00      097    15284603320
+  1    032097-8  JORGE DE FATIMA FERREIRA MOTA  -3o. SARGENTO                  0580      097     096   004         111,50      097    13164457391
+  1    035932-7  LUCIA DE FATIMA FERREIRA DA SI -AGENTE TECNICO DE SERVICO     0580      097     096   001         746,41      097    22691774368
+  1    035949-1  RAIMUNDA DE SOUSA MATOS DA SIL -AGENTE OPERACIONAL DE SERVICO 0580      097     096   001          96,59      097    18541690334
+  1    038799-1  EDILMA CARVALHO COSTA          -AGENTE SUPERIOR DE SERVICO    0580      097     084   001          73,63      097    08016020330
+  1    040102-1  HELI VELOSO FILHO              -AGENTE OPERACIONAL DE SERVICO 0580      097     096   002         270,19      097    07845847372
+  1    044139-2  NEUSA MARIA DE SOUSA           -POLICIAL PENAL                0580      097     096   005         114,80      097    45363447304
+  1    045143-6  ADIVAN SILVA LOPES             -AGENTE DE TRIBUTOS DA FAZENDA 0580      097     072   002         248,66      097    11931973172
+  1    047477-X  ANA CLAUDIA NASCIMENTO DA SILV -CAPITAO                       0580      097     096   002         182,89      097    48212059391
+  1    067451-6  JOAO PEREIRA DA SILVA          -AGENTE OPERACIONAL DE SERVICO 0580      097     096   002          98,50      097    24045047387
+  1    078884-8  RAIMUNDO NONATO CAVALCANTE VIA -SOLDADO                       0580      097     096   004          81,63      097    34941576349
+  1    083429-7  EDILSON JOSE BARBOSA DOS SANTO -                              0580      097     096   003         145,80      097    56625731315
+  1    085427-1  VALDEMI RIBEIRO SOARES         -GERENTE DE FINANCAS E CONTABI 0580      097     096   004          79,52      097    57853703368
+  1    090957-2  RUIMAR FONSECA DA COSTA        -POLICIAL PENAL                0580      097     096   002         131,88      097    09937455391
+
+Governo do Estado do Piauí                                                                                                              Pág:   12
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    124137-X  JOFRAN SANTOS MOURA            -POLICIAL PENAL                0580      097     096   004         182,05      097    84693525391
+  1    178803-5  JEANEY DOS SANTOS SEBA CORTEZ  -AGENTE OCUPACIONAL DE NIVEL S 0580      097     096   005         108,00      097    39567001391
+  1    363864-2  IRISMAR DO NASCIMENTO LACERDA  -AUXILIAR DE CONTROLE EXTERNO  0580      097     096   004         103,06      097    37376322353
+  1    369873-4  JANDIRA OLIVEIRA DE ALMEIDA PE -                              0580      097     096   004         104,48      097    18283888315
+  1    369874-2  JOSE FERNANDES DA SILVA FILHO  -                              0580      097     096   004         251,00      097    15187276387
+       Órgão Pagamento:  097-PIAUIPREV INATIVOS              -  91 Lançamento(s)  -  Total R$ 16.433,66
+
+  1    146202-4  CLEIDE MARIA FERREIRA DE VASCO 5-ASSIST. ADMINISTRATIVO       0580      123     096   003         385,00      120    19947801349
+       Órgão Pagamento:  120-EMGERPI-EMP.DE GEST.DE REC.PI   -  1 Lançamento(s)  -  Total R$ 385,00
+
+  1    006033-0  JOSE CARVALHO DA SILVA NETO    3-ANALISTA DE PESQUISA         0580      130     096   005         175,00      130    14541009315
+       Órgão Pagamento:  130-SEC MEIO AMB E REC HIDRICOS     -  1 Lançamento(s)  -  Total R$ 175,00
+
+  1    180742-X  MATEUS PIRES COSTA             2-EXTENSIONISTA RURAL II NVEL  0580      240     096   002         305,21      240    65696794300
+       Órgão Pagamento:  240-SEC.ASS.TÉC.DEFESA AGROPECUARIA  -  1 Lançamento(s)  -  Total R$ 305,21
+
+  1    269918-4  JOSEFA VALDENISIA DE SOUSA     2-AGENTE TECNICO DE SERVICO    0580      309     096   002          77,29      309    02257974107
+  1    287197-1  PAULO ROBERTO DE ALBUQUERQUE M 2-FISCAL ESTADUAL AGROPECUARIO 0580      309     096   001         318,00      309    04072792454
+       Órgão Pagamento:  309-ADAPI                           -  2 Lançamento(s)  -  Total R$ 395,29
+
+  1    171515-1  JORGE GEOVANE RODRIGUES DIAS   -PROFESSOR 40H                 0580      319     096   003         167,67      319    75939320368
+       Órgão Pagamento:  319-SEC DE TRANSPORTES              -  1 Lançamento(s)  -  Total R$ 167,67
+
+  1    014638-2  FRANCISCO CARLOS CARVALHO PERE 1SG-SUBTENENTE                 0580      321     096   005          77,30      321    35283440320
+  1    082761-4  JUSCELINO MAGALHAES            STE-1o. TENENTE                0580      321     096   002         381,00      321    57789924320
+  1    085392-5  RICARDO JOSE DOS SANTOS FILHO  STE-1o. TENENTE                0580      321     096   005         122,75      321    74428063334
+  1    416873-9  RICARDO ALEXANDER VIANA SILVA  -SOLDADO                       0580      321     096   004          72,33      321    05492908340
+       Órgão Pagamento:  321-CORPO DE BOMBEIRO MILITAR       -  4 Lançamento(s)  -  Total R$ 653,38
+
+  1    027451-8  FELIZARDO FERREIRA CALACO FILH 2-AGENTE TECNICO DE SERVICO    0580      322     096   004          99,54      322    33727260300
+       Órgão Pagamento:  322-FUND.RADIO E TV EDUC.DO PAIUI   -  1 Lançamento(s)  -  Total R$ 99,54
+
+  1    027300-7  ELZA HELENA DE CARVALHO LEITE  -                              0580      911     072   003         288,00      911    07815263372
+  1    033150-3  ANTONIO MARTINS DE SOUSA       -AGENTE OPERACIONAL DE SERVICO 0580      911     096   004         501,00      911    18605451300
+  1    047697-8  MARIA DO ROSARIO COSTA DE SOUZ -                              0580      911     096   005         130,31      911    22672222304
+  1    048631-X  MARIA DE FATIMA PEREIRA BESSA  -PROFESSOR-40HS                0580      911     096   005          83,00      911    11235063372
+  1    048658-2  MARIA LUCIA DOS SANTOS COSTA   -AGENTE OPERACIONAL DE SERVICO 0580      911     096   001          94,94      911    22686436387
+  1    049345-7  VACENIR DE ALMEIDA CARDOSO     -PROFESSOR-40HS                0580      911     096   003         442,58      911    15060284387
+  1    049401-1  ANTONIA ALVES BEZERRA          -PROFESSOR-40HS                0580      911     096   005         120,05      911    15191206304
+  1    049773-8  MARIA DE FATIMA PEREIRA        -PROFESSOR-40HS                0580      911     060   001         140,67      911    06643701368
+  1    049912-9  VALDINA FERNANDES DOS SANTOS   -                              0580      911     072   002         538,86      911    13823469304
+  1    049915-3  PAULO HENRIQUE DE VASCONCELOS  -PROFESSOR-40HS                0580      911     096   005         122,39      911    13204785300
+  1    050226-0  BERNARDO SOUSA BARROS          -PROFESSOR-40HS                0580      911     060   002         631,60      911    07855826300
+  1    050315-X  RAIMUNDO ALMEIDA MACHADO       -PROFESSOR-40HS                0580      911     096   001         105,00      911    06514111300
+  1    050484-0  BELISARIA DE JESUS PIAUILINO Q -PROFESSOR-40HS                0580      911     096   005         127,81      911    89860900310
+  1    050806-3  FRANCISCA MARLUCE DA ROCHA E S -                              0580      911     096   005         120,51      911    18447244334
+
+Governo do Estado do Piauí                                                                                                              Pág:   13
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    050889-6  MARIA ALBINA DA CRUZ           -AGENTE OPERACIONAL DE SERVICO 0580      911     060   002         157,83      911    87744325320
+  1    051257-5  RAIMUNDO NONATO ARAUJO SOUZA   -                              0580      911     060   001         132,74      911    04827074372
+  1    051303-2  EDILZA MARIA DE CARVALHO BRAUL -PROFESSOR-40HS                0580      911     096   004         126,00      911    18226345391
+  1    051453-5  MARGARIDA MARIA MENEZES DOS SA -PROFESSOR-40HS                0580      911     096   003         120,90      911    16027442387
+  1    051454-3  MARIA DA PAIXAO LUZ LEAL       -                              0580      911     096   005         120,35      911    16121236353
+  1    051868-9  ZENAIDE MARIA DA SILVA         -PROFESSOR-40HS                0580      911     096   003         138,54      911    21223017320
+  1    052290-2  MARIA ETELNISE DE OLIVEIRA     -PROFESSOR-40HS                0580      911     096   005          78,06      911    47312645100
+  1    052310-X  MARIA ENI DE SOUSA             -PROFESSOR-40HS                0580      911     096   005         130,00      911    21690537353
+  1    052548-X  FRANCISCO RAIMUNDO OSORIO      -PROFESSOR-40HS                0580      911     096   003         108,10      911    70513651349
+  1    053235-5  ANA ANTONIA SOARES VIANA SANTO -PROFESSOR-40HS                0580      911     096   002         134,41      911    37436082353
+  1    053304-1  FRANCISCA ELIANI FERREIRA      -PROFESSOR-40HS                0580      911     096   003         112,62      911    27387496315
+  1    053440-4  MARIA DE LOURDES COUTINHO DA S -                              0580      911     060   002         386,37      911    07718110397
+  1    053711-0  FRANCISCA MESSIA BRITO         -                              0580      911     096   003         114,00      911    15169669372
+  1    053849-3  LEONICE DE OLIVEIRA LIMA       -PROFESSOR-40HS                0580      911     072   002         104,10      911    33767076349
+  1    053857-4  MARIA DO SOCORRO SOUZA LEAL    -PROFESSOR-40HS                0580      911     084   004         115,00      911    09927298315
+  1    054331-4  LUCINEIDE DE SA CARVALHO COELH -PROFESSOR-40HS                0580      911     096   002         149,70      911    18349960310
+  1    054463-9  FRANCISCA LUSTOSA BORGES DANTA -                              0580      911     096   004         158,97      911    30678684391
+  1    054735-2  MARIA DO SOCORRO MATOS DE ARAU -PROFESSOR-40HS                0580      911     060   001         288,33      911    53686950391
+  1    055423-5  MAGNOLIA DE SOUSA GALVAO       -PROFESSOR-40HS                0580      911     096   003         104,26      911    13410369368
+  1    055765-0  MARIA DE FATIMA SOARES FERREIR -PROFESSOR-40HS                0580      911     096   004         135,90      911    84206918368
+  1    055956-3  SANIA DIAS DE CARVALHO         -PROFESSOR-40HS                0580      911     096   004         125,00      911    50426567315
+  1    056104-5  MARIA APARECIDA RIBEIRO NUNES  -PROFESSOR-40HS                0580      911     096   005         124,75      911    18167780368
+  1    056598-9  MARIA APARECIDA SILVA          -PROFESSOR-40HS                0580      911     096   004         166,45      911    37340697349
+  1    056760-4  BERNADETE MACHADO TEIXEIRA     -PROFESSOR-40HS                0580      911     096   005         134,30      911    24059706353
+  1    056882-1  MARIA DO SOCORRO ALVES COSTA   -PROFESSOR-40HS                0580      911     096   005         129,79      911    23106638320
+  1    057407-4  MARIA DE FATIMA GOMES LEAL SIL -PROFESSOR-40HS                0580      911     060   001         217,77      911    16031172372
+  1    057606-9  AIDA FERREIRA RAMOS            -PROFESSOR-40HS                0580      911     096   002         219,70      911    15306127304
+  1    057675-1  PLACIDO LUIZ DE OLIVEIRA       -PROFESSOR-40HS                0580      911     096   004         155,01      911    18110860397
+  1    057726-0  FRANCISCA TEIXEIRA BARBOSA     -PROFESSOR-40HS                0580      911     060   005         196,67      911    13081578353
+  1    058317-X  IVANILTON FERREIRA DE SOUSA    -PROFESSOR-40HS                0580      911     072   001          78,26      911    18103286320
+  1    059377-0  MARIA DO SOCORRO LEAO IVO      -AGENTE TECNICO DE SERVICO     0580      911     096   002         200,00      911    16092007304
+  1    059519-5  WILSON GOMES VIEIRA            -PROFESSOR-40HS                0580      911     096   002         407,00      911    09668560310
+  1    059534-9  MARIA DO ROSARIO DE FATIMA DA  -AGENTE OPERACIONAL DE SERVICO 0580      911     096   003          90,00      911    13358618315
+  1    059538-1  MARIA DO CARMO QUARESMA DE MEL -PROFESSOR-40HS                0580      911     072   004          83,22      911    09617213320
+  1    059694-9  LUCIA MARIA TORRES DE ANANIAS  -PROFESSOR-40HS                0580      911     096   002         172,74      911    15243664391
+  1    059721-0  MARIA DAS MERCES RIBEIRO LIMA  -PROFESSOR-40HS                0580      911     096   005         133,00      911    13208470304
+  1    059948-4  JOSE PEREIRA SOBRINHO          -PROFESSOR-40HS                0580      911     096   004         228,00      911    09656979320
+  1    060066-X  MARIA HELENA DA COSTA REIS     -                              0580      911     060   002         273,00      911    56510250306
+  1    060105-5  MARIA AUXILIADORA DE JESUS CAB -PROFESSOR-40HS                0580      911     084   003         128,22      911    13303813353
+  1    060299-0  MARIA DO CARMO SILVA DO NASCIM -PROFESSOR-40HS                0580      911     096   005         121,25      911    15641899372
+  1    060612-0  MARIA ROSALIA SOARES PEDROSA A -PROFESSOR-40HS                0580      911     060   004          84,46      911    18319874300
+  1    060613-8  FLORISLENE RIBEIRO DA SILVA AR -AGENTE TECNICO DE SERVICO     0580      911     096   002         105,00      911    39527573300
+  1    060677-4  ALICE LOPES DE ANDRADE E SILVA -PROFESSOR-40HS                0580      911     096   005         169,51      911    18118895300
+  1    060807-6  ROSIMAR PEREIRA DO VALE        -                              0580      911     060   002         197,88      911    06702546300
+  1    060808-4  IZAIRA MARIA ALEXANDRE E SILVA -PROFESSOR-40HS                0580      911     096   001         130,20      911    18209106368
+  1    060918-8  TIAGO ROBERTO DOS SANTOS       -PROFESSOR-40HS                0580      911     060   004         100,00      911    13033468349
+
+Governo do Estado do Piauí                                                                                                              Pág:   14
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    062018-1  FRANCISCA MARIA DA SILVA SIQUE -AGENTE TECNICO DE SERVICO     0580      911     084   001         215,30      911    33943940306
+  1    062173-X  MARIA DE FATIMA SOLANO BEZERRA -                              0580      911     096   003         303,78      911    55175554387
+  1    062243-5  MARIA DE FATIMA MARQUES DE MED -PROFESSOR-40HS                0580      911     096   002         331,00      911    07848935353
+  1    062564-7  DOMINGOS DIAS ANSELMO BRITO    -PROFESSOR-40HS                0580      911     096   004         102,00      911    13327356300
+  1    062602-3  MARIA JOSE DE SOUSA            -PROFESSOR-40HS                0580      911     096   003         300,00      911    07847866315
+  1    063290-2  ADAUTO JOSE CARNEIRO FILHO     -AGENTE OPERACIONAL DE SERVICO 0580      911     096   001         155,19      911    28652169349
+  1    063651-7  QUIRANEIDE LOPES DA SILVA      -PROFESSOR-40HS                0580      911     096   003         140,00      911    37263030306
+  1    063800-5  ROSALIA MARIA SANTOS SOUSA SIL -PROFESSOR-40HS                0580      911     096   004          85,08      911    37248928372
+  1    064086-7  ROSILENE COSTA MASCARENHAS     -PROFESSOR-40HS                0580      911     096   005         153,99      911    07788487368
+  1    064354-8  DAIZE FERREIRA BRANDAO DE SOUS -PROFESSOR-40HS                0580      911     096   002         241,00      911    13839454387
+  1    065423-0  DEUSUITE ALVES DE CARVALHO     -PROFESSOR-40HS                0580      911     096   004         128,00      911    07807554304
+  1    065636-4  MARIA ALDENIS DAS GRACAS ARAUJ -PROFESSOR-40HS                0580      911     084   005         140,20      911    07796226349
+  1    066182-1  MARIA LUCIA FERNANDES LIARTH   -PROFESSOR-40HS                0580      911     072   005         117,13      911    09742859353
+  1    066253-4  MARIA FERREIRA CASTRO REGO     -PROFESSOR-40HS                0580      911     096   003          98,78      911    06636721391
+  1    066679-3  MARIA FRANCISCA DE SOUSA       -PROFESSOR-40HS                0580      911     060   005          80,00      911    04837231349
+  1    066777-3  ZELIA MARIA JORGE DE OLIVEIRA  -PROFESSOR-40HS                0580      911     084   002          97,00      911    06590896372
+  1    067413-3  TERESINHA ALVES IBIAPINA       -PROFESSOR-40HS                0580      911     096   003         146,15      911    14557304320
+  1    067441-9  MARIA SELENE PACIFICO VIEIRA   -PROFESSOR-40HS                0580      911     060   003         318,73      911    07800274349
+  1    067483-4  LUIS CASTRO REGO               -PROFESSOR-40HS                0580      911     096   005         147,05      911    21932905391
+  1    067545-8  MARIA DO SOCORRO MELO FERREIRA -PROFESSOR-40HS                0580      911     096   002          80,00      911    35326263300
+  1    067654-3  FRANCISCO VILARINDO BARBOSA NE -PROFESSOR-40HS                0580      911     060   003         300,00      911    06647707387
+  1    067910-X  MARLUCIA LOPES GOMES           -PROFESSOR-40HS                0580      911     096   003         125,76      911    13040588320
+  1    067952-6  PEDRO PEREIRA DE OLIVEIRA NETO -PROFESSOR-40HS                0580      911     096   003         303,70      911    09986448387
+  1    068149-X  SANDRA MARIA DA SILVA          -PROFESSOR-20HS                0580      911     096   005          93,61      911    39596940325
+  1    068388-4  MARIA DO PERPETUO SOCORRO ALVE -PROFESSOR-40HS                0580      911     096   005         181,00      911    13249096334
+  1    068672-7  CLAUDETE MARIA SOARES          -PROFESSOR-40HS                0580      911     096   004         309,00      911    29636701334
+  1    069207-7  LUCIA MARIA LIMA MARQUES       -PROFESSOR-40HS                0580      911     096   005          90,00      911    15041280363
+  1    069348-X  MARIA DE FATIMA DE BRITO SANTO -PROFESSOR-40HS                0580      911     096   002         121,25      911    22796282368
+  1    069480-X  CELINA MARIA CALDAS DE SOUZA   -PROFESSOR-40HS                0580      911     096   004         113,82      911    23993960300
+  1    069681-1  MARIA DO AMPARO PINHEIRO DE SO -AGENTE OPERACIONAL DE SERVICO 0580      911     096   002         164,00      911    18182666368
+  1    069709-5  MARIA DAS DORES FREITAS SILVA  -PROFESSOR-40HS                0580      911     096   003         307,92      911    15036022300
+  1    069766-4  FRANCISCO CARLOS LOPES DA ROCH -PROFESSOR-40HS                0580      911     096   004         257,10      911    18172490372
+  1    070964-6  SORAYA NUNES BARBOSA           -PROFESSOR-40HS                0580      911     096   002         350,00      911    20039042391
+  1    070966-2  MARIA SALOME DOS SANTOS        -AGENTE OPERACIONAL DE SERVICO 0580      911     096   001          86,00      911    28719476353
+  1    071288-4  MARIA GERALDINA VIEIRA DA SILV -PROFESSOR-40HS                0580      911     096   003         726,91      911    13435175320
+  1    071331-7  MARIA EDILSE RODRIGUES DE CARV -PROFESSOR-40HS                0580      911     096   003         100,82      911    30601843304
+  1    071610-3  DAVID MOITA DE CARVALHO        -PROFESSOR-40HS                0580      911     096   002         200,35      911    22753397368
+  1    071853-0  FATIMA MARIA OLIVEIRA ROSA     -PROFESSOR-40HS                0580      911     096   002         228,98      911    03179844892
+  1    072003-8  MARIA RAIMUNDA PEREIRA DA SILV -PROFESSOR-20HS                0580      911     096   004          75,57      911    22765611300
+  1    072505-6  LAIDES BASTOS                  -TECNICO EM GESTAO EDUCACIONAL 0580      911     096   005         289,00      911    13065882353
+  1    072969-8  CECILANDIA MENDES LIMA DE CARV -                              0580      911     060   005         257,00      911    07766408368
+  1    073293-1  GILDETE ROCHA MARQUES          -PROFESSOR-40HS                0580      911     096   003         138,84      911    19926936334
+  1    073657-X  EDUVIRGENS GOMES DO NASCIMENTO -PROFESSOR-40HS                0580      911     096   004         109,45      911    22636390391
+  1    073682-1  MARIA DA CONCEICAO ALVES DA CR -PROFESSOR-40HS                0580      911     096   001         145,16      911    31506755372
+  1    074203-1  MARIA ASSUNCAO INACIO DE OLIVE -PROFESSOR-40HS                0580      911     096   005         197,17      911    27494020349
+  1    074338-X  ADELVANI OLIVEIRA NUNES VIANA  -PROFESSOR-40HS                0580      911     096   005         195,00      911    15651541349
+
+Governo do Estado do Piauí                                                                                                              Pág:   15
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    074609-6  MARIA DELZUITE DE LIMA SILVA   -PROFESSOR-40HS                0580      911     096   003         200,00      911    25551108368
+  1    074748-3  TANIA MARIA DOS SANTOS COSTA   -PROFESSOR-40HS                0580      911     096   001         125,00      911    27456161372
+  1    075049-2  MARIA RITA DE SOUSA RIBEIRO    -PROFESSOR-40HS                0580      911     096   005         173,95      911    22626140325
+  1    075246-X  MARIA BARBOSA DA SILVA         -AGENTE OPERACIONAL DE SERVICO 0580      911     072   001         241,00      911    30501130306
+  1    075488-9  ROSILENE MESQUITA DE SOUSA     -PROFESSOR-40HS                0580      911     096   002         250,00      911    23935910363
+  1    075948-1  DOLIMAR PEREIRA DOS SANTOS     -PROFESSOR-40HS                0580      911     096   003         123,81      911    22720260363
+  1    076058-7  MARLETE RIBEIRO DE ARAUJO      -PROFESSOR-40HS                0580      911     096   004         377,25      911    30476887372
+  1    076092-7  JOSE VALDIR SPINDOLA           -PROFESSOR-40HS                0580      911     096   001          81,05      911    13833111372
+  1    076633-0  MARIA ARLENE SOARES CRUZ       -PROFESSOR-40HS                0580      911     096   004         152,40      911    37324179304
+  1    076919-3  MARIA DE JESUS DOS SANTOS FONT -PROFESSOR-40HS                0580      911     096   002         143,75      911    18103421391
+  1    077029-9  ELENICE PINHEIRO BARROS        -PROFESSOR-40HS                0580      911     096   002         287,20      911    33055904320
+  1    077287-9  ELIANE DA SILVA SANTOS         -PROFESSOR-40HS                0580      911     096   003         143,20      911    25927892353
+  1    077348-4  FLORENTINO INACIO DE OLIVEIRA  -PROFESSOR-40HS                0580      911     096   004          71,70      911    22693297320
+  1    077592-4  AUDINELIA GOMES DO LIVRAMENTO  -PROFESSOR-40HS                0580      911     096   002         166,15      911    34800441315
+  1    077681-5  MARIA JOSE LOPES SILVA         -PROFESSOR-40HS                0580      911     060   001         692,93      911    24079340320
+  1    077831-1  MARIA DE JESUS DA SILVA CALIST -PROFESSOR-40HS                0580      911     096   003          84,93      911    22743588349
+  1    077866-4  MARIA DA CONCEICAO NARCISA SOU -PROFESSOR-40HS                0580      911     096   003         120,00      911    13289926320
+  1    078292-X  DORACION AGUIAR CRUZ           -PROFESSOR-40HS                0580      911     096   004          82,10      911    21726612368
+  1    079608-5  MARIA JURACEMA SILVA FERREIRA  -PROFESSOR-40HS                0580      911     096   005         169,46      911    30304962368
+  1    081368-X  TOMAZ DOS SANTOS LOPES         -PROFESSOR-40HS                0580      911     060   004          71,35      911    14549166304
+  1    082819-0  REGINA COELI SOUSA CASTRO      -PROFESSOR-40HS                0580      911     096   004         130,00      911    57896100304
+  1    083607-9  JUCILEIDE SOARES DE ABREU      -PROFESSOR-40HS                0580      911     096   001         133,00      911    69589437320
+  1    083997-3  SUELY BARROS SALES             -PROFESSOR-40HS                0580      911     096   004         159,87      911    35022485320
+  1    084580-9  EDINALVA SOBREIRA DA SILVA     -PROFESSOR-40HS                0580      911     096   004         174,69      911    36219177304
+  1    085144-2  MARIA JOSINA LOPES DA SILVA    -PROFESSOR-40HS                0580      911     096   004         107,21      911    37281577320
+  1    086309-2  MARIA AURI DOS SANTOS RIBEIRO  -PROFESSOR-40HS                0580      911     096   005          80,44      911    55440517391
+  1    086322-0  FRANCISCA MARIA DA SILVA FARIA -PROFESSOR-40HS                0580      911     096   004         218,56      911    56658222304
+  1    094293-6  RAIMUNDO MARTINS DE SOUSA      -PROFESSOR-40HS                0580      911     096   002         200,00      911    07928203391
+  1    101017-4  SANDRA MARIA FERREIRA MACHADO  -PROFESSOR-40HS                0580      911     096   004         134,34      911    39546721387
+  1    110524-8  RAIMUNDA NONATA LIMA DOS SANTO -PROFESSOR-40HS                0580      911     096   004         161,42      911    45359474300
+  1    115607-1  LUCIA HELENA DOS SANTOS        -PROFESSOR-40HS                0580      911     096   004          85,30      911    80374638349
+  1    199924-9  MARIA DE LOURDES OLIVEIRA DE A -PROFESSOR-40HS                0580      911     096   003         141,97      911    71683771320
+  1    222387-2  VICENTE RIBEIRO DE PAULA       -AGENTE OPERACIONAL DE SERVICO 0580      911     072   001          80,00      911    06708455315
+       Órgão Pagamento:  911-PIAUIPREV INATIVOS EDUCACAO     -  139 Lançamento(s)  -  Total R$ 24.945,90
+
+  1    027584-X  MARIA DO SOCORRO ALVES PEREIRA 1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   002          77,00      914    37316869372
+  1    059614-X  FELINTO ELISIO RIBEIRO FILHO   1-PROFESSOR 40H                0580      914     096   005         163,00      914    22478060310
+  1    059782-1  MARIA DO LIVRAMENTO DE ALMEIDA -PROFESSOR 40H                 0580      914     096   004         108,83      914    34950516353
+  1    062279-6  MARIA GIZONHA LIMA DA SILVA    1-PROFESSOR 40H                0580      914     096   004          80,00      914    23374608353
+  1    062539-6  MARIA HELENA OLIVEIRA SAMPAIO  1-PROFESSOR 40H                0580      914     072   002          73,72      914    07878702349
+  1    063790-4  TERESINHA DE JESUS SANTANA OLI 1-PROFESSOR 40H                0580      914     096   002         556,43      914    34055070306
+  1    071438-X  DALVA LUCIA DA SILVA LOPES     2-AGENTE TECNICO DE SERVICO    0580      914     096   005         175,37      914    34974660349
+  1    073399-7  NEIDE MOURA CARDOSO DE CARVALH 5-PROFESSOR-20H                0580      914     084   004          82,24      914    38633078368
+  1    073719-4  MARIA DO ROSARIO DE MIRANDA BE 2-AGENTE TECNICO DE SERVICO    0580      914     096   005         200,00      914    47439378334
+  1    073807-7  MARIA DO ROSARIO GOMES ALMEIDA 1-PROFESSOR 40H                0580      914     096   005         130,18      914    20063962349
+  1    077131-7  JOAO GIL BARBOSA               1-PROFESSOR 40H                0580      914     096   005         123,65      914    15192326320
+
+Governo do Estado do Piauí                                                                                                              Pág:   16
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    078142-8  JOAQUIM MIGUEL VIEIRA DE ABREU 2-AGENTE TECNICO DE SERVICO    0580      914     096   001         169,00      914    14547813353
+  1    078343-9  VALDELICE DA SILVA FREITAS     1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   003          74,42      914    36138746368
+  1    080594-7  PAULO CESAR OLIVEIRA NEGREIROS 1-PROFESSOR 40H                0580      914     096   001         137,35      914    22638539368
+  1    081099-1  JOSE AFONSO DE ARAUJO SILVA    1-PROFESSOR 40H                0580      914     096   004          93,18      914    27492419368
+  1    081146-7  UYLDA MAYHAME FERNANDES DE SOU 1-PROFESSOR 40H                0580      914     096   004         125,59      914    53596617391
+  1    081253-6  CONCEICAO DE MARIA DE ARAUJO S 1-PROFESSOR 40H                0580      914     096   001         224,10      914    59144050330
+  1    083792-0  FRANCISCO EDCARLOS COUTINHO    1-PROFESSOR 40H                0580      914     096   001         148,00      914    32243448300
+  1    083901-9  FRANCISCO DE ASSIS DA COSTA OT 1-PROFESSOR 40H                0580      914     096   004         129,00      914    22772456315
+  1    083926-4  LUIS HERMINO DO MONTE          1-PROFESSOR 40H                0580      914     096   003         243,78      914    16094476387
+  1    084607-4  ANA CELIA DE JESUS VERAS       1-PROFESSOR 40H                0580      914     096   005         141,00      914    22160043320
+  1    085983-4  MARIA DA CRUZ BESERRA          3-ORIENTADOR EDUCACIONAL-40H   0580      914     096   003         102,77      914    39728846304
+  1    086294-X  JOSSEILDE SANTANA DA SILVA     1-PROFESSOR 40H                0580      914     096   003          96,20      914    45352089304
+  1    086312-2  LUZIMAR DEODATO PARAGUAI       1-PROFESSOR 40H                0580      914     096   004         106,02      914    49475029168
+  1    092574-8  MARIA DO SOCORRO SALES RAMOS   -AGENTE OPERACIONAL DE SERVICO 0580      914     096   001         386,94      914    46302786304
+  1    093911-X  EVREE JANNE MENDES GONCALVES D 1-PROFESSOR 40H                0580      914     096   005         174,02      914    76916189304
+  1    095762-3  ANTONIA DE SOUSA ANDRADE       5-PROFESSOR-20H                0580      914     096   005          80,61      914    30692784349
+  1    096623-1  MARIA VERONICA DIAS MELO       1-PROFESSOR 40H                0580      914     096   005         118,00      914    42864224372
+  1    097171-5  MARLY CIPRIANO FEITOSA         5-PROFESSOR-20H                0580      914     096   004         171,61      914    43962513353
+  1    097734-9  FRANCISCA MARIA DE OLIVEIRA    1-PROFESSOR 40H                0580      914     096   003         105,30      914    46246592368
+  1    098128-1  RONALDO COSTA SALES            1-PROFESSOR 40H                0580      914     096   005          92,80      914    51513692372
+  1    098187-7  DANIEL DA SILVA JUNIOR         1-PROFESSOR 40H                0580      914     096   001         100,00      914    73629235387
+  1    098214-8  DIANA DE SOUSA COSTA           1-PROFESSOR 40H                0580      914     096   004          93,84      914    62772511391
+  1    098845-6  LUIZ VIEIRA DE LIMA            1-PROFESSOR 40H                0580      914     096   002          95,96      914    06621660359
+  1    099115-5  WILSON CORREIA DA SILVA        1-PROFESSOR 40H                0580      914     096   003         132,00      914    80423078372
+  1    100081-X  FRANCISCO HUMBERTO VAZ DA COST 1-PROFESSOR 40H                0580      914     096   003         107,70      914    47454750397
+  1    100842-X  ANTONIO LUIS DA SILVA          1-PROFESSOR 40H                0580      914     096   004         118,00      914    71981306315
+  1    101135-9  IZILDA MARIA DE MOURA          1-PROFESSOR 40H                0580      914     096   001          79,29      914    70445613300
+  1    101160-0  ALINE BARROS GIRAO             1-PROFESSOR 40H                0580      914     096   004         151,00      914    85453498315
+  1    103266-6  FLORISA SOARES TAVARES         1-PROFESSOR 40H                0580      914     096   005         201,00      914    82737843391
+  1    103505-3  SELMA MARIA ALVES DE JESUS     5-PROFESSOR-20H                0580      914     096   005          97,33      914    49797930378
+  1    103684-0  ADILSON PAULINO RATSBONE       1-PROFESSOR 40H                0580      914     096   003          76,86      914    13551303878
+  1    103741-2  VALNISA MARIA DE CARVALHO ROSA 1-PROFESSOR 40H                0580      914     096   003         113,99      914    38293331372
+  1    104090-1  MARIA ELITA ARAGAO             1-PROFESSOR 40H                0580      914     096   005         247,00      914    69423385320
+  1    105188-1  MONICA CARDOSO SILVA           1-PROFESSOR 40H                0580      914     096   004         162,30      914    81146086334
+  1    105891-6  RAIMUNDA HILSA ALMEIDA PORTEL  1-PROFESSOR 40H                0580      914     096   004          75,95      914    92122094320
+  1    106312-0  TANIA MARCIA PEREIRA DE CARVAL 1-PROFESSOR 40H                0580      914     096   005         162,00      914    62262831300
+  1    106349-9  ARLINDA BARBOSA DOS SANTOS     1-PROFESSOR 40H                0580      914     096   003         130,00      914    91300096349
+  1    106357-0  TISCIANE CASTRO LUZ VIEIRA     1-PROFESSOR 40H                0580      914     096   005         156,11      914    89471695368
+  1    106438-0  ANTONIO RIBEIRO SOBRINHO FILHO 1-PROFESSOR 40H                0580      914     096   003         162,88      914    46327304320
+  1    106507-6  MILLENA OLIVEIRA BEZERRA       1-PROFESSOR 40H                0580      914     096   004         116,25      914    88318435320
+  1    106675-7  FRANCISCA DE ASSIS DOS SANTOS  1-PROFESSOR 40H                0580      914     096   005         141,10      914    90023161353
+  1    106713-3  SUELE NOGUEIRA DE SOUSA RIBEIR 1-PROFESSOR 40H                0580      914     096   005         104,00      914    79070213320
+  1    106866-X  JOAO LUIS DOS SANTOS OLIVEIRA  1-PROFESSOR 40H                0580      914     096   004         140,54      914    04106174820
+  1    107441-5  CLEIDINALVA ANTONIA DA CONCEIC 5-PROFESSOR-20H                0580      914     096   005          99,00      914    93870620315
+  1    107528-4  NORBERTO DA SILVA NORONHA NETO 1-PROFESSOR 40H                0580      914     096   002          78,85      914    33823243349
+  1    107901-8  LIA MARCIA AMORIM BARROS       5-PROFESSOR-20H                0580      914     096   005         122,16      914    37500724349
+
+Governo do Estado do Piauí                                                                                                              Pág:   17
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    107906-9  EDMAR DA SILVA BASTOS          1-PROFESSOR 40H                0580      914     096   004         213,00      914    72165430763
+  1    107952-2  GERMANO AUGUSTO CASTRO LIARTE  5-PROFESSOR-20H                0580      914     096   001         112,05      914    62518950397
+  1    109308-8  ANA PAULA SOUSA                1-PROFESSOR 40H                0580      914     096   004         139,17      914    71712089315
+  1    109591-9  DEUSELINA CARVALHO SANTOS      1-PROFESSOR 40H                0580      914     096   004         150,00      914    95771387304
+  1    109596-0  CLAUDIA DE CARVALHO SOUSA      1-PROFESSOR 40H                0580      914     096   005         132,26      914    85745375353
+  1    109639-7  RAIMUNDO RIBEIRO DE CARVALHO F 1-PROFESSOR 40H                0580      914     096   004         148,28      914    53490983300
+  1    109645-1  REGINALDO BRANDAO DA SILVA     1-PROFESSOR 40H                0580      914     096   004       1.063,03      914    25528129885
+  1    109979-5  LAERCIO DO NASCIMENTO ALMEIDA  1-PROFESSOR 40H                0580      914     096   005         189,00      914    75770563320
+  1    110523-0  IRANILDA ROCHA DE OLIVEIRA     1-PROFESSOR 40H                0580      914     096   004         140,00      914    76256766334
+  1    110529-9  MARCIA RIBEIRO MOREIRA RAMOS   1-PROFESSOR 40H                0580      914     096   002         135,46      914    35240954372
+  1    110616-3  MARIA DA CRUZ DE SOUSA SILVA   1-PROFESSOR 40H                0580      914     096   005          93,38      914    76052281391
+  1    110628-7  ELIANE DOS SANTOS SILVA        1-PROFESSOR 40H                0580      914     096   002         112,00      914    84170131304
+  1    110789-5  ADAO DEVEZA ROCHA              1-PROFESSOR 40H                0580      914     096   003         133,00      914    82353778372
+  1    111038-1  SANDRA RODRIGUES DE SOUSA      1-PROFESSOR 40H                0580      914     096   005         120,00      914    74373250391
+  1    112663-6  GERSON PEREIRA DO NASCIMENTO   5-PROFESSOR-20H                0580      914     096   002         154,64      914    35072520315
+  1    112858-2  LUZANIR CARVALHO DE OLIVEIRA   1-PROFESSOR 40H                0580      914     096   004         132,65      914    78037190315
+  1    112862-X  JANETE PIMENTEL DE SOUSA       5-PROFESSOR-20H                0580      914     096   001         154,39      914    21720282315
+  1    112863-9  CLEMILDA ALVES DE ARAUJO SANTO 1-PROFESSOR 40H                0580      914     096   002         114,00      914    37423444391
+  1    112912-X  RUTH MARIA DE SOUSA FIGUEIREDO 1-PROFESSOR 40H                0580      914     096   002         173,71      914    37494678387
+  1    112969-4  ANGELITA DE ALMEIDA COSTA MACE 1-PROFESSOR 40H                0580      914     096   003         193,00      914    37291637368
+  1    114483-9  JANICE DE FATIMA NASCIMENTO    5-PROFESSOR-20H                0580      914     096   004          99,00      914    48981605300
+  1    114575-4  MARIA IRAIDE DA SILVA MELO     1-PROFESSOR 40H                0580      914     096   004          73,00      914    81483708349
+  1    115507-5  HERCULANA DE OLIVEIRA MASCAREN 1-PROFESSOR 40H                0580      914     072   003         292,16      914    68493088315
+  1    115697-7  MARIA LUCIA DE LIMA            1-PROFESSOR 40H                0580      914     096   003          86,34      914    97545147391
+  1    116048-6  FRANCISCO GONCALVES IBIAPINO J 1-PROFESSOR 40H                0580      914     096   002         126,00      914    52104192315
+  1    124404-3  LUIZ JOSE DO NASCIMENTO FILHO  1-PROFESSOR 40H                0580      914     096   004         156,00      914    71083456334
+  1    131578-1  DIANA GOMES SOUSA              1-PROFESSOR 40H                0580      914     096   004          89,85      914    90767845315
+  1    142103-4  NILVAN BARBOSA MIRANDA         1-PROFESSOR 40H                0580      914     096   005         147,06      914    49867334353
+  1    143207-9  MARCILENE ESTEVAM DA ROCHA     1-PROFESSOR 40H                0580      914     096   003          85,85      914    72525061349
+  1    143244-3  GILMAR NUNES DA SILVA          5-PROFESSOR-20H                0580      914     096   001         157,21      914    36163163320
+  1    143421-7  FRANCISCO SEVERINO DE SOUSA NE 1-PROFESSOR 40H                0580      914     096   002         226,47      914    41233379372
+  1    143422-5  IVANISIO BOTELHO IGREJA        1-PROFESSOR 40H                0580      914     096   004         106,09      914    78241391315
+  1    145496-0  LUIZA MARIA BARBOSA DE MIRANDA 1-PROFESSOR 40H                0580      914     096   003         166,00      914    28706129315
+  1    171134-2  RODRIGO CELIO FERREIRA MOURA S 1-PROFESSOR 40H                0580      914     096   004         317,91      914    88018806349
+  1    171374-4  ANTONIO CARLOS PEREIRA DO VALE 1-PROFESSOR 40H                0580      914     096   003         122,32      914    38701545353
+  1    171473-2  LOURINALDO DA ROCHA PITA       1-PROFESSOR 40H                0580      914     096   001         207,85      914    34981241372
+  1    171525-9  NILSON RODRIGUES DOS SANTOS    1-PROFESSOR 40H                0580      914     096   005         179,90      914    85866326353
+  1    171538-X  JOSE DE SOUSA NETO             1-PROFESSOR 40H                0580      914     096   004         103,47      914    91299136320
+  1    171557-7  TANIA DE JESUS BENVINDO DA FON 1-PROFESSOR 40H                0580      914     096   004         113,68      914    84878142391
+  1    171632-8  EDINALDA MARIA DA SILVA        1-PROFESSOR 40H                0580      914     096   004         104,50      914    77867831304
+  1    171660-3  FRANCISCA SULIZETE COSTA       1-PROFESSOR 40H                0580      914     096   003         132,27      914    03900596417
+  1    171688-3  SUZITA MARIA DE AMARAL SILVA   1-PROFESSOR 40H                0580      914     096   002         110,01      914    82935491300
+  1    179039-X  ANTONIO CARLOS ARAUJO OLIVEIRA 1-PROFESSOR 40H                0580      914     096   004         155,26      914    49837230304
+  1    179060-9  LENA MARIA RODRIGUES CORDEIRO  1-PROFESSOR 40H                0580      914     096   005         107,76      914    09144692315
+  1    179068-4  EDNA TEIXEIRA FERNANDES        1-PROFESSOR 40H                0580      914     096   004          79,90      914    87627299349
+  1    179085-4  JOSEMARA DE SOUSA SOARES       1-PROFESSOR 40H                0580      914     096   003         255,00      914    89273460330
+
+Governo do Estado do Piauí                                                                                                              Pág:   18
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    179178-8  MARCIA BEATRIZ BARROS CAMINHA  1-PROFESSOR 40H                0580      914     096   004         158,96      914    89543505349
+  1    179408-6  DOMINGOS SALES DO NASCIMENTO   1-PROFESSOR 40H                0580      914     096   004         149,07      914    91081777320
+  1    199460-3  FABRICIO FERREIRA LIMA         1-PROFESSOR 40H                0580      914     096   003         190,00      914    90883683334
+  1    199470-X  NAYANNA CARDOSO BEZERRA        1-PROFESSOR 40H                0580      914     096   003         130,00      914    96177535372
+  1    199494-8  JOSE AIRTON DO NASCIMENTO COST 1-PROFESSOR 40H                0580      914     096   005         114,56      914    63823829300
+  1    199516-2  VANIO DIAS RODRIGUES           1-PROFESSOR 40H                0580      914     096   004         121,88      914    47927615300
+  1    199522-7  ARISTOTELES MENESES LIMA       5-PROFESSOR-20H                0580      914     096   003         198,06      914    84161434391
+  1    199539-1  JOSE MILTON NEVES BORGES       1-PROFESSOR 40H                0580      914     096   005          82,27      914    23947381387
+  1    199542-1  IRMA CARLA DOS SANTOS SA       1-PROFESSOR 40H                0580      914     096   001         129,60      914    74094645349
+  1    199547-2  ANDERSON NEY BELIZARIO MOTA    1-PROFESSOR 40H                0580      914     096   005         115,21      914    70757720315
+  1    199976-1  ANA MARCIA LEAL VIEIRA         1-PROFESSOR 40H                0580      914     096   005          81,00      914    97600490315
+  1    200017-2  LIVIA RODRIGUES CHAVES         1-PROFESSOR 40H                0580      914     096   005          85,30      914    00380795345
+  1    205011-X  FRANCISCO RAIMUNDO CASTRO      1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001         200,00      914    31581298846
+  1    205206-7  REGINALDO ANDRADE DE OLIVEIRA  1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   003         181,60      914    53490991320
+  1    205651-8  SILVIO DOS SANTOS CARVALHO     1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   004          74,64      914    13626846865
+  1    205733-6  ABINAEUDES REIS SANTOS         1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   004         502,60      914    02530755302
+  1    219122-9  ANTONIO FRANCISCO SILVA DE MEL 1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   004          73,40      914    65120051391
+  1    221747-3  PAULO SERGIO COSTA DOS SANTOS  1-PROFESSOR 40H                0580      914     096   005         360,40      914    35285710391
+  1    221795-3  MARCOS ANTONIO DOS SANTOS SILV 1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001         139,37      914    49011510372
+  1    221863-1  AURINEIDE ALMEIDA              1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001         101,13      914    62375687353
+  1    222740-1  LAYSE RAFAELA CUNHA DE SOUSA   1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   004          89,88      914    02462166386
+  1    222755-0  DESDEMONA TELES DE OLIVEIRA E  1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   005         176,71      914    03687249301
+  1    223000-3  THIAGO DOUGLAS PEREIRA SILVA   1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   004         101,00      914    01259239373
+  1    226781-X  FRANCISCO ANDAILSON DA SILVA R 1-AGENTE OPERACIONAL DE SERVIC 0580      914     084   004         102,00      914    00751682357
+  1    229471-X  FRANCISCO IVO LIMA             1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001         109,25      914    44196520472
+  1    230362-X  SUELY RAMOS CARVALHO           1-PROFESSOR 40H                0580      914     096   005          92,93      914    70751412368
+  1    231011-2  ELYNEIDE TAVARES DE ARAUJO     1-PROFESSOR 40H                0580      914     096   004          78,50      914    98761633372
+  1    231032-5  JOAO BATISTA RODRIGUES DE OLIV 1-PROFESSOR 40H                0580      914     096   004         128,28      914    36220299353
+  1    231223-9  NIVALBER SOUSA ROCHA           1-PROFESSOR 40H                0580      914     096   004          99,77      914    94018790368
+  1    232840-2  JOSSIE LEITAO RODRIGUES DA SIL 1-PROFESSOR 40H                0580      914     096   004         100,32      914    72142537391
+  1    232873-9  LUIZ RAIMUNDO DE ABREU NETO    1-PROFESSOR 40H                0580      914     096   004         100,02      914    00350390355
+  1    233043-1  VANDEMARE DA CONCEICAO SOUSA   1-PROFESSOR 40H                0580      914     096   004         178,61      914    92278272349
+  1    233749-5  JOSE ERISVALDO RODRIGUES DA CO 2-SUPERVISOR PEDAGOGICO-40H    0580      914     096   005         128,51      914    82385114372
+  1    233763-X  RUBENASER COSTA BORGES         1-PROFESSOR 40H                0580      914     096   004         121,92      914    01139944355
+  1    257312-1  JOANA DARC BARBOSA DA SILVA DA 1-PROFESSOR 40H                0580      914     096   002         550,00      914    34753010325
+  1    260624-X  DAYARA JOVANA CAVALCANTE BARRO 1-PROFESSOR 40H                0580      914     096   004         200,00      914    99420686353
+  1    263904-1  LISANDRA MARCIA DA SILVA SANTA 1-PROFESSOR 40H                0580      914     096   002          72,19      914    00373658354
+  1    263943-2  TATIANA PACHECO ARAUJO         1-PROFESSOR 40H                0580      914     096   005          99,16      914    65849990330
+  1    266625-1  ANTONIA OSORIO ARAUJO NETA     1-PROFESSOR 40H                0580      914     096   002         116,68      914    01876486384
+  1    267726-1  RAIMUNDO NONATO SOARES CARVALH 1-PROFESSOR 40H                0580      914     096   003          98,69      914    01453216308
+  1    292970-8  CARLOS JOSE PEREIRA DA SILVA A 1-PROFESSOR 40H                0580      914     096   004         625,65      914    38737973304
+  1    293007-2  SERGIO KENNEDY VIEIRA DA SILVA 1-PROFESSOR 40H                0580      914     096   004          73,69      914    68617798220
+  1    293112-5  ALCEBIADES DE ARAUJO SILVA     1-PROFESSOR 40H                0580      914     096   004          84,00      914    80283470372
+  1    293166-4  KEILE MIRANDA SOARES           5-PROFESSOR-20H                0580      914     096   004         101,10      914    69980454172
+  1    293378-X  ROMUEL LIMA DOS SANTOS         1-PROFESSOR 40H                0580      914     096   002          98,00      914    02993647393
+  1    317000-4  RAIMUNDO DA GUIA PEREIRA DA SI 1-PROFESSOR 40H                0580      914     096   001         155,00      914    01179595378
+
+Governo do Estado do Piauí                                                                                                              Pág:   19
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    317007-1  CICERO QUIRINO DA SILVA NETO   1-PROFESSOR 40H                0580      914     096   003         109,67      914    04206858390
+  1    317014-4  MARIA DE LOURDES SILVA BORGES  5-PROFESSOR-20H                0580      914     060   004         420,00      914    48989754372
+  1    320919-9  LUIZ VALMOR DE SOUSA BARROS    1-PROFESSOR 40H                0580      914     096   004         116,99      914    01930594364
+  1    321028-6  VIRNA PEREIRA TEIXEIRA         5-PROFESSOR-20H                0580      914     096   004         280,37      914    79997163320
+  1    323063-5  ITAERCIO CAVALCANTE DO CARMO N 5-PROFESSOR-20H                0580      914     096   003         149,00      914    99903997353
+  1    327656-2  WILSON RIBEIRO PAES            5-PROFESSOR-20H                0580      914     096   005          79,33      914    23906650120
+  1    330737-9  ANDERSON NUNES COSTA           5-PROFESSOR-20H                0580      914     096   005          80,54      914    02873197331
+  1    330763-8  AIRAM ANICLE LOPES DE OLIVEIRA 5-PROFESSOR-20H                0580      914     096   005          71,00      914    02359516337
+  1    343678-X  RAPHAEL GERARDO MORAIS DE OLIV 5-PROFESSOR-20H                0580      914     096   003         167,82      914    00098831348
+  1    416671-0  GERSON SILVA ARAUJO            5-PROFESSOR-20H                0580      914     096   003         115,40      914    95716173349
+       Órgão Pagamento:  914-EDUCACAO - FUNDEB               -  159 Lançamento(s)  -  Total R$ 24.220,13
+
+  1    408568-0  FRANCIMAR NUNES PRADO          -ASSESSOR TECNICO LEGISLATIVO  0580      963     096   002         901,00      963    14373831149
+       Órgão Pagamento:  963-PIAUIPREV APOSENTADOS ALEPI     -  1 Lançamento(s)  -  Total R$ 901,00
+
+  1    408599-0  MARIA JOSE SOARES DA SILVA     -ASSESSOR TECNICO LEGISLATIVO  0580      964     096   001         200,00      964    18551637304
+       Órgão Pagamento:  964-PIAUIPREV APOSENTADOS ALEPI TESOURO  -  1 Lançamento(s)  -  Total R$ 200,00
+              Total do Status:  1  -  790 Lançamento(s)  -  Total R$ 187.735,58
+
+  2    044544-4  ADERSON EVELYN SOARES FILHO    3-AGENTE DE TRIBUTOS DA FAZEND 0580      009     096   003         363,00      009    09702458315
+       Órgão Pagamento:  009-SEC DA FAZENDA                  -  1 Lançamento(s)  -  Total R$ 363,00
+
+  2    083991-4  VILMAR BARBOSA DE SOUSA        -PROFESSOR 40H                 0580      011     096   001         150,00      011    30659043300
+  2    103338-7  KARLA PATRICIA SANTOS GOMES    5-PROFESSOR-20H                0580      011     096   001         177,00      011    83793186334
+       Órgão Pagamento:  011-SEC. DE ESTADO DA EDUCACAO      -  2 Lançamento(s)  -  Total R$ 327,00
+
+  2    004186-6  MARIA DELMA ALVES DE SOUZA BAR 2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   002         253,10      012    09670327334
+  2    004217-0  FRANCISCA INACIA NETA SILVA    2-AGENTE OCUPACIONAL DE NIVEL  0580      012     096   003         190,23      012    65417550353
+  2    021524-4  SILVIA MARIA DA SILVA          2-AGENTE TECNICO DE SERVICO    0580      012     096   001          71,00      012    23946938353
+       Órgão Pagamento:  012-SEC DE SAUDE                    -  3 Lançamento(s)  -  Total R$ 514,33
+
+  2    026457-1  FRANCISCO DAS CHAGAS NETO      1-NIVEL AUXILIAR               0580      016     096   004         190,00      016    30662206304
+       Órgão Pagamento:  016-D.E.R.-PI                       -  1 Lançamento(s)  -  Total R$ 190,00
+
+  2    108418-6  JOSE DE ANCHIETA DE SOUSA CARV AG.POL-AGENTE DE POLICIA       0580      027     096   003         100,00      027    34762388300
+       Órgão Pagamento:  027-SEC DE SEGURANCA PUBLICA        -  1 Lançamento(s)  -  Total R$ 100,00
+
+  2    245238-3  JUCIAN SOUSA SANTOS            13-CABO                        0580      028     096   002         173,00      028    00626410347
+  2    431987-7  THAYSON WALLACE WAQUIM OLIVEIR -SOLDADO                       0580      028     096   004         300,00      028    01110173350
+       Órgão Pagamento:  028-POLICIA MILITAR DO PIAUI        -  2 Lançamento(s)  -  Total R$ 473,00
+
+  2    022894-0  NORMA LUCIA SILVA RIBEIRO LAGO 2-AGENTE TECNICO DE SERVICO    0580      040     096   001         163,60      040    36140422353
+  2    086551-6  JOSE RIBAMAR GONCALVES LIMA    1-AGENTE OPERACIONAL DE SERVIC 0580      040     096   002         159,00      040    41699190178
+       Órgão Pagamento:  040-IASPI-INST.ASS.SAU.SERV.PUB.P   -  2 Lançamento(s)  -  Total R$ 322,60
+
+  2    009371-8  MARIA AMELIA SANTOS ARAUJO     -                              0580      090     096   004         143,26      090    34001310325
+
+Governo do Estado do Piauí                                                                                                              Pág:   20
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1130-BANCO DIGIO S/A                                                Referência: 10/2025   Data da Geração: 28/10/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  2    269053-5  MARIA DAS MERCES RIBEIRO DE MA -                              0580      090     096   004         190,00      090    39792714391
+  2    330520-1  MARIA DE FATIMA GREGORIO DE OL -PENSAO CIVIL                  0580      090     096   002          88,12      090    07726236353
+       Órgão Pagamento:  090-PIAUIPREV PENSIONISTAS          -  3 Lançamento(s)  -  Total R$ 421,38
+
+  2    001478-8  MARIA DO ROSARIO DE FATIMA OLI -AGENTE OPERACIONAL DE SERVICO 0580      097     096   001         104,00      097    34989781368
+  2    004274-9  JOAO VICENTE AYRES             -AGENTE OPERACIONAL DE SERVICO 0580      097     096   001         172,00      097    09943919353
+  2    010441-8  JOSE CANDIDO DE SOUSA          -3o. SARGENTO                  0580      097     096   001         104,12      097    13164090315
+  2    010728-0  MARIA DA CONCEICAO DAS GRACAS  -SUBTENENTE                    0580      097     084   002         134,52      097    06634494304
+  2    011816-8  CICERO ALBINO DE SANTANA       -SOLDADO                       0580      097     096   004         134,40      097    16033132300
+  2    012015-4  LOURIVAL SILVA DE MORAIS       -                              0580      097     084   001         104,25      097    07924798315
+  2    015703-1  ANISIO RODRIGUES DA SILVA      -3o. SARGENTO                  0580      097     096   001         121,50      097    42882729391
+  2    039669-9  DESTERRO PONTES BARROS BEZERRA -AGENTE OCUPACIONAL DE NIVEL S 0580      097     096   002         177,48      097    31687369372
+  2    044589-4  MIRILANDES TAVARES DA SILVA    -AGENTE TECNICO DE SERVICO     0580      097     096   001         110,00      097    45169047304
+       Órgão Pagamento:  097-PIAUIPREV INATIVOS              -  9 Lançamento(s)  -  Total R$ 1.162,27
+
+  2    025524-6  MARIA DE FATIMA SOUSA          6-ASSIST.ADMINISTRATIVO        0580      122     096   002         238,00      120    06637663387
+       Órgão Pagamento:  120-EMGERPI-EMP.DE GEST.DE REC.PI   -  1 Lançamento(s)  -  Total R$ 238,00
+
+  2    205344-6  AUTEMAR COSTA PEREIRA          1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001         127,28      240    39736830349
+       Órgão Pagamento:  240-SEC.ASS.TÉC.DEFESA AGROPECUARIA  -  1 Lançamento(s)  -  Total R$ 127,28
+
+  2    053104-9  MARIA DO ESPIRITO SANTO FERREI -                              0580      911     096   001         214,00      911    82985081300
+  2    055931-8  VANIA RODRIGUES DE FIGUEIREDO  -                              0580      911     072   003         183,00      911    31503799387
+  2    071577-8  ELMA MARIA ALMEIDA PIRES       -PROFESSOR-40HS                0580      911     096   002         240,00      911    67803270344
+  2    071702-9  ALZAIDE SANTOS RIBEIRO         -AGENTE TECNICO DE SERVICO     0580      911     096   002         107,75      911    34951806304
+  2    072593-5  MARIA VITORIA SENA DA SILVA LE -PROFESSOR-40HS                0580      911     096   003          88,00      911    15984869349
+       Órgão Pagamento:  911-PIAUIPREV INATIVOS EDUCACAO     -  5 Lançamento(s)  -  Total R$ 832,75
+
+  2    062398-9  MANOEL ANDRADE DE SOUSA NETO   2-AGENTE TECNICO DE SERVICO    0580      914     096   001         188,80      914    33730679368
+  2    070901-8  MARIA DE FATIMA DA SILVA DE JE 2-AGENTE TECNICO DE SERVICO    0580      914     096   002         128,20      914    18336787372
+  2    071843-2  LUIZ CARLOS ALEIXES DE OLIVEIR 1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001         151,68      914    22899600397
+  2    078166-5  MARIA JOSE PEREIRA DA SILVA    1-PROFESSOR 40H                0580      914     096   002         219,30      914    37374060300
+  2    104020-X  JOSILADY FRANCISCO CLEMENTINO  1-PROFESSOR 40H                0580      914     096   002         205,95      914    87735199368
+  2    109172-7  VALDONIO LOPES ROCHA           5-PROFESSOR-20H                0580      914     096   001         103,67      914    88024784300
+  2    114775-7  ANA ILDA DE MELO LIMA SILVA    5-PROFESSOR-20H                0580      914     096   002          84,85      914    24120910300
+  2    206166-0  PEDRO PEREIRA DOS SANTOS       1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   002          80,00      914    75145510349
+  2    222339-2  ANTONIA CRISTINA MOURAO E SILV 1-AGENTE OPERACIONAL DE SERVIC 0580      914     096   001          97,00      914    75708515368
+  2    330363-2  HUMBERTO COSTA SILVA           1-PROFESSOR 40H                0580      914     096   001         256,29      914    39569160349
+  2    331809-5  LUCIANO JORGE MOURA            5-PROFESSOR-20H                0580      914     096   005         881,61      914    74590464349
+       Órgão Pagamento:  914-EDUCACAO - FUNDEB               -  11 Lançamento(s)  -  Total R$ 2.397,35
+              Total do Status:  2  -  42 Lançamento(s)  -  Total R$ 7.468,96
+
+  3    057855-0  ROBERVAL RAMOS DE OLIVEIRA     -PROFESSOR-40HS                0580      911     096   005         949,00             10389334391
+       Órgão Pagamento:  -  -  1 Lançamento(s)  -  Total R$ 949,00
+              Total do Status:  3  -  1 Lançamento(s)  -  Total R$ 949,00
+
+
+Legenda do Status
+---------------------------------------------------------------------------------
+ 1 - Lançado e Efetivado
+ 2 - Não Lançado por Falta de Margem Temporariamente
+ 3 - Não Lançado por Outros Motivos(Ex.Matricula não encontrada; Mudança de órgão)
+ 4 - Lançado com Valor Diferente
+ 5 - Não Lançado por Problemas Técnicos
+ 6 - Lançamento com Erros
+ S - Não Lançado: Compra de Dívida ou Suspensão SEAD
+

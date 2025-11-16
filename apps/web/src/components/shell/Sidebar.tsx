@@ -6,7 +6,7 @@ import { Button, CollapseIcon } from "@lifecalling/ui";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
-  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon, Trophy, HelpCircle
+  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon, Trophy, HelpCircle, Shield
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -27,6 +27,7 @@ const NAV: Item[] = [
   { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","fechamento"] },
   { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro"] },
   { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
+  { label: "Auditoria",    href: "/admin/auditoria/sla", icon: Shield, roles: ["admin","supervisor"] },
   { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin"] },
   { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin"] },
   { label: "FAQ",          href: "/faq",        icon: HelpCircle, roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },

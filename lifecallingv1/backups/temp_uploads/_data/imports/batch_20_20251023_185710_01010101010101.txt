@@ -1,0 +1,21 @@
+Departamento De Policia Federal                                                                                                             Pág:    1
+Empresa de Tecnologia da Informação da Policia Federal- ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1049-Banco Santander                                 Referência: 09/2025   Data da Geração: 23/10/2025
+
+STATUS 0174525 Raimundo Alves Rodriques       Agente De Policia Federal                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1   0174525 Raimundo Alves Rodriques	        1-AGENTE                       0000      001     999   001          17,94      001    07817479372
+  
+
+Legenda do Status
+---------------------------------------------------------------------------------
+ 1 - Lançado e Efetivado
+ 2 - Não Lançado por Falta de Margem Temporariamente
+ 3 - Não Lançado por Outros Motivos(Ex.Matricula não encontrada; Mudança de órgão)
+ 4 - Lançado com Valor Diferente
+ 5 - Não Lançado por Problemas Técnicos
+ 6 - Lançamento com Erros
+ S - Não Lançado: Compra de Dívida ou Suspensão SEAD
+

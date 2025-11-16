@@ -1,0 +1,595 @@
+Governo do Estado do Piauí                                                                                                              Pág:    1
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    137964-0  NAIR OLIVEIRA DE JESUS         -                              8570      002     999   001          20.00      002    07797095353
+  1    137964-0  NAIR OLIVEIRA DE JESUS         -                              9940      002     072   054         221.93      002    07797095353
+       Órgão Pagamento:  002-SEC. EST. ADMIN. E PREVIDEN.    -  2 Lançamento(s)  -  Total R$ 241.93
+
+  1    002802-9  JOAQUIM VIEIRA FILHO           3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    22808922353
+  1    002802-9  JOAQUIM VIEIRA FILHO           3-AGENTE DE TRIBUTOS DA FAZEND 9940      009     072   041         300.00      009    22808922353
+  1    002939-4  CARLOS ALBERTO DE PAIVA DIAS   3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    20034121315
+  1    002939-4  CARLOS ALBERTO DE PAIVA DIAS   3-AGENTE DE TRIBUTOS DA FAZEND 9940      009     072   047         137.49      009    20034121315
+  1    003151-8  LIA RAQUEL DANTAS DA VEIGA     3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    37354426334
+  1    003151-8  LIA RAQUEL DANTAS DA VEIGA     3-AGENTE DE TRIBUTOS DA FAZEND 9940      009     072   041         165.00      009    37354426334
+  1    038629-4  CARLOS DE LIMA CARNEIRO        3-AGENTE DE TRIBUTOS DA FAZEND 9940      009     072   048         142.49      009    16010515300
+  1    038629-4  CARLOS DE LIMA CARNEIRO        3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    16010515300
+  1    038677-4  VERA LUCIA FONTENELE DE CARVAL 3-AGENTE DE TRIBUTOS DA FAZEND 9940      009     072   059         841.41      009    61951846320
+  1    038677-4  VERA LUCIA FONTENELE DE CARVAL 3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    61951846320
+  1    039761-0  ZENON DE ARAUJO RODRIGUES      3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    21781010382
+  1    039761-0  ZENON DE ARAUJO RODRIGUES      3-AGENTE DE TRIBUTOS DA FAZEND 9941      009     072   056         791.32      009    21781010382
+  1    039761-0  ZENON DE ARAUJO RODRIGUES      3-AGENTE DE TRIBUTOS DA FAZEND 9942      009     072   043          82.92      009    21781010382
+  1    039761-0  ZENON DE ARAUJO RODRIGUES      3-AGENTE DE TRIBUTOS DA FAZEND 9940      009     096   040         409.60      009    21781010382
+  1    169033-7  ALINE CARVALHO ESCORCIO COUTIN 3-AGENTE DE TRIBUTOS DA FAZEND 8570      009     999   001          20.00      009    79392911300
+       Órgão Pagamento:  009-SEC DA FAZENDA                  -  15 Lançamento(s)  -  Total R$ 3.010.23
+
+  1    101115-4  VANIA REGINA DE CARVALHO RIBEI 1-PROFESSOR 40H                8570      011     999   001          20.00      011    74732404391
+  1    101115-4  VANIA REGINA DE CARVALHO RIBEI 1-PROFESSOR 40H                9940      011     072   059         208.00      011    74732404391
+       Órgão Pagamento:  011-SEC. DE ESTADO DA EDUCACAO      -  2 Lançamento(s)  -  Total R$ 228.00
+
+  1    000791-9  FRANCISCA SOUSA DA SILVA       2-AGENTE TECNICO DE SERVICO    9940      012     072   050          86.39      012    29736692353
+  1    000791-9  FRANCISCA SOUSA DA SILVA       2-AGENTE TECNICO DE SERVICO    8570      012     999   001          20.00      012    29736692353
+  1    003866-X  ELIZABETH ALVES DOS SANTOS     2-AGENTE TECNICO DE SERVICO    8570      012     999   001          12.00      012    30717795349
+  1    024759-6  MARIA DO SOCORRO COSTA         2-AGENTE OCUPACIONAL DE NIVEL  9940      012     072   062          59.31      012    23983973353
+  1    024759-6  MARIA DO SOCORRO COSTA         2-AGENTE OCUPACIONAL DE NIVEL  8570      012     999   001          20.00      012    23983973353
+  1    038788-6  ALIA CORNELIO PESSOA           2-AGENTE TECNICO DE SERVICO    9942      012     096   036         181.47      012    27393364387
+  1    038788-6  ALIA CORNELIO PESSOA           2-AGENTE TECNICO DE SERVICO    8570      012     999   001          20.00      012    27393364387
+  1    040678-3  MARIA DA PAZ CAMPELO E SILVA V 2-AGENTE OCUPACIONAL DE NIVEL  8570      012     999   001          10.00      012    35398868349
+  1    074153-1  MARIA DE FATIMA DE SOUSA ROSAD -PROFESSOR 40H                 8570      012     999   001          20.00      012    29788129315
+  1    108718-5  MARIA ANITA BATISTA NETO       2-                             8570      012     999   001          20.00      012    57897760359
+  1    108718-5  MARIA ANITA BATISTA NETO       2-                             9940      012     072   057         298.38      012    57897760359
+  1    159600-4  URSIMAR FERREIRA DE OLIVEIRA   2-AGENTE OCUPACIONAL DE NIVEL  8570      012     999   001          20.00      012    30718643372
+  1    159600-4  URSIMAR FERREIRA DE OLIVEIRA   2-AGENTE OCUPACIONAL DE NIVEL  9940      012     072   057          97.98      012    30718643372
+  1    162640-0  EDNEUMA MARIA PEREIRA          148-RECEPCIONISTA              9941      146     072   048         218.12      012    76022757304
+  1    162640-0  EDNEUMA MARIA PEREIRA          148-RECEPCIONISTA              8570      146     999   001          20.00      012    76022757304
+  1    162640-0  EDNEUMA MARIA PEREIRA          148-RECEPCIONISTA              9940      146     072   060          74.60      012    76022757304
+  1    164573-X  MARLENE CUSTODIO VIEIRA        070-NUTRICIONISTA              9940      146     072   047         276.34      012    14456923172
+  1    164573-X  MARLENE CUSTODIO VIEIRA        070-NUTRICIONISTA              8570      146     999   001          20.00      012    14456923172
+  1    165045-9  SOLIMAR OLIVEIRA CARVALHO      029-AUX. DE ENFERMAGEM         8570      146     999   001          20.00      012    74235290363
+  1    165045-9  SOLIMAR OLIVEIRA CARVALHO      029-AUX. DE ENFERMAGEM         9940      146     072   046         125.00      012    74235290363
+  1    165454-3  GEORGELANA TERESA DE JESUS     052-SERVENTE                   8570      146     999   001          20.00      012    65352165353
+
+Governo do Estado do Piauí                                                                                                              Pág:    2
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    168666-6  JOSSANY COSTA NASCIMENTO       2-AGENTE OCUPACIONAL DE NIVEL  8570      012     999   001          20.00      012    80791166104
+  1    168666-6  JOSSANY COSTA NASCIMENTO       2-AGENTE OCUPACIONAL DE NIVEL  9940      012     096   040         169.10      012    80791166104
+  1    197884-5  DEJANIRA BANDEIRA DE LIMA FREI 2-AGENTE OCUPACIONAL DE NIVEL  9940      012     072   060          82.31      012    88727700330
+  1    197884-5  DEJANIRA BANDEIRA DE LIMA FREI 2-AGENTE OCUPACIONAL DE NIVEL  8570      012     999   001          20.00      012    88727700330
+       Órgão Pagamento:  012-SEC DE SAUDE                    -  25 Lançamento(s)  -  Total R$ 1.931.00
+
+  1    137992-5  MARIA DO SOCORRO SANTIAGO DA C -PRESTADOR DE SERVICO          9940      021     072   056         307.01      021    66762685315
+  1    137992-5  MARIA DO SOCORRO SANTIAGO DA C -PRESTADOR DE SERVICO          8570      021     999   001          20.00      021    66762685315
+  1    144036-5  PAULO CESAR DA SILVA LIBERATO  -PRESTADOR DE SERVICO          9940      021     072   056         304.93      021    44647670368
+  1    144036-5  PAULO CESAR DA SILVA LIBERATO  -PRESTADOR DE SERVICO          8570      021     999   001          20.00      021    44647670368
+       Órgão Pagamento:  021-SEC. DE ESTADO DE CULTURA       -  4 Lançamento(s)  -  Total R$ 651.94
+
+  1    001321-8  MARIA DE FATIMA DOS SANTOS COS AGOPSE-AGENTE OPERACIONAL DE S 9942      027     072   043          55.63      027    30643767304
+  1    001321-8  MARIA DE FATIMA DOS SANTOS COS AGOPSE-AGENTE OPERACIONAL DE S 9940      027     096   040          79.85      027    30643767304
+  1    001321-8  MARIA DE FATIMA DOS SANTOS COS AGOPSE-AGENTE OPERACIONAL DE S 9941      027     096   040         389.80      027    30643767304
+  1    001321-8  MARIA DE FATIMA DOS SANTOS COS AGOPSE-AGENTE OPERACIONAL DE S 8570      027     999   001          20.00      027    30643767304
+  1    008245-7  VILMA MARIA BRITO FERNANDES    AGTESE-AGENTE TECNICO DE SERVI 8570      027     999   001          20.00      027    09584773372
+  1    008245-7  VILMA MARIA BRITO FERNANDES    AGTESE-AGENTE TECNICO DE SERVI 9940      027     072   062         168.90      027    09584773372
+  1    009582-6  ERINALDA ARAUJO DA SILVA       AG.POL-AGENTE DE POLICIA       9940      027     096   040         340.51      027    39516245315
+  1    009589-3  RAIMUNDO ALVES DA COSTA        AG.POL-AGENTE DE POLICIA       9940      027     072   061         198.90      027    20136773320
+  1    009589-3  RAIMUNDO ALVES DA COSTA        AG.POL-AGENTE DE POLICIA       8570      027     999   001          20.00      027    20136773320
+  1    009709-8  EVALDO ALVES DA SILVA          AGTESE-AGENTE TECNICO DE SERVI 8570      027     999   001          20.00      027    34067132387
+  1    009709-8  EVALDO ALVES DA SILVA          AGTESE-AGENTE TECNICO DE SERVI 9940      027     072   047          96.93      027    34067132387
+  1    038968-4  JOAO ECLESIASTICO DE CARVALHO  AGTESE-AGENTE TECNICO DE SERVI 9941      027     096   040         102.90      027    14533677304
+  1    038968-4  JOAO ECLESIASTICO DE CARVALHO  AGTESE-AGENTE TECNICO DE SERVI 9940      027     096   040         201.07      027    14533677304
+  1    038968-4  JOAO ECLESIASTICO DE CARVALHO  AGTESE-AGENTE TECNICO DE SERVI 8570      027     999   001          20.00      027    14533677304
+  1    039217-X  JOSE CARLOS SILVA DE ASSUNCAO  AG.POL-AGENTE DE POLICIA       9940      027     072   059         310.33      027    11234369320
+  1    039217-X  JOSE CARLOS SILVA DE ASSUNCAO  AG.POL-AGENTE DE POLICIA       8570      027     999   001          20.00      027    11234369320
+  1    041040-3  HEVALDO ALVES DA SILVA         AG.POL-AGENTE DE POLICIA       8570      027     999   001          20.00      027    09633235391
+  1    041040-3  HEVALDO ALVES DA SILVA         AG.POL-AGENTE DE POLICIA       9940      027     072   060         293.20      027    09633235391
+  1    043652-6  ATENAGORAS ARAUJO DE CASTRO    AG.POL-AGENTE DE POLICIA       8570      027     999   001          20.00      027    34765077349
+  1    194607-2  FERNANDO OLIVEIRA ARAGAO       AG.POL-AGENTE DE POLICIA       9940      027     072   060          95.94      027    20346760330
+  1    194607-2  FERNANDO OLIVEIRA ARAGAO       AG.POL-AGENTE DE POLICIA       8570      027     999   001          20.00      027    20346760330
+       Órgão Pagamento:  027-SEC DE SEGURANCA PUBLICA        -  21 Lançamento(s)  -  Total R$ 2.513.96
+
+  1    013337-0  BENEDITO MARISCAL DE ARAUJO    8-CAPITAO                      9940      028     072   054         321.97      028    34933450382
+  1    013337-0  BENEDITO MARISCAL DE ARAUJO    8-CAPITAO                      8570      028     999   001          20.00      028    34933450382
+  1    013423-6  PEDRO PEREIRA DE OLIVEIRA      CC017-TECNICO NIVEL SUPERIOR   8570      028     999   001          40.00      028    32748248368
+  1    013423-6  PEDRO PEREIRA DE OLIVEIRA      CC017-TECNICO NIVEL SUPERIOR   9940      028     072   048          83.32      028    32748248368
+  1    013423-6  PEDRO PEREIRA DE OLIVEIRA      CC017-TECNICO NIVEL SUPERIOR   9941      028     072   048          63.27      028    32748248368
+  1    013423-6  PEDRO PEREIRA DE OLIVEIRA      CC017-TECNICO NIVEL SUPERIOR   9942      028     072   041         327.72      028    32748248368
+  1    013680-8  ISRAEL FERNANDES DE ARAUJO     11-1 SARGENTO                  9940      028     072   060         184.75      028    30647649349
+  1    013680-8  ISRAEL FERNANDES DE ARAUJO     11-1 SARGENTO                  8570      028     999   001          20.00      028    30647649349
+  1    013689-1  FRANCISCO DE ASSIS VAZ GOMES   9-SUBTENENTE                   9940      028     072   048         151.82      028    39479420368
+  1    013689-1  FRANCISCO DE ASSIS VAZ GOMES   9-SUBTENENTE                   8570      028     999   001          20.00      028    39479420368
+  1    014495-9  LUIS HENRIQUE VASCONCELOS REIS 5-CAPITAO                      8570      028     999   001          20.00      028    41164440306
+
+Governo do Estado do Piauí                                                                                                              Pág:    3
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    014495-9  LUIS HENRIQUE VASCONCELOS REIS 5-CAPITAO                      9940      028     072   060         133.14      028    41164440306
+  1    014541-6  RAIMUNDO NONATO DE SOUSA DOS S 9-SUBTENENTE                   9940      028     072   062          94.80      028    41190050382
+  1    014541-6  RAIMUNDO NONATO DE SOUSA DOS S 9-SUBTENENTE                   8570      028     999   001          20.00      028    41190050382
+  1    015266-8  ANTONIO RODRIGUES DOS SANTOS   12-2 SARGENTO                  8570      028     999   001          20.00      028    74720660363
+  1    015266-8  ANTONIO RODRIGUES DOS SANTOS   12-2 SARGENTO                  9940      028     096   040         123.74      028    74720660363
+  1    015279-0  FABIO ALVES DO NASCIMENTO      12-2 SARGENTO                  8570      028     999   001          20.00      028    15143947820
+  1    015279-0  FABIO ALVES DO NASCIMENTO      12-2 SARGENTO                  9940      028     072   059         120.74      028    15143947820
+  1    016079-2  JULIO CESAR DA SILVA DINIZ     12-3 SARGENTO                  8570      028     999   001          20.00      028    38716240391
+  1    016079-2  JULIO CESAR DA SILVA DINIZ     12-3 SARGENTO                  9941      028     096   031         268.99      028    38716240391
+  1    016092-0  ALESSANDRO GOMES DA SILVA      12-3 SARGENTO                  9940      028     072   060          71.55      028    47401982315
+  1    016092-0  ALESSANDRO GOMES DA SILVA      12-3 SARGENTO                  8570      028     999   001          20.00      028    47401982315
+  1    080740-X  CREONILDO VERAS ARAUJO         12-3 SARGENTO                  8570      028     999   001          20.00      028    42116880300
+  1    080740-X  CREONILDO VERAS ARAUJO         12-3 SARGENTO                  9940      028     072   060          79.79      028    42116880300
+  1    082862-9  LUCIANO MARIO DE SOUSA         12-3 SARGENTO                  8570      028     999   001          20.00      028    55195148368
+  1    082862-9  LUCIANO MARIO DE SOUSA         12-3 SARGENTO                  9940      028     072   061         110.91      028    55195148368
+  1    082898-0  FRANCISCO ERBERT MAGALHAES     9-SUBTENENTE                   8570      028     999   001          20.00      028    69295034368
+  1    082898-0  FRANCISCO ERBERT MAGALHAES     9-SUBTENENTE                   9940      028     072   058         153.85      028    69295034368
+  1    083445-9  JEANDESSE DA SILVA LIMA        6-CAPITAO                      8570      028     999   001          20.00      028    34970436304
+  1    084218-4  JOSE ROGERIO DA SILVA DE SOUZA 9-SUBTENENTE                   8570      028     999   001          20.00      028    56654529391
+  1    084231-1  JOAO BATISTA DE SOUZA FILHO    12-3 SARGENTO                  8570      028     999   001          20.00      028    47021500300
+  1    084231-1  JOAO BATISTA DE SOUZA FILHO    12-3 SARGENTO                  9940      028     072   048         197.61      028    47021500300
+  1    084232-0  JOSE DE JESUS CARVALHO COSTA   CC007-DIRETOR                  9940      028     072   048         134.56      028    62117491391
+  1    084232-0  JOSE DE JESUS CARVALHO COSTA   CC007-DIRETOR                  8570      028     999   001          20.00      028    62117491391
+  1    084243-5  MARCOS LUIS DA COSTA RODRIGUES 12-3 SARGENTO                  9940      028     072   057         334.55      028    56653352315
+  1    084243-5  MARCOS LUIS DA COSTA RODRIGUES 12-3 SARGENTO                  8570      028     999   001          20.00      028    56653352315
+  1    084362-8  FRANCISCO ODORICO DOS SANTOS A 9-SUBTENENTE                   8570      028     999   001          20.00      028    47022574391
+  1    084362-8  FRANCISCO ODORICO DOS SANTOS A 9-SUBTENENTE                   9940      028     072   057         127.90      028    47022574391
+  1    084894-8  WALTER DA SILVA TEIXEIRA       9-SUBTENENTE                   8570      028     999   001          20.00      028    39823857334
+  1    084894-8  WALTER DA SILVA TEIXEIRA       9-SUBTENENTE                   9940      028     072   041          60.00      028    39823857334
+  1    086636-9  FRANCISCO JOSE MONTEIRO DA SIL 12-3 SARGENTO                  8570      028     999   001          20.00      028    80177026391
+  1    088918-X  MIGUEL HENRIQUE DE OLIVEIRA RO 12-3 SARGENTO                  9940      028     072   061          93.21      028    57778892391
+  1    088918-X  MIGUEL HENRIQUE DE OLIVEIRA RO 12-3 SARGENTO                  8570      028     999   001          20.00      028    57778892391
+  1    206539-8  CARLOS ANDRE PEREIRA DA SILVA  12-2 SARGENTO                  9940      028     072   045         250.00      028    02656856302
+  1    206539-8  CARLOS ANDRE PEREIRA DA SILVA  12-2 SARGENTO                  8570      028     999   001          20.00      028    02656856302
+  1    244062-8  JOHNNY ANDERSON RAMOS DA SILVA 13-CABO                        8570      028     999   001          20.00      028    02025063393
+  1    244062-8  JOHNNY ANDERSON RAMOS DA SILVA 13-CABO                        9940      028     096   040         121.55      028    02025063393
+  1    330014-5  FRANCISCO CARLOS FEITOSA       11-3 SARGENTO                  8570      028     999   001          20.00      028    34929363349
+  1    330014-5  FRANCISCO CARLOS FEITOSA       11-3 SARGENTO                  9940      028     072   062         425.00      028    34929363349
+       Órgão Pagamento:  028-POLICIA MILITAR DO PIAUI        -  49 Lançamento(s)  -  Total R$ 4.554.74
+
+  1    016399-6  JOSE CAMPELO DA SILVA          1-AUXILIAR DE TRANSITO         9940      030     072   053         155.35      030    73879282820
+  1    016399-6  JOSE CAMPELO DA SILVA          1-AUXILIAR DE TRANSITO         8570      030     999   001          20.00      030    73879282820
+       Órgão Pagamento:  030-DETRAN PI                       -  2 Lançamento(s)  -  Total R$ 175.35
+
+  1    046568-2  CONCEICAO DE MARIA CARVALHO ME 9-PROFESSOR ASSISTENTE DEDICAC 8570      089     999   001          20.00      089    18550975320
+  1    087076-5  LIDIA VALDETE SOARES ALVES BOR 1-ADMINISTRATIVO - AUXILIAR DE 8570      089     999   001          20.00      089    28709012320
+
+Governo do Estado do Piauí                                                                                                              Pág:    4
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    142683-4  EDSON SILVA DOS SANTOS         -PRESTADOR DE SERVICO          9940      089     072   048         110.00      089    46269940320
+  1    142683-4  EDSON SILVA DOS SANTOS         -PRESTADOR DE SERVICO          9941      089     072   045          64.00      089    46269940320
+  1    142683-4  EDSON SILVA DOS SANTOS         -PRESTADOR DE SERVICO          8570      089     999   001          20.00      089    46269940320
+  1    227149-4  FILIPE AUGUSTO GONCALVES DE ME 1TE-                           9940      089     072   041         670.00      089    76694208049
+  1    227149-4  FILIPE AUGUSTO GONCALVES DE ME 1TE-                           8570      089     999   001          20.00      089    76694208049
+  1    280714-9  JAYRON VIANA DOS SANTOS        5-PROFESSOR AUXILIAR 40HS      9940      089     072   041         265.00      089    01834995302
+  1    280714-9  JAYRON VIANA DOS SANTOS        5-PROFESSOR AUXILIAR 40HS      8570      089     999   001          20.00      089    01834995302
+       Órgão Pagamento:  089-FUESPI-FUNDACAO U.E.DO PIAUI    -  9 Lançamento(s)  -  Total R$ 1.209.00
+
+  1    017615-0  ZENAIDE DA MOTA FALCAO         -                              8570      090     999   001          20.00      090    20173776353
+  1    017615-0  ZENAIDE DA MOTA FALCAO         -                              9940      090     072   056         135.00      090    20173776353
+  1    028759-8  MARIA ALICE DE ARAUJO          -                              8570      090     999   001          20.00      090    27365492368
+  1    028759-8  MARIA ALICE DE ARAUJO          -                              9940      090     072   057         138.77      090    27365492368
+  1    028978-7  LUIZA RODRIGUES DE SOUSA SILVA -                              8570      090     999   001          20.00      090    34955186300
+  1    028978-7  LUIZA RODRIGUES DE SOUSA SILVA -                              9940      090     048   043         207.17      090    34955186300
+  1    029013-X  SULAMITA VIANA LIMA DOS SANTOS -                              9940      090     072   059          63.82      090    32776721315
+  1    029013-X  SULAMITA VIANA LIMA DOS SANTOS -                              8570      090     999   001          20.00      090    32776721315
+  1    080194-1  VERA LUCIA COSTA RIBEIRO NASCI -                              8570      090     999   001          20.00      090    37498614391
+  1    080194-1  VERA LUCIA COSTA RIBEIRO NASCI -                              9940      090     072   062          70.63      090    37498614391
+  1    143117-0  MARIA DELMA COSTA PEREIRA      -                              9940      090     072   061       1.335.00      090    30478006349
+  1    143117-0  MARIA DELMA COSTA PEREIRA      -                              8570      090     999   001          20.00      090    30478006349
+  1    143545-X  TERESA OLIVEIRA RIBEIRO        -                              8570      090     999   001          20.00      090    74716972372
+  1    143545-X  TERESA OLIVEIRA RIBEIRO        -                              9940      090     072   059         722.35      090    74716972372
+  1    242811-3  MARIA DE JESUS ALMEIDA ARANHA  -                              8570      090     999   001          20.00      090    62339583349
+  1    242811-3  MARIA DE JESUS ALMEIDA ARANHA  -                              9940      090     072   061         212.90      090    62339583349
+  1    277398-8  ROSA MODESTO DA COSTA          -                              8570      090     999   001          20.00      090    55463010315
+  1    277398-8  ROSA MODESTO DA COSTA          -                              9940      090     072   059         379.50      090    55463010315
+  1    280630-4  FRANCISCO DE ASSIS NUNES       -                              8570      090     999   001          20.00      090    85903531334
+  1    280630-4  FRANCISCO DE ASSIS NUNES       -                              9940      090     072   057       1.335.00      090    85903531334
+  1    289496-3  ANA LAURITA TABOSA LIMA        -                              8570      090     999   001          20.00      090    63328127372
+  1    289813-6  FRANCISCA MARLENE DA SILVA TEI -PENSAO CIVIL                  9941      090     060   030         127.68      090    37349368372
+  1    289813-6  FRANCISCA MARLENE DA SILVA TEI -PENSAO CIVIL                  8570      090     999   001          14.12      090    37349368372
+  1    296817-7  CONCEICAO DE MARIA GALIZA SILV -PENSAO CIVIL                  8570      090     999   001          20.00      090    09597166372
+  1    296817-7  CONCEICAO DE MARIA GALIZA SILV -PENSAO CIVIL                  9940      090     072   054         202.20      090    09597166372
+  1    330408-6  ANTONIO JOSE VERAS             -PENSAO CIVIL                  8570      090     999   001          20.00      090    22671684304
+  1    330408-6  ANTONIO JOSE VERAS             -PENSAO CIVIL                  9940      090     072   061         439.70      090    22671684304
+       Órgão Pagamento:  090-PIAUIPREV PENSIONISTAS          -  27 Lançamento(s)  -  Total R$ 5.643.84
+
+  1    039099-2  MANOEL FERNANDES BRANDAO       1-POLICIAL PENAL               8570      095     999   001          20.00      095    09918868368
+  1    039099-2  MANOEL FERNANDES BRANDAO       1-POLICIAL PENAL               9940      095     072   047         194.93      095    09918868368
+  1    039117-4  FRANCISCO DAS CHAGAS SANTOS FI 1-POLICIAL PENAL               8570      095     999   001          20.00      095    47022418349
+  1    039126-3  JOSE MARIA VIEIRA SOBRINHO     1-POLICIAL PENAL               9940      095     096   040         513.71      095    23970731372
+  1    039126-3  JOSE MARIA VIEIRA SOBRINHO     1-POLICIAL PENAL               8570      095     999   001           8.00      095    23970731372
+  1    105619-X  FABRICIO JAMES CARNEIRO        1-POLICIAL PENAL               9940      095     072   060         356.94      095    71766065368
+  1    105619-X  FABRICIO JAMES CARNEIRO        1-POLICIAL PENAL               8570      095     999   001          20.00      095    71766065368
+       Órgão Pagamento:  095-SEC DA JUSTICA E DIR.HUMANOS    -  7 Lançamento(s)  -  Total R$ 1.133.58
+
+  1    001714-X  MARIA NATALICE DINIZ PESSOA    -AGENTE TECNICO DE SERVICO     8570      097     999   001          19.00      097    18281745304
+
+Governo do Estado do Piauí                                                                                                              Pág:    5
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    001714-X  MARIA NATALICE DINIZ PESSOA    -AGENTE TECNICO DE SERVICO     9940      097     096   037         100.64      097    18281745304
+  1    002247-X  JOSE DE RIBAMAR PEREIRA DA SIL -AUDITOR FISCAL AUXILIAR DA FA 8570      097     999   001          20.00      097    03590003391
+  1    002247-X  JOSE DE RIBAMAR PEREIRA DA SIL -AUDITOR FISCAL AUXILIAR DA FA 9940      097     072   041         158.77      097    03590003391
+  1    002664-6  MARIA TERESA MENDES DE OLIVEIR -AUDITOR GOVERNAMENTAL         8570      097     999   001          20.00      097    09586083349
+  1    002969-6  ARISTIDES PEREIRA DOS SANTOS   -AUDITOR FISCAL DA FAZENDA EST 8570      097     999   001          20.00      097    09603719315
+  1    003127-5  OTAVIO BORGES DE MIRANDA       -ANALISTA AUXILIAR DO TESOURO  9940      097     096   040         238.00      097    10543538320
+  1    003127-5  OTAVIO BORGES DE MIRANDA       -ANALISTA AUXILIAR DO TESOURO  8570      097     999   001          20.00      097    10543538320
+  1    010088-9  SEBASTIAO DE OLIVEIRA SANTOS   -                              9940      097     096   040         119.00      097    13127217315
+  1    010088-9  SEBASTIAO DE OLIVEIRA SANTOS   -                              8570      097     999   001          20.00      097    13127217315
+  1    010183-4  RAIMUNDO GOMES DA SILVA        -1o. SARGENTO                  9940      097     072   062         175.50      097    04965825349
+  1    010183-4  RAIMUNDO GOMES DA SILVA        -1o. SARGENTO                  8570      097     999   001          20.00      097    04965825349
+  1    010760-3  MARIA AUXILIADORA BRAZIL GAMA  -                              8570      097     999   001          20.00      097    09649000330
+  1    010760-3  MARIA AUXILIADORA BRAZIL GAMA  -                              9940      097     072   055         123.03      097    09649000330
+  1    010982-7  ANTONIO JOSE DE ARAUJO         -CAPITAO                       8570      097     999   001          20.00      097    09916857334
+  1    010982-7  ANTONIO JOSE DE ARAUJO         -CAPITAO                       9940      097     072   058         696.35      097    09916857334
+  1    011011-6  ANTONIO CARLOS GOMES           -1o. SARGENTO                  8570      097     999   001          20.00      097    10523979304
+  1    011011-6  ANTONIO CARLOS GOMES           -1o. SARGENTO                  9940      097     037   032          98.65      097    10523979304
+  1    011048-5  IDELFONSO CASTELO BRANCO       -3o. SARGENTO                  9940      097     072   048         124.31      097    04742729315
+  1    011048-5  IDELFONSO CASTELO BRANCO       -3o. SARGENTO                  8570      097     999   001          20.00      097    04742729315
+  1    011309-3  JOAO BATISTA DA SILVA          -2o. SARGENTO                  8570      097     999   001          20.00      097    22722645300
+  1    011309-3  JOAO BATISTA DA SILVA          -2o. SARGENTO                  9940      097     036   036         287.00      097    22722645300
+  1    012501-6  WILSON GONCALVES CHAVES        -SOLDADO                       9940      097     072   062          65.27      097    28169964172
+  1    012501-6  WILSON GONCALVES CHAVES        -SOLDADO                       8570      097     999   001          20.00      097    28169964172
+  1    013771-5  ROGERIO PAULO AMORIM COSTA     -                              8570      097     999   001          20.00      097    15227669368
+  1    014094-5  PAULO HENRIQUE DOS SANTOS MENE -SOLDADO                       9940      097     072   048         120.60      097    34320628349
+  1    014094-5  PAULO HENRIQUE DOS SANTOS MENE -SOLDADO                       8570      097     999   001          20.00      097    34320628349
+  1    014278-6  EDMILSON PEREIRA DE SOUSA      -3o. SARGENTO                  8570      097     999   001          15.00      097    74681680320
+  1    014795-8  JOSE ARIMATEIA REGO DE ARAUJO  -CORONEL                       9940      097     072   060         317.00      097    39647897391
+  1    014795-8  JOSE ARIMATEIA REGO DE ARAUJO  -CORONEL                       8570      097     999   001          20.00      097    39647897391
+  1    014856-3  ANTONIO JOAQUIM BRANDAO        -                              8570      097     999   001          20.00      097    42858658315
+  1    014958-6  KLEBER DE SOUSA VERAS          -SOLDADO                       9940      097     072   045         397.05      097    47079568315
+  1    014958-6  KLEBER DE SOUSA VERAS          -SOLDADO                       9941      097     072   040          60.60      097    47079568315
+  1    014958-6  KLEBER DE SOUSA VERAS          -SOLDADO                       8570      097     999   001          20.00      097    47079568315
+  1    015044-4  JOSE CARLOS SIQUEIRA DE ARAUJO -                              8570      097     999   001          20.00      097    39814653349
+  1    015044-4  JOSE CARLOS SIQUEIRA DE ARAUJO -                              9940      097     072   043         283.09      097    39814653349
+  1    015273-X  CARLOS JOSE SIDONIO DE ARAUJO  -1o. SARGENTO                  9940      097     072   060          87.38      097    35387114372
+  1    015273-X  CARLOS JOSE SIDONIO DE ARAUJO  -1o. SARGENTO                  8570      097     999   001          20.00      097    35387114372
+  1    015273-X  CARLOS JOSE SIDONIO DE ARAUJO  -1o. SARGENTO                  9941      097     072   046          60.14      097    35387114372
+  1    015299-4  RAIMUNDO NONATO ARAUJO BARROS  -                              8570      097     999   001          20.00      097    37508733304
+  1    015299-4  RAIMUNDO NONATO ARAUJO BARROS  -                              9940      097     096   040         270.84      097    37508733304
+  1    016110-1  MANOEL MARCELO NASCIMENTO DOS  -3o. SARGENTO                  9941      097     096   040          71.21      097    49042645334
+  1    016110-1  MANOEL MARCELO NASCIMENTO DOS  -3o. SARGENTO                  8570      097     999   001          20.00      097    49042645334
+  1    016110-1  MANOEL MARCELO NASCIMENTO DOS  -3o. SARGENTO                  9940      097     096   040         126.16      097    49042645334
+  1    020735-7  MARIA MARLENE CAMPELO DE SOUSA -AGENTE TECNICO DE SERVICO     9940      097     072   062         276.75      097    13165860300
+  1    020735-7  MARIA MARLENE CAMPELO DE SOUSA -AGENTE TECNICO DE SERVICO     8570      097     999   001          20.00      097    13165860300
+  1    036009-X  MARIA DE FATIMA VIEIRA OLIVEIR -AGENTE TECNICO DE SERVICO     8570      097     999   001          20.00      097    28781325304
+
+Governo do Estado do Piauí                                                                                                              Pág:    6
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    036009-X  MARIA DE FATIMA VIEIRA OLIVEIR -AGENTE TECNICO DE SERVICO     9940      097     072   062         244.20      097    28781325304
+  1    036645-5  MARIA ALICE DE ARAUJO          -AGENTE OPERACIONAL DE SERVICO 9940      097     072   057         130.52      097    27365492368
+  1    038607-3  MARIA DAS GRACAS VIANA DO NASC -AGENTE DE TRIBUTOS DA FAZENDA 9940      097     072   062          92.10      097    37270818304
+  1    038607-3  MARIA DAS GRACAS VIANA DO NASC -AGENTE DE TRIBUTOS DA FAZENDA 8570      097     999   001          20.00      097    37270818304
+  1    040575-2  RAIMUNDO PEREIRA DA COSTA      -AGENTE DE TRIBUTOS DA FAZENDA 9940      097     072   041         271.00      097    09721800368
+  1    040575-2  RAIMUNDO PEREIRA DA COSTA      -AGENTE DE TRIBUTOS DA FAZENDA 8570      097     999   001          20.00      097    09721800368
+  1    078876-7  LUIZ WELLINGTON PEREIRA NASCIM -                              9940      097     072   044         108.40      097    41232666300
+  1    078876-7  LUIZ WELLINGTON PEREIRA NASCIM -                              8570      097     999   001          20.00      097    41232666300
+       Órgão Pagamento:  097-PIAUIPREV INATIVOS              -  55 Lançamento(s)  -  Total R$ 5.657.56
+
+  1    211986-2  CIBELE ALVES DA VEIGA NETO     -                              8570      156     999   001          20.00      156    01449036368
+  1    212042-9  JAGOANHARO PINHEIRO DE CARVALH -                              8570      156     999   001          20.00      156    02575086353
+  1    212042-9  JAGOANHARO PINHEIRO DE CARVALH -                              9940      156     072   048         383.50      156    02575086353
+       Órgão Pagamento:  156-BEP APOSENTADOS                 -  3 Lançamento(s)  -  Total R$ 423.50
+
+  1    023370-6  MARIA LUCIA RIBEIRO GONCALVES  3-AGENTE SUPERIOR DE SERVICO C 8570      227     999   001          20.00      227    15631460378
+       Órgão Pagamento:  227-FUPIP-FUNDACAO PIAUI PREVIDEN   -  1 Lançamento(s)  -  Total R$ 20.00
+
+  1    022481-2  MARIA DE LOURDES PESSOA        3-AGENTE TECNICO DE SERVICO    9940      240     072   048         139.90      240    15042243372
+  1    022481-2  MARIA DE LOURDES PESSOA        3-AGENTE TECNICO DE SERVICO    8570      240     999   001          20.00      240    15042243372
+       Órgão Pagamento:  240-SEC.ASS.TÉC.DEFESA AGROPECUARIA  -  2 Lançamento(s)  -  Total R$ 159.90
+
+  1    014321-9  FRANCISCO DAS CHAGAS ALVES DA  STE-1o. TENENTE                9940      321     072   060          89.48      321    34771557349
+  1    014321-9  FRANCISCO DAS CHAGAS ALVES DA  STE-1o. TENENTE                8570      321     999   001          20.00      321    34771557349
+  1    014568-8  MARCOS ANTONIO LIMA GONCALVES  1SG-SUBTENENTE                 9940      321     072   048          84.30      321    35318759300
+  1    014568-8  MARCOS ANTONIO LIMA GONCALVES  1SG-SUBTENENTE                 8570      321     999   001          20.00      321    35318759300
+       Órgão Pagamento:  321-CORPO DE BOMBEIRO MILITAR       -  4 Lançamento(s)  -  Total R$ 213.78
+
+  1    033874-5  DAGMAR MORAES DOS SANTOS       -PROFESSOR-20HS                9940      911     072   061         161.23      911    04171900344
+  1    033874-5  DAGMAR MORAES DOS SANTOS       -PROFESSOR-20HS                8570      911     999   001          20.00      911    04171900344
+  1    047938-1  TERESINHA DE JESUS MENDES FERR -AGENTE OPERACIONAL DE SERVICO 9940      911     072   059          93.97      911    84024453300
+  1    047938-1  TERESINHA DE JESUS MENDES FERR -AGENTE OPERACIONAL DE SERVICO 8570      911     999   001          20.00      911    84024453300
+  1    048161-X  MARIA VALDENORA DE SOUZA SANTO -                              8570      911     999   001          20.00      911    83102744320
+  1    048161-X  MARIA VALDENORA DE SOUZA SANTO -                              9940      911     072   056          54.20      911    83102744320
+  1    048367-2  IRADI CASTILLO DE ARAUJO       -PROFESSOR-40HS                8570      911     999   001          20.00      911    07803788300
+  1    048367-2  IRADI CASTILLO DE ARAUJO       -PROFESSOR-40HS                9941      911     096   035         115.49      911    07803788300
+  1    048380-0  RITA DE CASSIA CASTELO BRANCO  -PROFESSOR-40HS                9941      911     096   036         204.00      911    12230669168
+  1    048380-0  RITA DE CASSIA CASTELO BRANCO  -PROFESSOR-40HS                8570      911     999   001          40.00      911    12230669168
+  1    048380-0  RITA DE CASSIA CASTELO BRANCO  -PROFESSOR-40HS                9940      911     072   059         564.83      911    12230669168
+  1    048426-1  MARIA DA CONCEICAO DE AGUIAR L -PROFESSOR-40HS                9941      911     048   032          88.11      911    15662977372
+  1    048426-1  MARIA DA CONCEICAO DE AGUIAR L -PROFESSOR-40HS                8570      911     999   001          20.00      911    15662977372
+  1    048777-5  ANTONIA SOUSA MARQUES          -PROFESSOR-40HS                8570      911     999   001          20.00      911    07802048320
+  1    048777-5  ANTONIA SOUSA MARQUES          -PROFESSOR-40HS                9940      911     072   061         130.00      911    07802048320
+  1    048831-3  ELIANA ALICE CORREIA RODRIGUES -                              8570      911     999   001          40.00      911    03882144300
+  1    048831-3  ELIANA ALICE CORREIA RODRIGUES -                              9942      911     048   030         123.54      911    03882144300
+  1    048831-3  ELIANA ALICE CORREIA RODRIGUES -                              9941      911     096   035         121.07      911    03882144300
+
+Governo do Estado do Piauí                                                                                                              Pág:    7
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    048869-X  MARIA DE FATIMA LIMA DE ASSUNC -PROFESSOR-40HS                8570      911     999   001          20.00      911    27785912300
+  1    048869-X  MARIA DE FATIMA LIMA DE ASSUNC -PROFESSOR-40HS                9940      911     096   036         113.32      911    27785912300
+  1    049010-5  ELENISE GUERRA FERREIRA        -PROFESSOR-40HS                9940      911     072   061         172.93      911    21157588387
+  1    049010-5  ELENISE GUERRA FERREIRA        -PROFESSOR-40HS                8570      911     999   001          20.00      911    21157588387
+  1    050590-X  ELZITA VIANA REIS DE SOUZA     -PROFESSOR-40HS                8570      911     999   001          20.00      911    01057121320
+  1    051257-5  RAIMUNDO NONATO ARAUJO SOUZA   -                              8570      911     999   001          20.00      911    04827074372
+  1    051257-5  RAIMUNDO NONATO ARAUJO SOUZA   -                              9940      911     072   061         536.14      911    04827074372
+  1    051672-4  MARIA DE LOURDES DA SILVA RODR -                              9941      911     048   032         198.00      911    36022950368
+  1    051672-4  MARIA DE LOURDES DA SILVA RODR -                              9940      911     072   061         167.41      911    36022950368
+  1    051672-4  MARIA DE LOURDES DA SILVA RODR -                              8570      911     999   001          40.00      911    36022950368
+  1    052884-6  MARIA MOURA DE SOUZA           -PROFESSOR-40HS                8570      911     999   001          20.00      911    38022737372
+  1    052884-6  MARIA MOURA DE SOUZA           -PROFESSOR-40HS                9940      911     072   062         160.85      911    38022737372
+  1    053633-4  ALBA CELIA SOUZA E SILVA       -PROFESSOR-40HS                9940      911     072   041         652.46      911    15202399391
+  1    053633-4  ALBA CELIA SOUZA E SILVA       -PROFESSOR-40HS                9941      911     072   040          80.74      911    15202399391
+  1    053633-4  ALBA CELIA SOUZA E SILVA       -PROFESSOR-40HS                8570      911     999   001          20.00      911    15202399391
+  1    053658-0  MARIA DE FATIMA GONCAVES DE SO -                              9941      911     096   032          90.00      911    45159980300
+  1    053658-0  MARIA DE FATIMA GONCAVES DE SO -                              8570      911     999   001          20.00      911    45159980300
+  1    054005-6  ROSILDA MORAES DO NASCIMENTO C -PROFESSOR-20HS                8570      911     999   001          10.00      911    06710727300
+  1    055686-6  JOSE ADAILTON ARAUJO LANDIM    -PROFESSOR-40HS                9940      911     072   059         141.90      911    03568830353
+  1    055686-6  JOSE ADAILTON ARAUJO LANDIM    -PROFESSOR-40HS                8570      911     999   001          20.00      911    03568830353
+  1    057900-9  ANA AMELIA DA SILVA GUEDES PIN -PROFESSOR-40HS                9941      911     096   040          70.36      911    07844751304
+  1    057900-9  ANA AMELIA DA SILVA GUEDES PIN -PROFESSOR-40HS                8570      911     999   001          20.00      911    07844751304
+  1    057900-9  ANA AMELIA DA SILVA GUEDES PIN -PROFESSOR-40HS                9940      911     096   040          78.45      911    07844751304
+  1    058589-X  AUZENI MARIA DA CONCEICAO      -AGENTE OPERACIONAL DE SERVICO 8570      911     999   001           8.00      911    37377680300
+  1    058589-X  AUZENI MARIA DA CONCEICAO      -AGENTE OPERACIONAL DE SERVICO 9940      911     072   043         303.99      911    37377680300
+  1    061031-3  JANE MARY OLIVEIRA  CRUZ       -PROFESSOR-40HS                9940      911     072   062          73.30      911    14552655353
+  1    061031-3  JANE MARY OLIVEIRA  CRUZ       -PROFESSOR-40HS                8570      911     999   001          20.00      911    14552655353
+  1    064153-7  MARIA DO CARMO PAZ DA SILVA    -PROFESSOR-40HS                8570      911     999   001          20.00      911    02735652300
+  1    064153-7  MARIA DO CARMO PAZ DA SILVA    -PROFESSOR-40HS                9940      911     072   061          94.20      911    02735652300
+  1    064409-9  MARILDA FIGUEIREDO DA FONSECA  -PROFESSOR-40HS                9941      911     054   032         450.00      911    02248689349
+  1    064409-9  MARILDA FIGUEIREDO DA FONSECA  -PROFESSOR-40HS                8570      911     999   001          20.00      911    02248689349
+  1    065406-0  ZENAIDE DA MOTA FALCAO         -PROFESSOR-40HS                9940      911     072   056         127.00      911    20173776353
+  1    066291-7  SONIA MARIA CAMPELO            -PROFESSOR-40HS                8570      911     999   001          20.00      911    34975268353
+  1    066291-7  SONIA MARIA CAMPELO            -PROFESSOR-40HS                9940      911     072   057         187.92      911    34975268353
+  1    067558-0  MARIA JOSE COSTA LEODIDO       -PROFESSOR-20HS                8570      911     999   001          20.00      911    34951008300
+  1    067558-0  MARIA JOSE COSTA LEODIDO       -PROFESSOR-20HS                9940      911     072   060          78.51      911    34951008300
+  1    068721-9  ALZIRA REBELO ROSALES          -PROFESSOR-40HS                9940      911     072   061          59.68      911    13129317368
+  1    072593-5  MARIA VITORIA SENA DA SILVA LE -PROFESSOR-40HS                9940      911     072   057         226.57      911    15984869349
+  1    073657-X  EDUVIRGENS GOMES DO NASCIMENTO -PROFESSOR-40HS                8570      911     999   001          20.00      911    22636390391
+  1    073657-X  EDUVIRGENS GOMES DO NASCIMENTO -PROFESSOR-40HS                9940      911     072   061         109.45      911    22636390391
+  1    074527-8  FRANCISCO ALVES DE SOUSA       -PROFESSOR-40HS                9940      911     072   054         674.56      911    13305425334
+  1    075204-5  MARIA DE LOURDES LIRA BATISTA  -PROFESSOR-40HS                9940      911     072   061          84.98      911    32729200304
+  1    075204-5  MARIA DE LOURDES LIRA BATISTA  -PROFESSOR-40HS                8570      911     999   001          20.00      911    32729200304
+  1    075498-6  MARLY CORDEIRO DE FARIAS       -PROFESSOR-40HS                8570      911     999   001          20.00      911    30020581300
+  1    075498-6  MARLY CORDEIRO DE FARIAS       -PROFESSOR-40HS                9940      911     072   059         163.73      911    30020581300
+  1    076843-0  ISAURA MARIA LOPES BASTOS LUST -                              8570      911     999   001          20.00      911    13808001372
+
+Governo do Estado do Piauí                                                                                                              Pág:    8
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  1    076843-0  ISAURA MARIA LOPES BASTOS LUST -                              9940      911     096   040         115.60      911    13808001372
+  1    078314-5  YEDA MARIA DANTAS MARTINS GUIM -PROFESSOR-40HS                9940      911     072   059         229.25      911    26152584353
+  1    078314-5  YEDA MARIA DANTAS MARTINS GUIM -PROFESSOR-40HS                8570      911     999   001          20.00      911    26152584353
+  1    083560-9  MARIA LUCIMAR DE ARAUJO ALENCA -PROFESSOR-40HS                8570      911     999   001          20.00      911    57874697391
+  1    086253-3  ANA LEILA DA COSTA GONCALVES   -PROFESSOR-40HS                8570      911     999   001          10.00      911    37363832315
+       Órgão Pagamento:  911-PIAUIPREV INATIVOS EDUCACAO     -  69 Lançamento(s)  -  Total R$ 7.765.74
+
+  1    070454-7  FRANCISCA ALMIRA DA SILVA E SA 1-AGENTE OPERACIONAL DE SERVIC 9940      914     072   057         206.05      914    48204145349
+  1    070454-7  FRANCISCA ALMIRA DA SILVA E SA 1-AGENTE OPERACIONAL DE SERVIC 8570      914     999   001          20.00      914    48204145349
+  1    072486-6  ISMAEL GOMES MARTINS           1-PROFESSOR 40H                9940      914     072   043         406.15      914    21777039304
+  1    075126-0  CONCEICAO DE MARIA ARAUJO DE O 1-PROFESSOR 40H                9940      914     072   059         217.02      914    28692640387
+  1    075126-0  CONCEICAO DE MARIA ARAUJO DE O 1-PROFESSOR 40H                8570      914     999   001          20.00      914    28692640387
+  1    077482-X  KELSILENE GOMES DE AZEVEDO DIA 1-PROFESSOR 40H                9940      914     072   047         197.65      914    35373636304
+  1    077482-X  KELSILENE GOMES DE AZEVEDO DIA 1-PROFESSOR 40H                8570      914     999   001          20.00      914    35373636304
+  1    077927-0  LUIZA PEREIRA DOS SANTOS SOUSA 2-AGENTE TECNICO DE SERVICO    8570      914     999   001          20.00      914    28773365300
+  1    077927-0  LUIZA PEREIRA DOS SANTOS SOUSA 2-AGENTE TECNICO DE SERVICO    9940      914     072   043         274.48      914    28773365300
+  1    103186-4  DANIELA DE BRITO SILVA         -PROFESSOR 40H                 9940      914     072   046         177.52      914    81074930363
+  1    103186-4  DANIELA DE BRITO SILVA         -PROFESSOR 40H                 8570      914     999   001          20.00      914    81074930363
+  1    108035-X  MARIA DE JESUS NUNES ARTEMAN   1-PROFESSOR 40H                9940      914     072   057         122.81      914    88761398349
+  1    108035-X  MARIA DE JESUS NUNES ARTEMAN   1-PROFESSOR 40H                8570      914     999   001          20.00      914    88761398349
+  1    112901-5  ELIZABETH DE FREITAS NUNES DE  1-PROFESSOR 40H                8570      914     999   001          20.00      914    18340784315
+  1    112901-5  ELIZABETH DE FREITAS NUNES DE  1-PROFESSOR 40H                9940      914     072   058         179.23      914    18340784315
+  1    143409-8  CLEONEIDE MONTANHA NOGUEIRA    1-PROFESSOR 40H                8570      914     999   001          10.00      914    70315370378
+  1    171660-3  FRANCISCA SULIZETE COSTA       1-PROFESSOR 40H                9940      914     072   060          63.20      914    03900596417
+  1    171660-3  FRANCISCA SULIZETE COSTA       1-PROFESSOR 40H                8570      914     999   001          20.00      914    03900596417
+  1    204895-7  DENIS SERVIO FERREIRA          1-AGENTE OPERACIONAL DE SERVIC 8570      914     999   001          20.00      914    30531268349
+  1    205801-4  SEBASTIAO ALVES DE SOUSA       1-AGENTE OPERACIONAL DE SERVIC 8570      914     999   001          20.00      914    96682655304
+  1    205801-4  SEBASTIAO ALVES DE SOUSA       1-AGENTE OPERACIONAL DE SERVIC 9940      914     072   060          53.01      914    96682655304
+  1    233010-5  EVALTE DIAS DE OLIVEIRA        1-PROFESSOR 40H                8570      914     999   001          20.00      914    44451636353
+  1    233010-5  EVALTE DIAS DE OLIVEIRA        1-PROFESSOR 40H                9940      914     072   059         138.78      914    44451636353
+  1    233018-X  FRANCISCA ROSA DE LIMA         1-PROFESSOR 40H                8570      914     999   001          20.00      914    92139949315
+  1    233018-X  FRANCISCA ROSA DE LIMA         1-PROFESSOR 40H                9940      914     072   058         318.91      914    92139949315
+  1    233717-7  JOSE WILSON GONCALVES DA SILVA 1-PROFESSOR 40H                8570      914     999   001          20.00      914    22631747372
+  1    235237-X  MARIA DE JESUS LIMA            1-AGENTE OPERACIONAL DE SERVIC 9940      914     072   061          83.60      914    01304364372
+  1    235237-X  MARIA DE JESUS LIMA            1-AGENTE OPERACIONAL DE SERVIC 8570      914     999   001          20.00      914    01304364372
+  1    293369-1  ELIAS ARAUJO DO NASCIMENTO     5-PROFESSOR-20H                8570      914     999   001          20.00      914    02277447307
+  1    293369-1  ELIAS ARAUJO DO NASCIMENTO     5-PROFESSOR-20H                9940      914     080   034         320.00      914    02277447307
+  1    330363-2  HUMBERTO COSTA SILVA           1-PROFESSOR 40H                8570      914     999   001          20.00      914    39569160349
+       Órgão Pagamento:  914-EDUCACAO - FUNDEB               -  31 Lançamento(s)  -  Total R$ 3.088.41
+
+  1    158835-4  SONIA MARIA ALVES DE ARAUJO    -                              8570      918     999   001          20.00      918    46265090372
+  1    158835-4  SONIA MARIA ALVES DE ARAUJO    -                              9940      918     072   056          56.09      918    46265090372
+  1    167508-7  PAULO HENRIQUE PEREIRA DO AMAR -                              9940      918     072   046          67.77      918    55385907391
+  1    167508-7  PAULO HENRIQUE PEREIRA DO AMAR -                              8570      918     999   001          20.00      918    55385907391
+  1    169425-1  MARIA DE FATIMA RODRIGUES DE A -                              9940      918     072   048         285.25      918    15180182387
+  1    169425-1  MARIA DE FATIMA RODRIGUES DE A -                              8570      918     999   001          20.00      918    15180182387
+
+Governo do Estado do Piauí                                                                                                              Pág:    9
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+       Órgão Pagamento:  918-EDUCACAO FUNDEB PRESTADOR       -  6 Lançamento(s)  -  Total R$ 469.11
+              Total do Status:  1  -  334 Lançamento(s)  -  Total R$ 39.091.57
+
+  2    086953-8  MARIA ANTONIA MAGALHAES NOBREG -                              8570      002     999   001          20.00      002    33863318315
+  2    086953-8  MARIA ANTONIA MAGALHAES NOBREG -                              9940      002     096   031         273.50      002    33863318315
+  2    086968-6  PAULO LOPES DOS ANJOS          -                              9941      002     072   040          70.50      002    23939451304
+  2    086968-6  PAULO LOPES DOS ANJOS          -                              8570      002     999   001          20.00      002    23939451304
+  2    086968-6  PAULO LOPES DOS ANJOS          -                              9940      002     096   022         271.50      002    23939451304
+       Órgão Pagamento:  002-SEC. EST. ADMIN. E PREVIDEN.    -  5 Lançamento(s)  -  Total R$ 655.50
+
+  2    072593-5  MARIA VITORIA SENA DA SILVA LE -PROFESSOR-40HS                8570      911     999   001          20.00      911    15984869349
+       Órgão Pagamento:  911-PIAUIPREV INATIVOS EDUCACAO     -  1 Lançamento(s)  -  Total R$ 20.00
+
+  2    096602-9  EUGENIO PACHELLI OLIVEIRA DE A 1-PROFESSOR 40H                8570      914     999   001          20.00      914    33793557391
+  2    096602-9  EUGENIO PACHELLI OLIVEIRA DE A 1-PROFESSOR 40H                9940      914     072   056         149.15      914    33793557391
+       Órgão Pagamento:  914-EDUCACAO - FUNDEB               -  2 Lançamento(s)  -  Total R$ 169.15
+              Total do Status:  2  -  8 Lançamento(s)  -  Total R$ 844.65
+
+  3    000880-0  MARIA DO AMPARO DE A MENEZES   AGENTE ADMINISTRATIVO          9940      002     036   028          80.00             19734328387
+  3    003137-2  VALDENOR PEREIRA DOS SANTOS    TECNICO DA FAZENDA ESTADUAL    9940      009     018   004          63.49             07847106353
+  3    003723-X  JOSE MELO DE LIMA              SERVENTE                       9940      012     036   007          96.65             21744130353
+  3    011033-7  NOE SABINO DE LIMA             -GERENTE DE FINANCAS E CONTABI 9940      097     072   016         237.46             10523227353
+  3    011033-7  NOE SABINO DE LIMA             -GERENTE DE FINANCAS E CONTABI 8570      097     999   001           8.00             10523227353
+  3    011054-0  GONCALO RODRIGUES NOBRE        -CAPITAO                       9940      097     072   052         374.45             18488056320
+  3    011054-0  GONCALO RODRIGUES NOBRE        -CAPITAO                       9941      097     072   039         925.55             18488056320
+  3    011054-0  GONCALO RODRIGUES NOBRE        -CAPITAO                       9942      097     072   038         748.02             18488056320
+  3    011054-0  GONCALO RODRIGUES NOBRE        -CAPITAO                       8570      097     999   001          20.00             18488056320
+  3    011070-1  MARDOQUEU MENDES DOS SANTOS    TEN.CORONEL                    9940      097     036   020         695.84             04730933320
+  3    015304-4  ANTONIO JOAO PEREIRA DA SILVA  12-3 SARGENTO                  9940      028     072   047         185.15             74720350330
+  3    015304-4  ANTONIO JOAO PEREIRA DA SILVA  12-3 SARGENTO                  8570      028     999   001          20.00             74720350330
+  3    016299-0  ANA CRISTINA DA S OLIVEIRA     AUX. ADMINISTRATIVO            8570      030     999   001          30.00             13119354368
+  3    022652-1  JOAO DE DEUS FILHO ARAUJO      AGENTE ADMINISTRATIVO          8570      039     999   001           8.00             00825209846
+  3    028673-7  MARIA DO LIVRAMENTO RODRIGUES  -                              9940      090     072   058         487.35             28692349372
+  3    028673-7  MARIA DO LIVRAMENTO RODRIGUES  -                              8570      090     999   001          20.00             28692349372
+  3    030385-2  FRANCISCO DAS CHAGAS SILVA     -POLICIAL PENAL                8570      097     999   001          20.00             16086589372
+  3    030385-2  FRANCISCO DAS CHAGAS SILVA     -POLICIAL PENAL                9940      097     072   042         202.64             16086589372
+  3    031943-X  LUIZ JOSE DA SILVA             2.TENENTE                      9940      097     036   025         128.86             16030036300
+  3    034245-9  MARIA DAS G C MOREIRA          DATILOGRAFO                    9940      011     036   008          23.83             13008218334
+  3    037435-X  BENEDITO SILVA                 INVESTIGADOR DE POLICIA        9940      097     036   008         338.26             04353269372
+  3    038040-7  MARTINHO NETO DA SILVA         TRABALHADOR BRACAL             8570      097     999   001           6.00             03877000304
+  3    038040-7  MARTINHO NETO DA SILVA         TRABALHADOR BRACAL             9940      097     036   011          43.81             03877000304
+  3    038953-6  JOAO BATISTA SANTANA MOTA      AG.POL-AGENTE DE POLICIA       9940      027     072   021       1.001.27             13136160363
+  3    038953-6  JOAO BATISTA SANTANA MOTA      AG.POL-AGENTE DE POLICIA       8570      027     999   001          20.00             13136160363
+  3    038990-X  JUSCELINO ROCHA FERNANDES      AG.POL.CL.ESP-AGENTE DE POLICI 9941      027     072   044         218.85             27361438334
+  3    038990-X  JUSCELINO ROCHA FERNANDES      AG.POL.CL.ESP-AGENTE DE POLICI 9940      027     096   039         325.24             27361438334
+  3    038990-X  JUSCELINO ROCHA FERNANDES      AG.POL.CL.ESP-AGENTE DE POLICI 8570      027     999   001          20.00             27361438334
+
+Governo do Estado do Piauí                                                                                                              Pág:   10
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  3    039089-5  RAIMUNDO NONATO LOPES          VIGILANTE                      9940      097     024   009         197.83             04366514320
+  3    039124-7  ANTONIO LUIZ DOS SANTOS SILVA  1-POLICIAL PENAL               8570      095     999   001          20.00             33960062320
+  3    041815-3  JOSE FELIX FILHO               TECNICO DA FAZENDA ESTADUAL    8570      097     999   001          50.00             09899367320
+  3    049789-4  MARIA ISAURA SALES DOS REIS    -                              8570      911     999   001          20.00             04804953353
+  3    049789-4  MARIA ISAURA SALES DOS REIS    -                              9940      911     072   041         882.04             04804953353
+  3    052825-X  ELZA MARIA PEREIRA DA SILVA    PROFESSOR A - VII              9940      011     036   003         161.07             13889362320
+  3    059596-9  ANTONIO MENDES FRASAO NETO     1-PROFESSOR 40H                9940      914     072   027          96.52             28671805387
+  3    059596-9  ANTONIO MENDES FRASAO NETO     1-PROFESSOR 40H                8570      914     999   001          20.00             28671805387
+  3    069225-5  MARIA DE LOURDES RIBEIRO DOS S -                              8570      911     999   001          20.00             18251420334
+  3    069225-5  MARIA DE LOURDES RIBEIRO DOS S -                              9940      911     072   052         334.33             18251420334
+  3    072107-7  JOSE DIAS DE ALMEIDA           PROFESSOR SM - III             8570      914     999   001          12.00             12992437387
+  3    074231-7  ROSA BARBOSA DA SILVA          -PROFESSOR-40HS                8570      911     999   001           6.00             27338665320
+  3    084189-7  ANTONIO MARCOS SILVA DOS SANTO 12-CABO                        8570      028     999   001          20.00             38713446304
+  3    087046-3  PAULO HENRIQUE DE A RIBEIRO    VIGILANTE                      9940      089     036   021          80.00             23988444391
+  3    091121-6  RAD FCA DA NATIVIDADE ANDRADE  PENSOES RATEADAS               8570      090     999   001          20.00             16008448391
+  3    104985-2  IVAN DE LIMA NERES             PROF.CL.SL - SUBSTITUTO        9940      011     036   020         139.82             61614750300
+  3    105027-3  GUSTAVO R VASCONCELOS          PROF.CL.SL - SUBSTITUTO        9940      011     036   007         160.00             35326735334
+  3    105075-3  JOSE RIBAMAR CARDOSO JUNIOR    ASSESSORIA                     9940      011     036   006         193.29             46261435391
+  3    105631-0  FRANCISCO JOSE DOS SANTOS      1-POLICIAL PENAL               9940      095     072   014         582.00             32748620372
+  3    105631-0  FRANCISCO JOSE DOS SANTOS      1-POLICIAL PENAL               8570      095     999   001          20.00             32748620372
+  3    106415-X  ERONICE VISGUEIRA SAMPAIO      PROFESSOR SE - III             8570      011     999   001          10.00             70771111304
+  3    112790-0  HERLANY SAMARA R ARAUJO        PROF.CL.SL - SUBSTITUTO        8570      011     999   001          10.00             84958715304
+  3    113056-X  JOANA DARC BARROS REGO LEAL    COORDENADOR                    9940      001     036   033         209.40             39790371349
+  3    113056-X  JOANA DARC BARROS REGO LEAL    COORDENADOR                    8570      001     999   001          30.00             39790371349
+  3    124064-1  MARYLANIA R DA SILVA           PROF.CL.A-SUBSTITUTO           8570      011     999   001           8.00             85863203315
+  3    129525-0  ANDREZA DA CUNHA E SILVA LEITE ASSISTENTE DE SERVICO          9940      001     024   010          68.48             83036237372
+  3    129768-6  FERNANDO SILVA DE MENEZES      ASSISTENTE DE SERVICO          9940      001     036   030         109.53             13191578315
+  3    129789-9  JAMES MARIO RIBAMAR P DA SILVA COORDENADOR                    9940      001     036   023          50.25             34980482368
+  3    129833-0  FRANCISCO CARLOS DE A SILVA    ASSISTENTE DE SERVICOS I       9940      017     036   016         103.09             06690688372
+  3    129943-3  FRANKLIN TORRES DE ALENCAR     COORDENADOR                    9940      013     036   008         288.65             27513920320
+  3    130047-4  FRANCISCO ROBERSON MARCELO DA  COORDENADOR                    9940      002     036   003         109.53             28809882334
+  3    130189-6  HAYLENA GOMES DO NASCIMENTO    ASSISTENTE DE SERVICOS I       8570      027     999   001          15.00             79968813320
+  3    130301-5  AUZENIR CARVALHO DA SILVA      PRESTADOR DE SERVICO           9940      144     036   007          18.69             47935464391
+  3    130424-X  FCO DAS C C MENDES JUNIOR      DIRETOR                        9940      012     024   022         563.06             54966124387
+  3    130473-9  ANTONIO ALBERTO MACHADO LIMA   COORDENADOR                    9940      001     024   014         136.96             42983681491
+  3    130911-X  EURIPEDES ALVES DA SILVA       COORDENADOR                    9940      002     036   006         289.94             20069855315
+  3    131034-8  GENIVAL OLIVEIRA LIMA          ASSESSOR TECNICO I             9940      052     036   011         309.26             09645802334
+  3    131057-7  RAIMUNDO AUGUSTO C DE ARAGAO   ASSES.ESP.DO GOVERNADOR        8570      010     999   001          50.00             13066617300
+  3    131785-7  PAULO HENRIQUE T DE BRITO      COORDENADOR                    9940      030     036   025         193.29             01285729730
+  3    131966-3  KEYLA MARIA GOMES MOREIRA      PROF.SUBSTITUTO 40H            9940      089     018   008         199.54             50741748304
+  3    132246-0  ERIVELTON DE L BATISTA         PROF.CL.SL - SUBSTITUTO        8570      011     999   001           6.00             49738569320
+  3    136556-8  CARLOS JOSE DA SILVA SANTOS    ASSISTENTE                     8570      116     999   001          30.00             11218827300
+  3    136556-8  CARLOS JOSE DA SILVA SANTOS    ASSISTENTE                     9940      116     036   033         193.30             11218827300
+  3    137457-5  MAURO GOMES DE MORAIS          PROFESSOR ADJUNTO TP-20H       9940      095     036   011         137.88             62639102320
+  3    137463-0  FERDINANDO ROCHA DE MENESES    ASSISTENTE SERVICOS II         9940      010     036   032         309.27             75734044334
+  3    137526-1  ERALDO RODRIGUES               COORDENADOR                    9940      013     024   008         114.13             22627626353
+
+Governo do Estado do Piauí                                                                                                              Pág:   11
+Empresa de Tecnologia da Informação do Estado do Piauí - ETIPI
+Relatório dos Lançamentos da Folha de Pagamento - iNETConsig
+
+Entidade: 1024-FUTURO PREVIDÊNCIA PRIVADA                                     Referência: 05/2025   Data da Geração: 23/05/2025
+
+STATUS MATRICULA NOME                           CARGO                          FIN. ORGAO LANC.  TOTAL PAGO  VALOR        ORGAO PAGTO CPF
+====== ========= ============================== ============================== ==== ============ ===== ===== ============ =========== ===========
+  3    137843-X  JONAS TRINDADE PEREIRA         ASSISTENTE DE SERVICOS I       9940      010     036   031          73.45             00420396306
+  3    142173-5  JOSE RIBAMAR S DO AMARANT      ASSESSORIA                     9940      011     012   011         110.90             30499542215
+  3    142174-3  CONCEICAO DE MA DA SILVA       ASSESSORIA                     8570      011     999   001          30.00             32752180349
+  3    143019-0  ROSA RIBEIRO GUIMARAES         ASSESSORIA                     9940      011     024   003         129.35             31293115720
+  3    145006-9  LAECIO DE SOUSA BORGES         ASSESSOR TECNICO I             9940      010     036   020         173.96             34971378391
+  3    147565-7  DANIELA MORAIS DA SILVA        VIGIA - A                      9940      090     036   026          62.00             01469032341
+  3    147565-7  DANIELA MORAIS DA SILVA        VIGIA - A                      8570      090     999   001          15.00             01469032341
+  3    166610-0  KEYLA MARIA GOMES MOREIRA      PROF.SUBSTITUTO 20H            9940      089     015   011         155.00             50741748304
+  3    170582-2  EDITE MARIA DE MORAIS MALAQUIA 12-PROFESSOR ADJUNTO DEDICACAO 9940      089     072   054         147.87             06543901349
+  3    170582-2  EDITE MARIA DE MORAIS MALAQUIA 12-PROFESSOR ADJUNTO DEDICACAO 8570      089     999   001          20.00             06543901349
+  3    208949-1  PAULO AZEVEDO DE ABREU         1-AGENTE OPERACIONAL DE SERVIC 9940      012     072   033          74.65             00904094340
+  3    208949-1  PAULO AZEVEDO DE ABREU         1-AGENTE OPERACIONAL DE SERVIC 8570      012     999   001          20.00             00904094340
+  3    297637-4  ANTONIO HOLANDA DA SILVA FILHO 12-CABO                        9940      028     072   039         175.00             21739650344
+  3    297637-4  ANTONIO HOLANDA DA SILVA FILHO 12-CABO                        8570      028     999   001          20.00             21739650344
+  3    341080-3  JOAO RODRIGUES FILHO           CC163-SUPERINTENDENTE          9940      002     036   034       1.275.00             24580520378
+  3    341080-3  JOAO RODRIGUES FILHO           CC163-SUPERINTENDENTE          8570      002     999   001          20.00             24580520378
+  3    341192-3  HIELBERT SANTOS FERREIRA       CC011-ASSESSOR TECNICO III     8570      002     999   001          20.00             63559382300
+  3    341823-5  LAURIJANE DE MIRANDA MORAES    CC021-COORDENADOR DE ESTRUTURA 8570      021     999   001          20.00             88869075320
+  3    341823-5  LAURIJANE DE MIRANDA MORAES    CC021-COORDENADOR DE ESTRUTURA 9940      021     072   029          84.00             88869075320
+  3    353036-1  JOSILENE BENTO LACERDA OLIVEIR CC012-COORDENADOR DE SISTEMAS  9940      117     036   009         549.06             88181634187
+  3    353036-1  JOSILENE BENTO LACERDA OLIVEIR CC012-COORDENADOR DE SISTEMAS  8570      117     999   001          20.00             88181634187
+       Órgão Pagamento:  -  -  95 Lançamento(s)  -  Total R$ 16.142.11
+              Total do Status:  3  -  95 Lançamento(s)  -  Total R$ 16.142.11
+
+
+Legenda do Status
+---------------------------------------------------------------------------------
+ 1 - Lançado e Efetivado
+ 2 - Não Lançado por Falta de Margem Temporariamente
+ 3 - Não Lançado por Outros Motivos(Ex.Matricula não encontrada; Mudança de órgão)
+ 4 - Lançado com Valor Diferente
+ 5 - Não Lançado por Problemas Técnicos
+ 6 - Lançamento com Erros
+ S - Não Lançado: Compra de Dívida ou Suspensão SEAD
+

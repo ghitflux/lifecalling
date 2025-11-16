@@ -15,5 +15,11 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "date-fns": "^4.1.0",
+    "react-hook-form": "^7.65.0",
+    "zod": "^4.1.12"
   }
 }

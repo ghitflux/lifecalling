@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { useAllCaseSimulations, useSetFinalSimulation } from "@/lib/simulation-hooks";
 import {
   Card,
   Button,
@@ -76,15 +77,13 @@ export default function CalculistaSimulationPage() {
     enabled: !!caseId
   });
 
-  // Query para buscar histórico de simulações
-  const { data: simulationHistory } = useQuery({
-    queryKey: ["simulationHistory", caseId],
-    queryFn: async () => {
-      const response = await api.get(`/simulations/${caseId}/history`);
-      return response.data?.items || [];
-    },
-    enabled: !!caseId
-  });
+  // Query para buscar TODAS as simulações do caso
+  const { data: allSimulationsData } = useAllCaseSimulations(caseId);
+  const simulationHistory = allSimulationsData?.items || [];
+  const currentSimulationId = allSimulationsData?.current_simulation_id;
+
+  // Mutation para definir simulação como final
+  const setFinalSimulation = useSetFinalSimulation();
 
   // Query para buscar anexos do caso
   const { data: attachments = [], isLoading: attachmentsLoading } = useQuery({
@@ -95,6 +94,9 @@ export default function CalculistaSimulationPage() {
     },
     enabled: !!caseId
   });
+
+  // Flag de status do caso
+  const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
 
   // Carregar simulação já calculada (quando reabre detalhes)
   useEffect(() => {
@@ -116,6 +118,45 @@ export default function CalculistaSimulationPage() {
     }
   }, [caseDetail]);
 
+  // Carregar simulação quando vem do fechamento (pode estar approved)
+  useEffect(() => {
+    if (isFechamentoAprovado && caseDetail?.last_simulation_id) {
+      // Buscar detalhes da última simulação
+      const fetchLastSimulation = async () => {
+        try {
+          const response = await api.get(`/simulations/case/${caseId}/all`);
+          const simulations = response.data?.items || [];
+          const lastSim = simulations.find((s: any) => s.is_current);
+
+          if (lastSim && lastSim.totals) {
+            setSimulationId(lastSim.id);
+            setCurrentTotals(lastSim.totals);
+
+            // Reconstruir dados do formulário
+            if (lastSim.banks && lastSim.prazo) {
+              setCurrentSimulation({
+                banks: lastSim.banks.map((b: any) => ({
+                  bank: b.banco || b.bank,
+                  parcela: b.parcela,
+                  saldoDevedor: b.saldoDevedor,
+                  valorLiberado: b.valorLiberado
+                })),
+                prazo: lastSim.prazo,
+                coeficiente: lastSim.coeficiente || "",
+                seguro: lastSim.totals.seguroObrigatorio || 0,
+                percentualConsultoria: lastSim.percentualConsultoria || 0
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao carregar simulação:", error);
+        }
+      };
+
+      fetchLastSimulation();
+    }
+  }, [isFechamentoAprovado, caseDetail?.last_simulation_id, caseId]);
+
   // Mutation para salvar simulação
   const saveSimulationMutation = useMutation({
     mutationFn: async (data: SimulationInput) => {
@@ -134,18 +175,22 @@ export default function CalculistaSimulationPage() {
     }
   });
 
-  // Flags de status do caso
-  const isFechamentoAprovado = caseDetail?.status === "fechamento_aprovado";
-
   // Mutation para aprovar simulação
   const approveSimulationMutation = useMutation({
     mutationFn: async (simId: number) => {
       const response = await api.post(`/simulations/${simId}/approve`);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["simulations"] });
-      toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
+
+      // Mensagem depende do status do caso após aprovação
+      if (data?.case_status === "financeiro_pendente") {
+        toast.success("Simulação aprovada! Caso enviado para o financeiro.");
+      } else {
+        toast.success("Simulação aprovada! Caso retornado ao atendente para envio ao fechamento.");
+      }
+
       router.push("/calculista");
     },
     onError: (error: any) => {
@@ -179,19 +224,25 @@ export default function CalculistaSimulationPage() {
   };
 
   const handleApprove = () => {
-    if (!simulationId) {
+    // Quando vem do fechamento, usar last_simulation_id se simulationId não estiver carregado ainda
+    const simIdToApprove = simulationId || caseDetail?.last_simulation_id;
+
+    if (!simIdToApprove) {
       toast.error("Salve a simulação antes de aprovar");
       return;
     }
-    approveSimulationMutation.mutate(simulationId);
+    approveSimulationMutation.mutate(simIdToApprove);
   };
 
   const handleReject = () => {
-    if (!simulationId) {
+    // Quando vem do fechamento, usar last_simulation_id se simulationId não estiver carregado ainda
+    const simIdToReject = simulationId || caseDetail?.last_simulation_id;
+
+    if (!simIdToReject) {
       toast.error("Salve a simulação antes de reprovar");
       return;
     }
-    rejectSimulationMutation.mutate({ simId: simulationId });
+    rejectSimulationMutation.mutate({ simId: simIdToReject });
   };
 
   // Mutation para enviar para financeiro
@@ -300,6 +351,11 @@ export default function CalculistaSimulationPage() {
             </h1>
             <p className="text-muted-foreground">
               Caso #{caseId} - {caseDetail.client?.name}
+              {simulationHistory && simulationHistory.length > 0 && (
+                <span className="ml-2 text-xs">
+                  • {simulationHistory.length} {simulationHistory.length === 1 ? "versão" : "versões"}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -447,66 +503,45 @@ export default function CalculistaSimulationPage() {
               />
 
               {/* Ações */}
-              {isFechamentoAprovado ? (
+              <div className="grid grid-cols-2 gap-3">
                 <Button
-                  onClick={handleSendToFinance}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
-                  disabled={sendToFinanceMutation.isPending}
-                  data-testid="send-to-finance-button"
+                  onClick={handleReject}
+                  variant="destructive"
+                  disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
+                  data-testid="reject-button"
                 >
-                  {sendToFinanceMutation.isPending ? (
+                  {rejectSimulationMutation.isPending ? (
                     <>
                       <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                      Enviando...
+                      Rejeitando...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Enviar para Financeiro
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reprovar
                     </>
                   )}
                 </Button>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    onClick={handleReject}
-                    variant="destructive"
-                    disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
-                    data-testid="reject-button"
-                  >
-                    {rejectSimulationMutation.isPending ? (
-                      <>
-                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                        Rejeitando...
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Reprovar
-                      </>
-                    )}
-                  </Button>
 
-                  <Button
-                    onClick={handleApprove}
-                    className="bg-green-600 hover:bg-green-700"
-                    disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
-                    data-testid="approve-button"
-                  >
-                    {approveSimulationMutation.isPending ? (
-                      <>
-                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                        Aprovando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Aprovar
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
+                <Button
+                  onClick={handleApprove}
+                  className="bg-green-600 hover:bg-green-700 whitespace-nowrap text-xs sm:text-sm px-2 sm:px-4"
+                  disabled={rejectSimulationMutation.isPending || approveSimulationMutation.isPending}
+                  data-testid="approve-button"
+                >
+                  {approveSimulationMutation.isPending ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2 flex-shrink-0" />
+                      <span className="truncate">{isFechamentoAprovado ? "Enviando..." : "Aprovando..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">{isFechamentoAprovado ? "Aprovar e Enviar" : "Aprovar"}</span>
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {/* Status */}
               <div className="bg-muted/30 rounded-lg p-4">
@@ -528,7 +563,7 @@ export default function CalculistaSimulationPage() {
               {isFechamentoAprovado && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                   <p className="text-sm text-emerald-700">
-                    <strong>Retorno de Fechamento:</strong> Revise a simulação e, se necessário, edite os valores. Após confirmar, envie para o financeiro.
+                    <strong>Retorno de Fechamento:</strong> Revise a simulação e, se necessário, edite os valores. Ao aprovar, o caso será enviado automaticamente para o financeiro.
                   </p>
                 </div>
               )}
@@ -568,6 +603,8 @@ export default function CalculistaSimulationPage() {
         history={simulationHistory || []}
         caseId={caseId}
         clientName={caseDetail?.client?.name}
+        showSetAsFinalButton={true}
+        currentSimulationId={currentSimulationId}
         onEditSimulation={(entry) => {
           // Carregar simulação para edição
           // Converter estrutura do backend para o formato esperado
@@ -589,14 +626,24 @@ export default function CalculistaSimulationPage() {
           setCurrentSimulation(simulationData);
           setEditingSimulation(simulationData);
 
-          // Garantir que custoConsultoriaLiquido seja sempre number
-          const totals = {
+          // Garantir que custoConsultoriaLiquido e valorASubtrair sejam sempre number
+          const totals: SimulationTotals = {
             ...entry.totals,
-            custoConsultoriaLiquido: entry.totals.custoConsultoriaLiquido || (entry.totals.custoConsultoria * 0.86)
+            custoConsultoriaLiquido: entry.totals.custoConsultoriaLiquido || (entry.totals.custoConsultoria * 0.86),
+            valorASubtrair: (entry.totals as any).valorASubtrair || 0
           };
           setCurrentTotals(totals);
           toast.success("Simulação carregada para edição");
           setShowHistoryModal(false);
+        }}
+        onSetAsFinal={(simulationId) => {
+          setFinalSimulation.mutate(simulationId, {
+            onSuccess: () => {
+              queryClient.invalidateQueries({ queryKey: ["simulations", "case", caseId, "all"] });
+              queryClient.invalidateQueries({ queryKey: ["case", caseId] });
+              toast.success("Simulação definida como final!");
+            }
+          });
         }}
       />
 

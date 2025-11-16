@@ -9,26 +9,66 @@ function roundHalfUp(value: number): number {
 }
 
 /**
+ * Verifica se um banco é do tipo "Margem" (case-insensitive)
+ */
+function isMarginBank(bankName: string): boolean {
+  return /margem/i.test(bankName || "");
+}
+
+/**
  * Calcula os totais da simulação conforme especificações da planilha.
  * Esta função espelha exatamente o cálculo do backend para feedback imediato.
+ *
+ * NOVA LÓGICA:
+ * - Bancos "Margem*" não entram nos totais de financiado/saldo/liberado
+ * - Bancos "Margem*" geram um "Valor a Subtrair" = |parcela| / coeficiente
+ * - Para bancos reais: financiado = parcela / coeficiente
+ * - Para bancos reais: liberado = financiado - saldoDevedor
  */
 export function computeTotals(input: SimulationInput): SimulationTotals {
-  // Somas dos bancos
-  let valorParcelaTotal = 0;
+  // Normalizar coeficiente (aceitar vírgula ou ponto)
+  const coeficienteStr = String(input.coeficiente || "0").replace(",", ".");
+  const coeficiente = parseFloat(coeficienteStr);
+
+  if (!(coeficiente > 0)) {
+    throw new Error("Coeficiente inválido ou zero");
+  }
+
+  // Separar bancos reais de bancos margem
+  const bancosReais = input.banks.filter(b => !isMarginBank(b.bank));
+  const bancosMargem = input.banks.filter(b => isMarginBank(b.bank));
+
+  // Calcular totais APENAS dos bancos reais
+  let totalFinanciado = 0;
   let saldoTotal = 0;
   let liberadoTotal = 0;
 
-  for (const bank of input.banks) {
-    valorParcelaTotal += bank.parcela || 0;
-    saldoTotal += bank.saldoDevedor || 0;
-    liberadoTotal += bank.valorLiberado || 0;
+  for (const bank of bancosReais) {
+    const parcela = bank.parcela || 0;
+    const saldoDevedor = bank.saldoDevedor || 0;
+
+    const financiado = parcela / coeficiente;
+    const liberado = financiado - saldoDevedor;
+
+    totalFinanciado += financiado;
+    saldoTotal += saldoDevedor;
+    liberadoTotal += liberado;
   }
 
-  // Cálculos principais seguindo as fórmulas especificadas
-  const totalFinanciado = saldoTotal + liberadoTotal;
+  // Calcular Valor a Subtrair (soma das margens)
+  let valorASubtrair = 0;
+  for (const bank of bancosMargem) {
+    const parcela = Math.abs(bank.parcela || 0);
+    valorASubtrair += parcela / coeficiente;
+  }
+
+  // Total de parcelas (inclui TODOS os bancos, inclusive margem)
+  const valorParcelaTotal = input.banks.reduce((sum, b) => sum + (b.parcela || 0), 0);
+
+  // Cálculos finais
   const valorLiquido = liberadoTotal - (input.seguro || 0);
   const custoConsultoria = totalFinanciado * ((input.percentualConsultoria || 0) / 100);
-  const liberadoCliente = valorLiquido - custoConsultoria;
+  const liberadoCliente = valorLiquido - custoConsultoria - valorASubtrair;
 
   // Arredondar todos os valores para 2 casas decimais
   return {
@@ -39,6 +79,7 @@ export function computeTotals(input: SimulationInput): SimulationTotals {
     valorLiquido: roundHalfUp(valorLiquido),
     custoConsultoria: roundHalfUp(custoConsultoria),
     custoConsultoriaLiquido: roundHalfUp(custoConsultoria * 0.86),
+    valorASubtrair: roundHalfUp(valorASubtrair),
     liberadoCliente: roundHalfUp(liberadoCliente)
   };
 }
@@ -111,29 +152,55 @@ export function validateSimulationInput(input: Partial<SimulationInput>): string
 
 /**
  * Testa se o resultado coincide com o cenário de referência da planilha
+ *
+ * CENÁRIO 1 (Margem* negativa):
+ * - Coef: 0,0193333, Seguro: 1000, % Consultoria: 11%
+ * - Margem*: Parcela = -91,98
+ * - SANTANDER: Parcela = 100,00, Saldo = 1000,00
+ * - Resultado esperado: Liberado Cliente = -2.154,14
+ *
+ * CENÁRIO 2 (Governo Piauí - planilha do usuário):
+ * - Coef: 0,0193333, Seguro: 1000, % Consultoria: 10%
+ * - Margem*: Parcela = -91,98
+ * - SANTANDER: Parcela = 500,00, Saldo = 1000,00
+ * - Resultado esperado: Liberado Cliente = 16.518,31
  */
 export function validateReferenceScenario(input: SimulationInput, result: SimulationTotals): boolean {
-  // Cenário de teste: Prazo: 96, Coef.: 0,0192223, Parcela: 1.000,00;
-  // Saldo Devedor: 30.000,00; Valor Liberado: 22.022,91; Seguro: 1.000,00; % Consultoria: 12%
-  // Resultado esperado: Liberado Cliente = 14.780,16
+  const coef = parseFloat(String(input.coeficiente).replace(",", "."));
 
-  const isReferenceScenario = (
+  // Cenário 1: Margem negativa simples
+  const isScenario1 = (
     input.prazo === 96 &&
-    input.percentualConsultoria === 12 &&
+    Math.abs(coef - 0.0193333) < 0.0000001 &&
+    input.percentualConsultoria === 11 &&
     input.seguro === 1000 &&
-    input.banks.length === 1 &&
-    input.banks[0].parcela === 1000 &&
-    input.banks[0].saldoDevedor === 30000 &&
-    Math.abs(input.banks[0].valorLiberado - 22022.91) < 0.01
+    input.banks.length === 2 &&
+    input.banks.some(b => b.bank === "Margem*" && Math.abs(b.parcela + 91.98) < 0.01) &&
+    input.banks.some(b => b.bank === "SANTANDER" && Math.abs(b.parcela - 100) < 0.01 && Math.abs(b.saldoDevedor - 1000) < 0.01)
   );
 
-  if (!isReferenceScenario) {
-    return true; // Não é o cenário de referência, então não validamos
+  if (isScenario1) {
+    const expectedResult = -2154.14;
+    return Math.abs(result.liberadoCliente - expectedResult) < 0.01;
   }
 
-  // Verificar se o resultado está correto (tolerância de 0.01)
-  const expectedResult = 14780.16;
-  return Math.abs(result.liberadoCliente - expectedResult) < 0.01;
+  // Cenário 2: Governo Piauí (planilha atual do usuário)
+  const isScenario2 = (
+    input.prazo === 96 &&
+    Math.abs(coef - 0.0193333) < 0.0000001 &&
+    input.percentualConsultoria === 10 &&
+    input.seguro === 1000 &&
+    input.banks.length === 2 &&
+    input.banks.some(b => b.bank === "Margem*" && Math.abs(b.parcela + 91.98) < 0.01) &&
+    input.banks.some(b => b.bank === "SANTANDER" && Math.abs(b.parcela - 500) < 0.01 && Math.abs(b.saldoDevedor - 1000) < 0.01)
+  );
+
+  if (isScenario2) {
+    const expectedResult = 16518.31;
+    return Math.abs(result.liberadoCliente - expectedResult) < 0.05; // Tolerância de R$ 0,05
+  }
+
+  return true; // Não é nenhum cenário de referência
 }
 
 /**

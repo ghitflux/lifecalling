@@ -6,7 +6,7 @@ const motion = {
 import { LucideIcon, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "./lib/utils";
 
-type GradientVariant = "emerald" | "amber" | "rose" | "violet" | "sky";
+type GradientVariant = "emerald" | "amber" | "rose" | "violet" | "sky" | "cyan" | "blue";
 
 interface KPICardProps {
   title: string;
@@ -28,6 +28,8 @@ const gradientMap: Record<GradientVariant, string> = {
   rose: "bg-gradient-to-br from-rose-500/25 via-rose-500/10 to-rose-500/5",
   violet: "bg-gradient-to-br from-violet-500/25 via-violet-500/10 to-violet-500/5",
   sky: "bg-gradient-to-br from-sky-500/25 via-sky-500/10 to-sky-500/5",
+  cyan: "bg-gradient-to-br from-cyan-500/30 via-cyan-500/15 to-cyan-500/5",
+  blue: "bg-gradient-to-br from-blue-500/25 via-blue-500/10 to-blue-500/5",
 };
 
 const legacyMap = {

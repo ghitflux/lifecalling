@@ -23,6 +23,8 @@ import {
   FileImage,
   File,
   ArrowLeft,
+  Undo2,
+  RotateCcw,
 } from "lucide-react";
 
 interface SimulationResult {
@@ -53,14 +55,32 @@ export interface FinanceCardProps {
   installments?: number;
   paidInstallments?: number;
 
-  status: "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado";
+  status: "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado" | "caso_cancelado" | "contrato_cancelado";
   dueDate?: string;
 
   /** callbacks como opcionais para evitar TS2774 */
   onApprove?: (id: number) => void;
   onReject?: (id: number) => void;
-  onDisburse?: (id: number) => void;
+  onDisburse?: (
+    id: number,
+    percentualAtendente?: number,
+    consultoriaBruta?: number,
+    atendenteUserId?: number,
+    impostoPercentual?: number,
+    temCorretor?: boolean,
+    corretorNome?: string,
+    corretorComissaoValor?: number
+  ) => void;
   onCancel?: (id: number) => void;
+  onReopen?: (id: number) => void;
+  onReturnToCalculista?: (id: number) => void;
+  onCancelCase?: (id: number) => void;
+
+  /** usuários disponíveis para seleção de comissão */
+  availableUsers?: Array<{id: number; name: string; email: string}>;
+
+  /** ID do atendente atribuído ao caso (usado como padrão no modal) */
+  assignedUserId?: number;
 
   className?: string;
 
@@ -86,6 +106,9 @@ export interface FinanceCardProps {
   /** upload de comprovantes */
   onUploadAttachment?: (file: File) => void;
   isUploadingAttachment?: boolean;
+
+  /** download de anexos do caso */
+  onDownloadAttachment?: (attachmentId: number, filename?: string) => void;
 
   /** dados básicos do caso para header rápido */
   caseDetails?: {
@@ -186,14 +209,20 @@ export function FinanceCard({
   onReject,
   onDisburse,
   onCancel,
+  onReopen,
+  onReturnToCalculista,
+  onCancelCase,
   className,
   clientBankInfo,
   attachments = [],
   onUploadAttachment,
   isUploadingAttachment = false,
+  onDownloadAttachment,
   caseDetails,
   fullCaseDetails,
   onLoadFullDetails,
+  availableUsers = [],
+  assignedUserId,
 }: FinanceCardProps) {
   // usar simulação quando disponível
   const finalTotalAmount = simulationResult?.valorLiberado || totalAmount || 0;
@@ -204,7 +233,33 @@ export function FinanceCard({
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const [showDisburseConfirm, setShowDisburseConfirm] = React.useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
+
+  // Estados para distribuição
+  const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
+  const [selectedAtendenteId, setSelectedAtendenteId] = React.useState<number | null>(null);
+
+  // Estados para consultoria bruta + imposto + corretor
+  const [consultoriaBruta, setConsultoriaBruta] = React.useState<string>("");
+  const [impostoPercentual] = React.useState<number>(14);
+  const [temCorretor, setTemCorretor] = React.useState<boolean>(false);
+  const [corretorNome, setCorretorNome] = React.useState<string>("");
+  const [corretorComissao, setCorretorComissao] = React.useState<string>("");
+
+  // Inicializar consultoria bruta quando o modal abre
+  React.useEffect(() => {
+    if (showDisburseConfirm && simulationResult?.custoConsultoria) {
+      setConsultoriaBruta(formatCurrency(simulationResult.custoConsultoria));
+    }
+  }, [showDisburseConfirm, simulationResult]);
+
+  // Inicializar atendente selecionado com o atendente do caso ao abrir modal
+  React.useEffect(() => {
+    if (showDisburseConfirm && assignedUserId) {
+      setSelectedAtendenteId(assignedUserId);
+    }
+  }, [showDisburseConfirm, assignedUserId]);
 
   React.useEffect(() => {
     if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
@@ -277,6 +332,8 @@ export function FinanceCard({
     contrato_efetivado: "border-success/40 bg-success-subtle text-success-foreground",
     fechamento_aprovado: "border-emerald/40 bg-emerald-subtle text-emerald-foreground",
     encerrado: "border-muted/40 bg-muted text-muted-foreground",
+    caso_cancelado: "border-danger/40 bg-danger-subtle text-danger-foreground",
+    contrato_cancelado: "border-danger/40 bg-danger-subtle text-danger-foreground",
   } as const;
 
   const statusLabels = {
@@ -291,6 +348,8 @@ export function FinanceCard({
     contrato_efetivado: "Contrato Efetivado",
     fechamento_aprovado: "Fechamento Aprovado",
     encerrado: "Encerrado",
+    caso_cancelado: "Cancelado",
+    contrato_cancelado: "Contrato Cancelado",
   };
 
   const formatCurrency = (value: number) => {
@@ -298,6 +357,12 @@ export function FinanceCard({
       style: "currency",
       currency: "BRL",
     }).format(value);
+  };
+
+  const parseCurrencyToNumber = (value: string): number => {
+    // Remove R$, pontos e substitui vírgula por ponto
+    const cleaned = value.replace(/[R$\s.]/g, "").replace(",", ".");
+    return parseFloat(cleaned) || 0;
   };
 
   const formatDate = (dateString?: string) => {
@@ -521,11 +586,39 @@ export function FinanceCard({
 
             </div>
 
-            {onDisburse ? (
+            {onDisburse && (status as string) !== "caso_cancelado" && (status as string) !== "contrato_cancelado" ? (
               <Button size="sm" onClick={() => setShowDisburseConfirm(true)} className="w-full">
                 Efetivar Liberação
               </Button>
             ) : null}
+
+          </div>
+        )}
+
+        {/* Ações para casos efetivados */}
+        {status === "contrato_efetivado" && (
+          <div className="w-full space-y-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowDetailsModal(true)}
+              className="w-full"
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              Ver Detalhes
+            </Button>
+
+            {onReopen && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowReopenConfirm(true)}
+                className="w-full border-amber-500 text-amber-700 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-colors"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reabrir para Ajuste
+              </Button>
+            )}
           </div>
         )}
 
@@ -550,6 +643,61 @@ export function FinanceCard({
           <div className="flex items-center gap-2 text-danger text-sm">
             <AlertCircle className="h-4 w-4" />
             <span>Necessita atenção - Pagamento em atraso</span>
+          </div>
+        )}
+
+        {/* Ações para status financeiro_pendente */}
+        {status === "financeiro_pendente" && (
+          <div className="w-full space-y-2">
+            {/* Linha 1: Ver Detalhes + Devolver */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowDetailsModal(true)}
+                className="flex-1"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Ver Detalhes
+              </Button>
+
+              {onReturnToCalculista && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onReturnToCalculista(id)}
+                  className="flex-1 text-orange-600 border-orange-400 hover:bg-orange-600 hover:text-white hover:border-orange-600 transition-colors"
+                >
+                  <Undo2 className="h-4 w-4 mr-1" />
+                  Devolver
+                </Button>
+              )}
+            </div>
+
+            {/* Linha 2: Efetivar Liberação (botão principal) */}
+            {onDisburse && (status as string) !== "caso_cancelado" && (status as string) !== "contrato_cancelado" && (
+              <Button
+                size="sm"
+                onClick={() => setShowDisburseConfirm(true)}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <CreditCard className="h-4 w-4 mr-1" />
+                Efetivar Liberação
+              </Button>
+            )}
+
+            {/* Linha 3: Cancelar Caso (opcional, destrutivo) */}
+            {onCancelCase && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setShowCancelConfirm(true)}
+                className="w-full"
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Cancelar Caso
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -863,7 +1011,11 @@ export function FinanceCard({
                           </p>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => onDownloadAttachment?.(att.id, att.filename || att.path.split("/").pop())}
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
@@ -918,7 +1070,7 @@ export function FinanceCard({
 
       {/* Confirmação Liberação */}
       <Dialog open={showDisburseConfirm} onOpenChange={setShowDisburseConfirm}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirmar Liberação</DialogTitle>
           </DialogHeader>
@@ -930,19 +1082,217 @@ export function FinanceCard({
                   <p className="text-sm font-medium text-warning">Confirme a liberação</p>
                   <p className="mt-1 text-sm text-warning-foreground">
                     Tem certeza que deseja efetivar a liberação para{" "}
-                    <strong>{clientName}</strong>? Esta ação irá processar o
-                    pagamento e não poderá ser desfeita.
+                    <strong>{clientName}</strong>?
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowDisburseConfirm(false)}>
+
+            {/* Valores da Simulação */}
+            {simulationResult && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Liberado Cliente:</span>
+                  <span className="font-medium">{formatCurrency(simulationResult.liberadoCliente || 0)}</span>
+                </div>
+
+                {/* Campo Editável: Consultoria Bruta */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Consultoria Bruta (editável):
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm font-medium text-info focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={consultoriaBruta}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      const numValue = Number(value) / 100;
+                      setConsultoriaBruta(formatCurrency(numValue));
+                    }}
+                    placeholder="R$ 0,00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Valor original da simulação: {formatCurrency(simulationResult.custoConsultoria || 0)}
+                  </p>
+                </div>
+
+                {/* Cálculos Automáticos */}
+                {consultoriaBruta && (
+                  <div className="space-y-1.5 border-t pt-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Imposto ({impostoPercentual}%):</span>
+                      <span className="font-medium text-destructive">
+                        {formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (impostoPercentual / 100))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground font-semibold">Consultoria Líquida (calculada):</span>
+                      <span className="font-semibold text-success">
+                        {formatCurrency(parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Comissão de Corretor (Opcional) - ANTES DA DISTRIBUIÇÃO */}
+            <div className="space-y-3 pt-2 border-t">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={temCorretor}
+                  onChange={(e) => setTemCorretor(e.target.checked)}
+                  className="w-4 h-4 rounded border-input"
+                />
+                <span className="text-sm font-semibold">Tem Corretor?</span>
+              </label>
+
+              {temCorretor && (
+                <div className="space-y-3 pl-6">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">
+                      Nome do Corretor
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={corretorNome}
+                      onChange={(e) => setCorretorNome(e.target.value)}
+                      placeholder="Nome completo do corretor"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">
+                      Valor da Comissão
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={corretorComissao}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        const numValue = Number(value) / 100;
+                        setCorretorComissao(formatCurrency(numValue));
+                      }}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+
+                  {corretorComissao && (
+                    <div className="rounded-lg bg-orange-50 border border-orange-200 p-2 text-sm text-orange-800">
+                      Despesa de comissão: <strong>{corretorComissao}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Distribuição da Consultoria Líquida - DEPOIS DO CORRETOR */}
+            <div className="space-y-3 pt-2 border-t">
+              <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
+
+              {/* Grid 2 Colunas: Atendente + Percentual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Seleção de Atendente */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={selectedAtendenteId || ""}
+                    onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
+                  >
+                    <option value="">Selecione um atendente</option>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Percentual para Atendente */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Percentual para Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={percentualAtendente}
+                    onChange={(e) => setPercentualAtendente(Number(e.target.value))}
+                  >
+                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
+                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
+                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
+                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
+                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
+                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
+                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
+                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
+                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
+                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
+                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Preview da Distribuição */}
+              {consultoriaBruta && (() => {
+                // 1. Calcular consultoria líquida (Bruta - Imposto)
+                const liquidaAposImposto = parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100);
+                
+                // 2. Deduzir comissão do corretor (se houver)
+                const comissaoValor = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
+                const liquidaParaDistribuir = liquidaAposImposto - comissaoValor;
+
+                return (
+                  <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
+                      <span className="font-medium text-success">
+                        {formatCurrency((liquidaParaDistribuir * percentualAtendente) / 100)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
+                      <span className="font-medium text-info">
+                        {formatCurrency((liquidaParaDistribuir * (100 - percentualAtendente)) / 100)}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t flex justify-between font-semibold">
+                      <span>Total Líquido:</span>
+                      <span>{formatCurrency(liquidaParaDistribuir)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => {
+                setShowDisburseConfirm(false);
+              }}>
                 Cancelar
               </Button>
               <Button
                 onClick={() => {
-                  onDisburse?.(id);
+                  const brutaValue = parseCurrencyToNumber(consultoriaBruta);
+                  const comissaoValue = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
+
+                  onDisburse?.(
+                    id,
+                    percentualAtendente,
+                    brutaValue,
+                    selectedAtendenteId || undefined,
+                    impostoPercentual,
+                    temCorretor,
+                    temCorretor ? corretorNome : undefined,
+                    temCorretor ? comissaoValue : undefined
+                  );
                   setShowDisburseConfirm(false);
                 }}
               >
@@ -954,6 +1304,87 @@ export function FinanceCard({
         </DialogContent>
       </Dialog>
 
+      {/* Confirmação Cancelamento de Caso */}
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Caso</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
+                <div>
+                  <p className="text-sm font-medium text-warning">Atenção</p>
+                  <p className="mt-1 text-sm text-warning-foreground">
+                    Tem certeza que deseja cancelar o caso de{" "}
+                    <strong>{clientName}</strong>?
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Esta ação pode ser irreversível dependendo do status atual.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>
+                Voltar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  onCancelCase?.(id);
+                  setShowCancelConfirm(false);
+                }}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Cancelar Caso
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação Reabertura de Caso */}
+      <Dialog open={showReopenConfirm} onOpenChange={setShowReopenConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reabrir Caso</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
+                <div>
+                  <p className="text-sm font-medium text-warning">Atenção</p>
+                  <p className="mt-1 text-sm text-warning-foreground">
+                    Deseja reabrir este caso para ajustes nos valores?
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    As receitas criadas automaticamente serão excluídas.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowReopenConfirm(false)}>
+                Voltar
+              </Button>
+              <Button
+                variant="default"
+                onClick={() => {
+                  onReopen?.(id);
+                  setShowReopenConfirm(false);
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reabrir Caso
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </Card>
   );

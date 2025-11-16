@@ -30,6 +30,7 @@ interface SimulationTotals {
   valorLiquido: number;
   custoConsultoria: number;
   custoConsultoriaLiquido?: number;
+  valorASubtrair?: number; // Valor calculado das linhas de margem
   liberadoCliente: number;
 }
 
@@ -219,6 +220,14 @@ export function SimulationResultCard({
                 />
               </div>
             )}
+            {totals.valorASubtrair !== undefined && totals.valorASubtrair > 0 && (
+              <div data-testid="valor-a-subtrair">
+                <ResultItem
+                  label="Valor a Subtrair (Margem)"
+                  value={totals.valorASubtrair}
+                />
+              </div>
+            )}
           </div>
 
           <div className="border-t my-3"></div>
@@ -239,26 +248,26 @@ export function SimulationResultCard({
         {simulation && (
           <div className="mt-4 text-xs text-muted-foreground">
             <p>
-              Fórmulas: Total Financiado = Saldo + Liberado |
+              Fórmulas: Financiado = Parcela ÷ Coef |
+              Liberado = Financiado - Saldo |
               Valor Líquido = Liberado - Seguro |
               Custo = Total × % |
-              Cliente = Líquido - Custo
+              Cliente = Líquido - Custo - Margem
             </p>
 
-            {/* Verificação do cenário de teste da planilha */}
+            {/* Verificação do cenário de teste da planilha NOVO */}
             {simulation.prazo === 96 &&
-             simulation.percentualConsultoria === 12 &&
+             simulation.percentualConsultoria === 11 &&
              simulation.seguro === 1000 &&
-             simulation.banks.length === 1 &&
-             simulation.banks[0].parcela === 1000 &&
-             simulation.banks[0].saldoDevedor === 30000 &&
-             Math.abs(simulation.banks[0].valorLiberado - 22022.91) < 0.01 && (
+             simulation.banks.length === 2 &&
+             simulation.banks.some((b: any) => b.bank === "Margem*") &&
+             simulation.banks.some((b: any) => b.bank === "SANTANDER") && (
               <div
                 className="mt-2 rounded border border-success/40 bg-success-subtle p-2 text-success-foreground"
                 data-testid="reference-scenario-validation"
               >
-                ✓ Cenário de teste validado: R$ {formatCurrency(totals.liberadoCliente)}
-                {Math.abs(totals.liberadoCliente - 14780.16) < 0.01 ?
+                ✓ Cenário de teste validado: {formatCurrency(totals.liberadoCliente)}
+                {Math.abs(totals.liberadoCliente - (-2154.14)) < 0.01 ?
                   " (Conforme planilha de referência)" :
                   " (ATENÇÃO: Diverge da planilha de referência)"
                 }

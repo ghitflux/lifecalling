@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class BankSimulation(BaseModel):
-    """Dados de um banco na simulaÁ„o multi-banco"""
+    """Dados de um banco na simula√ß√£o multi-banco"""
     banco: str = Field(..., min_length=1, max_length=100)
     matricula: str = Field(..., min_length=1, max_length=40)
     saldo_devedor: float = Field(..., gt=0)
@@ -12,124 +12,109 @@ class BankSimulation(BaseModel):
     liberado: float = Field(..., gt=0)
 
 
-class ExternalClientIncomeCreate(BaseModel):
-    """Schema para criaÁ„o de receita de cliente externo"""
-    # Dados b·sicos
-    date: datetime
-    cpf_cliente: str = Field(..., min_length=11, max_length=11)
-    nome_cliente: Optional[str] = Field(None, max_length=180)
+# ExternalClientIncome schemas removed as requested
 
-    # SimulaÁ„o multi-banco
-    banks_json: List[BankSimulation] = Field(..., min_length=1, max_length=6)
-    prazo: int = Field(..., gt=0)
-    coeficiente: str = Field(..., min_length=1)
-    seguro: float = Field(..., ge=0)
-    percentual_consultoria: float = Field(..., gt=0, le=100)
 
-    # AtribuiÁ„o
-    owner_user_id: int = Field(..., gt=0)
+# ========== Client Address Schemas ==========
 
-    @field_validator('cpf_cliente')
+class ClientAddressBase(BaseModel):
+    """Schema base para endere√ßo de cliente"""
+    cep: Optional[str] = Field(None, max_length=8, description="CEP (apenas d√≠gitos)")
+    logradouro: Optional[str] = Field(None, max_length=200, description="Rua/Avenida")
+    numero: Optional[str] = Field(None, max_length=20, description="N√∫mero")
+    complemento: Optional[str] = Field(None, max_length=100, description="Complemento")
+    bairro: Optional[str] = Field(None, max_length=100, description="Bairro")
+    cidade: Optional[str] = Field(None, max_length=100, description="Cidade")
+    estado: Optional[str] = Field(None, max_length=2, description="Estado (sigla)")
+    is_primary: bool = Field(False, description="Endere√ßo principal")
+
+    @field_validator('estado')
     @classmethod
-    def validate_cpf(cls, v: str) -> str:
-        """Validar que CPF contÈm apenas dÌgitos"""
-        if not v.isdigit():
-            raise ValueError('CPF deve conter apenas dÌgitos')
-        if len(v) != 11:
-            raise ValueError('CPF deve ter 11 dÌgitos')
+    def validate_estado(cls, v: Optional[str]) -> Optional[str]:
+        """Valida e normaliza sigla do estado"""
+        if v is not None:
+            v = v.strip().upper()
+            if len(v) != 2:
+                raise ValueError('Estado deve ter 2 caracteres (sigla)')
         return v
 
-    @field_validator('date')
+    @field_validator('cep')
     @classmethod
-    def validate_date(cls, v: datetime) -> datetime:
-        """Validar que data n„o È futura"""
-        if v > datetime.now():
-            raise ValueError('Data n„o pode ser futura')
-        return v
-
-
-class ExternalClientIncomeUpdate(BaseModel):
-    """Schema para atualizaÁ„o de receita de cliente externo"""
-    # Dados b·sicos
-    date: Optional[datetime] = None
-    cpf_cliente: Optional[str] = Field(None, min_length=11, max_length=11)
-    nome_cliente: Optional[str] = Field(None, max_length=180)
-
-    # SimulaÁ„o multi-banco
-    banks_json: Optional[List[BankSimulation]] = Field(None, min_length=1, max_length=6)
-    prazo: Optional[int] = Field(None, gt=0)
-    coeficiente: Optional[str] = Field(None, min_length=1)
-    seguro: Optional[float] = Field(None, ge=0)
-    percentual_consultoria: Optional[float] = Field(None, gt=0, le=100)
-
-    # AtribuiÁ„o
-    owner_user_id: Optional[int] = Field(None, gt=0)
-
-    @field_validator('cpf_cliente')
-    @classmethod
-    def validate_cpf(cls, v: Optional[str]) -> Optional[str]:
-        """Validar que CPF contÈm apenas dÌgitos"""
-        if v is None:
-            return v
-        if not v.isdigit():
-            raise ValueError('CPF deve conter apenas dÌgitos')
-        if len(v) != 11:
-            raise ValueError('CPF deve ter 11 dÌgitos')
-        return v
-
-    @field_validator('date')
-    @classmethod
-    def validate_date(cls, v: Optional[datetime]) -> Optional[datetime]:
-        """Validar que data n„o È futura"""
-        if v is None:
-            return v
-        if v > datetime.now():
-            raise ValueError('Data n„o pode ser futura')
+    def validate_cep(cls, v: Optional[str]) -> Optional[str]:
+        """Remove formata√ß√£o do CEP"""
+        if v is not None:
+            v = ''.join(filter(str.isdigit, v))
+            if v and len(v) != 8:
+                raise ValueError('CEP deve ter 8 d√≠gitos')
         return v
 
 
-class ExternalClientIncomeResponse(BaseModel):
-    """Schema de resposta para receita de cliente externo"""
+class ClientAddressCreate(ClientAddressBase):
+    """Schema para criar endere√ßo"""
+    pass
+
+
+class ClientAddressUpdate(ClientAddressBase):
+    """Schema para atualizar endere√ßo"""
+    pass
+
+
+class ClientAddressResponse(ClientAddressBase):
+    """Schema de resposta com dados do endere√ßo"""
     id: int
-
-    # Dados b·sicos
-    date: datetime
-    cpf_cliente: str
-    nome_cliente: Optional[str]
-
-    # SimulaÁ„o multi-banco
-    banks_json: List[dict]
-    prazo: int
-    coeficiente: str
-    seguro: float
-    percentual_consultoria: float
-
-    # Totais calculados
-    valor_parcela_total: float
-    saldo_total: float
-    liberado_total: float
-    total_financiado: float
-    valor_liquido: float
-    custo_consultoria: float
-    custo_consultoria_liquido: float
-    liberado_cliente: float
-
-    # AtribuiÁ„o
-    owner_user_id: int
-    owner_name: Optional[str] = None  # Ser· preenchido pelo endpoint
-
-    # Anexos
-    attachment_path: Optional[str]
-    attachment_filename: Optional[str]
-    attachment_size: Optional[int]
-    attachment_mime: Optional[str]
-    has_attachment: bool = False
-
-    # Auditoria
-    created_by: int
-    created_by_name: Optional[str] = None  # Ser· preenchido pelo endpoint
+    client_id: int
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# ========== Bulk Import Schemas ==========
+
+class BulkCadastroRow(BaseModel):
+    """Schema para uma linha do CSV de importa√ß√£o cadastral"""
+    cpf: str = Field(..., description="CPF do cliente (apenas d√≠gitos)")
+    telefone: Optional[str] = Field(None, description="Telefone com DDD")
+    cidade: Optional[str] = Field(None, max_length=100, description="Cidade")
+    estado: Optional[str] = Field(None, max_length=2, description="Estado (sigla)")
+
+    @field_validator('cpf')
+    @classmethod
+    def validate_cpf(cls, v: str) -> str:
+        """Remove formata√ß√£o do CPF"""
+        cpf = ''.join(filter(str.isdigit, v))
+        if len(cpf) != 11:
+            raise ValueError('CPF deve ter 11 d√≠gitos')
+        return cpf
+
+    @field_validator('telefone')
+    @classmethod
+    def validate_telefone(cls, v: Optional[str]) -> Optional[str]:
+        """Remove formata√ß√£o do telefone"""
+        if v is not None:
+            telefone = ''.join(filter(str.isdigit, v))
+            if telefone and len(telefone) < 10:
+                raise ValueError('Telefone deve ter no m√≠nimo 10 d√≠gitos (com DDD)')
+            return telefone
+        return v
+
+    @field_validator('estado')
+    @classmethod
+    def validate_estado(cls, v: Optional[str]) -> Optional[str]:
+        """Valida e normaliza sigla do estado"""
+        if v is not None:
+            v = v.strip().upper()
+            if len(v) != 2:
+                raise ValueError('Estado deve ter 2 caracteres (sigla)')
+        return v
+
+
+class BulkCadastroImportResponse(BaseModel):
+    """Schema de resposta da importa√ß√£o em massa"""
+    total_rows: int = Field(..., description="Total de linhas processadas")
+    success_count: int = Field(..., description="Linhas processadas com sucesso")
+    error_count: int = Field(..., description="Linhas com erro")
+    not_found_count: int = Field(..., description="CPFs n√£o encontrados")
+    errors: List[dict] = Field(default_factory=list, description="Detalhes dos erros")
+    success_details: List[dict] = Field(default_factory=list, description="Detalhes dos sucessos")

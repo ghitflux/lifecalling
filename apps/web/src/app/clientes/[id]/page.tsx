@@ -9,7 +9,7 @@ import { StatusBadge } from "@lifecalling/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle, MapPin } from "lucide-react";
 import Financiamentos from "@/components/clients/Financiamentos";
 import { Snippet } from "@nextui-org/snippet";
 import CaseChat from "@/components/case/CaseChat";
@@ -29,6 +29,16 @@ export default function ClienteDetalhe() {
       return response.data;
     },
     enabled: !!id,
+  });
+
+  // Buscar endereços do cliente
+  const { data: addresses = [] } = useQuery({
+    queryKey: ["clientAddresses", id],
+    queryFn: async () => {
+      const response = await api.get(`/clients/${id}/addresses`);
+      return response.data;
+    },
+    enabled: !!id
   });
 
 
@@ -121,6 +131,7 @@ export default function ClienteDetalhe() {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       ativo: { color: "bg-green-100 text-green-800", label: "Ativo" },
+      em_revisao: { color: "bg-yellow-100 text-yellow-800", label: "Em Revisão" },
       encerrado: { color: "bg-gray-100 text-gray-800", label: "Encerrado" },
       inadimplente: { color: "bg-red-100 text-red-800", label: "Inadimplente" },
     } as const;
@@ -270,6 +281,74 @@ export default function ClienteDetalhe() {
         )}
       </Card>
 
+      {/* Endereço */}
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <MapPin className="h-5 w-5" />
+          Endereço
+        </h2>
+
+        {addresses && addresses.length > 0 ? (
+          <div className="space-y-3">
+            {addresses.map((address: any) => (
+              <div key={address.id} className="p-4 border rounded-lg bg-muted/30">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2 flex-1">
+                    {address.logradouro && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Logradouro:</span>
+                        <p>{address.logradouro}{address.numero && `, ${address.numero}`}</p>
+                      </div>
+                    )}
+                    {address.complemento && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Complemento:</span>
+                        <p>{address.complemento}</p>
+                      </div>
+                    )}
+                    {address.bairro && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Bairro:</span>
+                        <p>{address.bairro}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-4">
+                      {address.cidade && (
+                        <div>
+                          <span className="text-sm text-muted-foreground">Cidade:</span>
+                          <p className="font-medium">{address.cidade}</p>
+                        </div>
+                      )}
+                      {address.estado && (
+                        <div>
+                          <span className="text-sm text-muted-foreground">Estado:</span>
+                          <p className="font-medium">{address.estado}</p>
+                        </div>
+                      )}
+                    </div>
+                    {address.cep && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">CEP:</span>
+                        <p>{address.cep}</p>
+                      </div>
+                    )}
+                  </div>
+                  {address.is_primary && (
+                    <Badge className="bg-blue-100 text-blue-800">Principal</Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Nenhum endereço cadastrado</p>
+            <p className="text-sm">Use a importação em massa para adicionar endereços</p>
+          </div>
+        )}
+      </Card>
+
       {/* Contratos */}
       <Financiamentos clientId={parseInt(id)} />
 
@@ -369,9 +448,7 @@ export default function ClienteDetalhe() {
                     <Badge variant="outline" className="font-mono">
                       Contrato #{contrato.id}
                     </Badge>
-                    <Badge variant={contrato.status === "ativo" ? "default" : "secondary"}>
-                      {contrato.status === "ativo" ? "Ativo" : contrato.status}
-                    </Badge>
+                    {getStatusBadge(contrato.status)}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

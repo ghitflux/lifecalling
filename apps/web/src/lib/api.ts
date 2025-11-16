@@ -2,25 +2,29 @@
 
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosError } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-
-// Log para debug apenas em desenvolvimento
-if (process.env.NODE_ENV === 'development') {
-  console.log('🔧 API Configuration:', {
-    baseURL: BASE_URL,
-    environment: process.env.NODE_ENV,
-    publicApiUrl: process.env.NEXT_PUBLIC_API_BASE_URL
-  });
-}
-
 // --- instancia base ----------------------------------------------
 export const api: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  withCredentials: true, // envia cookies HttpOnly
+  baseURL: '/api', // Usa proxy do Next.js
+  withCredentials: true,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Helper: loga erros Axios de forma consistente
+export function logAxiosError(tag: string, error: unknown) {
+  const e = error as any;
+  if (e?.response) {
+    console.error(
+      `[${tag}] HTTP ${e.response.status}`,
+      e.response.data ?? '(sem body)',
+      'URL:', e.config?.url
+    );
+  } else {
+    console.error(`[${tag}]`, e?.code || e?.message || e, 'URL:', e?.config?.url);
+  }
+}
 
 // --- CSRF Token Management ----------------------------------------
 function getCsrfToken(): string | null {
@@ -37,8 +41,7 @@ function getCsrfToken(): string | null {
 
 async function fetchCsrfToken(): Promise<string | null> {
   try {
-    const response = await axios.get('/auth/csrf', {
-      baseURL: BASE_URL,
+    const response = await axios.get('/api/auth/csrf', {
       withCredentials: true
     });
     return response.data.csrf_token;
@@ -48,8 +51,8 @@ async function fetchCsrfToken(): Promise<string | null> {
   }
 }
 
-// --- util pra logar erro de forma confiável -----------------------
-function logAxiosError(err: unknown) {
+// --- util interna pra logar erro do interceptor -------------------
+function logInterceptorError(err: unknown) {
   // Logar apenas erros não-401 ou em desenvolvimento
   const isDev = process.env.NODE_ENV === 'development';
   const is401 = isAxiosError(err) && (err as AxiosError).response?.status === 401;
@@ -79,9 +82,8 @@ async function doRefreshOnce() {
     refreshPromise = (async () => {
       try {
         // Usar uma instância separada para evitar interceptor recursivo
-        const refreshResponse = await axios.post('/auth/refresh', null, {
-          withCredentials: true,
-          baseURL: BASE_URL
+        const refreshResponse = await axios.post('/api/auth/refresh', null, {
+          withCredentials: true
         });
         if (process.env.NODE_ENV === 'development') {
           console.log('✅ Token refresh successful');
@@ -129,7 +131,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (res) => res,
   async (error: unknown) => {
-    logAxiosError(error);
+    logInterceptorError(error);
 
     if (!isAxiosError(error)) {
       return Promise.reject(error);

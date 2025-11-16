@@ -2,18 +2,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
-  KPICard,
   RankingTable,
   PodiumCard,
   CampaignCard,
   DateRangeFilter,
   ProgressBar,
-  Button
+  Button,
+  Card
 } from "@lifecalling/ui";
 import { CampaignModal } from "@/components/CampaignModal";
+import { ContractsDetailsModal } from "@/components/rankings/ContractsDetailsModal";
 import { useAuth } from "@/lib/auth";
 import { useMemo, useState } from "react";
-import { Download, Plus, Trophy, Target, TrendingUp } from "lucide-react";
+import { Download, Plus, Trophy, Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RankingsPage() {
@@ -24,6 +25,11 @@ export default function RankingsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState<any>(null);
+
+  // Estados para modal de contratos
+  const [showContractsModal, setShowContractsModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserName, setSelectedUserName] = useState<string>("");
 
   // Estados para filtro por período (padrão: mês atual)
   const [startDate, setStartDate] = useState<string>(() => {
@@ -37,22 +43,6 @@ export default function RankingsPage() {
     return lastDay.toISOString().split("T")[0];
   });
 
-  // Query: KPIs do usuário logado
-  const { data: myKpis, isLoading: myKpisLoading } = useQuery({
-    queryKey: ["rankings", "kpis", "me", user?.id, startDate, endDate],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const params = new URLSearchParams();
-      params.append("user_id", user.id.toString());
-      params.append("from", new Date(startDate).toISOString());
-      params.append("to", new Date(endDate).toISOString());
-      const response = await api.get(`/rankings/kpis?${params.toString()}`);
-      return response.data;
-    },
-    enabled: !!user?.id,
-    staleTime: 30000, // 30 segundos
-    gcTime: 60000 // 1 minuto (novo nome do cacheTime)
-  });
 
   // Query: Pódio (Top 3)
   const { data: podiumData, isLoading: podiumLoading } = useQuery({
@@ -108,6 +98,29 @@ export default function RankingsPage() {
       return response.data;
     }
   });
+
+  // Query: KPIs dos contratos do atendente (apenas para atendentes)
+  const { data: myContractsData } = useQuery({
+    queryKey: ["my-contracts-summary", user?.id, startDate, endDate],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const params = new URLSearchParams();
+      params.append("from", new Date(startDate).toISOString());
+      params.append("to", new Date(endDate).toISOString());
+      params.append("per_page", "1"); // Só precisa do summary
+      const response = await api.get(`/rankings/agents/${user.id}/contracts?${params.toString()}`);
+      return response.data;
+    },
+    enabled: user?.role === "atendente"
+  });
+
+  // Helper: formatar moeda
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
 
   // Mutations
   const createCampaignMutation = useMutation({
@@ -181,18 +194,103 @@ export default function RankingsPage() {
     }
   };
 
-  // Formatação de dados para a tabela
+  // Filtrar pódio (apenas atendentes, excluir usuários específicos)
+  const filteredPodiumData = useMemo(() => {
+    if (!podiumData?.podium) return null;
+
+    const filtered = podiumData.podium.filter((agent: any) => {
+      const nameLower = agent.name?.toLowerCase() || "";
+
+      // Lista de usuários/padrões a excluir (tanto por nome exato quanto por padrão)
+      const excludedPatterns = [
+        "peltson",
+        "balcão",
+        "balcao",
+        "administrador",
+        "admin",
+        "calculista",
+        "supervisor",
+        "sistema",
+        "fechamento"
+      ];
+
+      // Excluir se o nome contém qualquer padrão excluído
+      if (excludedPatterns.some(pattern => nameLower.includes(pattern))) {
+        return false;
+      }
+
+      // Excluir roles não-atendentes
+      const excludedRoles = ["admin", "supervisor", "calculista"];
+      if (agent.role && excludedRoles.includes(agent.role.toLowerCase())) {
+        return false;
+      }
+
+      // Se tem role, só aceitar "atendente"
+      if (agent.role && agent.role.toLowerCase() !== "atendente") {
+        return false;
+      }
+
+      return true; // Passou em todos os filtros
+    });
+
+    // Reajustar posições após filtro
+    return {
+      ...podiumData,
+      podium: filtered.map((agent: any, idx: number) => ({
+        ...agent,
+        position: idx + 1
+      }))
+    };
+  }, [podiumData]);
+
+  // Formatação de dados para a tabela (filtrado: apenas atendentes, excluir usuários específicos)
   const tableData = useMemo(() => {
     if (!rankingData?.items) return [];
 
-    return rankingData.items.map((agent: any, idx: number) => ({
+    // Filtrar apenas atendentes e excluir usuários específicos
+    const filteredItems = rankingData.items.filter((agent: any) => {
+      const nameLower = agent.name?.toLowerCase() || "";
+
+      // Lista de usuários/padrões a excluir (tanto por nome exato quanto por padrão)
+      const excludedPatterns = [
+        "peltson",
+        "balcão",
+        "balcao",
+        "administrador",
+        "admin",
+        "calculista",
+        "supervisor",
+        "sistema",
+        "fechamento"
+      ];
+
+      // Excluir se o nome contém qualquer padrão excluído
+      if (excludedPatterns.some(pattern => nameLower.includes(pattern))) {
+        return false;
+      }
+
+      // Excluir roles não-atendentes
+      const excludedRoles = ["admin", "supervisor", "calculista"];
+      if (agent.role && excludedRoles.includes(agent.role.toLowerCase())) {
+        return false;
+      }
+
+      // Se tem role, só aceitar "atendente"
+      if (agent.role && agent.role.toLowerCase() !== "atendente") {
+        return false;
+      }
+
+      return true; // Passou em todos os filtros
+    });
+
+    return filteredItems.map((agent: any, idx: number) => ({
       pos: idx + 1,
       user_id: agent.user_id,
       name: agent.name,
       contracts: agent.contracts || 0,
       consultoria_liq: agent.consultoria_liq || 0,
       meta_contratos: agent.meta_contratos || 0,
-      meta_consultoria: agent.meta_consultoria || 10000,
+      meta_consultoria: agent.meta_consultoria || 15000,
       atingimento_contratos: agent.atingimento_contratos || 0,
       atingimento_consultoria: agent.atingimento_consultoria || 0
     }));
@@ -225,6 +323,7 @@ export default function RankingsPage() {
   }
 
   const isAdmin = user?.role === "admin";
+  const isAdminOrSupervisor = user?.role === "admin" || user?.role === "supervisor";
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -254,39 +353,6 @@ export default function RankingsPage() {
         />
       </div>
 
-      {/* KPIs Pessoais */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Target className="h-5 w-5" />
-          Minha Produção
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KPICard
-            title="Contratos Fechados"
-            value={myKpis?.kpis?.contracts || 0}
-            subtitle={`Meta: ${myKpis?.kpis?.meta_contratos || 0} contratos`}
-            gradientVariant="emerald"
-            isLoading={myKpisLoading}
-            icon={Trophy}
-          />
-          <KPICard
-            title="Volume de Produção"
-            value={`R$ ${(myKpis?.kpis?.consultoria_liq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-            subtitle={`Meta: R$ ${(myKpis?.kpis?.meta_consultoria || 10000).toLocaleString("pt-BR")}`}
-            gradientVariant="violet"
-            isLoading={myKpisLoading}
-            icon={TrendingUp}
-          />
-          <KPICard
-            title="Progresso da Meta"
-            value={`${(myKpis?.kpis?.progresso_consultoria || 0).toFixed(1)}%`}
-            subtitle={`Faltam R$ ${(myKpis?.kpis?.falta_consultoria || 0).toLocaleString("pt-BR")}`}
-            gradientVariant="sky"
-            isLoading={myKpisLoading}
-            icon={Target}
-          />
-        </div>
-      </div>
 
       {/* Pódio - Top 3 */}
       <div>
@@ -303,49 +369,49 @@ export default function RankingsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Reorganizar para colocar o 1º lugar no meio */}
-            {podiumData?.podium?.length > 0 && (
+            {filteredPodiumData?.podium?.length > 0 && (
               <>
                 {/* 2º Lugar (esquerda) */}
-                {podiumData.podium.find((item: any) => item.position === 2) && (
+                {filteredPodiumData.podium.find((item: any) => item.position === 2) && (
                   <div className="order-1 md:order-1">
                     <PodiumCard
                       key={2}
                       position={2}
-                      userName={podiumData.podium.find((item: any) => item.position === 2).name}
-                      contracts={podiumData.podium.find((item: any) => item.position === 2).contracts}
-                      consultoriaLiq={podiumData.podium.find((item: any) => item.position === 2).consultoria_liq}
+                      userName={filteredPodiumData.podium.find((item: any) => item.position === 2).name}
+                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 2).contracts}
+                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 2).consultoria_liq}
                     />
                   </div>
                 )}
-                
+
                 {/* 1º Lugar (meio) */}
-                {podiumData.podium.find((item: any) => item.position === 1) && (
+                {filteredPodiumData.podium.find((item: any) => item.position === 1) && (
                   <div className="order-2 md:order-2">
                     <PodiumCard
                       key={1}
                       position={1}
-                      userName={podiumData.podium.find((item: any) => item.position === 1).name}
-                      contracts={podiumData.podium.find((item: any) => item.position === 1).contracts}
-                      consultoriaLiq={podiumData.podium.find((item: any) => item.position === 1).consultoria_liq}
+                      userName={filteredPodiumData.podium.find((item: any) => item.position === 1).name}
+                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 1).contracts}
+                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 1).consultoria_liq}
                     />
                   </div>
                 )}
-                
+
                 {/* 3º Lugar (direita) */}
-                {podiumData.podium.find((item: any) => item.position === 3) && (
+                {filteredPodiumData.podium.find((item: any) => item.position === 3) && (
                   <div className="order-3 md:order-3">
                     <PodiumCard
                       key={3}
                       position={3}
-                      userName={podiumData.podium.find((item: any) => item.position === 3).name}
-                      contracts={podiumData.podium.find((item: any) => item.position === 3).contracts}
-                      consultoriaLiq={podiumData.podium.find((item: any) => item.position === 3).consultoria_liq}
+                      userName={filteredPodiumData.podium.find((item: any) => item.position === 3).name}
+                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 3).contracts}
+                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 3).consultoria_liq}
                     />
                   </div>
                 )}
               </>
             )}
-            {(!podiumData?.podium || podiumData.podium.length === 0) && (
+            {(!filteredPodiumData?.podium || filteredPodiumData.podium.length === 0) && (
               <div className="col-span-3 text-center py-12 text-muted-foreground">
                 Nenhum dado disponível para o período selecionado
               </div>
@@ -378,7 +444,25 @@ export default function RankingsPage() {
               { key: "contracts", header: "Contratos", format: "number" },
               { key: "consultoria_liq", header: "Consultoria Líq.", format: "currency" },
               { key: "meta_consultoria", header: "Meta", format: "currency" },
-              { key: "progress", header: "Progresso", render: ProgressCell }
+              { key: "progress", header: "Progresso", render: ProgressCell },
+              ...(isAdminOrSupervisor ? [{
+                key: "actions",
+                header: "Ações",
+                render: (row: any) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedUserId(row.user_id);
+                      setSelectedUserName(row.name);
+                      setShowContractsModal(true);
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver Detalhes
+                  </Button>
+                )
+              }] : [])
             ]}
             highlightTop3
           />
@@ -388,6 +472,44 @@ export default function RankingsPage() {
           </div>
         )}
       </div>
+
+      {/* Meus Contratos (apenas para atendentes) */}
+      {user?.role === "atendente" && (
+        <Card className="p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Meus Contratos Efetivados
+              </h2>
+
+              {/* KPIs rápidos */}
+              {myContractsData?.summary && (
+                <div className="flex gap-4 text-sm text-muted-foreground mt-2">
+                  <span>
+                    <strong>{myContractsData.summary.total_contracts}</strong> contrato(s)
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>{formatCurrency(myContractsData.summary.total_consultoria)}</strong> em consultoria
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <Button
+              onClick={() => {
+                setSelectedUserId(user.id);
+                setSelectedUserName(user.name);
+                setShowContractsModal(true);
+              }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Ver Detalhes
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Campanhas Ativas */}
       <div>
@@ -505,6 +627,18 @@ export default function RankingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Detalhes de Contratos (Admin/Supervisor) */}
+      {selectedUserId && (
+        <ContractsDetailsModal
+          open={showContractsModal}
+          onOpenChange={setShowContractsModal}
+          userId={selectedUserId}
+          userName={selectedUserName}
+          startDate={startDate}
+          endDate={endDate}
+        />
       )}
     </div>
   );
