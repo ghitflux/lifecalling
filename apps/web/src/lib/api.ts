@@ -3,8 +3,24 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosError } from 'axios';
 
 // --- instancia base ----------------------------------------------
+// Em desenvolvimento, usar URL completa do backend para evitar problemas com proxy do Next.js
+// Em produção, usar /api para aproveitar o rewrite
+const getBaseURL = () => {
+  if (typeof window === 'undefined') {
+    // Server-side: usar rewrite
+    return '/api';
+  }
+  // Client-side em desenvolvimento: usar URL completa
+  const isDev = process.env.NODE_ENV === 'development';
+  if (isDev) {
+    return 'http://localhost:8000';
+  }
+  // Produção: usar rewrite
+  return '/api';
+};
+
 export const api: AxiosInstance = axios.create({
-  baseURL: '/api', // Usa proxy do Next.js
+  baseURL: getBaseURL(),
   withCredentials: true,
   timeout: 20000,
   headers: {
@@ -41,7 +57,7 @@ function getCsrfToken(): string | null {
 
 async function fetchCsrfToken(): Promise<string | null> {
   try {
-    const response = await axios.get('/api/auth/csrf', {
+    const response = await api.get('/auth/csrf', {
       withCredentials: true
     });
     return response.data.csrf_token;
@@ -82,7 +98,7 @@ async function doRefreshOnce() {
     refreshPromise = (async () => {
       try {
         // Usar uma instância separada para evitar interceptor recursivo
-        const refreshResponse = await axios.post('/api/auth/refresh', null, {
+        const refreshResponse = await api.post('/auth/refresh', null, {
           withCredentials: true
         });
         if (process.env.NODE_ENV === 'development') {
