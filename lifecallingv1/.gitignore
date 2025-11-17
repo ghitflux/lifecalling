@@ -1,0 +1,34 @@
+# Arquivos de backup
+backups/
+*.sql
+*.tar.gz
+*.zip
+
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node modules
+node_modules/
+dist/
+build/
+.next/
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Playwright
+.venv/Lib/site-packages/playwright/
