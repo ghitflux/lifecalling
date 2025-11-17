@@ -806,25 +806,29 @@ def get_podium(
             if user_obj and user_obj.role == "atendente":
                 podium_map[user_id] = {"contracts": 0, "consultoria_liq": consultoria_liq}
 
-    # Ordenar por consultoria líquida e pegar Top 3
+    # Ordenar por consultoria líquida
     sorted_users = sorted(
         podium_map.items(),
         key=lambda x: x[1]["consultoria_liq"],
         reverse=True
-    )[:3]
+    )
 
-    # Formatar Top 3
+    # Formatar Top 3 - garantir que sempre tenha 3 posições quando houver dados suficientes
     podium = []
-    for idx, (user_id, data) in enumerate(sorted_users):
+    position = 1
+    for user_id, data in sorted_users:
+        if position > 3:  # Limitar a 3 posições
+            break
         user_obj = db.get(User, user_id)
         if user_obj and user_obj.role == "atendente":  # Filtrar apenas atendentes
             podium.append({
-                "position": idx + 1,
+                "position": position,
                 "user_id": user_id,
                 "name": user_obj.name,
                 "contracts": data["contracts"],
                 "consultoria_liq": data["consultoria_liq"]
             })
+            position += 1
 
     return {
         "period": {"from": str(start), "to": str(end)},

@@ -194,55 +194,6 @@ export default function RankingsPage() {
     }
   };
 
-  // Filtrar pódio (apenas atendentes, excluir usuários específicos)
-  const filteredPodiumData = useMemo(() => {
-    if (!podiumData?.podium) return null;
-
-    const filtered = podiumData.podium.filter((agent: any) => {
-      const nameLower = agent.name?.toLowerCase() || "";
-
-      // Lista de usuários/padrões a excluir (tanto por nome exato quanto por padrão)
-      const excludedPatterns = [
-        "peltson",
-        "balcão",
-        "balcao",
-        "administrador",
-        "admin",
-        "calculista",
-        "supervisor",
-        "sistema",
-        "fechamento"
-      ];
-
-      // Excluir se o nome contém qualquer padrão excluído
-      if (excludedPatterns.some(pattern => nameLower.includes(pattern))) {
-        return false;
-      }
-
-      // Excluir roles não-atendentes
-      const excludedRoles = ["admin", "supervisor", "calculista"];
-      if (agent.role && excludedRoles.includes(agent.role.toLowerCase())) {
-        return false;
-      }
-
-      // Se tem role, só aceitar "atendente"
-      if (agent.role && agent.role.toLowerCase() !== "atendente") {
-        return false;
-      }
-
-      return true; // Passou em todos os filtros
-    });
-
-    // Reajustar posições após filtro
-    return {
-      ...podiumData,
-      podium: filtered.map((agent: any, idx: number) => ({
-        ...agent,
-        position: idx + 1
-      }))
-    };
-  }, [podiumData]);
-
   // Formatação de dados para a tabela (filtrado: apenas atendentes, excluir usuários específicos)
   const tableData = useMemo(() => {
     if (!rankingData?.items) return [];
@@ -295,6 +246,25 @@ export default function RankingsPage() {
       atingimento_consultoria: agent.atingimento_consultoria || 0
     }));
   }, [rankingData]);
+
+  // Gerar pódio a partir dos dados da tabela de rankings (top 3)
+  const filteredPodiumData = useMemo(() => {
+    if (!tableData || tableData.length === 0) return null;
+
+    // Pegar os top 3 da tabela de rankings
+    const top3 = tableData.slice(0, 3).map((agent: any) => ({
+      position: agent.pos,
+      user_id: agent.user_id,
+      name: agent.name,
+      contracts: agent.contracts,
+      consultoria_liq: agent.consultoria_liq
+    }));
+
+    return {
+      period: podiumData?.period || { from: startDate, to: endDate },
+      podium: top3
+    };
+  }, [tableData, podiumData, startDate, endDate]);
 
   // Renderizar célula de progresso
   function ProgressCell(row: any) {
@@ -360,7 +330,7 @@ export default function RankingsPage() {
           <Trophy className="h-5 w-5 text-yellow-600" />
           Pódio - Top 3
         </h2>
-        {podiumLoading ? (
+        {rankingLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-48 bg-muted animate-pulse rounded-2xl" />
@@ -369,49 +339,48 @@ export default function RankingsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Reorganizar para colocar o 1º lugar no meio */}
-            {filteredPodiumData?.podium?.length > 0 && (
+            {filteredPodiumData?.podium?.length > 0 ? (
               <>
-                {/* 2º Lugar (esquerda) */}
-                {filteredPodiumData.podium.find((item: any) => item.position === 2) && (
+                {/* 2º Lugar (esquerda) - índice 1 do array filtrado */}
+                {filteredPodiumData.podium.length >= 2 && filteredPodiumData.podium[1] && (
                   <div className="order-1 md:order-1">
                     <PodiumCard
-                      key={2}
-                      position={2}
-                      userName={filteredPodiumData.podium.find((item: any) => item.position === 2).name}
-                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 2).contracts}
-                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 2).consultoria_liq}
+                      key={`podium-2-${filteredPodiumData.podium[1].user_id}`}
+                      position={filteredPodiumData.podium[1].position}
+                      userName={filteredPodiumData.podium[1].name}
+                      contracts={filteredPodiumData.podium[1].contracts}
+                      consultoriaLiq={filteredPodiumData.podium[1].consultoria_liq}
                     />
                   </div>
                 )}
 
-                {/* 1º Lugar (meio) */}
-                {filteredPodiumData.podium.find((item: any) => item.position === 1) && (
+                {/* 1º Lugar (meio) - índice 0 do array filtrado */}
+                {filteredPodiumData.podium[0] && (
                   <div className="order-2 md:order-2">
                     <PodiumCard
-                      key={1}
-                      position={1}
-                      userName={filteredPodiumData.podium.find((item: any) => item.position === 1).name}
-                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 1).contracts}
-                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 1).consultoria_liq}
+                      key={`podium-1-${filteredPodiumData.podium[0].user_id}`}
+                      position={filteredPodiumData.podium[0].position}
+                      userName={filteredPodiumData.podium[0].name}
+                      contracts={filteredPodiumData.podium[0].contracts}
+                      consultoriaLiq={filteredPodiumData.podium[0].consultoria_liq}
                     />
                   </div>
                 )}
 
-                {/* 3º Lugar (direita) */}
-                {filteredPodiumData.podium.find((item: any) => item.position === 3) && (
+                {/* 3º Lugar (direita) - índice 2 do array filtrado */}
+                {filteredPodiumData.podium.length >= 3 && filteredPodiumData.podium[2] && (
                   <div className="order-3 md:order-3">
                     <PodiumCard
-                      key={3}
-                      position={3}
-                      userName={filteredPodiumData.podium.find((item: any) => item.position === 3).name}
-                      contracts={filteredPodiumData.podium.find((item: any) => item.position === 3).contracts}
-                      consultoriaLiq={filteredPodiumData.podium.find((item: any) => item.position === 3).consultoria_liq}
+                      key={`podium-3-${filteredPodiumData.podium[2].user_id}`}
+                      position={filteredPodiumData.podium[2].position}
+                      userName={filteredPodiumData.podium[2].name}
+                      contracts={filteredPodiumData.podium[2].contracts}
+                      consultoriaLiq={filteredPodiumData.podium[2].consultoria_liq}
                     />
                   </div>
                 )}
               </>
-            )}
-            {(!filteredPodiumData?.podium || filteredPodiumData.podium.length === 0) && (
+            ) : (
               <div className="col-span-3 text-center py-12 text-muted-foreground">
                 Nenhum dado disponível para o período selecionado
               </div>
