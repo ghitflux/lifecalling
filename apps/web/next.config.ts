@@ -4,13 +4,11 @@ import path from "path";
 const nextConfig: NextConfig = {
   // output: 'standalone', // Required for Docker deployment - temporarily disabled for Windows build
   transpilePackages: ["@lifecalling/ui"],
-  // Disable Turbopack for production builds (use webpack instead)
-  // Turbopack has issues with monorepo setup in Docker
-  ...(process.env.NODE_ENV === 'production' ? {} : {
-    turbopack: {
-      root: path.resolve(__dirname, "../../.."),
-    },
-  }),
+  // Enable Turbopack for development
+  turbopack: {
+    // Point to the workspace root - use absolute path /app for Docker
+    root: process.env.NODE_ENV === 'production' ? '/app' : path.resolve(__dirname, "../../.."),
+  },
   async rewrites() {
     // Para SSR/rewrites do servidor Next.js, usar API_BASE_URL (interno do Docker)
     // Para o browser (client-side), NEXT_PUBLIC_API_BASE_URL é usado automaticamente
