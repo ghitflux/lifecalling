@@ -11,12 +11,13 @@ try {
   // Certificar que NODE_ENV está definido como production
   process.env.NODE_ENV = 'production';
 
-  // Executar next build a partir do diretório do apps/web
+  // Executar next build a partir do diretório do apps/web usando o executable correto
   const webDir = path.join(__dirname, 'apps/web');
-  const command = `cd "${webDir}" && next build`;
+  const nextBinary = path.join(__dirname, 'apps/web/node_modules/.bin/next');
+  const command = `cd "${webDir}" && "${nextBinary}" build`;
 
   console.log(`Executando: ${command}`);
-  execSync(command, { stdio: 'inherit' });
+  execSync(command, { stdio: 'inherit', shell: '/bin/sh' });
 
   process.exit(0);
 } catch (error) {
