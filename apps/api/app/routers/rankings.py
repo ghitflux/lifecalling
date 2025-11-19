@@ -13,19 +13,25 @@ r = APIRouter(prefix="/rankings", tags=["rankings"])
 
 
 # Util: parse datas
+# Retorna: (start_date, end_date_exclusive, prev_start, prev_end_exclusive)
+# end_date_exclusive é o dia seguinte (para usar em .between(start, end_exclusive))
 def _parse_range(from_: str | None, to: str | None):
     if not from_ or not to:
         # mês atual por padrão
         today = date.today()
         start = today.replace(day=1)
-        end = today + timedelta(days=1)  # +1 dia para incluir todo o dia especificado
+        end_exclusive = today + timedelta(days=1)  # Dia seguinte (para between)
     else:
         start = datetime.fromisoformat(from_.replace("Z", "+00:00")).date()
-        end = datetime.fromisoformat(to.replace("Z", "+00:00")).date() + timedelta(days=1)  # +1 dia para incluir todo o dia final
-    prev_span = (end - start).days or 1
-    prev_start = start - timedelta(days=prev_span)
-    prev_end = start  # Sem -1 pois já estamos adicionando +1 ao end
-    return start, end, prev_start, prev_end
+        end_date = datetime.fromisoformat(to.replace("Z", "+00:00")).date()
+        end_exclusive = end_date + timedelta(days=1)  # Dia seguinte (para between incluir todo o dia final)
+
+    # Período anterior para trend - mesma duração
+    span = (end_exclusive - start).days or 1
+    prev_start = start - timedelta(days=span)
+    prev_end_exclusive = start  # Sem +1, pois já temos exclusive
+
+    return start, end_exclusive, prev_start, prev_end_exclusive
 
 
 # Util: calcular consultoria líquida por usuário
