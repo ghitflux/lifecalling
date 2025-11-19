@@ -69,6 +69,27 @@ class ClientPhone(Base):
         UniqueConstraint('client_id', 'phone', name='uq_client_phone'),
     )
 
+class ClientAddress(Base):
+    """
+    Endereços de um cliente.
+    Permite armazenar múltiplos endereços com marcação de endereço principal.
+    """
+    __tablename__ = "client_addresses"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    cep = Column(String(8), nullable=True)
+    logradouro = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(100), nullable=True)
+    bairro = Column(String(100), nullable=True)
+    cidade = Column(String(100), nullable=True)
+    estado = Column(String(2), nullable=True)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
+
+    client = relationship("Client")
+
 class Case(Base):
     __tablename__ = "cases"
     id = Column(Integer, primary_key=True)
@@ -179,6 +200,18 @@ class Contract(Base):
     created_by = Column(Integer, ForeignKey("users.id"))  # Quem efetivou (financeiro)
     agent_user_id = Column(Integer, ForeignKey("users.id"))  # Atendente do caso (para ranking)
 
+    # Campos de consultoria bruta e imposto (novos)
+    consultoria_bruta = Column(Numeric(14,2), nullable=True)  # Valor bruto da consultoria
+    imposto_percentual = Column(Numeric(5,2), default=14.00, nullable=True)  # Percentual de imposto (padrão 14%)
+    imposto_valor = Column(Numeric(14,2), nullable=True)  # Valor do imposto calculado
+
+    # Campos de comissão de corretor (opcional)
+    tem_corretor = Column(Boolean, default=False, nullable=True)  # Se tem corretor envolvido
+    corretor_nome = Column(String(255), nullable=True)  # Nome do corretor
+    corretor_comissao_valor = Column(Numeric(14,2), nullable=True)  # Valor da comissão do corretor
+    corretor_expense_id = Column(Integer, ForeignKey("finance_expenses.id", ondelete="SET NULL"), nullable=True)  # FK para despesa criada
+    imposto_expense_id = Column(Integer, ForeignKey("finance_expenses.id", ondelete="SET NULL"), nullable=True)  # FK para despesa de imposto
+
     case = relationship("Case")
     attachments = relationship("ContractAttachment", back_populates="contract", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
@@ -228,6 +261,12 @@ class FinanceExpense(Base):
     attachment_size = Column(Integer, nullable=True)  # Tamanho em bytes
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # ✅ NOVOS CAMPOS
+    agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    client_cpf = Column(String(14), nullable=True)
+    client_name = Column(String(255), nullable=True)
+    
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -236,6 +275,7 @@ class FinanceExpense(Base):
 
     # Relacionamentos
     creator = relationship("User", foreign_keys=[created_by])
+    agent = relationship("User", foreign_keys=[agent_user_id])  # ✅ NOVO
 
 class FinanceIncome(Base):
     __tablename__ = "finance_incomes"
@@ -250,6 +290,8 @@ class FinanceIncome(Base):
     attachment_mime = Column(String(100), nullable=True)  # Tipo MIME do arquivo
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Atendente responsável (para receitas de contratos)
+    client_cpf = Column(String(14), nullable=True)  # CPF do cliente (para receitas manuais)
+    client_name = Column(String(255), nullable=True)  # Nome do cliente (para receitas manuais)
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 
@@ -476,6 +518,72 @@ class Comment(Base):
     # Índice composto para queries eficientes
     __table_args__ = (
         Index('ix_comments_case_channel_created', 'case_id', 'channel', 'created_at'),
+    )
+
+class CommissionPayout(Base):
+    """
+    Sistema de comissões para usuários.
+    Permite atribuir comissões sobre a consultoria líquida de contratos efetivados.
+    A comissão é registrada como despesa automática no sistema financeiro.
+    """
+    __tablename__ = "commission_payouts"
+
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, unique=True)
+    case_id = Column(Integer, ForeignKey("cases.id"), nullable=False)
+
+    # Beneficiário da comissão
+    beneficiary_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # Valores
+    consultoria_liquida = Column(Numeric(14,2), nullable=False)  # Valor base
+    commission_percentage = Column(Numeric(5,2), nullable=False)  # 10.00, 20.00, etc
+    commission_amount = Column(Numeric(14,2), nullable=False)     # Valor calculado
+
+    # Referência à despesa criada automaticamente
+    expense_id = Column(Integer, ForeignKey("finance_expenses.id"), nullable=True)
+
+    # Auditoria
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=now_brt)
+
+    # Relacionamentos
+    contract = relationship("Contract")
+    case = relationship("Case")
+    beneficiary = relationship("User", foreign_keys=[beneficiary_user_id])
+    creator = relationship("User", foreign_keys=[created_by])
+    expense = relationship("FinanceExpense", foreign_keys=[expense_id])
+
+    # Índices
+    __table_args__ = (
+        Index('ix_commission_beneficiary', 'beneficiary_user_id'),
+        Index('ix_commission_date', 'created_at'),
+    )
+
+class SLAExecution(Base):
+    """
+    Histórico de execuções do sistema de SLA de 48h úteis.
+    Registra cada vez que o scheduler processa casos expirados.
+    """
+    __tablename__ = "sla_executions"
+
+    id = Column(Integer, primary_key=True)
+    executed_at = Column(DateTime, default=now_brt, nullable=False)
+    execution_type = Column(String(20), nullable=False)  # 'scheduled' | 'manual'
+    cases_expired_count = Column(Integer, default=0, nullable=False)
+    cases_released = Column(JSON, default=list)  # [{"case_id": X, "client_name": Y, "assigned_user": Z, "reason": "expired"}, ...]
+    executed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    duration_seconds = Column(Numeric(10, 2), nullable=True)
+    details = Column(JSON, default=dict)  # Estatísticas adicionais
+
+    # Relacionamentos
+    executed_by = relationship("User", foreign_keys=[executed_by_user_id])
+
+    # Índices
+    __table_args__ = (
+        Index('ix_sla_executions_executed_at', 'executed_at'),
+        Index('ix_sla_executions_execution_type', 'execution_type'),
+        Index('ix_sla_executions_user_id', 'executed_by_user_id'),
     )
 
 class ExternalClientIncome(Base):

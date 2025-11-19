@@ -6,21 +6,22 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@lifecalling/ui"],
   // Enable Turbopack for development
   turbopack: {
-    // Turbopack configuration
-    // Most transformations are handled automatically by Turbopack
-    root: path.resolve(__dirname, "../../.."), // Point to the workspace root to avoid multiple lockfiles warning
+    // Point to the workspace root - use absolute path /app for Docker
+    root: process.env.NODE_ENV === 'production' ? '/app' : path.resolve(__dirname, "../../.."),
   },
   async rewrites() {
-    // Em produção você aponta NEXT_PUBLIC_API_BASE_URL para o domínio real da API
-    if (process.env.NODE_ENV === 'development') {
-      return [
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:8000/:path*',
-        },
-      ];
-    }
-    return [];
+    // Para SSR/rewrites do servidor Next.js, usar API_BASE_URL (interno do Docker)
+    // Para o browser (client-side), NEXT_PUBLIC_API_BASE_URL é usado automaticamente
+    const API = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
+    if (!API) return [];
+
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${API}/:path*`,
+      },
+    ];
   },
 };
 

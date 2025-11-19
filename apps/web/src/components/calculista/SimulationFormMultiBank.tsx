@@ -33,7 +33,8 @@ const BANKS = [
   "FACTA",
   "DIGIO",
   "BIB",
-  "Margem*"
+  "Margem*",
+  "Margem Positiva"
 ];
 
 interface SimulationFormMultiBankProps {
@@ -265,8 +266,8 @@ export function SimulationFormMultiBank({
         }
       }
       
-      // Saldo devedor é obrigatório apenas para bancos que não sejam "Margem*"
-      if (bank.bank !== "Margem*" && (!bank.saldoDevedor || bank.saldoDevedor <= 0)) {
+      // Saldo devedor é obrigatório apenas para bancos que não sejam "Margem*" ou "Margem Positiva"
+      if (bank.bank !== "Margem*" && bank.bank !== "Margem Positiva" && (!bank.saldoDevedor || bank.saldoDevedor <= 0)) {
         errors.push(`Banco ${index + 1}: Saldo devedor deve ser maior que zero`);
       }
       
@@ -469,7 +470,7 @@ export function SimulationFormMultiBank({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Saldo Devedor {bank.bank !== "Margem*" ? "*" : ""}
+                        Saldo Devedor {bank.bank !== "Margem*" && bank.bank !== "Margem Positiva" ? "*" : ""}
                       </label>
                       <Input
                         type="text"
@@ -477,7 +478,7 @@ export function SimulationFormMultiBank({
                         onChange={(e) => updateBank(index, "saldoDevedor", e.target.value)}
                         placeholder="R$ 30.000,00"
                         data-testid={`bank-${index}-saldo-devedor`}
-                        required={bank.bank !== "Margem*"}
+                        required={bank.bank !== "Margem*" && bank.bank !== "Margem Positiva"}
                       />
                     </div>
 

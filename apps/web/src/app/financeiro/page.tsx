@@ -15,14 +15,13 @@ import {
   useExpenseAttachments,
   useUploadIncomeAttachment,
   useUploadExpenseAttachment,
-  useCreateExternalIncome,
-  useUsers
+  useUsers,
+  useReopenCase
 } from "@/lib/hooks";
 import {
   ExpenseModal,
   IncomeModal,
   AttachmentsModal,
-  ExternalIncomeModal,
   FinanceCard,
   Button,
   Tabs,
@@ -34,14 +33,13 @@ import {
   Pagination,
   KPICard,
   MiniAreaChart,
-  DateRangeFilter
+  DateRangeFilterWithCalendar
 } from "@lifecalling/ui";
 import React, { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  DollarSign,
   Download,
   Plus,
   TrendingUp,
@@ -50,12 +48,14 @@ import {
   Edit,
   TrendingDown,
   Receipt,
+  Briefcase,
   Target,
   RefreshCw,
   FileText,
   Calendar,
   User,
-  X
+  X,
+  Search
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -75,11 +75,20 @@ export default function Page() {
     toast.success("Tabela atualizada com sucesso!");
   };
 
+  // Função para atualizar lista de casos para liberação
+  const handleRefreshCases = () => {
+    queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
+    queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+    toast.success("Lista de atendimentos atualizada!");
+  };
+
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
+  const { data: users = [] } = useUsers();
   const disb = useFinanceDisburseSimple();
   const cancelContract = useCancelContract();
   const deleteContract = useDeleteContract();
   const uploadAttachment = useUploadContractAttachment();
+  const reopenCase = useReopenCase();
 
   const [uploadingContractId, setUploadingContractId] = useState<number | null>(null);
 
@@ -93,17 +102,13 @@ export default function Page() {
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [showExternalIncomeModal, setShowExternalIncomeModal] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [editingIncome, setEditingIncome] = useState<any>(null);
 
-  // Hooks para receitas externas
-  const createExternalIncome = useCreateExternalIncome();
-  const { data: users = [] } = useUsers();
-
   // Filtros transações
   const [transactionType, setTransactionType] = useState<string>("");
+  const [transactionSearchTerm, setTransactionSearchTerm] = useState<string>("");
 
   // Período
   const [startDate, setStartDate] = useState<string>(() => {
@@ -154,8 +159,24 @@ export default function Page() {
   // SEMPRE usar totais do backend - representa TODAS as transações do período
   const totals = backendTotals;
 
-  const transactionsTotalPages = Math.ceil(transactions.length / pageSize);
-  const paginatedTransactions = transactions.slice((page - 1) * pageSize, page * pageSize);
+  // Filtrar transações por busca (nome ou CPF)
+  const filteredTransactions = transactions.filter((transaction: any) => {
+    if (!transactionSearchTerm) return true;
+
+    const searchLower = transactionSearchTerm.toLowerCase();
+    const clientName = transaction.client_name?.toLowerCase() || "";
+    const clientCpf = transaction.client_cpf || "";
+    const transactionName = transaction.name?.toLowerCase() || "";
+
+    return (
+      clientName.includes(searchLower) ||
+      clientCpf.includes(searchLower) ||
+      transactionName.includes(searchLower)
+    );
+  });
+
+  const transactionsTotalPages = Math.ceil(filteredTransactions.length / pageSize);
+  const paginatedTransactions = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
 
   // Export CSV
   const exportToCSV = () => {
@@ -163,20 +184,22 @@ export default function Page() {
       toast.error("Nenhuma transação para exportar");
       return;
     }
-    const headers = ["Data", "Tipo", "Cliente", "CPF", "Atendente", "Categoria", "Descrição", "Valor"];
+    // ✅ ATUALIZADO: Incluir coluna "Nome (Despesa/Receita)" e manter ordem da tabela
+    const headers = ["Data", "Tipo", "Nome (Despesa/Receita)", "Cliente", "CPF", "Atendente", "Categoria", "Valor"];
     const rows = transactions.map((t: any) => [
       new Date(t.date).toLocaleDateString("pt-BR"),
       t.type === "receita" ? "Receita" : "Despesa",
+      t.name || "-", // ✅ NOVO: Nome da Despesa/Receita
       t.client_name || "-",
       t.client_cpf ? t.client_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "-",
       t.agent_name || "-",
       t.category,
-      t.name || "-",
       `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
     ]);
-    rows.push(["", "", "", "", "", "", "Total Receitas", `R$ ${totals.receitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
-    rows.push(["", "", "", "", "", "", "Total Despesas", `R$ ${totals.despesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
-    rows.push(["", "", "", "", "", "", "Saldo", `R$ ${totals.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
+    // ✅ ATUALIZADO: Adicionar campo vazio para a nova coluna "Nome (Despesa/Receita)"
+    rows.push(["", "", "", "", "", "", "", "Total Receitas", `R$ ${totals.receitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "", "", "", "", "Total Despesas", `R$ ${totals.despesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "", "", "", "", "Saldo", `R$ ${totals.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
 
     const csvContent = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
@@ -247,10 +270,14 @@ export default function Page() {
 
   const trends = {
     receita: calculateTrend(metrics.totalRevenue || 0, previousMetrics.totalRevenue || 0),
-    despesas: calculateTrend(metrics.totalExpenses || 0, previousMetrics.totalExpenses || 0),
-    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
     consultoria: calculateTrend(metrics.totalConsultoriaLiq || 0, previousMetrics.totalConsultoriaLiq || 0),
-    imposto: calculateTrend((metrics.totalConsultoriaLiq || 0) * 0.14, (previousMetrics.totalConsultoriaLiq || 0) * 0.14)
+    lucro: calculateTrend(metrics.netProfit || 0, previousMetrics.netProfit || 0),
+    despesas: calculateTrend(
+      (metrics.totalExpenses || 0) + (metrics.totalTax || 0) - (metrics.totalManualTaxes || 0),
+      (previousMetrics.totalExpenses || 0) + (previousMetrics.totalTax || 0) - (previousMetrics.totalManualTaxes || 0)
+    ),
+    imposto: calculateTrend(metrics.totalTax || 0, previousMetrics.totalTax || 0), // Agora usa apenas impostos manuais
+    comissoes: calculateTrend(metrics.totalCommissions || 0, previousMetrics.totalCommissions || 0)
   };
 
   // Buscar dados de séries temporais para mini-charts
@@ -289,13 +316,14 @@ export default function Page() {
   // Gerar dados de tendência reais para mini-charts
   const getTrendChartData = useMemo(() => {
     const series = seriesData?.series || [];
-    
+
     return {
       receita: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalRevenue || 0),
       despesas: convertSeriesToMiniChart(series, 'finance_despesas', metrics.totalExpenses || 0),
       lucro: convertSeriesToMiniChart(series, 'finance_resultado', metrics.netProfit || 0),
       consultoria: convertSeriesToMiniChart(series, 'finance_receita', metrics.totalConsultoriaLiq || 0),
-      imposto: convertSeriesToMiniChart(series, 'finance_despesas', (metrics.totalConsultoriaLiq || 0) * 0.14)
+      imposto: convertSeriesToMiniChart(series, 'finance_impostos', metrics.totalTax || 0),
+      comissoes: convertSeriesToMiniChart(series, 'finance_comissoes', metrics.totalCommissions || 0)
     };
   }, [seriesData, metrics]);
 
@@ -446,14 +474,49 @@ export default function Page() {
   });
 
   // Ações casos/contratos
-  const handleDisburse = async (id: number) => {
+  const handleDisburse = async (
+    id: number,
+    percentualAtendente?: number,
+    consultoriaBruta?: number,
+    atendenteUserId?: number,
+    impostoPercentual?: number,
+    temCorretor?: boolean,
+    corretorNome?: string,
+    corretorComissaoValor?: number
+  ) => {
     try {
-      await disb.mutateAsync(id);
+      await disb.mutateAsync({
+        case_id: id,
+        consultoria_bruta: consultoriaBruta || 0,
+        imposto_percentual: impostoPercentual || 14.0,
+        tem_corretor: temCorretor || false,
+        corretor_nome: corretorNome || null,
+        corretor_comissao_valor: corretorComissaoValor || null,
+        percentual_atendente: percentualAtendente,
+        atendente_user_id: atendenteUserId
+      });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
       console.error("Erro efetivar:", error);
       toast.error("Erro ao efetivar liberação. Tente novamente.");
     }
+  };
+
+  // Função para download de anexos do caso
+  const handleDownloadCaseAttachment = (attachmentId: number, filename?: string) => {
+    if (!financeCardCaseId) return;
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+    const downloadUrl = `${baseUrl}/cases/${financeCardCaseId}/attachments/${attachmentId}/download`;
+    
+    // Criar link temporário para download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename || 'anexo';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleCancel = async (contractId: number) => {
@@ -474,6 +537,58 @@ export default function Page() {
       console.error("Erro deletar:", error);
       toast.error("Erro ao deletar operação. Tente novamente.");
     }
+  };
+
+  const handleReopen = async (caseId: number) => {
+    try {
+      await reopenCase.mutateAsync(caseId);
+    } catch (error) {
+      console.error("Erro reabrir:", error);
+      // Erro já exibido pelo hook
+    }
+  };
+
+  // Mutation para devolver caso ao calculista
+  const returnToCalculistaMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/cases/${caseId}/return-to-calculista`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+      toast.success("Caso devolvido ao calculista para recálculo");
+    },
+    onError: (error: any) => {
+      console.error("Erro ao devolver caso:", error);
+      toast.error("Erro ao devolver caso ao calculista");
+    }
+  });
+
+  const handleReturnToCalculista = async (caseId: number) => {
+    if (confirm("Tem certeza que deseja devolver este caso ao calculista para recálculo?")) {
+      await returnToCalculistaMutation.mutateAsync(caseId);
+    }
+  };
+
+  // Mutation para cancelar caso
+  const cancelCaseMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/cases/${caseId}/cancel`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+      toast.success("Caso cancelado com sucesso");
+    },
+    onError: (error: any) => {
+      console.error("Erro ao cancelar caso:", error);
+      const errorMessage = error?.response?.data?.detail || "Erro ao cancelar caso";
+      toast.error(errorMessage);
+    }
+  });
+
+  const handleCancelCase = async (caseId: number) => {
+    await cancelCaseMutation.mutateAsync(caseId);
   };
 
   const handleDeleteCase = async (caseId: number) => {
@@ -541,12 +656,6 @@ export default function Page() {
       if (transaction.type === "receita") await deleteIncomeMutation.mutateAsync(realId);
       else await deleteExpenseMutation.mutateAsync(realId);
     }
-  };
-
-  // Handler para criar receita externa
-  const handleCreateExternalIncome = async (data: any) => {
-    await createExternalIncome.mutateAsync(data);
-    setShowExternalIncomeModal(false);
   };
 
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
@@ -657,9 +766,9 @@ export default function Page() {
 
   // Contadores/filters
   const statusCounts = {
-    aprovado: items.filter((i: any) => i.status === "financeiro_pendente" && !i.contract).length,
-    liberado: items.filter((i: any) => i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado")).length,
-    cancelado: items.filter((i: any) => i.status === "contrato_cancelado").length,
+    aprovado: items.filter((i: any) => i.status === "financeiro_pendente").length,
+    liberado: items.filter((i: any) => i.status === "contrato_efetivado" || (!!i.contract && i.status !== "contrato_cancelado" && i.status !== "caso_cancelado")).length,
+    cancelado: items.filter((i: any) => i.status === "contrato_cancelado" || i.status === "caso_cancelado").length,
     todos: items.length
   };
 
@@ -702,13 +811,13 @@ export default function Page() {
       const active = statusFilter[0];
       switch (active) {
         case "aprovado":
-          if (!(item.status === "financeiro_pendente" && !item.contract)) return false;
+          if (item.status !== "financeiro_pendente") return false;
           break;
         case "liberado":
-          if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado"))) return false;
+          if (!(item.status === "contrato_efetivado" || (!!item.contract && item.status !== "contrato_cancelado" && item.status !== "caso_cancelado"))) return false;
           break;
         case "cancelado":
-          if (item.status !== "contrato_cancelado") return false;
+          if (item.status !== "contrato_cancelado" && item.status !== "caso_cancelado") return false;
           break;
         default:
           break;
@@ -734,13 +843,10 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Filtro período */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Filtros por Período</h3>
-        </div>
-
-        <DateRangeFilter
+      {/* Filtro período com Calendar */}
+      <div className="border rounded-lg p-4 bg-card">
+        <h3 className="text-sm font-medium text-muted-foreground mb-3">Filtrar por Período</h3>
+        <DateRangeFilterWithCalendar
           startDate={startDate}
           endDate={endDate}
           onDateRangeChange={(start, end) => {
@@ -760,8 +866,8 @@ export default function Page() {
             setStartDate(firstDay.toISOString().split("T")[0]);
             setEndDate(lastDay.toISOString().split("T")[0]);
           }}
-          label="Filtrar período:"
-          className="mb-4"
+          label="Período:"
+          className="w-full max-w-2xl"
         />
       </div>
 
@@ -769,50 +875,51 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard
           title="Receita Total"
+          subtitle="Todas Receitas"
           value={`R$ ${(metrics.totalRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Período selecionado"
           isLoading={metricsLoading}
           gradientVariant="emerald"
           trend={trends.receita}
           miniChart={<MiniAreaChart data={getTrendChartData.receita} dataKey="value" xKey="day" stroke="#10b981" height={60} valueType="currency" />}
         />
         <KPICard
-          title="Despesas"
-          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Período selecionado"
+          title="Consultoria Líquida Total"
+          subtitle="86% da Receita Total"
+          value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
-          gradientVariant="rose"
-          trend={trends.despesas}
-          miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
+          gradientVariant="cyan"
+          trend={trends.consultoria}
+          miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#06b6d4" height={60} valueType="currency" />}
         />
         <KPICard
           title="Lucro Líquido"
+          subtitle="Consultoria Líquida - Despesas"
           value={`R$ ${(metrics.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Receitas - Despesas - Impostos"
           isLoading={metricsLoading}
           gradientVariant="violet"
           trend={trends.lucro}
           miniChart={<MiniAreaChart data={getTrendChartData.lucro} dataKey="value" xKey="day" stroke="#8b5cf6" height={60} valueType="currency" />}
         />
         <KPICard
-          title="Receita Consultoria"
-          value={`R$ ${(metrics.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="Consultorias líquidas"
+          title="Despesas"
+          subtitle="Despesas (sem impostos)"
+          value={`R$ ${(metrics.totalExpenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
-          gradientVariant="sky"
-          trend={trends.consultoria}
-          miniChart={<MiniAreaChart data={getTrendChartData.consultoria} dataKey="value" xKey="day" stroke="#0ea5e9" height={60} valueType="currency" />}
+          gradientVariant="rose"
+          trend={trends.despesas}
+          miniChart={<MiniAreaChart data={getTrendChartData.despesas} dataKey="value" xKey="day" stroke="#f43f5e" height={60} valueType="currency" />}
         />
         <KPICard
-          title="Imposto"
-          value={`R$ ${(((metrics.totalConsultoriaLiq || 0) * 0.14) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          subtitle="14% sobre Consultoria Líquida"
+          title="Impostos"
+          subtitle="14% da Receita Total"
+          value={`R$ ${(metrics.totalTax || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           isLoading={metricsLoading}
           gradientVariant="amber"
           trend={trends.imposto}
           miniChart={<MiniAreaChart data={getTrendChartData.imposto} dataKey="value" xKey="day" stroke="#f59e0b" height={60} valueType="currency" />}
         />
       </div>
+
 
       {/* Filtros rápidos (casos) */}
       <QuickFilters
@@ -834,7 +941,18 @@ export default function Page() {
 
       {/* Lista de Casos Financeiros */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">Atendimentos para Liberação</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRefreshCases}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar Lista
+          </Button>
+        </div>
 
         {loadingQueue ? (
           <div className="text-center py-12">
@@ -866,7 +984,10 @@ export default function Page() {
                       seguroObrigatorio: item.simulation.totals.seguroObrigatorio || 0,
                       valorLiquido: item.simulation.totals.valorLiquido,
                       custoConsultoria: item.simulation.totals.custoConsultoria,
+                      // Se tem contrato efetivado, usar consultoria_liquida do contrato (pode ter sido ajustada)
+                      // Senão, usar valor calculado da simulação
                       custoConsultoriaLiquido:
+                        item.contract?.consultoria_liquida ||
                         item.simulation.totals.custoConsultoriaLiquido ||
                         item.simulation.totals.custoConsultoria * 0.86,
                       liberadoCliente: item.simulation.totals.liberadoCliente,
@@ -877,10 +998,14 @@ export default function Page() {
                   : undefined;
 
                 const cardStatus = (() => {
-                  if (item.status === "contrato_cancelado") return "disbursed";
-                  if (item.status === "contrato_efetivado" || item.contract) return "disbursed";
+                  if (item.status === "caso_cancelado") return "caso_cancelado";
+                  if (item.status === "contrato_cancelado") return "contrato_cancelado";
+                  if (item.status === "contrato_efetivado") return "contrato_efetivado";
+                  if (item.status === "financeiro_pendente") return "financeiro_pendente";
+                  if (item.status === "fechamento_aprovado") return "fechamento_aprovado";
+                  if (item.contract) return "disbursed";
                   return "approved";
-                })();
+                })() as "pending" | "approved" | "disbursed" | "overdue" | "financeiro_pendente" | "contrato_efetivado" | "fechamento_aprovado" | "encerrado" | "caso_cancelado" | "contrato_cancelado";
 
                 return (
                   <FinanceCard
@@ -894,10 +1019,25 @@ export default function Page() {
                     simulationResult={simulationResult}
                     onDisburse={handleDisburse}
                     onCancel={contractId ? () => handleCancel(contractId) : undefined}
+                    onReopen={handleReopen}
+                    onReturnToCalculista={handleReturnToCalculista}
+                    onCancelCase={handleCancelCase}
                     clientBankInfo={clientBankInfo}
                     attachments={item.contract?.attachments || item.attachments || []}
                     onUploadAttachment={createUploadHandler(contractId, item.id)}
                     isUploadingAttachment={uploadingContractId === contractId}
+                    onDownloadAttachment={(attachmentId: number, filename?: string) => {
+                      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+                      const downloadUrl = `${baseUrl}/cases/${item.id}/attachments/${attachmentId}/download`;
+
+                      const link = document.createElement('a');
+                      link.href = downloadUrl;
+                      link.download = filename || 'anexo';
+                      link.target = '_blank';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
                     caseDetails={{
                       cpf: item.client?.cpf,
                       matricula: item.client?.matricula,
@@ -905,6 +1045,8 @@ export default function Page() {
                     }}
                     fullCaseDetails={selectedCaseId === item.id ? fullCaseDetails : undefined}
                     onLoadFullDetails={handleLoadFullDetails}
+                    availableUsers={users}
+                    assignedUserId={item.assigned_user_id}
                   />
                 );
               })}
@@ -972,61 +1114,9 @@ export default function Page() {
                 <Plus className="h-4 w-4" />
                 Despesa
               </Button>
-              <Button
-                onClick={() => setShowExternalIncomeModal(true)}
-                variant="outline"
-                className="flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 border-purple-300"
-              >
-                <Plus className="h-4 w-4" />
-                Cliente Externo
-              </Button>
             </div>
           </div>
 
-          {/* Resumo topo - Apenas na tab "Todas" */}
-          {!transactionType && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Receitas</p>
-                    <p className="text-2xl font-bold text-success">R$ {totals.receitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-success" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Despesas</p>
-                    <p className="text-2xl font-bold text-danger">R$ {totals.despesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center">
-                    <TrendingDown className="h-6 w-6 text-danger" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Saldo</p>
-                    <p className={`text-2xl font-bold ${totals.saldo >= 0 ? "text-success" : "text-danger"}`}>
-                      R$ {totals.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totals.saldo >= 0 ? "bg-success/10" : "bg-danger/10"}`}>
-                    <Wallet className={`h-6 w-6 ${totals.saldo >= 0 ? "text-success" : "text-danger"}`} />
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Abas transações */}
           <Tabs value={transactionType || "todas"} onValueChange={v => setTransactionType(v === "todas" ? "" : v)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="todas">Todas</TabsTrigger>
@@ -1034,6 +1124,32 @@ export default function Page() {
               <TabsTrigger value="despesa">Despesas</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* Campo de busca */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou CPF..."
+              value={transactionSearchTerm}
+              onChange={(e) => {
+                setTransactionSearchTerm(e.target.value);
+                setPage(1); // Reset para primeira página ao buscar
+              }}
+              className="w-full pl-10 pr-4 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            {transactionSearchTerm && (
+              <button
+                onClick={() => {
+                  setTransactionSearchTerm("");
+                  setPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
           {/* Tabela unificada */}
           {loadingTransactions ? (
@@ -1052,6 +1168,7 @@ export default function Page() {
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-4 font-semibold text-sm">Data</th>
                         <th className="text-left p-4 font-semibold text-sm">Tipo</th>
+                        <th className="text-left p-4 font-semibold text-sm">Nome (Despesa/Receita)</th>
                         <th className="text-left p-4 font-semibold text-sm">Cliente</th>
                         <th className="text-left p-4 font-semibold text-sm">CPF</th>
                         <th className="text-left p-4 font-semibold text-sm">Atendente</th>
@@ -1090,16 +1207,20 @@ export default function Page() {
                               )}
                             </span>
                           </td>
-                          <td className="p-4 text-sm">
+                          {/* ✅ NOVO: Coluna Nome da Despesa/Receita */}
+                          <td className="p-4 text-sm font-medium">
+                            {transaction.name ? (
+                              <span>{transaction.name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          {/* ✅ Coluna Cliente */}
+                          <td className="p-4 text-sm font-medium">
                             {transaction.client_name ? (
                               <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{transaction.client_name}</span>
-                              </div>
-                            ) : transaction.name ? (
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium text-muted-foreground italic">{transaction.name}</span>
+                                <span>{transaction.client_name}</span>
                               </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -1124,25 +1245,19 @@ export default function Page() {
                             </span>
                           </td>
                           <td className={`p-4 text-right font-semibold whitespace-nowrap ${transaction.type === "receita" ? "text-success" : "text-danger"}`}>
-                            <div className="flex items-center justify-end gap-1">
-                              <DollarSign className="h-4 w-4" />
-                              R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </div>
+                            R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </td>
                           <td className="p-4">
                             <div className="flex items-center justify-center gap-1">
-                              {/* Botão Editar - apenas para transações manuais (não de contratos) */}
-                              {!transaction.name?.startsWith("Contrato #") && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditTransaction(transaction)}
-                                  className="h-8 w-8 p-0"
-                                  title="Editar"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditTransaction(transaction)}
+                                className="h-8 w-8 p-0"
+                                title="Editar"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -1197,7 +1312,11 @@ export default function Page() {
           ) : (
             <div className="text-center py-8 text-muted-foreground rounded-lg border border-dashed">
               <p>Nenhuma transação encontrada</p>
-              <p className="text-sm mt-1">Adicione receitas ou despesas para começar</p>
+              <p className="text-sm mt-1">
+                {transactionSearchTerm
+                  ? "Tente ajustar o termo de busca"
+                  : "Adicione receitas ou despesas para começar"}
+              </p>
             </div>
           )}
         </div>
@@ -1248,6 +1367,7 @@ export default function Page() {
           setEditingIncome(null);
         }}
         onSubmit={(data, files) => saveIncomeMutation.mutate({ data, files })}
+        availableUsers={users}
         onDownloadAttachment={incomeId => {
           downloadIncomeAttachment.mutate(incomeId, {
             onSuccess: response => {
@@ -1275,14 +1395,6 @@ export default function Page() {
         }}
         initialData={editingIncome}
         loading={saveIncomeMutation.isPending}
-      />
-
-      {/* Modal Receitas Externas */}
-      <ExternalIncomeModal
-        isOpen={showExternalIncomeModal}
-        onClose={() => setShowExternalIncomeModal(false)}
-        onSubmit={handleCreateExternalIncome}
-        users={users}
       />
 
       {/* Modal Detalhes do Contrato/Atendimento */}
@@ -1343,7 +1455,11 @@ export default function Page() {
                       seguroObrigatorio: financeCardDetails.simulation.seguro || 0,
                       valorLiquido: financeCardDetails.simulation.totals?.valorLiquido || 0,
                       custoConsultoria: financeCardDetails.simulation.totals?.custoConsultoria || 0,
-                      custoConsultoriaLiquido: financeCardDetails.simulation.totals?.custoConsultoriaLiquido || 0,
+                      // Se tem contrato efetivado, usar consultoria_liquida do contrato (pode ter sido ajustada)
+                      custoConsultoriaLiquido:
+                        financeCardDetails.contract?.consultoria_liquida ||
+                        financeCardDetails.simulation.totals?.custoConsultoriaLiquido ||
+                        0,
                       liberadoCliente: financeCardDetails.simulation.totals?.liberadoCliente || 0,
                       percentualConsultoria: financeCardDetails.simulation.percentual_consultoria || 0,
                       taxaJuros: 1.99,
@@ -1364,12 +1480,15 @@ export default function Page() {
               }
               attachments={financeCardDetails.contract?.attachments || financeCardDetails.attachments || []}
               onDisburse={handleDisburse}
+              onDownloadAttachment={handleDownloadCaseAttachment}
               caseDetails={{
                 cpf: financeCardDetails.client?.cpf,
                 matricula: financeCardDetails.client?.matricula,
                 created_at: financeCardDetails.created_at
               }}
               fullCaseDetails={financeCardDetails}
+              availableUsers={users}
+              assignedUserId={financeCardDetails.assigned_user_id}
             />
           </div>
         </div>

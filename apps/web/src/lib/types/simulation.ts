@@ -22,6 +22,7 @@ export interface SimulationTotals {
   valorLiquido: number;
   custoConsultoria: number;
   custoConsultoriaLiquido: number;
+  valorASubtrair: number;  // Valor calculado das linhas de margem
   liberadoCliente: number;
 }
 

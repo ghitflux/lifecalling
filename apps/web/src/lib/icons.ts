@@ -1,0 +1,86 @@
+/**
+ * Barrel export for lucide-react icons
+ * All icons are re-exported with an "Icon" suffix
+ *
+ * Usage:
+ * import { CheckIcon, CopyIcon } from '@/lib/icons';
+ *
+ * @see https://lucide.dev/ for icon documentation
+ */
+
+// Re-export all icons from lucide-react with "Icon" suffix
+export {
+  MoreHorizontal as MoreHorizontalIcon,
+  X as XIcon,
+  Download as DownloadIcon,
+  Upload as UploadIcon,
+  FileText as FileTextIcon,
+  Trash2 as Trash2Icon,
+  Plus as PlusIcon,
+  Filter as FilterIcon,
+  Calendar as CalendarIcon,
+  DollarSign as DollarSignIcon,
+  Building as BuildingIcon,
+  User as UserIcon,
+  Hash as HashIcon,
+  Trophy as TrophyIcon,
+  Edit as EditIcon,
+  Award as AwardIcon,
+  TrendingUp as TrendingUpIcon,
+  Search as SearchIcon,
+  Clock as ClockIcon,
+  CheckCircle as CheckCircleIcon,
+  XCircle as XCircleIcon,
+  Calculator as CalculatorIcon,
+  Archive as ArchiveIcon,
+  MessageSquare as MessageSquareIcon,
+  Phone as PhoneIcon,
+  Save as SaveIcon,
+  CreditCard as CreditCardIcon,
+  Building2 as Building2Icon,
+  Paperclip as PaperclipIcon,
+  Users as UsersIcon,
+  UserCheck as UserCheckIcon,
+  UserX as UserXIcon,
+  Shield as ShieldIcon,
+  Activity as ActivityIcon,
+  Target as TargetIcon,
+  RefreshCw as RefreshCwIcon,
+  TrendingDown as TrendingDownIcon,
+  Minus as MinusIcon,
+  ArrowLeft as ArrowLeftIcon,
+  Loader2 as Loader2Icon,
+  Undo2 as Undo2Icon,
+  Eye as EyeIcon,
+  EyeOff as EyeOffIcon,
+  Check as CheckIcon,
+  ChevronDown as ChevronDownIcon,
+  ChevronUp as ChevronUpIcon,
+  History as HistoryIcon,
+  Printer as PrinterIcon,
+  HelpCircle as HelpCircleIcon,
+  Workflow as WorkflowIcon,
+  Banknote as BanknoteIcon,
+  Settings as SettingsIcon,
+  UserPlus as UserPlusIcon,
+  AlertCircle as AlertCircleIcon,
+  SlidersHorizontal as SlidersHorizontalIcon,
+  AlertTriangle as AlertTriangleIcon,
+  MapPin as MapPinIcon,
+  Database as DatabaseIcon,
+  RotateCcw as RotateCcwIcon,
+  Wallet as WalletIcon,
+  CheckCircle2 as CheckCircle2Icon,
+  ChevronsLeft as ChevronsLeftIcon,
+  ChevronsRight as ChevronsRightIcon,
+  ExternalLink as ExternalLinkIcon,
+  File as FileIcon,
+  FileImage as FileImageIcon,
+  Mail as MailIcon,
+  Play as PlayIcon,
+  Send as SendIcon,
+  MessageCircle as MessageCircleIcon,
+} from "lucide-react";
+
+// Also export the type for use in components
+export type { LucideProps as IconProps } from "lucide-react";

@@ -28,6 +28,7 @@ class SimulationTotals(BaseModel):
     valorLiquido: float
     custoConsultoria: float
     custoConsultoriaLiquido: float
+    valorASubtrair: float  # Valor calculado das linhas de margem
     liberadoCliente: float
 
 
@@ -40,38 +41,79 @@ def round_half_up(value: float) -> float:
     return float(decimal_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 
+def is_margin_bank(bank_name: str) -> bool:
+    """Verifica se um banco é do tipo 'Margem*' especificamente (não inclui 'Margem Positiva')"""
+    return bank_name == "Margem*"
+
+
+
 def compute_simulation_totals(input_data: SimulationInput) -> SimulationTotals:
     """
     Calcula os totais da simulação conforme especificações da planilha.
     Esta função espelha exatamente o cálculo do frontend.
+
+    NOVA LÓGICA:
+    - Bancos "Margem*" não entram nos totais de financiado/saldo/liberado
+    - Bancos "Margem*" geram um "Valor a Subtrair" = |parcela| / coeficiente
+    - Para bancos reais: financiado = parcela / coeficiente
+    - Para bancos reais: liberado = financiado - saldoDevedor
     """
-    # Somas dos bancos
-    valor_parcela_total = 0.0
+    # Normalizar coeficiente (aceitar vírgula ou ponto)
+    coeficiente_str = str(input_data.coeficiente or "0").replace(",", ".")
+    try:
+        coeficiente = float(coeficiente_str)
+    except ValueError:
+        raise ValueError("Coeficiente inválido")
+
+    if coeficiente <= 0:
+        raise ValueError("Coeficiente deve ser maior que zero")
+
+    # Separar bancos reais de bancos margem
+    bancos_reais = [b for b in input_data.banks if not is_margin_bank(b.bank)]
+    bancos_margem = [b for b in input_data.banks if is_margin_bank(b.bank)]
+
+    # Calcular totais APENAS dos bancos reais
+    total_financiado = 0.0
     saldo_total = 0.0
     liberado_total = 0.0
 
-    for bank in input_data.banks:
-        valor_parcela_total += bank.parcela or 0.0
-        saldo_total += bank.saldoDevedor or 0.0
-        liberado_total += bank.valorLiberado or 0.0
+    for bank in bancos_reais:
+        parcela = bank.parcela or 0.0
+        saldo_devedor = bank.saldoDevedor or 0.0
 
-    # Cálculos principais seguindo as fórmulas especificadas
-    total_financiado = saldo_total + liberado_total
+        financiado = parcela / coeficiente
+        liberado = financiado - saldo_devedor
+
+        total_financiado += financiado
+        saldo_total += saldo_devedor
+        liberado_total += liberado
+
+    # Calcular Valor a Subtrair (soma das margens)
+    valor_a_subtrair = 0.0
+    for bank in bancos_margem:
+        parcela = abs(bank.parcela or 0.0)
+        valor_a_subtrair += parcela / coeficiente
+
+    # Total de parcelas (inclui TODOS os bancos, inclusive margem)
+    valor_parcela_total = sum(bank.parcela or 0.0 for bank in input_data.banks)
+
+    # Cálculos finais
     valor_liquido = liberado_total - (input_data.seguro or 0.0)
     custo_consultoria = total_financiado * ((input_data.percentualConsultoria or 0.0) / 100.0)
     custo_consultoria_liquido = custo_consultoria * 0.86
-    liberado_cliente = valor_liquido - custo_consultoria
+    liberado_cliente = valor_liquido - custo_consultoria - valor_a_subtrair
 
     # Arredondar todos os valores para 2 casas decimais
     return SimulationTotals(
         valorParcelaTotal=round_half_up(valor_parcela_total),
         saldoTotal=round_half_up(saldo_total),
         liberadoTotal=round_half_up(liberado_total),
-        seguroObrigatorio=round_half_up(input_data.seguro or 0.0),  # NOVO
+        seguroObrigatorio=round_half_up(input_data.seguro or 0.0),
         totalFinanciado=round_half_up(total_financiado),
         valorLiquido=round_half_up(valor_liquido),
         custoConsultoria=round_half_up(custo_consultoria),
         custoConsultoriaLiquido=round_half_up(custo_consultoria_liquido),
+        valorASubtrair=round_half_up(valor_a_subtrair),
         liberadoCliente=round_half_up(liberado_cliente)
     )
 
@@ -102,8 +144,8 @@ def validate_simulation_input(input_data: SimulationInput) -> List[str]:
             if bank.parcela <= 0:
                 errors.append(f"Parcela do banco {i+1} deve ser maior que zero")
         
-        # Para banco Margem*, saldo devedor pode ser zero ou negativo
-        if bank.bank != "Margem*":
+        # Para banco Margem* ou Margem Positiva, saldo devedor pode ser zero
+        if bank.bank != "Margem*" and bank.bank != "Margem Positiva":
             if bank.saldoDevedor <= 0:
                 errors.append(f"Saldo devedor do banco {i+1} deve ser maior que zero")
         

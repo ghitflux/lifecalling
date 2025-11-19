@@ -1,8 +1,8 @@
 "use client";
 import { useLiveCaseEvents } from "@/lib/ws";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, CaseNotesEditor, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
+import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useMyStats } from "@/lib/hooks";
@@ -25,7 +25,26 @@ interface Case {
   telefone_preferencial?: string;
   observacoes?: string;
   banco?: string;
+  entidade?: string;
 }
+
+// Lista completa de todos os status possíveis no sistema
+const ALL_AVAILABLE_STATUSES = [
+  { value: "novo", label: "Novo", color: "blue" },
+  { value: "em_atendimento", label: "Em Atendimento", color: "yellow" },
+  { value: "calculista_pendente", label: "Calculista Pendente", color: "purple" },
+  { value: "calculo_aprovado", label: "Cálculo Aprovado", color: "green" },
+  { value: "fechamento_pendente", label: "Fechamento Pendente", color: "cyan" },
+  { value: "fechamento_aprovado", label: "Fechamento Aprovado", color: "emerald" },
+  { value: "financeiro_pendente", label: "Financeiro Pendente", color: "indigo" },
+  { value: "contrato_efetivado", label: "Contrato Efetivado", color: "success" },
+  { value: "devolvido_financeiro", label: "Devolvido Financeiro", color: "orange" },
+  { value: "contrato_cancelado", label: "Contrato Cancelado", color: "danger" },
+  { value: "caso_cancelado", label: "Cancelado", color: "danger" },
+  { value: "encerrado", label: "Encerrado", color: "muted" },
+  { value: "sem_contato", label: "Sem Contato", color: "gray" },
+  { value: "arquivado", label: "Arquivado", color: "muted" },
+] as const;
 
 function EsteiraPageContent() {
   useLiveCaseEvents();
@@ -33,7 +52,6 @@ function EsteiraPageContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();  // Adicionar hook de autenticação
   const [activeTab, setActiveTab] = useState("global");
-  const [editingCase, setEditingCase] = useState<Case | null>(null);
 
   // Verificar se é admin ou supervisor
   const isAdminOrSupervisor = user?.role === 'admin' || user?.role === 'supervisor';
@@ -103,9 +121,9 @@ function EsteiraPageContent() {
     if (savedStatus) {
       const tabToUse = savedTab || 'global';
       if (tabToUse === 'mine') {
-        setMySelectedStatus(savedStatus);
+        setMySelectedStatus([savedStatus]);
       } else {
-        setGlobalSelectedStatus(savedStatus);
+        setGlobalSelectedStatus([savedStatus]);
       }
     }
 
@@ -215,32 +233,8 @@ function EsteiraPageContent() {
     },
   });
 
-  // Mutation para atualizar atendimento
-  const updateCaseMutation = useMutation({
-    mutationFn: async ({ caseId, data }: { caseId: number; data: any }) => {
-      const response = await api.patch(`/cases/${caseId}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cases"] });
-      toast.success("Atendimento atualizado com sucesso!");
-      setEditingCase(null);
-    },
-    onError: (error) => {
-      toast.error("Erro ao atualizar atendimento. Tente novamente.");
-      console.error("Update case error:", error);
-    },
-  });
-
   const handlePegarAtendimento = (caseId: number) => {
     assignCaseMutation.mutate(caseId);
-  };
-
-  const handleEditCase = (caseId: number) => {
-    const case_to_edit = [...globalCases, ...myCases].find(c => c.id === caseId);
-    if (case_to_edit) {
-      setEditingCase(case_to_edit);
-    }
   };
 
   const handleViewCase = (caseId: number) => {
@@ -275,15 +269,6 @@ function EsteiraPageContent() {
     router.push(`/casos/${caseId}`);
   };
 
-  const handleSaveNotes = (data: { telefone_preferencial?: string; observacoes?: string }) => {
-    if (editingCase) {
-      updateCaseMutation.mutate({
-        caseId: editingCase.id,
-        data
-      });
-    }
-  };
-
   // Query para buscar filtros disponíveis (bancos e status)
   const { data: filtersData } = useQuery({
     queryKey: ["client-filters"],
@@ -294,11 +279,30 @@ function EsteiraPageContent() {
     staleTime: 60000, // Cache por 1 minuto
   });
 
+  // Mesclar lista completa de status com dados da API
+  const mergedStatuses = useMemo(() => {
+    if (!filtersData?.status) {
+      // Se API não retornou, usar lista completa com count 0
+      return ALL_AVAILABLE_STATUSES.map(s => ({ ...s, count: 0 }));
+    }
+
+    // Criar mapa dos counts da API
+    const apiCounts = new Map(
+      filtersData.status.map((s: any) => [s.value, s.count])
+    );
+
+    // Retornar lista completa com counts atualizados
+    return ALL_AVAILABLE_STATUSES.map(status => ({
+      ...status,
+      count: apiCounts.get(status.value) || 0,
+    }));
+  }, [filtersData]);
+
   const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
 
     if (isLoading) {
       return (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 8 }, (_, i) => (
             <CaseSkeleton key={i} />
           ))}
@@ -323,14 +327,13 @@ function EsteiraPageContent() {
     }
 
     return (
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {Array.isArray(cases) && cases.map((caso) => (
           <EsteiraCard
             key={caso.id}
             caso={caso}
             onView={handleViewCase}
             onAssign={showPegarButton ? handlePegarAtendimento : undefined}
-            onEdit={handleEditCase}
           />
         ))}
         {Array.isArray(cases) && cases.length === 0 && (
@@ -391,7 +394,7 @@ function EsteiraPageContent() {
               <div className="space-y-3">
 
                 {/* Filtro por Status - APENAS ADMIN */}
-                {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
+                {isAdminOrSupervisor && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Activity className="h-4 w-4 text-muted-foreground" />
@@ -411,11 +414,13 @@ function EsteiraPageContent() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {filtersData.status.map((status: any) => (
+                      {mergedStatuses.map((status) => (
                         <Badge
                           key={status.value}
                           variant={globalSelectedStatus.includes(status.value) ? "default" : "outline"}
-                          className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                          className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors ${
+                            status.count === 0 ? 'opacity-50' : ''
+                          }`}
                           onClick={() => {
                             setGlobalSelectedStatus(prev =>
                               prev.includes(status.value)
@@ -424,7 +429,7 @@ function EsteiraPageContent() {
                             );
                           }}
                         >
-                          {status.label} ({status.count})
+                          {status.label} ({String(status.count || 0)})
                         </Badge>
                       ))}
                     </div>
@@ -510,45 +515,45 @@ function EsteiraPageContent() {
               </div>
 
               {/* Filtros Rápidos por Status */}
-              {filtersData?.status && filtersData.status.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Status:</span>
-                    {mySelectedStatus.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setMySelectedStatus([]);
-                        }}
-                        className="h-6 text-xs"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Limpar
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {filtersData.status.map((status: any) => (
-                      <Badge
-                        key={status.value}
-                        variant={mySelectedStatus.includes(status.value) ? "default" : "outline"}
-                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                        onClick={() => {
-                          setMySelectedStatus(prev =>
-                            prev.includes(status.value)
-                              ? prev.filter(s => s !== status.value)
-                              : [...prev, status.value]
-                          );
-                        }}
-                      >
-                        {status.label} ({status.count})
-                      </Badge>
-                    ))}
-                  </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Status:</span>
+                  {mySelectedStatus.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setMySelectedStatus([]);
+                      }}
+                      className="h-6 text-xs"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Limpar
+                    </Button>
+                  )}
                 </div>
-              )}
+                <div className="flex flex-wrap gap-2">
+                  {mergedStatuses.map((status) => (
+                    <Badge
+                      key={status.value}
+                      variant={mySelectedStatus.includes(status.value) ? "default" : "outline"}
+                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors ${
+                        status.count === 0 ? 'opacity-50' : ''
+                      }`}
+                      onClick={() => {
+                        setMySelectedStatus(prev =>
+                          prev.includes(status.value)
+                            ? prev.filter(s => s !== status.value)
+                            : [...prev, status.value]
+                        );
+                      }}
+                    >
+                      {status.label} ({String(status.count || 0)})
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
               {/* Contador de Casos */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -590,17 +595,6 @@ function EsteiraPageContent() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Notes Editor Dialog */}
-      <CaseNotesEditor
-        open={!!editingCase}
-        onOpenChange={(open) => !open && setEditingCase(null)}
-        caseId={editingCase?.id || 0}
-        initialPhone={editingCase?.telefone_preferencial || ""}
-        initialNotes={editingCase?.observacoes || ""}
-        onSave={handleSaveNotes}
-        isLoading={updateCaseMutation.isPending}
-      />
     </div>
   );
 }

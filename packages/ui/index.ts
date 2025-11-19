@@ -42,7 +42,6 @@ export * from "./src/FinanceMetrics";
 export * from "./src/ExpenseModal";
 export * from "./src/IncomeModal";
 export * from "./src/AttachmentsModal";
-export * from "./src/ExternalIncomeModal";
 export * from "./src/FinanceChart";
 export * from "./src/ContractCard";
 export * from "./src/ContractSummary";
@@ -87,4 +86,9 @@ export * from "./src/PodiumCard";
 export * from "./src/CampaignCard";
 export * from "./src/UnifiedFilter";
 export * from "./src/DateRangeFilter";
+export { DateRangeFilterWithCalendar } from "./src/DateRangeFilterWithCalendar"; // ✅ Named export para evitar problemas
 export * from "./src/Select";
+
+// SLA Audit Components
+export * from "./src/SLAExecutionsTable";
+export * from "./src/SLAExecutionDetailsModal";

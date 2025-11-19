@@ -128,7 +128,7 @@ export function usePendingSimulations() {
  */
 export function useAllSimulations(
   includeCompletedToday: boolean = false,
-  params?: { search?: string; page?: number; pageSize?: number; caseStatus?: string }
+  params?: { search?: string; page?: number; pageSize?: number; caseStatus?: string; uniqueByCpf?: boolean }
 ) {
   return useQuery({
     queryKey: [
@@ -143,7 +143,7 @@ export function useAllSimulations(
       const searchParams = new URLSearchParams();
 
       if (includeCompletedToday) {
-        searchParams.append("include_completed_today", "true");
+        searchParams.append("all", "true");  // Buscar TODAS as simulações
       } else {
         searchParams.append("status", "draft");
       }
@@ -152,6 +152,7 @@ export function useAllSimulations(
       if (params?.page) searchParams.append("page", params.page.toString());
       if (params?.pageSize) searchParams.append("page_size", params.pageSize.toString());
       if (params?.caseStatus) searchParams.append("case_status", params.caseStatus);
+      if (params?.uniqueByCpf) searchParams.append("unique_by_cpf", "true");
 
       const response = await api.get(`/simulations?${searchParams.toString()}`);
       return {
@@ -295,5 +296,50 @@ export function useCalculistaStats() {
     },
     refetchInterval: 30000, // Refetch a cada 30 segundos
     retry: 1,
+  });
+}
+
+/**
+ * Hook para buscar TODAS as simulações de um caso específico
+ * Inclui draft, superseded, approved e rejected
+ */
+export function useAllCaseSimulations(caseId: number | null) {
+  return useQuery({
+    queryKey: ["simulations", "case", caseId, "all"],
+    queryFn: async () => {
+      if (!caseId) return { items: [], count: 0, current_simulation_id: null };
+      const response = await api.get(`/simulations/case/${caseId}/all`);
+      return response.data;
+    },
+    enabled: !!caseId,
+    retry: 2,
+    staleTime: 5000,
+  });
+}
+
+/**
+ * Hook para definir uma simulação como final
+ */
+export function useSetFinalSimulation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (simId: number) => {
+      const response = await api.post(`/simulations/${simId}/set-as-final`);
+      return response.data;
+    },
+    onSuccess: (data, simId) => {
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ["simulations"] });
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+      queryClient.invalidateQueries({ queryKey: ["case"] });
+      toast.success("Simulação definida como final com sucesso!");
+      return data;
+    },
+    onError: (error: any) => {
+      console.error("Erro ao definir simulação como final:", error);
+      const errorMessage = error?.response?.data?.detail || "Erro ao definir simulação como final";
+      toast.error(errorMessage);
+    }
   });
 }

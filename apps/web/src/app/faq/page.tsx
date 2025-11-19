@@ -376,7 +376,7 @@ export default function FAQPage() {
                 <ul className="list-disc list-inside text-sm text-blue-700 space-y-1 ml-4">
                   <li>Sempre preencha TODOS os campos obrigatórios do cliente</li>
                   <li>Verifique se o CPF e matrícula estão corretos antes de enviar</li>
-                  <li>Acompanhe seus casos atribuídos para não perder o prazo de 72h</li>
+                  <li>Acompanhe seus casos atribuídos para não perder o prazo de 48h úteis (excluindo finais de semana)</li>
                   <li>Ao receber a simulação aprovada, valide com o cliente antes de enviar para fechamento</li>
                   <li>Use a busca por CPF para verificar histórico do cliente</li>
                 </ul>

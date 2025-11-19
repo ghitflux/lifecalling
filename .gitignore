@@ -86,3 +86,29 @@ __pycache__/
 DEPLOY_VPS_CREDENTIALS.md
 *credentials*.md
 *CREDENTIALS*.md
+
+# Backups and temporary files (development only)
+backups/
+*.backup
+*.bak
+*.tmp
+*.swp
+temp/
+.temp/
+
+# Local development files
+.claude/settings.local.json
+.vscode/settings.json
+.idea/workspace.xml
+
+# API cache and database files
+*.sqlite3
+.cache/
+cache/
+
+# Documentation files (except README.md)
+*.md
+!README.md
+!**/README.md
+!docs/*.md
+!docs/**/*.md

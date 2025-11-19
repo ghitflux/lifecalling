@@ -35,13 +35,14 @@ def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
         financial_statuses = [
             "financeiro_pendente",
             "contrato_efetivado",
-            "contrato_cancelado"
+            "contrato_cancelado",
+            "caso_cancelado"
         ]
         rows = db.query(Case).options(
             joinedload(Case.client),
             joinedload(Case.last_simulation)
         ).filter(Case.status.in_(financial_statuses)).order_by(
-            Case.id.desc()
+            Case.last_update_at.desc()
         ).all()
 
         items = []
@@ -87,6 +88,7 @@ def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
                 "id": c.id,
                 "client_id": c.client_id,
                 "status": c.status,
+                "assigned_user_id": c.assigned_user_id,
                 "client": {
                     "id": c.client.id,
                     "name": c.client.name,
@@ -123,6 +125,21 @@ def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
                         else None
                     ),
                     "status": contract.status,
+                    "consultoria_liquida": (
+                        float(contract.consultoria_valor_liquido)
+                        if contract.consultoria_valor_liquido
+                        else None
+                    ),
+                    "consultoria_bruta": (
+                        float(contract.consultoria_bruta)
+                        if contract.consultoria_bruta
+                        else None
+                    ),
+                    "imposto_percentual": (
+                        float(contract.imposto_percentual)
+                        if contract.imposto_percentual
+                        else None
+                    ),
                     "attachments": [
                         {
                             "id": a.id,
@@ -261,6 +278,21 @@ def get_case_details(
                     else None
                 ),
                 "status": contract.status,
+                "consultoria_liquida": (
+                    float(contract.consultoria_valor_liquido)
+                    if contract.consultoria_valor_liquido
+                    else None
+                ),
+                "consultoria_bruta": (
+                    float(contract.consultoria_bruta)
+                    if contract.consultoria_bruta
+                    else None
+                ),
+                "imposto_percentual": (
+                    float(contract.imposto_percentual)
+                    if contract.imposto_percentual
+                    else None
+                ),
                 "attachments": [
                     {
                         "id": a.id,
@@ -334,7 +366,12 @@ def finance_metrics(
     end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    from ..models import Contract, FinanceIncome, FinanceExpense, ExternalClientIncome
+    from ..models import (  # noqa: E501
+        Contract,
+        FinanceIncome,
+        FinanceExpense,
+        ExternalClientIncome
+    )
     from sqlalchemy import func  # pyright: ignore[reportMissingImports]
     from datetime import datetime, timedelta
 
@@ -351,71 +388,105 @@ def finance_metrics(
         if end_date:
             try:
                 end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
             except Exception:
                 end_filter = now_brt()
         else:
             end_filter = now_brt()
 
-        # Usar uma única query agregada para contratos
-        contract_stats = db.query(
-            func.count(Contract.id).label("total_contracts"),
-            func.coalesce(
-                func.sum(Contract.consultoria_valor_liquido), 0
-            ).label("total_consultoria_liq")
+        # Contar total de contratos ativos
+        total_contracts = db.query(
+            func.count(Contract.id)
         ).filter(
             Contract.status == "ativo",
             Contract.signed_at >= start_filter,
             Contract.signed_at <= end_filter
-        ).first()
+        ).scalar() or 0
 
-        total_contracts = contract_stats.total_contracts or 0
-        total_consultoria_liquida = float(
-            contract_stats.total_consultoria_liq or 0
-        )
-
-        # Receitas externas (clientes externos)
-        total_external_income = float(db.query(
-            func.coalesce(func.sum(ExternalClientIncome.custo_consultoria_liquido), 0)
-        ).filter(
-            ExternalClientIncome.date >= start_filter,
-            ExternalClientIncome.date <= end_filter
-        ).scalar() or 0)
-
-        # Receitas manuais
-        total_manual_income = float(db.query(
+        # RECEITA TOTAL: Soma de TODAS as receitas
+        total_revenue = float(db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
             FinanceIncome.date >= start_filter,
             FinanceIncome.date <= end_filter
         ).scalar() or 0)
 
-        # Despesas
+        # Adicionar receitas externas (clientes externos)
+        total_external_income = float(db.query(
+            func.coalesce(
+                func.sum(ExternalClientIncome.custo_consultoria_liquido), 0
+            )
+        ).filter(
+            ExternalClientIncome.date >= start_filter,
+            ExternalClientIncome.date <= end_filter
+        ).scalar() or 0)
+
+        total_revenue = total_revenue + total_external_income
+
+        # Comissões (para informação)
+        total_commissions = float(db.query(
+            func.coalesce(func.sum(FinanceExpense.amount), 0)
+        ).filter(
+            FinanceExpense.date >= start_filter,
+            FinanceExpense.date <= end_filter,
+            FinanceExpense.expense_type == "Comissão"
+        ).scalar() or 0)
+
+        # Receitas de consultoria (para breakdown)
+        # Inclui todos os tipos: líquida, bruta, antiga nomenclatura
+        total_consultoria_bruta = float(db.query(
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
+        ).filter(
+            FinanceIncome.date >= start_filter,
+            FinanceIncome.date <= end_filter,
+            FinanceIncome.income_type.in_([
+                "Consultoria Líquida",
+                "Consultoria - Atendente",
+                "Consultoria - Balcão",
+                "Consultoria Bruta - Atendente",
+                "Consultoria Bruta - Balcão",
+                "Consultoria Líquida - Atendente",
+                "Consultoria Líquida - Balcão"
+            ])
+        ).scalar() or 0)
+
+        # Receitas manuais (outras receitas, excluindo consultoria)
+        total_manual_income = float(db.query(
+            func.coalesce(func.sum(FinanceIncome.amount), 0)
+        ).filter(
+            FinanceIncome.date >= start_filter,
+            FinanceIncome.date <= end_filter,
+            ~FinanceIncome.income_type.in_([
+                "Consultoria Líquida",
+                "Consultoria - Atendente",
+                "Consultoria - Balcão",
+                "Consultoria Bruta - Atendente",
+                "Consultoria Bruta - Balcão",
+                "Consultoria Líquida - Atendente",
+                "Consultoria Líquida - Balcão"
+            ])
+        ).scalar() or 0)
+
+        # DESPESAS (sem impostos para card)
         total_expenses = float(db.query(
             func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
             FinanceExpense.date >= start_filter,
-            FinanceExpense.date <= end_filter
+            FinanceExpense.date <= end_filter,
+            FinanceExpense.expense_type != "Impostos"
         ).scalar() or 0)
 
-        # Receita total = consultoria líquida + receitas externas + receitas manuais
-        total_revenue = total_consultoria_liquida + total_external_income + total_manual_income
+        # IMPOSTOS = 14% da Receita Total
+        total_tax = total_revenue * 0.14
 
-        # Impostos: 14% sobre consultoria bruta (contratos + externos)
-        # (consultoria_liq / 0.86 * 0.14) para ambos
-        total_tax_contracts = (
-            (total_consultoria_liquida / 0.86 * 0.14)
-            if total_consultoria_liquida > 0
-            else 0
-        )
-        total_tax_external = (
-            (total_external_income / 0.86 * 0.14)
-            if total_external_income > 0
-            else 0
-        )
-        total_tax = total_tax_contracts + total_tax_external
+        # CONSULTORIA LÍQUIDA = 86% da Receita Total
+        total_consultoria_liquida = total_revenue * 0.86
 
-        # Lucro líquido = Receitas - Despesas - Impostos
-        net_profit = total_revenue - total_expenses - total_tax
+        # LUCRO LÍQUIDO = Consultoria Líquida - Despesas
+        net_profit = total_consultoria_liquida - total_expenses
 
         return {
             "totalRevenue": round(total_revenue, 2),
@@ -425,7 +496,8 @@ def finance_metrics(
             "totalTax": round(total_tax, 2),
             "totalManualIncome": round(total_manual_income, 2),
             "totalConsultoriaLiq": round(total_consultoria_liquida, 2),
-            "totalExternalIncome": round(total_external_income, 2)
+            "totalExternalIncome": round(total_external_income, 2),
+            "totalCommissions": round(total_commissions, 2)
         }
 
 
@@ -513,16 +585,29 @@ class DisburseSimpleIn(BaseModel):
     case_id: int
     disbursed_at: datetime | None = None
 
+    # NOVOS CAMPOS: Consultoria Bruta + Imposto
+    consultoria_bruta: float  # Obrigatório: Valor bruto da consultoria
+    imposto_percentual: float = 14.0  # Percentual de imposto (padrão 14%)
+
+    # Comissão de Corretor (opcional)
+    tem_corretor: bool = False
+    corretor_nome: str | None = None
+    corretor_comissao_valor: float | None = None
+
+    # Distribuição (já existente)
+    percentual_atendente: float | None = None
+    atendente_user_id: int | None = None
+
 
 @r.post("/disburse-simple")
 async def disburse_simple(
     data: DisburseSimpleIn,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Efetiva liberação usando os valores já calculados da simulação"""
+    """Efetiva liberação com Consultoria Bruta + Comissão Corretor (opcional)"""
     try:
         with SessionLocal() as db:
-            # Buscar caso com eager loading do cliente
+            # 1. Buscar caso com eager loading do cliente
             c = db.query(Case).options(
                 joinedload(Case.client)
             ).filter(Case.id == data.case_id).first()
@@ -534,7 +619,7 @@ async def disburse_simple(
             if not c.client:
                 raise HTTPException(400, "Caso não possui cliente associado")
 
-            # Busca a simulação mais recente aprovada
+            # 2. Busca a simulação mais recente aprovada
             from ..models import Simulation
             simulation = db.query(Simulation).filter(
                 Simulation.case_id == c.id,
@@ -563,14 +648,37 @@ async def disburse_simple(
                     "Simulação não possui prazo válido"
                 )
 
-            # Validar consultoria líquida
-            consultoria_liquida = simulation.custo_consultoria_liquido or 0
-            if consultoria_liquida <= 0:
+            # 3. Calcular valores de Imposto
+            consultoria_bruta = data.consultoria_bruta
+            imposto_percentual = data.imposto_percentual or 14.0
+            imposto_valor = consultoria_bruta * (imposto_percentual / 100)
+
+            # Calcular consultoria líquida (apenas para compatibilidade/registro)
+            consultoria_liquida = consultoria_bruta - imposto_valor
+
+            print(f"[INFO] Consultoria Bruta: R$ {consultoria_bruta:.2f}")
+            print(f"[INFO] Imposto ({imposto_percentual}%): R$ {imposto_valor:.2f}")
+            print(f"[INFO] Consultoria Líquida (referência): R$ {consultoria_liquida:.2f}")
+
+            if consultoria_bruta <= 0:
                 print(
-                    f"[AVISO] Consultoria líquida é zero para caso {c.id}, "
+                    f"[AVISO] Consultoria bruta é zero para caso {c.id}, "
                     f"não será criada receita automática"
                 )
 
+            # ✅ VALIDAÇÃO: Verificar se comissão não excede consultoria bruta
+            if (data.tem_corretor and data.corretor_comissao_valor and
+                    data.corretor_comissao_valor > 0):
+                if data.corretor_comissao_valor > consultoria_liquida:
+                    raise HTTPException(
+                        400,
+                        f"Comissão do corretor "
+                        f"(R$ {data.corretor_comissao_valor:.2f}) não pode "
+                        f"ser maior que a consultoria bruta "
+                        f"(R$ {consultoria_bruta:.2f})"
+                    )
+
+            # 4. Criar ou Atualizar Contract
             ct = db.query(Contract).filter(Contract.case_id == c.id).first()
             if not ct:
                 ct = Contract(case_id=c.id)
@@ -585,27 +693,185 @@ async def disburse_simple(
             ct.consultoria_valor_liquido = consultoria_liquida
             ct.signed_at = data.disbursed_at or now_brt()
             ct.created_by = user.id
-            ct.agent_user_id = c.assigned_user_id  # Atendente do caso
+            ct.agent_user_id = data.atendente_user_id or c.assigned_user_id
+
+            # Atualizar atendente do caso se foi selecionado no modal
+            if data.atendente_user_id:
+                c.assigned_user_id = data.atendente_user_id
+
+            # NOVOS CAMPOS: Consultoria Bruta + Imposto
+            ct.consultoria_bruta = consultoria_bruta
+            ct.imposto_percentual = imposto_percentual
+            ct.imposto_valor = imposto_valor
+
+            # NOVOS CAMPOS: Comissão Corretor (opcional)
+            ct.tem_corretor = data.tem_corretor
+            ct.corretor_nome = data.corretor_nome
+            ct.corretor_comissao_valor = data.corretor_comissao_valor
 
             db.add(ct)
             db.flush()
 
-            # Criar receita automática (Consultoria Líquida 86%)
-            if consultoria_liquida and consultoria_liquida > 0:
-                from ..models import FinanceIncome
+            # ✅ CRIAR DESPESA DE IMPOSTO AUTOMATICAMENTE
+            if imposto_valor > 0:
+                from ..models import FinanceExpense
+                from datetime import date
+                
+                tax_expense = FinanceExpense(
+                    description=f"Imposto sobre consultoria bruta - "
+                               f"Contrato #{ct.id}",
+                    amount=imposto_valor,
+                    expense_type="Impostos",
+                    expense_name=f"Imposto sobre consultoria bruta - "
+                                f"Contrato #{ct.id}",
+                    date=date.today(),
+                    month=date.today().month,
+                    year=date.today().year,
+                    created_by=user.id,
+                    agent_user_id=ct.agent_user_id,
+                    client_cpf=c.client.cpf if c.client else None,
+                    client_name=c.client.name if c.client else None
+                )
+                db.add(tax_expense)
+                db.flush()
+                
+                # Vincular despesa ao contrato
+                ct.imposto_expense_id = tax_expense.id
+
+            # 5. Criar Receitas (Atendente + Balcão)
+            #  LOG DIAGNÓSTICO: Verificar valores antes de criar receitas
+            print(f"[DEBUG] === VERIFICAÇÃO DE RECEITAS PARA CASO {c.id} ===")
+            print(f"[DEBUG] Consultoria Bruta: R$ {consultoria_bruta:.2f}")
+            print(f"[DEBUG] Imposto: R$ {imposto_valor:.2f}")
+            print(f"[DEBUG] Consultoria Líquida: R$ {consultoria_liquida:.2f}")
+            print(f"[DEBUG] Tem Corretor: {data.tem_corretor}")
+            print(f"[DEBUG] Comissão Corretor: R$ {data.corretor_comissao_valor or 0:.2f}")
+            print(f"[DEBUG] Condição consultoria_liquida > 0: {consultoria_liquida > 0 if consultoria_liquida else False}")
+
+            if consultoria_liquida and consultoria_liquida > 0.01:
+                from ..models import FinanceIncome, User
+
                 client_name = (
                     c.client.name if c.client else f"Cliente {c.id}"
                 )
-                income = FinanceIncome(
-                    date=data.disbursed_at or now_brt(),
-                    income_type="Consultoria Líquida",
-                    income_name=f"Contrato #{ct.id} - {client_name}",
-                    amount=consultoria_liquida,
-                    created_by=user.id,
-                    agent_user_id=c.assigned_user_id  # Atendente
-                )
-                db.add(income)
 
+                # Buscar usuário balcão por email exato (mais rápido e preciso)
+                balcao_user = db.query(User).filter(
+                    User.email == 'balcao@lifecalling.com',
+                    User.active == True
+                ).first()
+
+                balcao_user_id = balcao_user.id if balcao_user else None
+
+                if balcao_user:
+                    print(f"[INFO] Usuário balcão encontrado: {balcao_user.name} (ID: {balcao_user.id})")
+                else:
+                    print("[AVISO] Usuário 'balcao@lifecalling.com' não encontrado ou inativo. Receita de balcão sem agent_user_id.")
+
+                # Percentual padrão: 70% atendente, 30% balcão
+                percentual_atendente = data.percentual_atendente or 70.0
+                percentual_balcao = 100.0 - percentual_atendente
+
+                # ✅ CORRIGIDO: Deduzir comissão ANTES de distribuir
+                # 1. Consultoria Líquida = Bruta - Imposto
+                # 2. Deduzir Comissão (se houver)
+                # 3. Distribuir o valor restante
+                consultoria_para_distribuir = consultoria_liquida
+                if (data.tem_corretor and data.corretor_comissao_valor and
+                        data.corretor_comissao_valor > 0):
+                    consultoria_para_distribuir = (
+                        consultoria_liquida - data.corretor_comissao_valor
+                    )
+                    print(
+                        f"[INFO] Deduzindo comissão antes da distribuição: "
+                        f"R$ {consultoria_liquida:.2f} - "
+                        f"R$ {data.corretor_comissao_valor:.2f} = "
+                        f"R$ {consultoria_para_distribuir:.2f}"
+                    )
+
+                # Garantir que não seja negativo
+                if consultoria_para_distribuir < 0:
+                    consultoria_para_distribuir = 0
+                    print(
+                        "[AVISO] Consultoria para distribuir ajustada "
+                        "para 0 após dedução de comissão"
+                    )
+
+                # Distribuir valor após dedução da comissão
+                valor_atendente = (
+                    consultoria_para_distribuir * (percentual_atendente / 100)
+                )
+                valor_balcao = (
+                    consultoria_para_distribuir * (percentual_balcao / 100)
+                )
+
+                print(
+                    f"[INFO] Distribuindo consultoria líquida "
+                    f"(após imposto e comissão): "
+                    f"Atendente ({percentual_atendente}%): "
+                    f"R$ {valor_atendente:.2f} | "
+                    f"Balcão ({percentual_balcao}%): R$ {valor_balcao:.2f}"
+                )
+
+                # Usar atendente fornecido ou atendente do caso como fallback
+                atendente_id = data.atendente_user_id or c.assigned_user_id
+
+                # Receita 1: Consultoria Líquida - Atendente
+                if valor_atendente > 0:
+                    income_atendente = FinanceIncome(
+                        date=data.disbursed_at or now_brt(),
+                        income_type="Consultoria Líquida - Atendente",
+                        income_name=f"Consultoria Líquida "
+                                   f"{percentual_atendente:.0f}% - "
+                                   f"{client_name} (Contrato #{ct.id})",
+                        amount=valor_atendente,
+                        created_by=user.id,
+                        agent_user_id=atendente_id,
+                        client_cpf=c.client.cpf if c.client else None,
+                        client_name=client_name
+                    )
+                    db.add(income_atendente)
+
+                # Receita 2: Consultoria Líquida - Balcão
+                if valor_balcao > 0:
+                    income_balcao = FinanceIncome(
+                        date=data.disbursed_at or now_brt(),
+                        income_type="Consultoria Líquida - Balcão",
+                        income_name=f"Consultoria Líquida "
+                                   f"{percentual_balcao:.0f}% - "
+                                   f"{client_name} (Contrato #{ct.id})",
+                        amount=valor_balcao,
+                        created_by=user.id,
+                        agent_user_id=balcao_user_id,
+                        client_cpf=c.client.cpf if c.client else None,
+                        client_name=client_name
+                    )
+                    db.add(income_balcao)
+
+            # 6. Criar Despesa de Comissão Corretor (se houver)
+            if data.tem_corretor and data.corretor_comissao_valor and data.corretor_comissao_valor > 0:
+                from ..models import FinanceExpense
+                disbursed_date = data.disbursed_at or now_brt()
+                expense = FinanceExpense(
+                    month=disbursed_date.month,
+                    year=disbursed_date.year,
+                    date=disbursed_date,
+                    expense_type="Comissão",
+                    expense_name=f"Comissão Corretor - {data.corretor_nome} "
+                                f"(Contrato #{ct.id})",
+                    amount=data.corretor_comissao_valor,
+                    created_by=user.id,
+                    agent_user_id=ct.agent_user_id,
+                    client_cpf=c.client.cpf if c.client else None,
+                    client_name=c.client.name if c.client else None
+                )
+                db.add(expense)
+                db.flush()
+
+                # Vincular expense ao contract
+                ct.corretor_expense_id = expense.id
+
+            # 7. Atualizar status do caso
             c.status = "contrato_efetivado"
             c.last_update_at = now_brt()
             db.add(CaseEvent(
@@ -613,6 +879,11 @@ async def disburse_simple(
                 type="finance.disbursed",
                 payload={
                     "contract_id": ct.id,
+                    "consultoria_bruta": float(consultoria_bruta),
+                    "consultoria_liquida": float(consultoria_liquida),
+                    "imposto_percentual": float(imposto_percentual),
+                    "tem_corretor": data.tem_corretor,
+                    "corretor_comissao": float(data.corretor_comissao_valor or 0),
                     "amount": float(total_amount),
                     "installments": simulation.prazo
                 },
@@ -642,6 +913,203 @@ async def disburse_simple(
             500,
             f"Erro ao efetivar liberação: {str(e)}"
         )
+
+
+
+@r.post("/cases/{case_id}/reopen")
+async def reopen_case(
+    case_id: int,
+    user=Depends(require_roles("admin", "financeiro"))
+):
+    """
+    Reabre um caso efetivado para ajustes nos valores.
+    - Altera status de contrato_efetivado para financeiro_pendente
+    - Exclui receitas automáticas (Consultoria - Atendente/Balcão)
+    - Exclui despesa de imposto automática
+    - Apenas Admin e Financeiro podem reabrir
+    """
+    try:
+        with SessionLocal() as db:
+            # Buscar caso
+            case = db.get(Case, case_id)
+            if not case:
+                raise HTTPException(404, "Caso não encontrado")
+
+            # Verificar se caso está efetivado
+            if case.status != "contrato_efetivado":
+                raise HTTPException(
+                    400,
+                    f"Apenas casos efetivados podem ser reabertos. Status atual: {case.status}"
+                )
+
+            # Excluir receitas e despesas automáticas criadas pela efetivação
+            from ..models import FinanceIncome, FinanceExpense, Contract
+
+            # Buscar contrato vinculado ao caso
+            contract = db.query(Contract).filter(Contract.case_id == case_id).first()
+
+            deleted_incomes = 0
+            deleted_expenses = 0
+
+            if contract:
+                # Deletar receitas usando o contract_id correto (padrão: "Contrato #123")
+                deleted_incomes = db.query(FinanceIncome).filter(
+                    FinanceIncome.income_name.like(f"%(Contrato #{contract.id})%"),
+                    FinanceIncome.income_type.in_([
+                        "Consultoria Líquida - Atendente",  # Formato ATUAL
+                        "Consultoria Líquida - Balcão",     # Formato ATUAL
+                        "Consultoria Bruta - Atendente",    # Formato ANTIGO
+                        "Consultoria Bruta - Balcão",       # Formato ANTIGO
+                        "Consultoria - Atendente",          # Formato ANTIGO (compatibilidade)
+                        "Consultoria - Balcão"              # Formato ANTIGO (compatibilidade)
+                    ])
+                ).delete(synchronize_session=False)
+
+                # Deletar despesas automáticas (Impostos + Comissão)
+                deleted_expenses = db.query(FinanceExpense).filter(
+                    FinanceExpense.expense_name.like(f"%Contrato #{contract.id}%"),
+                    FinanceExpense.expense_type.in_(["Impostos", "Comissão"])
+                ).delete(synchronize_session=False)
+
+                # Marcar contrato como "em revisão" enquanto está reaberto
+                # Será reativado quando for efetivado novamente
+                contract.status = "em_revisao"
+                contract.updated_at = now_brt()
+
+            # Alterar status do caso
+            case.status = "financeiro_pendente"
+            case.last_update_at = now_brt()
+
+            # Criar evento
+            db.add(CaseEvent(
+                case_id=case.id,
+                type="finance.reopened",
+                payload={
+                    "deleted_incomes": deleted_incomes,
+                    "deleted_expenses": deleted_expenses,
+                    "reopened_by": user.id,
+                    "reopened_at": now_brt().isoformat()
+                },
+                created_by=user.id
+            ))
+
+            db.commit()
+            db.refresh(case)
+
+        await eventbus.broadcast(
+            "case.updated",
+            {"case_id": case_id, "status": "financeiro_pendente"}
+        )
+
+        return {
+            "success": True,
+            "case_id": case_id,
+            "new_status": "financeiro_pendente",
+            "deleted_incomes": deleted_incomes,
+            "deleted_expenses": deleted_expenses,
+            "message": f"Caso reaberto com sucesso. {deleted_incomes} receitas e {deleted_expenses} despesas excluídas."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[ERRO] Falha ao reabrir caso {case_id}: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Erro ao reabrir caso: {str(e)}")
+
+@r.get("/commissions")
+def get_commissions(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    user_id: int | None = None,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """Lista todas as comissões com filtros opcionais"""
+    from ..models import CommissionPayout
+    from datetime import datetime
+
+    with SessionLocal() as db:
+        query = db.query(CommissionPayout).options(
+            joinedload(CommissionPayout.beneficiary),
+            joinedload(CommissionPayout.creator),
+            joinedload(CommissionPayout.contract)
+        )
+
+        # Filtro por período
+        if start_date:
+            try:
+                start_filter = datetime.fromisoformat(start_date)
+                query = query.filter(
+                    CommissionPayout.created_at >= start_filter
+                )
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
+                query = query.filter(
+                    CommissionPayout.created_at <= end_filter
+                )
+            except Exception:
+                pass
+
+        # Filtro por usuário beneficiário
+        if user_id:
+            query = query.filter(
+                CommissionPayout.beneficiary_user_id == user_id
+            )
+
+        commissions = query.order_by(
+            CommissionPayout.created_at.desc()
+        ).all()
+
+        items = []
+        for comm in commissions:
+            items.append({
+                "id": comm.id,
+                "contract_id": comm.contract_id,
+                "case_id": comm.case_id,
+                "beneficiary": {
+                    "id": comm.beneficiary.id,
+                    "name": comm.beneficiary.name,
+                    "email": comm.beneficiary.email
+                },
+                "consultoria_liquida": float(
+                    comm.consultoria_liquida
+                ),
+                "commission_percentage": float(
+                    comm.commission_percentage
+                ),
+                "commission_amount": float(
+                    comm.commission_amount
+                ),
+                "created_at": (
+                    comm.created_at.isoformat()
+                    if comm.created_at
+                    else None
+                ),
+                "created_by": {
+                    "id": comm.creator.id,
+                    "name": comm.creator.name
+                } if comm.creator else None
+            })
+
+        # Totais
+        total_commissions = sum(
+            float(c.commission_amount) for c in commissions
+        )
+
+        return {
+            "items": items,
+            "total": total_commissions,
+            "count": len(items)
+        }
 
 
 @r.post("/cancel/{contract_id}")
@@ -779,14 +1247,38 @@ class ExpenseInput(BaseModel):
 
 @r.get("/expenses")
 def list_expenses(
+    start_date: str | None = None,
+    end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Lista todas as despesas individuais"""
+    """Lista todas as despesas individuais, com filtro opcional por data"""
+    from datetime import datetime, timedelta
     with SessionLocal() as db:
         from ..models import FinanceExpense
-        expenses = db.query(FinanceExpense).order_by(
-            FinanceExpense.date.desc()
-        ).all()
+
+        # Criar query base
+        query = db.query(FinanceExpense)
+
+        # Aplicar filtros de data se fornecidos
+        if start_date:
+            try:
+                start_filter = datetime.fromisoformat(start_date)
+                query = query.filter(FinanceExpense.date >= start_filter)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
+                query = query.filter(FinanceExpense.date <= end_filter)
+            except Exception:
+                pass
+
+        expenses = query.order_by(FinanceExpense.date.desc()).all()
 
         total = sum([float(exp.amount) for exp in expenses])
 
@@ -959,20 +1451,40 @@ def update_expense(
 @r.delete("/expenses/{expense_id}")
 def delete_expense(
     expense_id: int,
-    user=Depends(require_roles("admin", "supervisor"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Remove uma despesa"""
-    with SessionLocal() as db:
-        from ..models import FinanceExpense
-        expense = db.get(FinanceExpense, expense_id)
+    """Remove uma despesa (incluindo despesas geradas por comissão)"""
+    try:
+        with SessionLocal() as db:
+            from ..models import FinanceExpense, CommissionPayout
 
-        if not expense:
-            raise HTTPException(404, "Despesa não encontrada")
+            expense = db.get(FinanceExpense, expense_id)
+            if not expense:
+                raise HTTPException(404, "Despesa não encontrada")
 
-        db.delete(expense)
-        db.commit()
+            # Verificar se há CommissionPayout vinculado
+            commission = db.query(CommissionPayout).filter(
+                CommissionPayout.expense_id == expense_id
+            ).first()
 
-        return {"message": "Despesa removida com sucesso"}
+            if commission:
+                # Desvincular a comissão da despesa
+                commission.expense_id = None
+                db.add(commission)
+
+            # Deletar a despesa
+            db.delete(expense)
+            db.commit()
+
+            return {"message": "Despesa removida com sucesso"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[ERRO] Falha ao deletar despesa {expense_id}: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Erro ao remover despesa: {str(e)}")
 
 
 @r.post("/expenses/{expense_id}/attachment")
@@ -1181,18 +1693,45 @@ class IncomeInput(BaseModel):
     income_type: str  # Tipo da receita
     income_name: str | None = None  # Nome/descrição da receita
     amount: float
+    agent_user_id: int | None = None  # ID do atendente (obrigatório para "Consultoria Bruta")
+    client_cpf: str | None = None  # CPF do cliente (obrigatório para "Consultoria Bruta")
+    client_name: str | None = None  # Nome do cliente (obrigatório para "Consultoria Bruta")
 
 
 @r.get("/incomes")
 def list_incomes(
+    start_date: str | None = None,
+    end_date: str | None = None,
     user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
-    """Lista todas as receitas manuais"""
+    """Lista todas as receitas manuais, com filtro opcional por data"""
+    from datetime import datetime, timedelta
     with SessionLocal() as db:
         from ..models import FinanceIncome
-        incomes = db.query(FinanceIncome).order_by(
-            FinanceIncome.date.desc()
-        ).all()
+
+        # Criar query base
+        query = db.query(FinanceIncome)
+
+        # Aplicar filtros de data se fornecidos
+        if start_date:
+            try:
+                start_filter = datetime.fromisoformat(start_date)
+                query = query.filter(FinanceIncome.date >= start_filter)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                end_filter = datetime.fromisoformat(end_date)
+
+                # Incluir o dia completo (23:59:59.999999)
+
+                end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
+                query = query.filter(FinanceIncome.date <= end_filter)
+            except Exception:
+                pass
+
+        incomes = query.order_by(FinanceIncome.date.desc()).all()
 
         total = sum([float(inc.amount) for inc in incomes])
 
@@ -1204,6 +1743,9 @@ def list_incomes(
                     "income_type": inc.income_type,
                     "income_name": inc.income_name,
                     "amount": float(inc.amount),
+                    "agent_user_id": inc.agent_user_id,
+                    "client_cpf": inc.client_cpf,
+                    "client_name": inc.client_name,
                     "attachment_filename": inc.attachment_filename,
                     "attachment_size": inc.attachment_size,
                     "has_attachment": bool(inc.attachment_path),
@@ -1233,6 +1775,20 @@ def create_income(
         if data.amount < 0:
             raise HTTPException(400, "Valor não pode ser negativo")
 
+        # Validação específica para "Consultoria Bruta"
+        if data.income_type == "Consultoria Bruta":
+            if not data.agent_user_id:
+                raise HTTPException(400, "Atendente é obrigatório para Consultoria Bruta")
+            if not data.client_cpf:
+                raise HTTPException(400, "CPF do cliente é obrigatório para Consultoria Bruta")
+            if not data.client_name:
+                raise HTTPException(400, "Nome do cliente é obrigatório para Consultoria Bruta")
+            
+            # Validar CPF (apenas formato básico)
+            cpf_clean = data.client_cpf.replace(".", "").replace("-", "").replace("/", "")
+            if len(cpf_clean) != 11 or not cpf_clean.isdigit():
+                raise HTTPException(400, "CPF inválido. Use formato: ###.###.###-##")
+
         # Parse da data
         try:
             income_date = datetime.fromisoformat(data.date)
@@ -1244,6 +1800,9 @@ def create_income(
             income_type=data.income_type,
             income_name=data.income_name,
             amount=data.amount,
+            agent_user_id=data.agent_user_id,
+            client_cpf=data.client_cpf,
+            client_name=data.client_name,
             created_by=user.id
         )
         db.add(income)
@@ -1341,7 +1900,7 @@ def update_income(
 @r.delete("/incomes/{income_id}")
 def delete_income(
     income_id: int,
-    user=Depends(require_roles("admin", "supervisor"))
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
 ):
     """Remove uma receita manual"""
     with SessionLocal() as db:
@@ -1632,6 +2191,21 @@ def get_timeseries(
             key = f"{int(row.year)}-{int(row.month):02d}"
             tax_dict[key] = float(row.total or 0) * 0.14
 
+        # Agregação de comissões por mês
+        commissions_query = db.query(
+            extract('year', FinanceExpense.date).label('year'),
+            extract('month', FinanceExpense.date).label('month'),
+            func.sum(FinanceExpense.amount).label('total')
+        ).filter(
+            FinanceExpense.date >= six_months_ago,
+            FinanceExpense.expense_type == "Comissão"
+        ).group_by('year', 'month').all()
+
+        commissions_dict = {}
+        for row in commissions_query:
+            key = f"{int(row.year)}-{int(row.month):02d}"
+            commissions_dict[key] = float(row.total or 0)
+
         # Gerar lista de meses completa
         months = []
         current = now_brt().replace(day=1)
@@ -1652,6 +2226,7 @@ def get_timeseries(
         revenue_series = []
         expenses_series = []
         tax_series = []
+        commissions_series = []
         net_profit_series = []
 
         for month in months:
@@ -1659,6 +2234,7 @@ def get_timeseries(
             revenue = revenue_dict.get(key, 0)
             expenses = expenses_dict.get(key, 0)
             tax = tax_dict.get(key, 0)
+            commissions = commissions_dict.get(key, 0)
             net_profit = revenue - expenses - tax
 
             revenue_series.append(
@@ -1670,6 +2246,9 @@ def get_timeseries(
             tax_series.append(
                 {"date": month["label"], "value": round(tax, 2)}
             )
+            commissions_series.append(
+                {"date": month["label"], "value": round(commissions, 2)}
+            )
             net_profit_series.append(
                 {"date": month["label"], "value": round(net_profit, 2)}
             )
@@ -1678,6 +2257,7 @@ def get_timeseries(
             "revenue": revenue_series,
             "expenses": expenses_series,
             "tax": tax_series,
+            "commissions": commissions_series,
             "netProfit": net_profit_series
         }
 
@@ -1806,6 +2386,8 @@ def get_transactions(
             if end_date:
                 try:
                     end = datetime.fromisoformat(end_date)
+                    #  Incluir o dia completo (23:59:59.999999)
+                    end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
                 except Exception:
                     pass
 
@@ -1868,6 +2450,10 @@ def get_transactions(
                                 client_cpf = contract.case.client.cpf
                         except Exception:
                             pass
+                    else:
+                        # Para receitas manuais (Consultoria Bruta), pegar os campos diretamente
+                        client_name = inc.client_name
+                        client_cpf = inc.client_cpf
 
                     transactions.append({
                         "id": f"receita-{inc.id}",
@@ -1940,7 +2526,8 @@ def get_transactions(
             # Buscar despesas
             if not transaction_type or transaction_type == "despesa":
                 expenses_query = db.query(FinanceExpense).options(
-                    joinedload(FinanceExpense.creator)
+                    joinedload(FinanceExpense.creator),
+                    joinedload(FinanceExpense.agent)
                 )
                 if start:
                     expenses_query = expenses_query.filter(
@@ -1971,8 +2558,12 @@ def get_transactions(
                             else None
                         ),
                         "agent_name": (
-                            exp.creator.name if exp.creator else None
+                            exp.agent.name if exp.agent else
+                            (exp.creator.name if exp.creator else None)
                         ),
+                        "agent_user_id": exp.agent_user_id,
+                        "client_cpf": exp.client_cpf,
+                        "client_name": exp.client_name,
                         "has_attachment": bool(exp.attachment_path),
                         "attachment_filename": exp.attachment_filename,
                         "attachment_size": exp.attachment_size,
@@ -2052,6 +2643,10 @@ def export_finance_report(
             if end_date:
                 try:
                     end_filter = datetime.fromisoformat(end_date)
+
+                    # Incluir o dia completo (23:59:59.999999)
+
+                    end_filter = end_filter.replace(hour=23, minute=59, second=59, microsecond=999999)
                 except Exception:
                     end_filter = now_brt()
             else:
@@ -2201,7 +2796,7 @@ def get_financial_data(
     )
 ):
     """Retorna dados financeiros agregados para cálculo de KPIs"""
-    from ..models import FinanceIncome, FinanceExpense
+    from ..models import FinanceIncome, FinanceExpense, User
     from datetime import datetime
     from sqlalchemy import func  # pyright: ignore[reportMissingImports]
 
@@ -2245,26 +2840,56 @@ def get_financial_data(
             else:
                 end_date = datetime(now.year, now.month + 1, 1)
 
-        # Calcular receita líquida (total de receitas)
-        receita_liquida = db.query(
+        # Calcular receita total
+        receita_total = db.query(
             func.coalesce(func.sum(FinanceIncome.amount), 0)
         ).filter(
             FinanceIncome.date >= start_date,
             FinanceIncome.date < end_date
         ).scalar() or 0
 
-        # Calcular total de despesas
+        # Calcular consultoria líquida (86% da receita)
+        consultoria_liquida = float(receita_total) * 0.86
+
+        # Calcular total de despesas (sem impostos)
         despesas = db.query(
             func.coalesce(func.sum(FinanceExpense.amount), 0)
         ).filter(
             FinanceExpense.date >= start_date,
-            FinanceExpense.date < end_date
+            FinanceExpense.date < end_date,
+            FinanceExpense.expense_type != "Impostos"
         ).scalar() or 0
 
+        # Calcular lucro líquido
+        lucro_liquido = consultoria_liquida - float(despesas)
+
+        # Meta Mensal = (10% do Lucro Líquido) - (Receitas do atendente Peltson)
+        meta_mensal = lucro_liquido * 0.10
+        
+        # Buscar o usuário Peltson pelo email
+        peltson = db.query(User).filter(User.email == "peltson@gmail.com").first()
+        
+        # Somar receitas do Peltson (tipo "Consultoria Líquida - Atendente")
+        receitas_peltson = 0
+        if peltson:
+            receitas_peltson = db.query(
+                func.coalesce(func.sum(FinanceIncome.amount), 0)
+            ).filter(
+                FinanceIncome.agent_id == peltson.id,
+                FinanceIncome.income_type == "Consultoria Líquida - Atendente",
+                FinanceIncome.date >= start_date,
+                FinanceIncome.date < end_date
+            ).scalar() or 0
+        
+        # Calcular Meta Mensal final
+        meta_mensal = meta_mensal - float(receitas_peltson)
+
         return {
-            "receita_liquida": float(receita_liquida),
+            "receita_liquida": float(receita_total),
+            "consultoria_liquida": round(consultoria_liquida, 2),
             "despesas": float(despesas),
-            "resultado": float(receita_liquida) - float(despesas),
+            "resultado": lucro_liquido,
+            "meta_mensal": round(meta_mensal, 2),
             "periodo": {
                 "inicio": start_date.isoformat(),
                 "fim": end_date.isoformat()

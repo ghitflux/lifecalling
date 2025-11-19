@@ -4,14 +4,14 @@ import type { SimulationInput } from '@/lib/types/simulation';
 
 describe('simulation-calculations', () => {
   describe('computeTotals', () => {
-    it('should calculate correctly for single bank scenario', () => {
+    it('should calculate correctly for single bank scenario (NOVA LÓGICA)', () => {
       const input: SimulationInput = {
         banks: [
           {
             bank: 'SANTANDER',
             parcela: 1000.00,
             saldoDevedor: 30000.00,
-            valorLiberado: 22022.91
+            valorLiberado: 0 // Ignorado na nova lógica
           }
         ],
         prazo: 96,
@@ -22,30 +22,78 @@ describe('simulation-calculations', () => {
 
       const result = computeTotals(input);
 
+      // NOVA LÓGICA: financiado = parcela / coeficiente
+      const financiado = 1000.00 / 0.0192223; // 52022.91
+      const liberado = financiado - 30000.00; // 22022.91
+
       expect(result.valorParcelaTotal).toBe(1000.00);
       expect(result.saldoTotal).toBe(30000.00);
       expect(result.liberadoTotal).toBe(22022.91);
       expect(result.totalFinanciado).toBe(52022.91);
       expect(result.valorLiquido).toBe(21022.91);
       expect(result.custoConsultoria).toBe(6242.75);
-      expect(result.custoConsultoriaLiquido).toBe(5368.76); // 6242.75 * 0.86 = 5368.765 -> 5368.76 (rounded)
+      expect(result.custoConsultoriaLiquido).toBe(5368.76);
+      expect(result.valorASubtrair).toBe(0); // Sem margem
       expect(result.liberadoCliente).toBe(14780.16);
     });
 
-    it('should calculate correctly for multi-bank scenario', () => {
+    it('should calculate correctly with Margem* bank (CENÁRIO DA PLANILHA)', () => {
+      const input: SimulationInput = {
+        banks: [
+          {
+            bank: 'Margem*',
+            parcela: -91.98,
+            saldoDevedor: 0,
+            valorLiberado: 0
+          },
+          {
+            bank: 'SANTANDER',
+            parcela: 100.00,
+            saldoDevedor: 1000.00,
+            valorLiberado: 0
+          }
+        ],
+        prazo: 96,
+        coeficiente: '0,0193333',
+        seguro: 1000.00,
+        percentualConsultoria: 11.0
+      };
+
+      const result = computeTotals(input);
+
+      // CENÁRIO DA PLANILHA:
+      // Total Parcela: 8,02 (100,00 - 91,98)
+      // SANTANDER financiado: 100 / 0,0193333 = 5172,42
+      // SANTANDER liberado: 5172,42 - 1000 = 4172,42
+      // Valor Líquido: 4172,42 - 1000 = 3172,42
+      // Custo Consultoria: 5172,42 × 11% = 568,97
+      // Valor a Subtrair: 91,98 / 0,0193333 = 4757,59
+      // Liberado Cliente: 3172,42 - 568,97 - 4757,59 = -2154,14
+
+      expect(result.valorParcelaTotal).toBe(8.02);
+      expect(result.saldoTotal).toBe(1000.00);
+      expect(result.liberadoTotal).toBe(4172.42);
+      expect(result.totalFinanciado).toBe(5172.42);
+      expect(result.valorLiquido).toBe(3172.42);
+      expect(result.custoConsultoria).toBe(568.97);
+      expect(result.valorASubtrair).toBe(4757.59);
+      expect(result.liberadoCliente).toBe(-2154.14);
+    });
+
+    it('should calculate correctly for multi-bank scenario (NOVA LÓGICA)', () => {
       const input: SimulationInput = {
         banks: [
           {
             bank: 'SANTANDER',
             parcela: 800.00,
             saldoDevedor: 20000.00,
-            valorLiberado: 15000.00
+            valorLiberado: 0 // Ignorado
           },
           {
             bank: 'BRADESCO',
             parcela: 600.00,
             saldoDevedor: 15000.00,
-            valorLiberado: 12000.00
+            valorLiberado: 0 // Ignorado
           }
         ],
         prazo: 84,
@@ -56,14 +104,20 @@ describe('simulation-calculations', () => {
 
       const result = computeTotals(input);
 
+      // NOVA LÓGICA:
+      // SANTANDER: financiado = 800 / 0.015 = 53333.33, liberado = 53333.33 - 20000 = 33333.33
+      // BRADESCO: financiado = 600 / 0.015 = 40000.00, liberado = 40000.00 - 15000 = 25000.00
+      // Total financiado = 93333.33
+      // Total liberado = 58333.33
+
       expect(result.valorParcelaTotal).toBe(1400.00);
       expect(result.saldoTotal).toBe(35000.00);
-      expect(result.liberadoTotal).toBe(27000.00);
-      expect(result.totalFinanciado).toBe(62000.00);
-      expect(result.valorLiquido).toBe(26500.00);
-      expect(result.custoConsultoria).toBe(6200.00);
-      expect(result.custoConsultoriaLiquido).toBe(5332.00); // 6200.00 * 0.86 = 5332.00
-      expect(result.liberadoCliente).toBe(20300.00);
+      expect(result.liberadoTotal).toBe(58333.33);
+      expect(result.totalFinanciado).toBe(93333.33);
+      expect(result.valorLiquido).toBe(57833.33);
+      expect(result.custoConsultoria).toBe(9333.33);
+      expect(result.valorASubtrair).toBe(0);
+      expect(result.liberadoCliente).toBe(48500.00);
     });
 
     it('should handle zero values correctly', () => {
@@ -246,26 +300,32 @@ describe('simulation-calculations', () => {
   });
 
   describe('validateReferenceScenario', () => {
-    it('should validate the reference scenario correctly', () => {
+    it('should validate the NEW reference scenario correctly', () => {
       const input: SimulationInput = {
         banks: [
           {
+            bank: 'Margem*',
+            parcela: -91.98,
+            saldoDevedor: 0,
+            valorLiberado: 0
+          },
+          {
             bank: 'SANTANDER',
-            parcela: 1000.00,
-            saldoDevedor: 30000.00,
-            valorLiberado: 22022.91
+            parcela: 100.00,
+            saldoDevedor: 1000.00,
+            valorLiberado: 0
           }
         ],
         prazo: 96,
-        coeficiente: '0,0192223',
+        coeficiente: '0,0193333',
         seguro: 1000.00,
-        percentualConsultoria: 12.0
+        percentualConsultoria: 11.0
       };
 
       const result = computeTotals(input);
       const isValid = validateReferenceScenario(input, result);
 
-      expect(result.liberadoCliente).toBe(14780.16);
+      expect(result.liberadoCliente).toBe(-2154.14);
       expect(isValid).toBe(true);
     });
 

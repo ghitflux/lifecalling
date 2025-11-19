@@ -3,7 +3,7 @@
 
 from sqlalchemy.orm import Session
 from .payroll_parser import parse_header, parse_rows
-from ..models import PayrollClient, PayrollContract, PayrollImportBatch, PayrollImportItem, Client, Case
+from ..models import PayrollClient, PayrollContract, PayrollImportBatch, PayrollImportItem, Client, Case, now_brt
 from decimal import Decimal
 from datetime import datetime
 
@@ -57,14 +57,14 @@ def sync_to_main_system(db: Session, payroll_client: PayrollClient, entidade_inf
             status="disponivel",
             entidade=entidade_info.get("entidade_name"),
             referencia_competencia=f"{entidade_info.get('ref_month'):02d}/{entidade_info.get('ref_year')}",
-            created_at=datetime.utcnow(),
-            last_update_at=datetime.utcnow()
+            created_at=now_brt(),
+            last_update_at=now_brt()
         )
         db.add(new_case)
         db.flush()  # IMPORTANTE: Garantir que o caso seja visível para próximas linhas do mesmo CPF
     else:
         # Reaproveitar caso existente: atualizar apenas o timestamp
-        existing_case.last_update_at = datetime.utcnow()
+        existing_case.last_update_at = now_brt()
 
     return main_client
 

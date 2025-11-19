@@ -19,6 +19,7 @@ import {
   MiniAreaChart,
   ProgressBar,
   Pagination,
+  DateRangeFilter,
 } from "@lifecalling/ui";
 import {
   useAllSimulations,
@@ -38,6 +39,7 @@ import {
   CheckCircle,
   XCircle,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   Target,
   RefreshCw,
@@ -47,6 +49,7 @@ import {
   AlertCircle,
   Search,
   X,
+  Undo2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -57,10 +60,22 @@ function CalculistaPageContent() {
   const queryClient = useQueryClient();
 
   // Estados
-  const [activeTab, setActiveTab] = useState("pendentes");
+  const [activeTab, setActiveTab] = useState("todas_simulacoes");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  // Estados para filtro de período
+  const [startDate, setStartDate] = useState<string>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split("T")[0];
+  });
 
   // Reset página quando busca muda
   useEffect(() => {
@@ -69,7 +84,9 @@ function CalculistaPageContent() {
 
   // Função para atualizar todos os dados
   const handleRefresh = () => {
-    queryClient.refetchQueries();
+    queryClient.invalidateQueries({ queryKey: ["calculista-queue"] });
+    queryClient.invalidateQueries({ queryKey: ["calculistaSeries"] });
+    queryClient.invalidateQueries({ queryKey: ["my-stats"] });
     toast.success("Dados atualizados com sucesso!");
   };
 
@@ -128,27 +145,47 @@ function CalculistaPageContent() {
 
   // Dados - busca em tempo real
   // Determinar caseStatus baseado na aba ativa
-  const caseStatusFilter = activeTab === "pendentes" ? "calculista_pendente" : undefined;
+  // Para "todas_simulacoes", não filtrar por status (buscar TODAS)
+  const caseStatusFilter = activeTab === "todas_simulacoes" 
+    ? undefined 
+    : activeTab === "pendentes" 
+      ? "calculista_pendente" 
+      : undefined;
 
-  const { data: allSimsData, isLoading: simsLoading } = useAllSimulations(true, {
-    search: searchTerm || undefined,
-    page: currentPage,
-    pageSize: pageSize,
-    caseStatus: caseStatusFilter
-  });
+  const { data: allSimsData, isLoading: simsLoading } = useAllSimulations(
+    activeTab === "todas_simulacoes", // Se true, busca TODAS sem filtro de status
+    {
+      search: searchTerm || undefined,
+      page: currentPage,
+      pageSize: pageSize,
+      caseStatus: activeTab === "todas_simulacoes" ? undefined : caseStatusFilter,
+      uniqueByCpf: activeTab === "todas_simulacoes" ? true : false // Apenas última simulação por CPF
+    }
+  );
   
   const allSims = allSimsData?.items || [];
   const totalCount = allSimsData?.totalCount || 0;
   const totalPages = allSimsData?.totalPages || 1;
   const { data: stats } = useCalculistaStats();
-  // KPIs do mês atual (dados reais)
-  const currentMonth = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
 
-  const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ month: currentMonth });
-  const { data: closingKpis, isLoading: isLoadingClosingKpis } = useClosingKpis({ month: currentMonth });
+  // KPIs do período selecionado (dados reais)
+  // Temporariamente desabilitado devido a erro 500
+  // const { data: kpis, isLoading: isLoadingKpis } = useCalculationKpis({ from: startDate, to: endDate });
+  const kpis = null;
+  const isLoadingKpis = false;
+  const { data: closingKpis, isLoading: isLoadingClosingKpis } = useClosingKpis({ from: startDate, to: endDate });
+
+  // Query para métricas financeiras (mesmo endpoint do Financeiro)
+  const { data: financeMetrics, isLoading: financeMetricsLoading } = useQuery({
+    queryKey: ["financeMetrics", startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      const response = await api.get(`/finance/metrics?${params.toString()}`);
+      return response.data;
+    }
+  });
 
   const { data: casosEfetivados, isLoading: efetivadosLoading } =
     useCasosEfetivados();
@@ -179,24 +216,25 @@ function CalculistaPageContent() {
 
   // KPIs combinados (usando dados do fechamento para meta_mensal e consultoria_liquida)
   const combinedKpis = useMemo(() => {
-    if (kpis) {
-      return {
-        simulacoes_criadas: kpis.pending || 0,
-        simulacoes_aprovadas: kpis.approvedToday || 0,
-        taxa_aprovacao: kpis.approvalRate || 0,
-        volume_financeiro: kpis.volumeToday || 0,
-        meta_mensal: closingKpis?.meta_mensal || 0,
-        consultoria_liquida: closingKpis?.consultoria_liquida || 0,
-        trends: {
-          pending: kpis.trends?.pending || 0,
-          approvedToday: kpis.trends?.approvedToday || 0,
-          approvalRate: kpis.trends?.approvalRate || 0,
-          volumeToday: kpis.trends?.volumeToday || 0,
-          meta_mensal: closingKpis?.trends?.meta_mensal || 0,
-          consultoria_liquida: closingKpis?.trends?.consultoria_liquida || 0,
-        },
-      };
-    }
+    // Temporariamente usando stats ao invés de kpis (kpis = null devido a erro 500)
+    // if (kpis) {
+    //   return {
+    //     simulacoes_criadas: kpis.pending || 0,
+    //     simulacoes_aprovadas: kpis.approvedToday || 0,
+    //     taxa_aprovacao: kpis.approvalRate || 0,
+    //     volume_financeiro: kpis.volumeToday || 0,
+    //     meta_mensal: closingKpis?.meta_mensal || 0,
+    //     consultoria_liquida: closingKpis?.consultoria_liquida || 0,
+    //     trends: {
+    //       pending: kpis.trends?.pending || 0,
+    //       approvedToday: kpis.trends?.approvedToday || 0,
+    //       approvalRate: kpis.trends?.approvalRate || 0,
+    //       volumeToday: kpis.trends?.volumeToday || 0,
+    //       meta_mensal: closingKpis?.trends?.meta_mensal || 0,
+    //       consultoria_liquida: closingKpis?.trends?.consultoria_liquida || 0,
+    //     },
+    //   };
+    // }
     return {
       simulacoes_criadas: stats?.pending || 0,
       simulacoes_aprovadas: stats?.approvedToday || 0,
@@ -250,6 +288,19 @@ function CalculistaPageContent() {
       },
       enabled: activeTab === "enviado_financeiro",
     });
+
+  // Casos devolvidos do financeiro
+  const { data: casosDevolvidos = [], isLoading: devolvidosLoading } = useQuery({
+    queryKey: ["/cases", "devolvido_financeiro"],
+    queryFn: async () => {
+      const res = await api.get(
+        "/cases?status=devolvido_financeiro&page_size=50"
+      );
+      return res.data.items || [];
+    },
+    enabled: activeTab === "devolvidos",
+    refetchInterval: 30000,
+  });
 
   // Filtragem (busca já é feita no backend via API)
   const allSimulations = useMemo(() => allSims || [], [allSims]);
@@ -306,77 +357,59 @@ function CalculistaPageContent() {
         </div>
       </div>
 
-
+      {/* Filtro de Período */}
+      <div className="flex flex-col gap-4">
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onDateRangeChange={(start, end) => {
+            if (start && end) {
+              const s = new Date(start);
+              const e = new Date(end);
+              if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+                setStartDate(start);
+                setEndDate(end);
+              }
+            }
+          }}
+          onClear={() => {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setStartDate(firstDay.toISOString().split("T")[0]);
+            setEndDate(lastDay.toISOString().split("T")[0]);
+          }}
+          label="Filtrar período:"
+          className="mb-4"
+        />
+      </div>
 
       {/* KPIs do módulo */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mb-8">
+        {/* Card Consultoria Líquida */}
         <KPICard
-          title="Consultoria Líquida"
-          value={combinedKpis.consultoria_liquida ? `R$ ${(combinedKpis.consultoria_liquida / 1000).toFixed(1)}K` : "R$ 0K"}
-          subtitle="Casos efetivados pelo financeiro"
-          trend={combinedKpis.trends?.consultoria_liquida || 0}
-          icon={DollarSign}
-          color="warning"
-          gradientVariant="amber"
-          isLoading={(isLoadingKpis || isLoadingClosingKpis) && !stats}
-          miniChart={
-            <MiniAreaChart
-              data={getTrendChartData.volume}
-              dataKey="value"
-              xKey="day"
-              stroke="#f59e0b"
-              height={60}
-              valueType="currency"
-            />
-          }
+          title="Consultoria Líquida Total"
+          subtitle="86% da Receita Total"
+          value={`R$ ${(financeMetrics?.totalConsultoriaLiq || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          isLoading={financeMetricsLoading}
+          gradientVariant="cyan"
+          trend={closingKpis?.trends?.consultoria_liquida || 0}
         />
 
-        {/* Card Meta Mensal Customizado */}
-        <Card className={`p-6 ${combinedKpis.meta_mensal >= 0 ? 'border-success bg-success/5' : 'border-danger bg-danger/5'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${combinedKpis.meta_mensal >= 0 ? 'bg-success/10' : 'bg-danger/10'}`}>
-                <Target className={`h-5 w-5 ${combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'}`} />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Meta Mensal</h3>
-                <p className={`text-2xl font-bold ${combinedKpis.meta_mensal >= 0 ? 'text-success' : 'text-danger'}`}>
-                  R$ {combinedKpis.meta_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className={`flex items-center gap-1 text-sm ${
-                (combinedKpis.trends?.meta_mensal ?? 0) >= 0 ? 'text-success' : 'text-danger'
-              }`}>
-                <TrendingUp className="h-4 w-4" />
-                {Math.abs(combinedKpis.trends?.meta_mensal ?? 0).toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground">vs. mês anterior</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progresso da Meta</span>
-              <span className="font-medium">
-                {combinedKpis.meta_mensal >= 0 && combinedKpis.consultoria_liquida > 0
-                  ? Math.round((combinedKpis.meta_mensal / (combinedKpis.consultoria_liquida * 0.1)) * 100)
-                  : 0}%
-              </span>
-            </div>
-            <ProgressBar
-              value={combinedKpis.meta_mensal >= 0 ? combinedKpis.meta_mensal : 0}
-              max={combinedKpis.consultoria_liquida * 0.1}
-              variant={combinedKpis.meta_mensal >= 0 ? "success" : "danger"}
-              size="sm"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Atual: {combinedKpis.meta_mensal >= 0 ? 'R$ ' : '-R$ '}{Math.abs(combinedKpis.meta_mensal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span>Meta: R$ {(combinedKpis.consultoria_liquida * 0.1).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-        </Card>
+        {/* Card Resultado Thiago */}
+        <KPICard
+          title="Resultado Thiago"
+          subtitle="10% × (Lucro Líquido - Receitas Peltson)"
+          value={`${(closingKpis?.meta_mensal || 0) >= 0 ? 'R$ ' : '-R$ '}${Math.abs(closingKpis?.meta_mensal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          isLoading={isLoadingClosingKpis}
+          gradientVariant={(closingKpis?.meta_mensal || 0) >= 0 ? "emerald" : "rose"}
+          icon={(closingKpis?.meta_mensal || 0) >= 0 ? TrendingUp : TrendingDown}
+          trend={closingKpis?.trends?.meta_mensal || 0}
+          className={(closingKpis?.meta_mensal || 0) >= 0
+            ? "border-2 border-emerald-500/60 shadow-emerald-500/20"
+            : "border-2 border-rose-500/60 shadow-rose-500/20"
+          }
+        />
       </div>
 
       {/* Campo de Busca */}
@@ -411,21 +444,24 @@ function CalculistaPageContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="todas_simulacoes">
+            Todas Simulações
+          </TabsTrigger>
           <TabsTrigger value="pendentes">
             Pendentes ({pendingSims.length})
           </TabsTrigger>
           <TabsTrigger value="retorno_fechamento">
             Retorno Fechamento ({retornoFechamentoCount})
           </TabsTrigger>
+          <TabsTrigger value="devolvidos">
+            Devolvidos ({casosDevolvidos.length})
+          </TabsTrigger>
           <TabsTrigger value="enviado_financeiro">
             Enviado Financeiro ({enviadosFinanceiro.length})
           </TabsTrigger>
           <TabsTrigger value="concluidas">
             Concluídas Hoje ({completedSims.length})
-          </TabsTrigger>
-          <TabsTrigger value="todas_simulacoes">
-            Todas Simulações
           </TabsTrigger>
           <TabsTrigger value="efetivados">
             Casos Efetivados ({casosEfetivados?.length || 0})
@@ -545,6 +581,74 @@ function CalculistaPageContent() {
                       <Button variant="outline" className="flex-1" size="sm">
                         <Calculator className="h-4 w-4 mr-2" />
                         Revisar
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Devolvidos do Financeiro */}
+        <TabsContent value="devolvidos" className="mt-6">
+          {devolvidosLoading ? (
+            <CaseSkeleton />
+          ) : casosDevolvidos.length === 0 ? (
+            <div className="text-center py-12">
+              <Undo2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="font-medium text-muted-foreground mb-1">
+                Nenhum caso devolvido
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Casos devolvidos pelo financeiro para recálculo aparecerão aqui.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {casosDevolvidos.map((caso: any) => (
+                <Card
+                  key={caso.id}
+                  className="p-6 cursor-pointer hover:shadow-lg transition-all duration-200 border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 hover:border-orange-300 hover:scale-[1.02]"
+                  onClick={() => router.push(`/calculista/${caso.id}`)}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="border-2 border-orange-400 text-orange-700 bg-orange-50 font-semibold">Caso #{caso.id}</Badge>
+                      <StatusBadge status={caso.status} size="sm" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-lg text-gray-900">
+                        {caso.client?.name || "Cliente não identificado"}
+                      </h3>
+                      <p className="text-sm text-gray-600 font-medium">
+                        CPF: {caso.client?.cpf || "---"}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 p-2 bg-orange-100 border border-orange-200 rounded-lg">
+                        <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                        <p className="text-sm text-orange-800 font-medium">
+                          Devolvido para recálculo pelo financeiro
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-gray-500 font-medium bg-gray-50 px-3 py-2 rounded-lg border">
+                      <Clock className="h-4 w-4 inline mr-2" />
+                      Devolvido em:{" "}
+                      {new Date(
+                        caso.last_update_at || Date.now()
+                      ).toLocaleDateString("pt-BR")}
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 border-2 border-orange-400 text-orange-700 hover:bg-orange-500 hover:text-white hover:border-orange-500 font-medium transition-all duration-200 shadow-sm hover:shadow-md" 
+                        size="sm"
+                      >
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Recalcular
                       </Button>
                     </div>
                   </div>
