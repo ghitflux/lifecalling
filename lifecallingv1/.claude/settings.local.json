@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker remove:*)",
+      "Bash(sort:*)",
+      "Bash(pnpm --filter @lifecalling/web install:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(taskkill /PID 21592 /F)",
+      "Bash(ssh -o StrictHostKeyChecking=no root@72.60.158.156 \"cd /opt/lifeservicos/src && git pull origin deploy\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@72.60.158.156 \"cd /opt/lifeservicos/src && git push origin Master\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@72.60.158.156 \"cd /opt/lifeservicos/src && git remote -v\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@72.60.158.156 \"cd /opt/lifeservicos/src && git push https://ghitflux@github.com/ghitflux/lifecalling.git Master\")",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git commit:*)",
+      "Bash(timeout:*)",
+      "Bash(git reset:*)",
+      "Bash(git clean:*)",
+      "Bash(ssh:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
