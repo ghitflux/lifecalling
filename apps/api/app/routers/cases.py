@@ -1775,9 +1775,9 @@ async def change_case_status(
     # Status válidos (todos os estados possíveis do sistema)
     valid_statuses = [
         "novo", "em_atendimento", "calculista_pendente", "calculo_aprovado",
-        "fechamento_aprovado", "financeiro_pendente",
-        "contrato_efetivado", "encerrado", "devolvido_financeiro",
-        "sem_contato"
+        "calculo_rejeitado", "fechamento_pendente", "fechamento_aprovado",
+        "financeiro_pendente", "contrato_efetivado", "encerrado",
+        "devolvido_financeiro", "caso_cancelado", "sem_contato", "arquivado"
     ]
 
     if data.new_status not in valid_statuses:
