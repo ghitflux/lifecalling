@@ -209,9 +209,9 @@ def get_available_filters(
     ).distinct().all()
     entidades_list = sorted([e[0] for e in entidades if e[0]])
 
-    # Listar status de casos únicos
-    status_list = db.query(Case.status).distinct().all()
-    status_list = sorted([s[0] for s in status_list if s[0]])
+    # Listar status de casos únicos do banco de dados
+    db_status_list = db.query(Case.status).distinct().all()
+    db_status_set = set(s[0] for s in db_status_list if s[0])
 
     # Agrupar entidades por nome normalizado
     bancos_agrupados = {}
@@ -220,7 +220,7 @@ def get_available_filters(
         if normalized not in bancos_agrupados:
             bancos_agrupados[normalized] = []
         bancos_agrupados[normalized].append(entidade)
-    
+
     # Contar clientes por banco agrupado
     bancos_with_count = []
     for normalized_name, entidades_grupo in sorted(bancos_agrupados.items()):
@@ -237,29 +237,37 @@ def get_available_filters(
             "count": count
         })
 
+    # Status padrão que devem SEMPRE aparecer nos filtros
+    # Ordem: Novo → Simulação → Calculista → Fechamento → Financeiro → Final
+    default_statuses = {
+        "novo": "Novo",
+        "em_atendimento": "Em Atendimento",
+        "calculista_pendente": "Calculista Pendente",
+        "calculo_aprovado": "Cálculo Aprovado",
+        "calculo_rejeitado": "Cálculo Rejeitado",
+        "fechamento_pendente": "Fechamento Pendente",
+        "fechamento_aprovado": "Fechamento Aprovado",
+        "financeiro_pendente": "Financeiro Pendente",
+        "contrato_efetivado": "Contrato Efetivado",
+        "devolvido_financeiro": "Devolvido Financeiro",
+        "caso_cancelado": "Cancelado",
+        "encerrado": "Encerrado",
+        "sem_contato": "Sem Contato",
+        "arquivado": "Arquivado",
+    }
+
+    # Mesclar status do banco com status padrão
+    all_statuses = set(default_statuses.keys()) | db_status_set
+
     status_with_count = []
-    for status in status_list:
+    for status in sorted(all_statuses):
         count = db.query(func.count(distinct(Case.client_id))).filter(
             Case.status == status
-        ).scalar()
-
-        # Labels amigáveis
-        status_labels = {
-            "novo": "Novo",
-            "disponivel": "Disponível",
-            "em_atendimento": "Em Atendimento",
-            "calculista": "Calculista",
-            "calculista_pendente": "Calculista Pendente",
-            "calculo_aprovado": "Cálculo Aprovado",
-            "financeiro": "Financeiro",
-            "fechamento_pendente": "Fechamento Pendente",
-            "fechamento_aprovado": "Fechamento Aprovado",
-            "cancelado": "Cancelado",
-        }
+        ).scalar() or 0
 
         status_with_count.append({
             "value": status,
-            "label": status_labels.get(status, status.title()),
+            "label": default_statuses.get(status, status.replace("_", " ").title()),
             "count": count
         })
 
