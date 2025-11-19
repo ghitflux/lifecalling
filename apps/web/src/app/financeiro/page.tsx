@@ -33,7 +33,7 @@ import {
   Pagination,
   KPICard,
   MiniAreaChart,
-  DateRangeFilter
+  DateRangeFilterWithCalendar
 } from "@lifecalling/ui";
 import React, { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -184,20 +184,22 @@ export default function Page() {
       toast.error("Nenhuma transação para exportar");
       return;
     }
-    const headers = ["Data", "Tipo", "Cliente", "CPF", "Atendente", "Categoria", "Descrição", "Valor"];
+    // ✅ ATUALIZADO: Incluir coluna "Nome (Despesa/Receita)" e manter ordem da tabela
+    const headers = ["Data", "Tipo", "Nome (Despesa/Receita)", "Cliente", "CPF", "Atendente", "Categoria", "Valor"];
     const rows = transactions.map((t: any) => [
       new Date(t.date).toLocaleDateString("pt-BR"),
       t.type === "receita" ? "Receita" : "Despesa",
+      t.name || "-", // ✅ NOVO: Nome da Despesa/Receita
       t.client_name || "-",
       t.client_cpf ? t.client_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "-",
       t.agent_name || "-",
       t.category,
-      t.name || "-",
       `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
     ]);
-    rows.push(["", "", "", "", "", "", "Total Receitas", `R$ ${totals.receitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
-    rows.push(["", "", "", "", "", "", "Total Despesas", `R$ ${totals.despesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
-    rows.push(["", "", "", "", "", "", "Saldo", `R$ ${totals.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
+    // ✅ ATUALIZADO: Adicionar campo vazio para a nova coluna "Nome (Despesa/Receita)"
+    rows.push(["", "", "", "", "", "", "", "Total Receitas", `R$ ${totals.receitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "", "", "", "", "Total Despesas", `R$ ${totals.despesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "", "", "", "", "Saldo", `R$ ${totals.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`]);
 
     const csvContent = [headers.join(","), ...rows.map((r: string[]) => r.map(c => `"${c}"`).join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
@@ -841,13 +843,10 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Filtro período */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Filtros por Período</h3>
-        </div>
-
-        <DateRangeFilter
+      {/* Filtro período com Calendar */}
+      <div className="border rounded-lg p-4 bg-card">
+        <h3 className="text-sm font-medium text-muted-foreground mb-3">Filtrar por Período</h3>
+        <DateRangeFilterWithCalendar
           startDate={startDate}
           endDate={endDate}
           onDateRangeChange={(start, end) => {
@@ -867,8 +866,8 @@ export default function Page() {
             setStartDate(firstDay.toISOString().split("T")[0]);
             setEndDate(lastDay.toISOString().split("T")[0]);
           }}
-          label="Filtrar período:"
-          className="mb-4"
+          label="Período:"
+          className="w-full max-w-2xl"
         />
       </div>
 
@@ -1169,7 +1168,8 @@ export default function Page() {
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-4 font-semibold text-sm">Data</th>
                         <th className="text-left p-4 font-semibold text-sm">Tipo</th>
-                        <th className="text-left p-4 font-semibold text-sm">Descrição</th>
+                        <th className="text-left p-4 font-semibold text-sm">Nome (Despesa/Receita)</th>
+                        <th className="text-left p-4 font-semibold text-sm">Cliente</th>
                         <th className="text-left p-4 font-semibold text-sm">CPF</th>
                         <th className="text-left p-4 font-semibold text-sm">Atendente</th>
                         <th className="text-left p-4 font-semibold text-sm">Categoria</th>
@@ -1207,22 +1207,20 @@ export default function Page() {
                               )}
                             </span>
                           </td>
-                          <td className="p-4 text-sm">
+                          {/* ✅ NOVO: Coluna Nome da Despesa/Receita */}
+                          <td className="p-4 text-sm font-medium">
+                            {transaction.name ? (
+                              <span>{transaction.name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          {/* ✅ Coluna Cliente */}
+                          <td className="p-4 text-sm font-medium">
                             {transaction.client_name ? (
                               <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">
-                                  {transaction.type === "receita" ? "REC - " : "DES - "}
-                                  {transaction.client_name}
-                                </span>
-                              </div>
-                            ) : transaction.name ? (
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium text-muted-foreground italic">
-                                  {transaction.type === "receita" ? "REC - " : "DES - "}
-                                  {transaction.name}
-                                </span>
+                                <span>{transaction.client_name}</span>
                               </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>

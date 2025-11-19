@@ -6,6 +6,7 @@ import {
   PodiumCard,
   CampaignCard,
   DateRangeFilter,
+  DateRangeFilterWithCalendar, // ✅ NOVO: Componente com Calendar
   ProgressBar,
   Button,
   Card
@@ -310,10 +311,10 @@ export default function RankingsPage() {
         </div>
       </div>
 
-      {/* Filtro de Período */}
+      {/* Filtro de Período com Calendar */}
       <div className="border rounded-lg p-4 bg-card">
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Filtrar por Período</h3>
-        <DateRangeFilter
+        <DateRangeFilterWithCalendar
           startDate={startDate}
           endDate={endDate}
           onDateRangeChange={handleDateRangeChange}

@@ -19,6 +19,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "date-fns": "^4.1.0",
+    "nanoid": "^5.1.6",
     "react-hook-form": "^7.65.0",
     "zod": "^4.1.12"
   }

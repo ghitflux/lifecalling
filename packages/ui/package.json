@@ -16,6 +16,8 @@
     "src"
   ],
   "dependencies": {
+    "@heroui/react": "^2.8.5",
+    "@internationalized/date": "^3.10.0",
     "@lottiefiles/dotlottie-react": "^0.17.4",
     "@nextui-org/snippet": "^2.2.10",
     "@radix-ui/react-dialog": "^1.1.15",
