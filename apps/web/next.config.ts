@@ -2,23 +2,22 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // output: 'standalone', // Required for Docker deployment - temporarily disabled for Windows build
   transpilePackages: ["@lifecalling/ui"],
-  // Enable Turbopack for development
-  turbopack: {
-    // Point to the workspace root - use absolute path /app for Docker
-    root: process.env.NODE_ENV === 'production' ? '/app' : path.resolve(__dirname, "../../.."),
-  },
+
+  // ✅ PRODUÇÃO: Usar WEBPACK padrão (estável)
+  // ✅ DESENVOLVIMENTO: Turbopack via "next dev --turbopack"
+  ...(process.env.NODE_ENV === "production" ? {} : {
+    turbopack: {
+      root: path.resolve(__dirname, "../../.."),
+    },
+  }),
+
   async rewrites() {
-    // Para SSR/rewrites do servidor Next.js, usar API_BASE_URL (interno do Docker)
-    // Para o browser (client-side), NEXT_PUBLIC_API_BASE_URL é usado automaticamente
-    const API = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-
+    const API = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
     if (!API) return [];
-
     return [
       {
-        source: '/api/:path*',
+        source: "/api/:path*",
         destination: `${API}/:path*`,
       },
     ];
