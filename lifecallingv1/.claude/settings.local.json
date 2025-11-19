@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker remove:*)",
+      "Bash(sort:*)",
+      "Bash(pnpm --filter @lifecalling/web install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
