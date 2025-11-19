@@ -3,20 +3,23 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosError } from 'axios';
 
 // --- instancia base ----------------------------------------------
-// Em desenvolvimento, usar URL completa do backend para evitar problemas com proxy do Next.js
-// Em produção, usar /api para aproveitar o rewrite
+// Em desenvolvimento, usar URL local
+// Em produção, usar NEXT_PUBLIC_API_BASE_URL (https://api.lifeservicos.com)
 const getBaseURL = () => {
-  if (typeof window === 'undefined') {
-    // Server-side: usar rewrite
-    return '/api';
-  }
-  // Client-side em desenvolvimento: usar URL completa
   const isDev = process.env.NODE_ENV === 'development';
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
   if (isDev) {
     return 'http://localhost:8000';
   }
-  // Produção: usar rewrite
-  return '/api';
+
+  // Produção: usar NEXT_PUBLIC_API_BASE_URL
+  if (apiUrl) {
+    return apiUrl;
+  }
+
+  // Fallback
+  return 'http://localhost:8000';
 };
 
 export const api: AxiosInstance = axios.create({
@@ -76,7 +79,7 @@ function logInterceptorError(err: unknown) {
   if (isDev || !is401) {
     if (isAxiosError(err)) {
       const e = err as AxiosError<any>;
-      console.error('❌ API Error:', {
+      console.error('API Error:', {
         method: e.config?.method?.toUpperCase(),
         url: e.config?.url,
         status: e.response?.status,
@@ -85,7 +88,7 @@ function logInterceptorError(err: unknown) {
         data: e.response?.data,
       });
     } else {
-      console.error('❌ Non-Axios error:', err);
+      console.error('Non-Axios error:', err);
     }
   }
 }
@@ -102,10 +105,10 @@ async function doRefreshOnce() {
           withCredentials: true
         });
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ Token refresh successful');
+          console.log('Token refresh successful');
         }
       } catch (error) {
-        console.error('❌ Token refresh failed:', error);
+        console.error('Token refresh failed:', error);
         throw error;
       } finally {
         // sempre limpar pra próxima rodada
@@ -158,7 +161,7 @@ api.interceptors.response.use(
     const cfg = err.config as (InternalAxiosRequestConfig & { [RETRIED]?: boolean }) | undefined;
 
     // 401: tentar refresh UMA vez e repetir a original
-    // NÃO tentar refresh se:
+    // NAO tentar refresh se:
     // - estiver na página de login
     // - a request já foi retried
     // - a request for para /auth/login ou /auth/refresh
