@@ -32,9 +32,11 @@ COPY build.js ./
 # Build from workspace root to allow Turbopack to find monorepo properly
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-# Accept build arg for API_BASE_URL (internal Docker network)
+# Accept build args for API URLs
 ARG API_BASE_URL=http://api:8000
+ARG NEXT_PUBLIC_API_BASE_URL=https://api.lifeservicos.com
 ENV API_BASE_URL=${API_BASE_URL}
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 RUN node build.js
 
 # Production image
