@@ -18,13 +18,13 @@ def _parse_range(from_: str | None, to: str | None):
         # mês atual por padrão
         today = date.today()
         start = today.replace(day=1)
-        end = today
+        end = today + timedelta(days=1)  # +1 dia para incluir todo o dia especificado
     else:
         start = datetime.fromisoformat(from_.replace("Z", "+00:00")).date()
-        end = datetime.fromisoformat(to.replace("Z", "+00:00")).date()
+        end = datetime.fromisoformat(to.replace("Z", "+00:00")).date() + timedelta(days=1)  # +1 dia para incluir todo o dia final
     prev_span = (end - start).days or 1
     prev_start = start - timedelta(days=prev_span)
-    prev_end = start - timedelta(days=1)
+    prev_end = start  # Sem -1 pois já estamos adicionando +1 ao end
     return start, end, prev_start, prev_end
 
 
