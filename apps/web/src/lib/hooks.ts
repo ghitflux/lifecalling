@@ -47,8 +47,15 @@ export function useCreateCase() {
       toast.success("Caso criado com sucesso!");
     },
     onError: (error: any) => {
-      console.error('Erro ao criar caso:', error);
-      toast.error(error.response?.data?.detail || "Erro ao criar caso");
+      // Não logar erros esperados (400) no console
+      const errorMessage = error.response?.data?.detail || "Erro ao criar caso";
+
+      // Apenas logar erros inesperados (não 400)
+      if (error.response?.status !== 400) {
+        console.error('Erro ao criar caso:', error);
+      }
+
+      toast.error(errorMessage);
     }
   });
 }
