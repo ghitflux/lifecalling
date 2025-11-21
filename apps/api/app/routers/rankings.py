@@ -883,9 +883,6 @@ def get_user_contracts(
 
     start, end, _, _ = _parse_range(from_, to)
 
-    from ..models import ContractAgent
-
-    # ✅ ATUALIZADO: Considerar múltiplos atendentes via contract_agents
     # Estratégia para encontrar o atendente dono do contrato
     owner_user_id = case(
         (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
@@ -893,22 +890,31 @@ def get_user_contracts(
     )
 
     # Query base de contratos do usuário
-    # Um contrato aparece para o usuário se:
-    # 1. É o proprietário principal (agent_user_id ou assigned_user_id) OU
-    # 2. Está listado em contract_agents
+    # NOTA: Após aplicar a migração contract_agents, descomentar o código abaixo
+    # para suportar múltiplos atendentes
     base_query = (
         db.query(Contract, Case, Client)
         .join(Case, Case.id == Contract.case_id)
         .join(Client, Client.id == Case.client_id)
-        .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
         .filter(Contract.status == "ativo")
-        .filter(
-            or_(
-                owner_user_id == user_id,  # Proprietário principal
-                ContractAgent.user_id == user_id  # Ou está em contract_agents
-            )
-        )
-    ).distinct()  # Evitar duplicatas se usuário aparece em múltiplos lugares
+        .filter(owner_user_id == user_id)
+    )
+
+    # TODO: Descomentar após aplicar migração contract_agents
+    # from ..models import ContractAgent
+    # base_query = (
+    #     db.query(Contract, Case, Client)
+    #     .join(Case, Case.id == Contract.case_id)
+    #     .join(Client, Client.id == Case.client_id)
+    #     .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
+    #     .filter(Contract.status == "ativo")
+    #     .filter(
+    #         or_(
+    #             owner_user_id == user_id,
+    #             ContractAgent.user_id == user_id
+    #         )
+    #     )
+    # ).distinct()
 
     # Aplicar filtro de data
     if from_ and to:
@@ -930,39 +936,25 @@ def get_user_contracts(
     # Buscar contratos
     results = contracts_query.all()
 
-    # Calcular totalizadores (com mesma lógica de múltiplos atendentes)
-    # Usar subquery para evitar duplicatas causadas pelo JOIN
-    contracts_subquery = (
-        select(Contract.id, Contract.consultoria_valor_liquido)
+    # Calcular totalizadores
+    # Usar distinct() na query principal para evitar duplicatas do outerjoin
+    summary_query = (
+        db.query(
+            func.count(distinct(Contract.id)).label("total_contracts"),
+            func.sum(Contract.consultoria_valor_liquido).label("total_consultoria")
+        )
         .select_from(Contract)
         .join(Case, Case.id == Contract.case_id)
-        .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
-        .where(Contract.status == "ativo")
-        .where(
-            or_(
-                owner_user_id == user_id,
-                ContractAgent.user_id == user_id
-            )
-        )
-        .distinct()
+        .filter(Contract.status == "ativo")
+        .filter(owner_user_id == user_id)
     )
 
     if from_ and to:
-        contracts_subquery = contracts_subquery.where(
+        summary_query = summary_query.filter(
             func.coalesce(
                 Contract.signed_at, Contract.disbursed_at, Contract.created_at
             ).between(start, end)
         )
-
-    # Executar subquery como CTE ou executar diretamente
-    contracts_subquery = contracts_subquery.subquery()
-
-    summary_query = db.query(
-        func.count(contracts_subquery.c.id).label("total_contracts"),
-        func.coalesce(func.sum(contracts_subquery.c.consultoria_valor_liquido), 0).label("total_consultoria")
-    )
-
-    # Filtro de data já aplicado na subquery, não precisa aplicar aqui novamente
 
     summary_result = summary_query.first()
     total_contracts = int(summary_result.total_contracts or 0)
