@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@lifecalling/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useCreateCase } from "@/lib/hooks";
 import { toast } from "sonner";
-import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle, MapPin } from "lucide-react";
+import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle, MapPin, Plus } from "lucide-react";
 import Financiamentos from "@/components/clients/Financiamentos";
 import { Snippet } from "@nextui-org/snippet";
 import CaseChat from "@/components/case/CaseChat";
@@ -70,6 +71,18 @@ export default function ClienteDetalhe() {
   });
 
   const casos = casosData?.items || [];
+
+  // Hook para criar novo caso
+  const createCase = useCreateCase();
+
+  // Handler para criar novo caso
+  const handleCreateCase = () => {
+    if (!id) return;
+
+    createCase.mutate({
+      client_id: parseInt(id)
+    });
+  };
 
   const formatCPF = (cpf: string) => {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
@@ -354,10 +367,21 @@ export default function ClienteDetalhe() {
 
       {/* Casos Associados ao Cliente */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Casos Associados ao Cliente ({casos.length})
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Casos Associados ao Cliente ({casos.length})
+          </h2>
+          <Button
+            onClick={handleCreateCase}
+            disabled={createCase.isPending}
+            size="sm"
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            {createCase.isPending ? "Criando..." : "Abrir Novo Caso"}
+          </Button>
+        </div>
 
         {casosLoading ? (
           <div className="text-center py-8 text-muted-foreground">

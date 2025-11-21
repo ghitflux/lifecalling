@@ -71,6 +71,92 @@ class ExpiryUpdate(BaseModel):
     force_expired: bool = False
 
 
+class CaseCreate(BaseModel):
+    """Schema para criação manual de caso"""
+    client_id: int
+    entidade: str | None = None
+    referencia_competencia: str | None = None
+
+
+@r.post("")
+def create_case(
+    data: CaseCreate,
+    user=Depends(require_roles("admin", "supervisor", "atendente")),
+    db: Session = Depends(get_db)
+):
+    """
+    Cria um novo caso manualmente para um cliente.
+
+    Disponível para: admin, supervisor, atendente
+    """
+    # Verificar se o cliente existe
+    client = db.query(Client).filter(Client.id == data.client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    # Verificar se já existe um caso ativo para este cliente
+    existing_case = db.query(Case).filter(
+        Case.client_id == data.client_id,
+        Case.status.in_([
+            "novo", "em_atendimento", "calculista_pendente",
+            "calculo_aprovado", "fechamento_pendente", "financeiro_pendente"
+        ])
+    ).first()
+
+    if existing_case:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cliente já possui um caso ativo (ID: {existing_case.id}, Status: {existing_case.status})"
+        )
+
+    # Criar novo caso
+    new_case = Case(
+        client_id=data.client_id,
+        status="novo",
+        source="manual",  # Marcar como criado manualmente
+        created_at=now_brt(),
+        last_update_at=now_brt(),
+        entidade=data.entidade,
+        referencia_competencia=data.referencia_competencia
+    )
+
+    db.add(new_case)
+    db.flush()
+
+    # Criar evento de criação
+    event = CaseEvent(
+        case_id=new_case.id,
+        type="case.created_manually",
+        payload={
+            "created_by_user_id": user.id,
+            "created_by_user_name": user.name,
+            "client_id": data.client_id,
+            "client_name": client.name
+        },
+        created_by=user.id
+    )
+    db.add(event)
+
+    db.commit()
+    db.refresh(new_case)
+
+    # Broadcast evento via eventbus
+    eventbus.broadcast_sync("case.created", {
+        "case_id": new_case.id,
+        "client_id": data.client_id,
+        "status": "novo",
+        "created_by": user.id
+    })
+
+    return {
+        "id": new_case.id,
+        "client_id": new_case.client_id,
+        "status": new_case.status,
+        "created_at": new_case.created_at.isoformat() if new_case.created_at else None,
+        "message": "Caso criado com sucesso"
+    }
+
+
 @r.get("/{case_id}")
 def get_case(
     case_id: int,
@@ -525,60 +611,127 @@ def upload_attachment(
         )
     ),
 ):
+    print(f"[UPLOAD] Iniciando upload para caso {case_id} "
+          f"por usuário {user.id}", flush=True)
+
     # Verificar CSRF token
-    verify_csrf(request)
+    try:
+        verify_csrf(request)
+        msg = "[UPLOAD] CSRF verificado com sucesso"
+        print(msg, flush=True)
+    except Exception as e:
+        print(f"[UPLOAD] Erro CSRF: {e}", flush=True)
+        raise
+
     from ..models import Attachment
 
-    with SessionLocal() as db:
-        c = db.get(Case, case_id)
-        if not c:
-            raise HTTPException(404, "Case not found")
+    try:
+        with SessionLocal() as db:
+            c = db.get(Case, case_id)
+            if not c:
+                msg = f"[UPLOAD] Caso {case_id} não encontrado"
+                print(msg, flush=True)
+                raise HTTPException(404, "Case not found")
+            msg = f"[UPLOAD] Caso {case_id} encontrado"
+            print(msg, flush=True)
+    except Exception as e:
+        msg = f"[UPLOAD] Erro ao buscar caso: {e}"
+        print(msg, flush=True)
+        raise
 
-    os.makedirs(settings.upload_dir, exist_ok=True)
+    try:
+        print(f"[UPLOAD] settings.upload_dir = {settings.upload_dir}",
+              flush=True)
+        os.makedirs(settings.upload_dir, exist_ok=True)
+        print("[UPLOAD] Diretório de upload criado/verificado", flush=True)
+    except Exception as e:
+        msg = f"Erro ao criar diretório de upload: {str(e)}"
+        print(f"[ERROR] {msg}", flush=True)
+        raise HTTPException(500, msg)
 
     import uuid
 
+    # Normalizar nome do arquivo
+    original_filename = file.filename or "arquivo_sem_nome"
+    # Remover caracteres especiais/perigosos do nome
+    safe_filename = "".join(
+        c for c in original_filename
+        if c.isalnum() or c in (' ', '.', '-', '_')
+    ).rstrip()
+    if not safe_filename:
+        safe_filename = "arquivo_sem_nome"
+
     file_extension = (
-        os.path.splitext(file.filename)[1] if file.filename else ""
+        os.path.splitext(original_filename)[1]
+        if original_filename else ""
     )
-    unique_filename = f"case_{case_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+
+    unique_filename = (
+        f"case_{case_id}_{uuid.uuid4().hex[:8]}{file_extension}"
+    )
     dest = os.path.join(settings.upload_dir, unique_filename)
 
     try:
         with open(dest, "wb") as f:
             shutil.copyfileobj(file.file, f)
+        print(f"[UPLOAD] Arquivo salvo em {dest}", flush=True)
     except Exception as e:
-        raise HTTPException(500, f"Erro ao salvar arquivo: {str(e)}")
+        msg = f"Erro ao salvar arquivo: {str(e)}"
+        print(f"[ERROR] {msg}", flush=True)
+        raise HTTPException(500, msg)
 
-    with SessionLocal() as db:
-        a = Attachment(
-            case_id=case_id,
-            path=dest,
-            filename=file.filename or "arquivo_sem_nome",
-            mime=file.content_type,
-            size=os.path.getsize(dest),
-            uploaded_by=user.id,
-        )
-        db.add(a)
-        db.add(
-            CaseEvent(
+    try:
+        with SessionLocal() as db:
+            file_size = os.path.getsize(dest)
+
+            a = Attachment(
                 case_id=case_id,
-                type="attachment.added",
-                payload={"filename": file.filename, "size": a.size},
-                created_by=user.id,
+                path=dest,
+                filename=original_filename[:255],
+                mime=file.content_type or "application/octet-stream",
+                size=file_size,
+                uploaded_by=user.id,
             )
-        )
-        db.commit()
-        db.refresh(a)
+            db.add(a)
+            db.add(
+                CaseEvent(
+                    case_id=case_id,
+                    type="attachment.added",
+                    payload={
+                        "filename": original_filename,
+                        "size": file_size
+                    },
+                    created_by=user.id,
+                )
+            )
+            db.commit()
+            db.refresh(a)
+            msg = f"[UPLOAD] Attachment #{a.id} salvo no banco"
+            print(msg, flush=True)
 
-        return {
-            "id": a.id,
-            "filename": file.filename,
-            "size": a.size,
-            "uploaded_at": (
-                a.created_at.isoformat() if a.created_at else None
-            ),
-        }
+            return {
+                "id": a.id,
+                "filename": original_filename,
+                "size": a.size,
+                "uploaded_at": (
+                    a.created_at.isoformat() if a.created_at else None
+                ),
+            }
+    except Exception as e:
+        # Se falhar ao salvar no banco, tentar remover arquivo
+        try:
+            if os.path.exists(dest):
+                os.remove(dest)
+                msg = f"[UPLOAD] Arquivo removido após erro: {dest}"
+                print(msg, flush=True)
+        except Exception as cleanup_error:
+            msg = f"[ERROR] Erro ao remover arquivo: {cleanup_error}"
+            print(msg, flush=True)
+
+        msg = f"[ERROR] Erro ao salvar attachment: {e}"
+        print(msg, flush=True)
+        error_msg = f"Erro ao salvar attachment: {str(e)}"
+        raise HTTPException(500, error_msg)
 
 
 @r.delete("/{case_id}/attachments/{attachment_id}")

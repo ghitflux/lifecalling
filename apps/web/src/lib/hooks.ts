@@ -30,6 +30,29 @@ export function useAssignCase() {
   });
 }
 
+export function useCreateCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      client_id: number;
+      entidade?: string;
+      referencia_competencia?: string;
+    }) => {
+      const response = await api.post('/cases', payload);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["cases"] });
+      qc.invalidateQueries({ queryKey: ["clientCases", data.client_id] });
+      toast.success("Caso criado com sucesso!");
+    },
+    onError: (error: any) => {
+      console.error('Erro ao criar caso:', error);
+      toast.error(error.response?.data?.detail || "Erro ao criar caso");
+    }
+  });
+}
+
 export function usePatchCase() {
   const qc = useQueryClient();
   return useMutation({
