@@ -890,31 +890,22 @@ def get_user_contracts(
     )
 
     # Query base de contratos do usuário
-    # NOTA: Após aplicar a migração contract_agents, descomentar o código abaixo
-    # para suportar múltiplos atendentes
+    # ✅ HABILITADO: Suporte a múltiplos atendentes via contract_agents
+    from ..models import ContractAgent
+
     base_query = (
         db.query(Contract, Case, Client)
         .join(Case, Case.id == Contract.case_id)
         .join(Client, Client.id == Case.client_id)
+        .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
         .filter(Contract.status == "ativo")
-        .filter(owner_user_id == user_id)
-    )
-
-    # TODO: Descomentar após aplicar migração contract_agents
-    # from ..models import ContractAgent
-    # base_query = (
-    #     db.query(Contract, Case, Client)
-    #     .join(Case, Case.id == Contract.case_id)
-    #     .join(Client, Client.id == Case.client_id)
-    #     .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
-    #     .filter(Contract.status == "ativo")
-    #     .filter(
-    #         or_(
-    #             owner_user_id == user_id,
-    #             ContractAgent.user_id == user_id
-    #         )
-    #     )
-    # ).distinct()
+        .filter(
+            or_(
+                owner_user_id == user_id,  # Proprietário principal
+                ContractAgent.user_id == user_id  # Ou atendente secundário
+            )
+        )
+    ).distinct()  # Evitar duplicatas se usuário aparece em múltiplos lugares
 
     # Aplicar filtro de data
     if from_ and to:
