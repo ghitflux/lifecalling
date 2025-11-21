@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, or_
+from sqlalchemy import func, case, or_, select, distinct
 from ..db import get_db
 from ..rbac import require_roles
 from ..models import User, Case, Contract, Client
@@ -931,28 +931,38 @@ def get_user_contracts(
     results = contracts_query.all()
 
     # Calcular totalizadores (com mesma lógica de múltiplos atendentes)
-    summary_query = (
-        db.query(
-            func.count(func.distinct(Contract.id)).label("total_contracts"),
-            func.coalesce(func.sum(func.distinct(Contract.consultoria_valor_liquido)), 0).label("total_consultoria")
-        )
+    # Usar subquery para evitar duplicatas causadas pelo JOIN
+    contracts_subquery = (
+        select(Contract.id, Contract.consultoria_valor_liquido)
+        .select_from(Contract)
         .join(Case, Case.id == Contract.case_id)
         .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
-        .filter(Contract.status == "ativo")
-        .filter(
+        .where(Contract.status == "ativo")
+        .where(
             or_(
                 owner_user_id == user_id,
                 ContractAgent.user_id == user_id
             )
         )
+        .distinct()
     )
 
     if from_ and to:
-        summary_query = summary_query.filter(
+        contracts_subquery = contracts_subquery.where(
             func.coalesce(
                 Contract.signed_at, Contract.disbursed_at, Contract.created_at
             ).between(start, end)
         )
+
+    # Executar subquery como CTE ou executar diretamente
+    contracts_subquery = contracts_subquery.subquery()
+
+    summary_query = db.query(
+        func.count(contracts_subquery.c.id).label("total_contracts"),
+        func.coalesce(func.sum(contracts_subquery.c.consultoria_valor_liquido), 0).label("total_consultoria")
+    )
+
+    # Filtro de data já aplicado na subquery, não precisa aplicar aqui novamente
 
     summary_result = summary_query.first()
     total_contracts = int(summary_result.total_contracts or 0)
