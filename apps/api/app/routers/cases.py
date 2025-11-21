@@ -79,7 +79,7 @@ class CaseCreate(BaseModel):
 
 
 @r.post("")
-def create_case(
+async def create_case(
     data: CaseCreate,
     user=Depends(require_roles("admin", "supervisor", "atendente")),
     db: Session = Depends(get_db)
@@ -154,7 +154,7 @@ def create_case(
         print(f"[DEBUG] Caso {new_case.id} commitado com sucesso")
 
         # Broadcast evento via eventbus
-        eventbus.broadcast_sync("case.created", {
+        await eventbus.broadcast("case.created", {
             "case_id": new_case.id,
             "client_id": data.client_id,
             "status": "novo",
