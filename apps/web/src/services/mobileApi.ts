@@ -1,0 +1,118 @@
+import axios from 'axios';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+const api = axios.create({
+  baseURL: `${API_URL}/mobile`,
+  withCredentials: true,
+});
+
+export interface Simulation {
+  id: string;
+  simulation_type: string;
+  requested_amount: number;
+  installments: number;
+  interest_rate: number;
+  installment_value: number;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  // New fields
+  banks_json?: any[];
+  prazo?: number;
+  coeficiente?: string;
+  seguro?: number;
+  percentual_consultoria?: number;
+}
+
+export interface CreateSimulationDTO {
+  simulation_type: string;
+  interest_rate: number;
+  requested_amount: number;
+  installments: number;
+  installment_value: number;
+  total_amount: number;
+  clientId?: string; // Optional if user context is used, but for admin we need it
+  // New fields for multi-bank
+  banks_json?: any[];
+  prazo?: number;
+  coeficiente?: string;
+  seguro?: number;
+  percentual_consultoria?: number;
+}
+
+export interface AdminClient {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface AdminSimulation extends Simulation {
+  user_name: string;
+  user_email: string;
+  // Additional client info
+  user_cpf?: string;
+  user_matricula?: string;
+  user_orgao?: string;
+  // Fields for compatibility (fix lint errors)
+  amount?: number;
+  type?: string;
+  // Document/attachment fields
+  document_url?: string;
+  document_type?: string;
+  document_filename?: string;
+}
+
+export const mobileApi = {
+  getSimulations: async () => {
+    const response = await api.get<Simulation[]>('/simulations');
+    return response.data;
+  },
+
+  createSimulation: async (data: CreateSimulationDTO) => {
+    const response = await api.post<Simulation>('/simulations', data);
+    return response.data;
+  },
+
+  createAdminSimulation: async (data: CreateSimulationDTO & { user_id: number }) => {
+    const response = await api.post<AdminSimulation>('/admin/simulations', data);
+    return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await api.get('/profile');
+    return response.data;
+  },
+
+  getMargins: async () => {
+    const response = await api.get('/margins/current');
+    return response.data;
+  },
+
+  getAdminClients: async () => {
+    const response = await api.get<AdminClient[]>('/admin/clients');
+    return response.data;
+  },
+
+  getAdminSimulations: async () => {
+    const response = await api.get<AdminSimulation[]>('/admin/simulations');
+    return response.data;
+  },
+
+  getAdminSimulationById: async (id: number) => {
+    const response = await api.get<AdminSimulation>(`/admin/simulations/${id}`);
+    return response.data;
+  },
+
+  approveSimulation: async (id: number) => {
+    const response = await api.post(`/admin/simulations/${id}/approve`);
+    return response.data;
+  },
+
+  rejectSimulation: async (id: number) => {
+    const response = await api.post(`/admin/simulations/${id}/reject`);
+    return response.data;
+  }
+};

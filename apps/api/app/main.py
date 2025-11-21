@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import json
-from .routers import auth, cases, imports, ws as wsmod, clients, users, comments, admin, sla_audit
+from .routers import auth, cases, imports, ws as wsmod, clients, users, comments, admin, sla_audit, mobile
 
 from .routers import closing, finance, dashboard, contract_attachments, analytics, rankings, campanhas, campaigns
 from .db import Base, engine
@@ -81,6 +81,7 @@ app.include_router(clients.r)
 app.include_router(comments.r)
 app.include_router(sla_audit.r)
 app.include_router(wsmod.ws_router)
+app.include_router(mobile.router)
 
 # Health check endpoint
 @app.get("/health")

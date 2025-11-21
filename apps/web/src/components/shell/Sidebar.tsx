@@ -6,51 +6,71 @@ import { Button, CollapseIcon } from "@lifecalling/ui";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
-  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon, Trophy, HelpCircle, Shield
+  Home, Calculator, Banknote, FileText, BarChart3, Users, LogOut, Upload, User as UserIcon, Trophy, HelpCircle, Shield, Smartphone, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-type Role = "admin"|"supervisor"|"financeiro"|"calculista"|"atendente"|"fechamento";
+type Role = "admin" | "supervisor" | "financeiro" | "calculista" | "atendente" | "fechamento";
 
 type Item = {
   label: string;
   href: string;
   icon: React.ComponentType<any>;
   roles: Role[];
+  subItems?: { label: string; href: string }[];
 };
 
 const NAV: Item[] = [
-  { label: "Atendimento",  href: "/esteira",    icon: Home,       roles: ["admin","supervisor","atendente"] },
-  { label: "Dashboard",    href: "/dashboard",  icon: BarChart3,  roles: ["admin","supervisor"] },
-  { label: "Rankings",     href: "/rankings",   icon: Trophy,     roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
-  { label: "Calculista",   href: "/calculista", icon: Calculator, roles: ["admin","supervisor","calculista"] },
-  { label: "Fechamento",   href: "/fechamento", icon: FileText,   roles: ["admin","supervisor","fechamento"] },
-  { label: "Financeiro",   href: "/financeiro", icon: Banknote,   roles: ["admin","supervisor","financeiro"] },
-  { label: "Clientes",     href: "/clientes",   icon: UserIcon,   roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
-  { label: "Auditoria",    href: "/admin/auditoria/sla", icon: Shield, roles: ["admin","supervisor"] },
-  { label: "Importação",   href: "/importacao", icon: Upload,     roles: ["admin"] },
-  { label: "Usuários",     href: "/usuarios",   icon: Users,      roles: ["admin"] },
-  { label: "FAQ",          href: "/faq",        icon: HelpCircle, roles: ["admin","supervisor","financeiro","calculista","atendente","fechamento"] },
+  { label: "Atendimento", href: "/esteira", icon: Home, roles: ["admin", "supervisor", "atendente"] },
+  { label: "Dashboard", href: "/dashboard", icon: BarChart3, roles: ["admin", "supervisor"] },
+  { label: "Rankings", href: "/rankings", icon: Trophy, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
+  { label: "Calculista", href: "/calculista", icon: Calculator, roles: ["admin", "supervisor", "calculista"] },
+  { label: "Fechamento", href: "/fechamento", icon: FileText, roles: ["admin", "supervisor", "fechamento"] },
+  { label: "Financeiro", href: "/financeiro", icon: Banknote, roles: ["admin", "supervisor", "financeiro"] },
+  { label: "Clientes", href: "/clientes", icon: UserIcon, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
+  { label: "Auditoria", href: "/admin/auditoria/sla", icon: Shield, roles: ["admin", "supervisor"] },
+  { label: "Importação", href: "/importacao", icon: Upload, roles: ["admin"] },
+  { label: "Usuários", href: "/usuarios", icon: Users, roles: ["admin"] },
+  {
+    label: "Life Mobile",
+    href: "/life-mobile",
+    icon: Smartphone,
+    roles: ["admin", "supervisor", "atendente"],
+    subItems: [
+      { label: "Dashboard", href: "/life-mobile" },
+      { label: "Clientes", href: "/life-mobile/clientes" },
+      { label: "Simulações", href: "/life-mobile/simulacoes" }
+    ]
+  },
+  { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
 ];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const role = user?.role ?? "atendente";
   const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["Life Mobile"]); // Default expand Life Mobile for visibility
   const pathname = usePathname();
 
-  useEffect(()=>{
+  const toggleMenu = (label: string) => {
+    if (collapsed) setCollapsed(false);
+    setExpandedMenus(prev =>
+      prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+    );
+  };
+
+  useEffect(() => {
     const saved = localStorage.getItem("lc_sidebar");
     if (saved) setCollapsed(saved === "1");
-  },[]);
-  useEffect(()=>{
-    localStorage.setItem("lc_sidebar", collapsed ? "1":"0");
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("lc_sidebar", collapsed ? "1" : "0");
     // Dispatch storage event to notify other components
     window.dispatchEvent(new StorageEvent('storage', {
       key: 'lc_sidebar',
       newValue: collapsed ? "1" : "0"
     }));
-  },[collapsed]);
+  }, [collapsed]);
 
   return (
     <aside className={cn(
@@ -75,7 +95,7 @@ export default function Sidebar() {
           size="sm"
           variant="ghost"
           className="h-8 w-8 shrink-0"
-          onClick={()=>setCollapsed(v=>!v)}
+          onClick={() => setCollapsed(v => !v)}
         >
           <span className="sr-only">Toggle Sidebar</span>
           <CollapseIcon collapsed={collapsed} size={14} />
@@ -83,22 +103,58 @@ export default function Sidebar() {
       </div>
 
       <nav className="px-2 py-2 space-y-1">
-        {NAV.filter(i => i.roles.includes(role as Role)).map(({label, href, icon:Icon})=>{
-          const active = pathname.startsWith(href);
+        {NAV.filter(i => i.roles.includes(role as Role)).map((item) => {
+          const { label, href, icon: Icon, subItems } = item;
+          const active = pathname === href || (subItems ? pathname.startsWith(href) : false);
+          const isExpanded = expandedMenus.includes(label);
+          const hasSubItems = subItems && subItems.length > 0;
+
           return (
-            <Link key={href} href={href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-muted transition-all duration-200",
-                active && "bg-muted"
-              )}>
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className={cn(
-                "transition-all duration-200",
-                collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-              )}>
-                {label}
-              </span>
-            </Link>
+            <div key={href}>
+              <div
+                onClick={() => hasSubItems ? toggleMenu(label) : null}
+                className={cn(
+                  "flex items-center justify-between rounded-xl px-3 py-2 text-sm transition-all duration-200 cursor-pointer hover:bg-muted",
+                  active && !hasSubItems && "bg-muted",
+                  active && hasSubItems && "text-blue-600"
+                )}
+              >
+                <Link href={hasSubItems ? "#" : href} className="flex items-center gap-3 flex-1" onClick={(e) => hasSubItems && e.preventDefault()}>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className={cn(
+                    "transition-all duration-200",
+                    collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+                  )}>
+                    {label}
+                  </span>
+                </Link>
+                {hasSubItems && !collapsed && (
+                  <div className="text-gray-400">
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </div>
+                )}
+              </div>
+
+              {hasSubItems && isExpanded && !collapsed && (
+                <div className="mt-1 ml-4 space-y-1 border-l border-border/50 pl-2">
+                  {subItems.map((sub) => {
+                    const subActive = pathname === sub.href;
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        className={cn(
+                          "block rounded-lg px-3 py-2 text-sm transition-all duration-200 hover:bg-muted hover:text-foreground",
+                          subActive ? "bg-muted font-medium text-blue-600" : "text-muted-foreground"
+                        )}
+                      >
+                        {sub.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>

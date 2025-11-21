@@ -642,3 +642,37 @@ class ExternalClientIncome(Base):
         Index('ix_external_income_owner', 'owner_user_id'),
         Index('ix_external_income_date', 'date'),
     )
+
+class MobileSimulation(Base):
+    """
+    Simulações originadas do módulo Life Mobile.
+    Separado da tabela 'simulations' principal para evitar acoplamento com a lógica de 'Cases'.
+    """
+    __tablename__ = "mobile_simulations"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    simulation_type = Column(String(50), nullable=False)
+    requested_amount = Column(Numeric(14, 2), nullable=False)
+    installments = Column(Integer, nullable=False)
+    interest_rate = Column(Numeric(5, 2), nullable=False)
+    installment_value = Column(Numeric(14, 2), nullable=False)
+    total_amount = Column(Numeric(14, 2), nullable=False)
+    
+    # Novos campos para simulação multi-bancos
+    banks_json = Column(JSON, default=[])
+    prazo = Column(Integer, nullable=True)
+    coeficiente = Column(Text, nullable=True)
+    seguro = Column(Numeric(14, 2), nullable=True)
+    percentual_consultoria = Column(Numeric(5, 2), nullable=True)
+    
+    # Campos de documentos anexados
+    document_url = Column(Text, nullable=True)  # URL do documento no storage
+    document_type = Column(String(50), nullable=True)  # image, pdf, etc
+    document_filename = Column(Text, nullable=True)  # Nome original do arquivo
+
+    status = Column(String(20), default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
+
+    user = relationship("User")
