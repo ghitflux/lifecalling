@@ -89,72 +89,98 @@ def create_case(
 
     Disponível para: admin, supervisor, atendente
     """
-    # Verificar se o cliente existe
-    client = db.query(Client).filter(Client.id == data.client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    try:
+        print(f"[DEBUG] Criando caso para client_id: {data.client_id}")
 
-    # Verificar se já existe um caso ativo para este cliente
-    existing_case = db.query(Case).filter(
-        Case.client_id == data.client_id,
-        Case.status.in_([
-            "novo", "em_atendimento", "calculista_pendente",
-            "calculo_aprovado", "fechamento_pendente", "financeiro_pendente"
-        ])
-    ).first()
+        # Verificar se o cliente existe
+        client = db.query(Client).filter(Client.id == data.client_id).first()
+        if not client:
+            print(f"[DEBUG] Cliente {data.client_id} não encontrado")
+            raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
-    if existing_case:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cliente já possui um caso ativo (ID: {existing_case.id}, Status: {existing_case.status})"
+        print(f"[DEBUG] Cliente encontrado: {client.name}")
+
+        # Verificar se já existe um caso ativo para este cliente
+        existing_case = db.query(Case).filter(
+            Case.client_id == data.client_id,
+            Case.status.in_([
+                "novo", "em_atendimento", "calculista_pendente",
+                "calculo_aprovado", "fechamento_pendente", "financeiro_pendente"
+            ])
+        ).first()
+
+        if existing_case:
+            print(f"[DEBUG] Caso ativo encontrado: ID {existing_case.id}, Status: {existing_case.status}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cliente já possui um caso ativo (ID: {existing_case.id}, Status: {existing_case.status})"
+            )
+
+        print(f"[DEBUG] Nenhum caso ativo encontrado, criando novo caso...")
+
+        # Criar novo caso
+        new_case = Case(
+            client_id=data.client_id,
+            status="novo",
+            source="manual",  # Marcar como criado manualmente
+            created_at=now_brt(),
+            last_update_at=now_brt(),
+            entidade=data.entidade,
+            referencia_competencia=data.referencia_competencia
         )
 
-    # Criar novo caso
-    new_case = Case(
-        client_id=data.client_id,
-        status="novo",
-        source="manual",  # Marcar como criado manualmente
-        created_at=now_brt(),
-        last_update_at=now_brt(),
-        entidade=data.entidade,
-        referencia_competencia=data.referencia_competencia
-    )
+        db.add(new_case)
+        db.flush()
 
-    db.add(new_case)
-    db.flush()
+        print(f"[DEBUG] Caso criado com ID: {new_case.id}")
 
-    # Criar evento de criação
-    event = CaseEvent(
-        case_id=new_case.id,
-        type="case.created_manually",
-        payload={
-            "created_by_user_id": user.id,
-            "created_by_user_name": user.name,
+        # Criar evento de criação
+        event = CaseEvent(
+            case_id=new_case.id,
+            type="case.created_manually",
+            payload={
+                "created_by_user_id": user.id,
+                "created_by_user_name": user.name,
+                "client_id": data.client_id,
+                "client_name": client.name
+            },
+            created_by=user.id
+        )
+        db.add(event)
+
+        db.commit()
+        db.refresh(new_case)
+
+        print(f"[DEBUG] Caso {new_case.id} commitado com sucesso")
+
+        # Broadcast evento via eventbus
+        eventbus.broadcast_sync("case.created", {
+            "case_id": new_case.id,
             "client_id": data.client_id,
-            "client_name": client.name
-        },
-        created_by=user.id
-    )
-    db.add(event)
+            "status": "novo",
+            "created_by": user.id
+        })
 
-    db.commit()
-    db.refresh(new_case)
+        return {
+            "id": new_case.id,
+            "client_id": new_case.client_id,
+            "status": new_case.status,
+            "created_at": new_case.created_at.isoformat() if new_case.created_at else None,
+            "message": "Caso criado com sucesso"
+        }
 
-    # Broadcast evento via eventbus
-    eventbus.broadcast_sync("case.created", {
-        "case_id": new_case.id,
-        "client_id": data.client_id,
-        "status": "novo",
-        "created_by": user.id
-    })
-
-    return {
-        "id": new_case.id,
-        "client_id": new_case.client_id,
-        "status": new_case.status,
-        "created_at": new_case.created_at.isoformat() if new_case.created_at else None,
-        "message": "Caso criado com sucesso"
-    }
+    except HTTPException:
+        # Re-raise HTTP exceptions (404, 400)
+        raise
+    except Exception as e:
+        print(f"[ERROR] Erro ao criar caso: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro interno ao criar caso: {str(e)}"
+        )
 
 
 @r.get("/{case_id}")
