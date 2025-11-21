@@ -482,7 +482,13 @@ export default function Page() {
     impostoPercentual?: number,
     temCorretor?: boolean,
     corretorNome?: string,
-    corretorComissaoValor?: number
+    corretorComissaoValor?: number,
+    // Novos parâmetros para múltiplos atendentes
+    atendente1UserId?: number,
+    percentualAtendente1?: number,
+    atendente2UserId?: number,
+    percentualAtendente2?: number,
+    percentualBalcao?: number
   ) => {
     try {
       await disb.mutateAsync({
@@ -492,8 +498,15 @@ export default function Page() {
         tem_corretor: temCorretor || false,
         corretor_nome: corretorNome || null,
         corretor_comissao_valor: corretorComissaoValor || null,
+        // Campos antigos (retrocompatibilidade)
         percentual_atendente: percentualAtendente,
-        atendente_user_id: atendenteUserId
+        atendente_user_id: atendenteUserId,
+        // Novos campos
+        atendente1_user_id: atendente1UserId,
+        percentual_atendente1: percentualAtendente1,
+        atendente2_user_id: atendente2UserId,
+        percentual_atendente2: percentualAtendente2,
+        percentual_balcao: percentualBalcao
       });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {

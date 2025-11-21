@@ -122,13 +122,32 @@ export function useUploadAttachment(caseId: number) {
     mutationFn: async (file: File) => {
       const form = new FormData();
       form.append("file", file);
-      return (await api.post(`/cases/${caseId}/attachments`, form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      })).data;
+      // REMOVER Content-Type padrão para que axios use multipart/form-data
+      // com boundary correto
+      const response = await api.post(
+        `/cases/${caseId}/attachments`,
+        form,
+        {
+          headers: {
+            "Content-Type": undefined,
+          },
+        }
+      );
+      return response.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["case", caseId] });
       qc.invalidateQueries({ queryKey: ["case", caseId, "attachments"] });
+      toast.success("Documento anexado com sucesso");
+    },
+    onError: (error: any) => {
+      let message = "Erro ao anexar documento";
+      if (error?.response?.data?.detail) {
+        message = error.response.data.detail;
+      } else if (error?.message) {
+        message = error.message;
+      }
+      toast.error(message);
     },
   });
 }
@@ -390,11 +409,17 @@ export function useFinanceDisburseSimple() {
       corretor_nome?: string | null;
       corretor_comissao_valor?: number | null;
       consultoria_liquida_ajustada?: number;
+      // Campos antigos mantidos para retrocompatibilidade
       percentual_atendente?: number;
       atendente_user_id?: number;
-      // Campos antigos mantidos para compatibilidade
       commission_user_id?: number;
       commission_percentage?: number;
+      // Novos campos para múltiplos atendentes
+      atendente1_user_id?: number;
+      percentual_atendente1?: number;
+      atendente2_user_id?: number;
+      percentual_atendente2?: number;
+      percentual_balcao?: number;
     }) => {
       const response = await api.post('/finance/disburse-simple', payload);
       return response.data;

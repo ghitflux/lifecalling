@@ -69,7 +69,13 @@ export interface FinanceCardProps {
     impostoPercentual?: number,
     temCorretor?: boolean,
     corretorNome?: string,
-    corretorComissaoValor?: number
+    corretorComissaoValor?: number,
+    // Novos parâmetros para múltiplos atendentes
+    atendente1UserId?: number,
+    percentualAtendente1?: number,
+    atendente2UserId?: number,
+    percentualAtendente2?: number,
+    percentualBalcao?: number
   ) => void;
   onCancel?: (id: number) => void;
   onReopen?: (id: number) => void;
@@ -236,9 +242,12 @@ export function FinanceCard({
   const [showReopenConfirm, setShowReopenConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
-  // Estados para distribuição
-  const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
-  const [selectedAtendenteId, setSelectedAtendenteId] = React.useState<number | null>(null);
+  // Estados para distribuição - Múltiplos Atendentes
+  const [selectedAtendente1Id, setSelectedAtendente1Id] = React.useState<number | null>(null);
+  const [percentualAtendente1, setPercentualAtendente1] = React.useState<number>(70); // Padrão 70%
+  const [selectedAtendente2Id, setSelectedAtendente2Id] = React.useState<number | null>(null);
+  const [percentualAtendente2, setPercentualAtendente2] = React.useState<number>(0); // Padrão 0% (opcional)
+  const [percentualBalcao, setPercentualBalcao] = React.useState<number>(30); // Calculado automaticamente
 
   // Estados para consultoria bruta + imposto + corretor
   const [consultoriaBruta, setConsultoriaBruta] = React.useState<string>("");
@@ -254,12 +263,18 @@ export function FinanceCard({
     }
   }, [showDisburseConfirm, simulationResult]);
 
-  // Inicializar atendente selecionado com o atendente do caso ao abrir modal
+  // Inicializar atendente 1 com o atendente do caso ao abrir modal
   React.useEffect(() => {
     if (showDisburseConfirm && assignedUserId) {
-      setSelectedAtendenteId(assignedUserId);
+      setSelectedAtendente1Id(assignedUserId);
     }
   }, [showDisburseConfirm, assignedUserId]);
+
+  // Calcular percentual de balcão automaticamente
+  React.useEffect(() => {
+    const balcao = 100 - percentualAtendente1 - percentualAtendente2;
+    setPercentualBalcao(Math.max(0, balcao)); // Garantir não negativo
+  }, [percentualAtendente1, percentualAtendente2]);
 
   React.useEffect(() => {
     if (showDetailsModal && onLoadFullDetails && !fullCaseDetails) {
@@ -1190,21 +1205,20 @@ export function FinanceCard({
               )}
             </div>
 
-            {/* Distribuição da Consultoria Líquida - DEPOIS DO CORRETOR */}
+            {/* Distribuição da Consultoria Líquida - Múltiplos Atendentes */}
             <div className="space-y-3 pt-2 border-t">
               <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
 
-              {/* Grid 2 Colunas: Atendente + Percentual */}
+              {/* Atendente 1 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Seleção de Atendente */}
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">
-                    Atendente
+                    Atendente 1
                   </label>
                   <select
                     className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={selectedAtendenteId || ""}
-                    onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
+                    value={selectedAtendente1Id || ""}
+                    onChange={(e) => setSelectedAtendente1Id(Number(e.target.value) || null)}
                   >
                     <option value="">Selecione um atendente</option>
                     {availableUsers.map((user) => (
@@ -1215,54 +1229,141 @@ export function FinanceCard({
                   </select>
                 </div>
 
-                {/* Percentual para Atendente */}
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">
-                    Percentual para Atendente
+                    % Atendente 1
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="5"
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={percentualAtendente1}
+                    onChange={(e) => setPercentualAtendente1(Number(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
+              {/* Atendente 2 (Opcional) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Atendente 2 (Opcional)
                   </label>
                   <select
                     className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={percentualAtendente}
-                    onChange={(e) => setPercentualAtendente(Number(e.target.value))}
+                    value={selectedAtendente2Id || ""}
+                    onChange={(e) => setSelectedAtendente2Id(Number(e.target.value) || null)}
                   >
-                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
-                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
-                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
-                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
-                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
-                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
-                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
-                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
-                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
-                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
-                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
+                    <option value="">Sem segundo atendente</option>
+                    {availableUsers
+                      .filter(u => u.id !== selectedAtendente1Id)
+                      .map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
+                        </option>
+                      ))
+                    }
                   </select>
                 </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    % Atendente 2
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="5"
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    value={percentualAtendente2}
+                    onChange={(e) => setPercentualAtendente2(Number(e.target.value) || 0)}
+                    disabled={!selectedAtendente2Id}
+                  />
+                </div>
               </div>
+
+              {/* Balcão (Calculado) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Balcão
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 rounded-md border border-input bg-muted text-sm"
+                    value="Balcão"
+                    disabled
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    % Balcão (Calculado)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2 rounded-md border border-input bg-muted text-sm font-medium"
+                    value={percentualBalcao}
+                    disabled
+                  />
+                </div>
+              </div>
+
+              {/* Alerta se soma não é 100% */}
+              {(percentualAtendente1 + percentualAtendente2 + percentualBalcao) !== 100 && (
+                <div className="rounded-lg border border-warning/40 bg-warning-subtle p-3 flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-warning-foreground flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-warning-foreground">
+                    <strong>Atenção:</strong> A soma dos percentuais deve ser 100%.
+                    <br />
+                    Soma atual: {percentualAtendente1 + percentualAtendente2 + percentualBalcao}%
+                  </div>
+                </div>
+              )}
 
               {/* Preview da Distribuição */}
               {consultoriaBruta && (() => {
                 // 1. Calcular consultoria líquida (Bruta - Imposto)
                 const liquidaAposImposto = parseCurrencyToNumber(consultoriaBruta) * (1 - impostoPercentual / 100);
-                
+
                 // 2. Deduzir comissão do corretor (se houver)
                 const comissaoValor = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
                 const liquidaParaDistribuir = liquidaAposImposto - comissaoValor;
 
+                // 3. Distribuir
+                const valorAtendente1 = (liquidaParaDistribuir * percentualAtendente1) / 100;
+                const valorAtendente2 = (liquidaParaDistribuir * percentualAtendente2) / 100;
+                const valorBalcao = (liquidaParaDistribuir * percentualBalcao) / 100;
+
                 return (
                   <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
-                      <span className="font-medium text-success">
-                        {formatCurrency((liquidaParaDistribuir * percentualAtendente) / 100)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
-                      <span className="font-medium text-info">
-                        {formatCurrency((liquidaParaDistribuir * (100 - percentualAtendente)) / 100)}
-                      </span>
-                    </div>
+                    {valorAtendente1 > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Atendente 1 ({percentualAtendente1}%):</span>
+                        <span className="font-medium text-success">
+                          {formatCurrency(valorAtendente1)}
+                        </span>
+                      </div>
+                    )}
+                    {valorAtendente2 > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Atendente 2 ({percentualAtendente2}%):</span>
+                        <span className="font-medium text-success">
+                          {formatCurrency(valorAtendente2)}
+                        </span>
+                      </div>
+                    )}
+                    {valorBalcao > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Balcão ({percentualBalcao}%):</span>
+                        <span className="font-medium text-info">
+                          {formatCurrency(valorBalcao)}
+                        </span>
+                      </div>
+                    )}
                     <div className="pt-2 border-t flex justify-between font-semibold">
                       <span>Total Líquido:</span>
                       <span>{formatCurrency(liquidaParaDistribuir)}</span>
@@ -1285,16 +1386,23 @@ export function FinanceCard({
 
                   onDisburse?.(
                     id,
-                    percentualAtendente,
+                    percentualAtendente1, // retrocompatibilidade
                     brutaValue,
-                    selectedAtendenteId || undefined,
+                    selectedAtendente1Id || undefined, // retrocompatibilidade
                     impostoPercentual,
                     temCorretor,
                     temCorretor ? corretorNome : undefined,
-                    temCorretor ? comissaoValue : undefined
+                    temCorretor ? comissaoValue : undefined,
+                    // Novos parâmetros
+                    selectedAtendente1Id || undefined,
+                    percentualAtendente1,
+                    selectedAtendente2Id || undefined,
+                    percentualAtendente2,
+                    percentualBalcao
                   );
                   setShowDisburseConfirm(false);
                 }}
+                disabled={(percentualAtendente1 + percentualAtendente2 + percentualBalcao) !== 100}
               >
                 <CreditCard className="h-4 w-4 mr-1" />
                 Confirmar Liberação

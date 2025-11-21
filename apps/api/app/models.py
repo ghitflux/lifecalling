@@ -216,6 +216,27 @@ class Contract(Base):
     attachments = relationship("ContractAttachment", back_populates="contract", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
     agent = relationship("User", foreign_keys=[agent_user_id])
+    # Relacionamento N:N com atendentes (múltiplos atendentes por contrato)
+    contract_agents = relationship("ContractAgent", back_populates="contract", cascade="all, delete-orphan")
+
+class ContractAgent(Base):
+    """Tabela de relacionamento N:N entre Contract e User (atendentes)
+    Permite que um contrato tenha múltiplos atendentes e cada atendente veja o contrato"""
+    __tablename__ = "contract_agents"
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    percentual = Column(Numeric(5,2), nullable=False)  # Percentual da consultoria líquida (0-100)
+    is_primary = Column(Boolean, default=False)  # True para o atendente principal (proprietário)
+    created_at = Column(DateTime, default=now_brt)
+
+    contract = relationship("Contract", back_populates="contract_agents")
+    user = relationship("User")
+
+    __table_args__ = (
+        # Garantir que não haja duplicatas (mesmo contrato + mesmo usuário)
+        Index('ix_contract_agent_unique', 'contract_id', 'user_id', unique=True),
+    )
 
 class ContractAttachment(Base):
     __tablename__ = "contract_attachments"
@@ -519,6 +540,8 @@ class Comment(Base):
     __table_args__ = (
         Index('ix_comments_case_channel_created', 'case_id', 'channel', 'created_at'),
     )
+
+
 
 class CommissionPayout(Base):
     """

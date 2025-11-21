@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, or_
 from ..db import get_db
 from ..rbac import require_roles
 from ..models import User, Case, Contract, Client
@@ -883,6 +883,9 @@ def get_user_contracts(
 
     start, end, _, _ = _parse_range(from_, to)
 
+    from ..models import ContractAgent
+
+    # ✅ ATUALIZADO: Considerar múltiplos atendentes via contract_agents
     # Estratégia para encontrar o atendente dono do contrato
     owner_user_id = case(
         (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
@@ -890,13 +893,22 @@ def get_user_contracts(
     )
 
     # Query base de contratos do usuário
+    # Um contrato aparece para o usuário se:
+    # 1. É o proprietário principal (agent_user_id ou assigned_user_id) OU
+    # 2. Está listado em contract_agents
     base_query = (
         db.query(Contract, Case, Client)
         .join(Case, Case.id == Contract.case_id)
         .join(Client, Client.id == Case.client_id)
+        .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
         .filter(Contract.status == "ativo")
-        .filter(owner_user_id == user_id)
-    )
+        .filter(
+            or_(
+                owner_user_id == user_id,  # Proprietário principal
+                ContractAgent.user_id == user_id  # Ou está em contract_agents
+            )
+        )
+    ).distinct()  # Evitar duplicatas se usuário aparece em múltiplos lugares
 
     # Aplicar filtro de data
     if from_ and to:
@@ -918,15 +930,21 @@ def get_user_contracts(
     # Buscar contratos
     results = contracts_query.all()
 
-    # Calcular totalizadores
+    # Calcular totalizadores (com mesma lógica de múltiplos atendentes)
     summary_query = (
         db.query(
-            func.count(Contract.id).label("total_contracts"),
-            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("total_consultoria")
+            func.count(func.distinct(Contract.id)).label("total_contracts"),
+            func.coalesce(func.sum(func.distinct(Contract.consultoria_valor_liquido)), 0).label("total_consultoria")
         )
         .join(Case, Case.id == Contract.case_id)
+        .outerjoin(ContractAgent, ContractAgent.contract_id == Contract.id)
         .filter(Contract.status == "ativo")
-        .filter(owner_user_id == user_id)
+        .filter(
+            or_(
+                owner_user_id == user_id,
+                ContractAgent.user_id == user_id
+            )
+        )
     )
 
     if from_ and to:
