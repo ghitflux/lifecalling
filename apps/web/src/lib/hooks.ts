@@ -44,7 +44,18 @@ export function useCreateCase() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["cases"] });
       qc.invalidateQueries({ queryKey: ["clientCases", data.client_id] });
-      toast.success("Caso criado com sucesso!");
+
+      // Toast com ação para navegar para o caso
+      toast.success("Caso criado com sucesso!", {
+        description: `Caso #${data.id} foi criado para o cliente`,
+        action: {
+          label: "Ir para o caso",
+          onClick: () => {
+            window.location.href = `/casos/${data.id}`;
+          },
+        },
+        duration: 5000, // 5 segundos para dar tempo de clicar
+      });
     },
     onError: (error: any) => {
       // Não logar erros esperados (400) no console
