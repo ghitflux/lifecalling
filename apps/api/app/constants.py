@@ -26,6 +26,18 @@ BANK_NAMES = {
     "655": "Neon",
     "197": "Stone",
     "380": "PicPay",
+    # Novos bancos para simulação multi-bancos
+    "BIB": "Banco Industrial do Brasil",
+    "UNIPREV": "UNIPREV",
+    "SIAPE": "SIAPE",
+    "APIBASP": "Apibasp",
+    "ABASE": "Abase",
+    "PINE": "Banco Pine",
+    "EQUATORIAL": "Equatorial",
+    "CIASPREV": "CIASPREV",
+    "FGTS": "FGTS",
+    "FUTURO_PREVIDENCIA": "Futuro Previdência",
+    # Margem disponível
     "Margem*": "Margem Disponível",
     "margem": "Margem Disponível",
     "MARGEM": "Margem Disponível",

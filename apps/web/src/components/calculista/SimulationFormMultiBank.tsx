@@ -33,6 +33,14 @@ const BANKS = [
   "FACTA",
   "DIGIO",
   "BIB",
+  "UNIPREV",
+  "SIAPE",
+  "APIBASP",
+  "ABASE",
+  "EQUATORIAL",
+  "CIASPREV",
+  "FGTS",
+  "FUTURO_PREVIDENCIA",
   "Margem*",
   "Margem Positiva"
 ];
