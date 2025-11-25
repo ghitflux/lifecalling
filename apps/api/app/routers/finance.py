@@ -10,7 +10,7 @@ from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
 from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
 from ..db import SessionLocal
-from ..models import Case, CaseEvent, Contract, now_brt
+from ..models import Case, CaseEvent, Contract, now_brt, MobileSimulation, FinanceIncome, FinanceExpense
 from ..rbac import require_roles
 from ..events import eventbus
 from ..config import settings
@@ -18,6 +18,7 @@ import io
 import csv
 import os
 import shutil
+from decimal import Decimal
 
 r = APIRouter(prefix="/finance", tags=["finance"])
 
@@ -180,6 +181,109 @@ def queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
             items.append(item)
 
         return {"items": items}
+
+
+# =================== Mobile Finance ===================
+def serialize_mobile_simulation(sim: MobileSimulation):
+    def to_float(val):
+        return float(val) if val is not None else 0.0
+
+    return {
+        "id": sim.id,
+        "status": sim.status,
+        "user": {
+            "id": sim.user.id,
+            "name": sim.user.name,
+            "email": sim.user.email
+        },
+        "requested_amount": to_float(sim.requested_amount),
+        "total_amount": to_float(sim.total_amount),
+        "installments": sim.installments,
+        "created_at": sim.created_at.isoformat() if sim.created_at else None,
+        "document": {
+            "filename": sim.document_filename,
+            "type": sim.document_type,
+            "url": sim.document_url
+        },
+        "banks": sim.banks_json or [],
+        "percentual_consultoria": to_float(sim.percentual_consultoria),
+        "seguro": to_float(sim.seguro)
+    }
+
+
+@r.get("/mobile/queue")
+def finance_mobile_queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
+    """Fila de simulações mobile aprovadas pelo cliente para ação financeira."""
+    with SessionLocal() as db:
+        sims = (
+            db.query(MobileSimulation)
+            .filter(MobileSimulation.status.in_([
+                "approved_by_client",
+                "aprovada_pelo_cliente",
+                "cliente_aprovada"
+            ]))
+            .options(joinedload(MobileSimulation.user))
+            .order_by(MobileSimulation.created_at.desc())
+            .all()
+        )
+        return {"items": [serialize_mobile_simulation(s) for s in sims]}
+
+
+def _create_mobile_income(db, sim: MobileSimulation, current_user):
+    amount = sim.total_amount or sim.requested_amount or Decimal("0")
+    income = FinanceIncome(
+        date=now_brt(),
+        income_type="Contrato Mobile",
+        income_name=f"Contrato Mobile {sim.id}",
+        amount=amount,
+        created_by=current_user.id,
+        agent_user_id=sim.user_id,
+        client_name=sim.user.name if sim.user else None,
+        client_cpf=getattr(sim.user, "cpf", None),
+        origin="mobile"
+    )
+    db.add(income)
+    return income
+
+
+@r.post("/mobile/{simulation_id}/approve")
+def finance_mobile_approve(simulation_id: str, user=Depends(require_roles("admin", "supervisor", "financeiro"))):
+    """Marca simulação mobile como aprovada no financeiro e cria receita."""
+    with SessionLocal() as db:
+        sim = db.query(MobileSimulation).options(joinedload(MobileSimulation.user)).filter(MobileSimulation.id == simulation_id).first()
+        if not sim:
+            raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+        sim.status = "financeiro_pendente"
+        income = _create_mobile_income(db, sim, user)
+        db.commit()
+        return {"message": "Simulação mobile enviada ao financeiro", "income_id": income.id, "simulation": serialize_mobile_simulation(sim)}
+
+
+@r.post("/mobile/{simulation_id}/cancel")
+def finance_mobile_cancel(simulation_id: str, user=Depends(require_roles("admin", "supervisor", "financeiro"))):
+    """Cancela simulação mobile na fila financeira."""
+    with SessionLocal() as db:
+        sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
+        if not sim:
+            raise HTTPException(status_code=404, detail="Simulação não encontrada")
+        sim.status = "financeiro_cancelado"
+        db.commit()
+        return {"message": "Simulação mobile cancelada", "simulation": serialize_mobile_simulation(sim)}
+
+
+@r.post("/mobile/{simulation_id}/disburse")
+def finance_mobile_disburse(simulation_id: str, user=Depends(require_roles("admin", "supervisor", "financeiro"))):
+    """Marca simulação mobile como contrato efetivado e registra receita."""
+    with SessionLocal() as db:
+        sim = db.query(MobileSimulation).options(joinedload(MobileSimulation.user)).filter(MobileSimulation.id == simulation_id).first()
+        if not sim:
+            raise HTTPException(status_code=404, detail="Simulação não encontrada")
+        sim.status = "contrato_efetivado"
+        income = _create_mobile_income(db, sim, user)
+        db.commit()
+        # TODO: enviar notificação para app mobile informando contrato efetivado
+        return {"message": "Contrato mobile efetivado", "simulation": serialize_mobile_simulation(sim), "income_id": income.id}
 
 
 @r.get("/case/{case_id}")

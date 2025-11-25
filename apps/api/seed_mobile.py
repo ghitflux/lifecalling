@@ -7,12 +7,16 @@ from app.db import SessionLocal
 from app.models import User, MobileSimulation
 from app.security import hash_password
 from datetime import datetime, timedelta
+from pathlib import Path
 import random
 
 def create_seed_data():
     db = SessionLocal()
     
     try:
+        upload_dir = Path("uploads/mobile_documents")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
         # Verificar se já existem clientes mobile
         existing_mobile_users = db.query(User).filter(User.role == "mobile_client").count()
         
@@ -26,6 +30,8 @@ def create_seed_data():
             ("Pedro Oliveira", "pedro.oliveira@mobile.com"),
             ("Ana Costa", "ana.costa@mobile.com"),
             ("Carlos Souza", "carlos.souza@mobile.com"),
+            ("Beatriz Lima", "beatriz.lima@mobile.com"),
+            ("Renato Martins", "renato.martins@mobile.com"),
         ]
         
         print("\n👥 Criando clientes mobile...")
@@ -72,7 +78,7 @@ def create_seed_data():
             ],
         ]
         
-        statuses = ["pending", "approved", "rejected", "pending", "approved"]
+        statuses = ["pending", "approved", "rejected", "pending", "approved", "pending", "approved"]
         
         for i, client in enumerate(mobile_clients[:len(banks_options)]):
             banks = banks_options[i]
@@ -82,6 +88,17 @@ def create_seed_data():
             total_parcela = sum(b["parcela"] for b in banks)
             total_liberado = sum(b["valorLiberado"] for b in banks)
             
+            doc_path = None
+            doc_type = None
+            doc_filename = None
+
+            # Criar um anexo de exemplo apenas para a primeira simulação de cada cliente
+            sample_doc = upload_dir / f"{client.id}_{i}_seed.txt"
+            sample_doc.write_text(f"Documento de simulação seed para {client.name} em {datetime.now().isoformat()}")
+            doc_path = str(sample_doc)
+            doc_type = "txt"
+            doc_filename = sample_doc.name
+
             simulation = MobileSimulation(
                 user_id=client.id,
                 simulation_type="multi_bank",
@@ -97,7 +114,10 @@ def create_seed_data():
                 coeficiente="0,0192223",
                 seguro=1000.0,
                 percentual_consultoria=12.0,
-                created_at=datetime.now() - timedelta(days=random.randint(1, 30))
+                created_at=datetime.now() - timedelta(days=random.randint(1, 30)),
+                document_url=doc_path,
+                document_type=doc_type,
+                document_filename=doc_filename,
             )
             
             db.add(simulation)

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -47,17 +47,20 @@ class MobileSimulationResponse(SimulationResponse):
     pass
 
 class AdminSimulationResponse(SimulationResponse):
-    """Response for admin endpoints with complete client and simulation data"""
+    """
+    Response para os endpoints administrativos com todos os detalhes
+    necess��rios para o frontend.
+    """
     user_name: str
     user_email: str
-    # Additional client info
+    # Dados complementares do cliente
     user_cpf: Optional[str] = None
     user_matricula: Optional[str] = None
     user_orgao: Optional[str] = None
-    # Ensure these fields are present (fix lint errors)
-    amount: Optional[float] = None  # Same as requested_amount for compatibility
-    type: Optional[str] = None      # Same as simulation_type for compatibility
-    # Document/attachment fields
+    # Alias esperados pelo frontend
+    amount: Optional[float] = None  # Mesmo valor de requested_amount
+    type: Optional[str] = None      # Mesmo valor de simulation_type
+    # Campos de documento
     document_url: Optional[str] = None
     document_type: Optional[str] = None
     document_filename: Optional[str] = None
@@ -66,6 +69,50 @@ class MarginResponse(BaseModel):
     available_margin: float
     used_margin: float
     total_margin: float
+
+# Helpers
+def decimal_to_float(value):
+    return float(value) if value is not None else None
+
+def generate_fake_cpf(user_id: int) -> str:
+    """Gera um CPF fictício determinístico a partir do ID do usuário (11 dígitos)."""
+    return str(10000000000 + user_id)[-11:]
+
+def generate_fake_phone(user_id: int) -> str:
+    """Gera um número de WhatsApp fictício com DDI/DDD."""
+    return f"+5511{str(900000000 + user_id)[-9:]}"
+
+def serialize_admin_simulation(sim: MobileSimulation) -> dict:
+    """Serializa uma MobileSimulation para o formato esperado pelo frontend admin."""
+    fake_cpf = generate_fake_cpf(sim.user_id)
+    fake_phone = generate_fake_phone(sim.user_id)
+    return {
+        "id": sim.id,
+        "simulation_type": sim.simulation_type,
+        "type": sim.simulation_type,
+        "requested_amount": decimal_to_float(sim.requested_amount),
+        "amount": decimal_to_float(sim.requested_amount),
+        "installments": sim.installments,
+        "interest_rate": decimal_to_float(sim.interest_rate),
+        "installment_value": decimal_to_float(sim.installment_value),
+        "total_amount": decimal_to_float(sim.total_amount),
+        "status": sim.status,
+        "created_at": sim.created_at,
+        "banks_json": sim.banks_json or [],
+        "prazo": sim.prazo,
+        "coeficiente": sim.coeficiente,
+        "seguro": decimal_to_float(sim.seguro),
+        "percentual_consultoria": decimal_to_float(sim.percentual_consultoria),
+        "user_name": sim.user.name,
+        "user_email": sim.user.email,
+        "user_cpf": getattr(sim.user, "cpf", None) or fake_cpf,
+        "user_matricula": getattr(sim.user, "matricula", None),
+        "user_orgao": getattr(sim.user, "orgao", None),
+        "user_phone": getattr(sim.user, "phone", None) or fake_phone,
+        "document_url": sim.document_url,
+        "document_type": sim.document_type,
+        "document_filename": sim.document_filename,
+    }
 
 # Dependency
 def get_db():
@@ -270,6 +317,8 @@ class AdminClientResponse(BaseModel):
     email: str
     role: str
     created_at: datetime
+    cpf: Optional[str] = None
+    phone: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -289,10 +338,6 @@ class MobileSimulationCreateAdmin(BaseModel):
     seguro: Optional[float] = None
     percentual_consultoria: Optional[float] = None
 
-class AdminSimulationResponse(SimulationResponse):
-    user_name: str
-    user_email: str
-
 @router.get("/admin/clients", response_model=List[AdminClientResponse])
 async def get_admin_clients(
     current_user: User = Depends(get_current_user),
@@ -306,8 +351,20 @@ async def get_admin_clients(
     mobile_clients = db.query(User).filter(
         User.role == "mobile_client"
     ).order_by(User.created_at.desc()).all()
-    
-    return mobile_clients
+
+    # Serializar dados extras esperados pelo frontend (cpf/phone são opcionais)
+    return [
+        {
+            "id": client.id,
+            "name": client.name,
+            "email": client.email,
+            "role": client.role,
+            "created_at": client.created_at,
+            "cpf": getattr(client, "cpf", None) or generate_fake_cpf(client.id),
+            "phone": getattr(client, "phone", None) or generate_fake_phone(client.id),
+        }
+        for client in mobile_clients
+    ]
 
 @router.get("/admin/simulations", response_model=List[AdminSimulationResponse])
 async def get_admin_simulations(
@@ -319,29 +376,16 @@ async def get_admin_simulations(
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # Join with User to get client details
-    simulations = db.query(MobileSimulation).join(User).order_by(MobileSimulation.created_at.desc()).all()
-    
-    result = []
-    for sim in simulations:
-        sim_dict = SimulationResponse.from_orm(sim).dict()
-        sim_dict["user_name"] = sim.user.name
-        sim_dict["user_email"] = sim.user.email
-        # Add client info
-        sim_dict["user_cpf"] = sim.user.cpf
-        sim_dict["user_matricula"] = sim.user.matricula
-        sim_dict["user_orgao"] = sim.user.orgao
-        # Add amount and type for frontend compatibility
-        sim_dict["amount"] = float(sim.requested_amount) if sim.requested_amount else None
-        sim_dict["type"] = sim.simulation_type
-        # Add document fields
-        sim_dict["document_url"] = sim.document_url
-        sim_dict["document_type"] = sim.document_type
-        sim_dict["document_filename"] = sim.document_filename
-        result.append(sim_dict)
-        
-    return result
+    simulations = (
+        db.query(MobileSimulation)
+        .options(selectinload(MobileSimulation.user))
+        .join(User)
+        .order_by(MobileSimulation.created_at.desc())
+        .all()
+    )
+    return [serialize_admin_simulation(sim) for sim in simulations]
 
-@router.post("/admin/simulations", response_model=MobileSimulationResponse)
+@router.post("/admin/simulations", response_model=AdminSimulationResponse)
 def create_admin_simulation(
     simulation: MobileSimulationCreateAdmin,
     db: Session = Depends(get_db),
@@ -374,11 +418,11 @@ def create_admin_simulation(
     db.add(db_simulation)
     db.commit()
     db.refresh(db_simulation)
-    return db_simulation
+    return serialize_admin_simulation(db_simulation)
 
 @router.get("/admin/simulations/{simulation_id}", response_model=AdminSimulationResponse)
 async def get_admin_simulation_by_id(
-    simulation_id: int,
+    simulation_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -387,31 +431,23 @@ async def get_admin_simulation_by_id(
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # Join with User to get client details
-    sim = db.query(MobileSimulation).join(User).filter(MobileSimulation.id == simulation_id).first()
+    sim = (
+        db.query(MobileSimulation)
+        .options(selectinload(MobileSimulation.user))
+        .join(User)
+        .filter(MobileSimulation.id == simulation_id)
+        .first()
+    )
     
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
         
-    sim_dict = SimulationResponse.from_orm(sim).dict()
-    sim_dict["user_name"] = sim.user.name
-    sim_dict["user_email"] = sim.user.email
-    # Add client info
-    sim_dict["user_cpf"] = sim.user.cpf
-    sim_dict["user_matricula"] = sim.user.matricula
-    sim_dict["user_orgao"] = sim.user.orgao
-    # Add amount and type for frontend compatibility
-    sim_dict["amount"] = float(sim.requested_amount) if sim.requested_amount else None
-    sim_dict["type"] = sim.simulation_type
-    # Add document fields
-    sim_dict["document_url"] = sim.document_url
-    sim_dict["document_type"] = sim.document_type
-    sim_dict["document_filename"] = sim.document_filename
     
-    return sim_dict
+    return serialize_admin_simulation(sim)
 
 @router.post("/admin/simulations/{simulation_id}/approve")
 async def approve_simulation(
-    simulation_id: int,
+    simulation_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -428,7 +464,7 @@ async def approve_simulation(
 
 @router.post("/admin/simulations/{simulation_id}/reject")
 async def reject_simulation(
-    simulation_id: int,
+    simulation_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

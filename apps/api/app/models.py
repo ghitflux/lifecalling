@@ -266,6 +266,7 @@ class FinanceExpense(Base):
     agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     client_cpf = Column(String(14), nullable=True)
     client_name = Column(String(255), nullable=True)
+    origin = Column(String(20), nullable=False, default="web")  # web | mobile
     
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=datetime.utcnow)
@@ -292,6 +293,7 @@ class FinanceIncome(Base):
     agent_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Atendente responsável (para receitas de contratos)
     client_cpf = Column(String(14), nullable=True)  # CPF do cliente (para receitas manuais)
     client_name = Column(String(255), nullable=True)  # Nome do cliente (para receitas manuais)
+    origin = Column(String(20), nullable=False, default="web")  # web | mobile
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 

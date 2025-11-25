@@ -16,10 +16,10 @@ import {
   MiniBarChart,
   Button,
   FilterDropdown,
-  DateRangeFilter,
+  DateRangeFilterWithCalendar,
 } from "@lifecalling/ui";
 import { useAnalyticsKpis, useAnalyticsSeries } from "@/lib/hooks";
-import { startOfDayBrasilia, endOfDayBrasilia, startOfMonthBrasilia, endOfMonthBrasilia, dateToISO } from "@/lib/timezone";
+import { startOfDayBrasilia, endOfDayBrasilia, startOfMonthBrasilia, endOfMonthBrasilia, dateToISO, formatDateBrasilia } from "@/lib/timezone";
 import {
   convertFinanceToMiniChart,
   convertAttendanceToMiniChart,
@@ -121,13 +121,11 @@ export default function DashboardPage() {
   // Estados para DateRangeFilter - inicializam com o mês atual (mesma lógica do módulo financeiro)
   const [startDate, setStartDate] = useState<string>(() => {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    return firstDay.toISOString().split("T")[0];
+    return formatDateBrasilia(startOfMonthBrasilia(now));
   });
   const [endDate, setEndDate] = useState<string>(() => {
     const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return lastDay.toISOString().split("T")[0];
+    return formatDateBrasilia(endOfMonthBrasilia(now));
   });
 
   // Função para lidar com mudança de mês
@@ -141,8 +139,8 @@ export default function DashboardPage() {
     setTo(iso(endOfDayBrasilia(endDateObj)));
 
     // Sincronizar com DateRangeFilter
-    setStartDate(startDateObj.toISOString().split('T')[0]);
-    setEndDate(endDateObj.toISOString().split('T')[0]);
+    setStartDate(formatDateBrasilia(startDateObj));
+    setEndDate(formatDateBrasilia(endDateObj));
 
     // Invalidar cache dos KPIs para forçar nova busca
     queryClient.invalidateQueries({ queryKey: ["analytics", "kpis"] });
@@ -452,8 +450,8 @@ export default function DashboardPage() {
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           {/* Filtros por Período */}
           <div className="flex-1 space-y-2">
-            <h3 className="text-sm font-medium text-muted-foreground">Filtros por Período</h3>
-            <DateRangeFilter
+           <h3 className="text-sm font-medium text-muted-foreground">Filtros por Período</h3>
+            <DateRangeFilterWithCalendar
               startDate={startDate}
               endDate={endDate}
               onDateRangeChange={handleDateRangeChange}

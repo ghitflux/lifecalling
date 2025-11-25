@@ -1,11 +1,6 @@
-import axios from 'axios';
+import { api } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-const api = axios.create({
-  baseURL: `${API_URL}/mobile`,
-  withCredentials: true,
-});
+const basePath = '/mobile';
 
 export interface Simulation {
   id: string;
@@ -47,6 +42,8 @@ export interface AdminClient {
   email: string;
   role: string;
   created_at: string;
+  cpf?: string;
+  phone?: string;
 }
 
 export interface AdminSimulation extends Simulation {
@@ -67,52 +64,52 @@ export interface AdminSimulation extends Simulation {
 
 export const mobileApi = {
   getSimulations: async () => {
-    const response = await api.get<Simulation[]>('/simulations');
+    const response = await api.get<Simulation[]>(`${basePath}/simulations`);
     return response.data;
   },
 
   createSimulation: async (data: CreateSimulationDTO) => {
-    const response = await api.post<Simulation>('/simulations', data);
+    const response = await api.post<Simulation>(`${basePath}/simulations`, data);
     return response.data;
   },
 
   createAdminSimulation: async (data: CreateSimulationDTO & { user_id: number }) => {
-    const response = await api.post<AdminSimulation>('/admin/simulations', data);
+    const response = await api.post<AdminSimulation>(`${basePath}/admin/simulations`, data);
     return response.data;
   },
 
   getProfile: async () => {
-    const response = await api.get('/profile');
+    const response = await api.get(`${basePath}/profile`);
     return response.data;
   },
 
   getMargins: async () => {
-    const response = await api.get('/margins/current');
+    const response = await api.get(`${basePath}/margins/current`);
     return response.data;
   },
 
   getAdminClients: async () => {
-    const response = await api.get<AdminClient[]>('/admin/clients');
+    const response = await api.get<AdminClient[]>(`${basePath}/admin/clients`);
     return response.data;
   },
 
   getAdminSimulations: async () => {
-    const response = await api.get<AdminSimulation[]>('/admin/simulations');
+    const response = await api.get<AdminSimulation[]>(`${basePath}/admin/simulations`);
     return response.data;
   },
 
-  getAdminSimulationById: async (id: number) => {
-    const response = await api.get<AdminSimulation>(`/admin/simulations/${id}`);
+  getAdminSimulationById: async (id: string) => {
+    const response = await api.get<AdminSimulation>(`${basePath}/admin/simulations/${id}`);
     return response.data;
   },
 
-  approveSimulation: async (id: number) => {
-    const response = await api.post(`/admin/simulations/${id}/approve`);
+  approveSimulation: async (id: string) => {
+    const response = await api.post(`${basePath}/admin/simulations/${id}/approve`);
     return response.data;
   },
 
-  rejectSimulation: async (id: number) => {
-    const response = await api.post(`/admin/simulations/${id}/reject`);
+  rejectSimulation: async (id: string) => {
+    const response = await api.post(`${basePath}/admin/simulations/${id}/reject`);
     return response.data;
   }
 };

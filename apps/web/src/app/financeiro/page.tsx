@@ -16,7 +16,10 @@ import {
   useUploadIncomeAttachment,
   useUploadExpenseAttachment,
   useUsers,
-  useReopenCase
+  useReopenCase,
+  useFinanceMobileQueue,
+  useFinanceMobileApprove,
+  useFinanceMobileCancel
 } from "@/lib/hooks";
 import {
   ExpenseModal,
@@ -60,7 +63,8 @@ import {
 import { useRouter } from "next/navigation";
 import {
   startOfMonthBrasilia,
-  endOfMonthBrasilia
+  endOfMonthBrasilia,
+  formatDateBrasilia
 } from "@/lib/timezone";
 
 export default function Page() {
@@ -79,10 +83,14 @@ export default function Page() {
   const handleRefreshCases = () => {
     queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
     queryClient.invalidateQueries({ queryKey: ["financeContracts"] });
+    queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
     toast.success("Lista de atendimentos atualizada!");
   };
 
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
+  const { data: mobileItems = [], isLoading: loadingMobileQueue } = useFinanceMobileQueue();
+  const mobileApprove = useFinanceMobileApprove();
+  const mobileCancel = useFinanceMobileCancel();
   const { data: users = [] } = useUsers();
   const disb = useFinanceDisburseSimple();
   const cancelContract = useCancelContract();
@@ -113,13 +121,11 @@ export default function Page() {
   // Período
   const [startDate, setStartDate] = useState<string>(() => {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    return firstDay.toISOString().split("T")[0];
+    return formatDateBrasilia(startOfMonthBrasilia(now));
   });
   const [endDate, setEndDate] = useState<string>(() => {
     const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return lastDay.toISOString().split("T")[0];
+    return formatDateBrasilia(endOfMonthBrasilia(now));
   });
 
   // Modal FinanceCard
@@ -861,10 +867,8 @@ export default function Page() {
           }}
           onClear={() => {
             const now = new Date();
-            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            setStartDate(firstDay.toISOString().split("T")[0]);
-            setEndDate(lastDay.toISOString().split("T")[0]);
+            setStartDate(formatDateBrasilia(startOfMonthBrasilia(now)));
+            setEndDate(formatDateBrasilia(endOfMonthBrasilia(now)));
           }}
           label="Período:"
           className="w-full max-w-2xl"
@@ -920,6 +924,76 @@ export default function Page() {
         />
       </div>
 
+
+      {/* Contratos Mobile (Aprovados pelo Cliente) */}
+      <div className="space-y-4 mt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Contratos Mobile</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] })}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </Button>
+        </div>
+        {loadingMobileQueue ? (
+          <div className="text-center py-6 text-muted-foreground">Carregando contratos mobile...</div>
+        ) : mobileItems.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">Nenhuma simulação mobile aguardando ação.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mobileItems.map((sim: any) => (
+              <div key={sim.id} className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-sm text-slate-400">Cliente</p>
+                    <p className="font-semibold text-slate-100">{sim.user?.name || "Cliente Mobile"}</p>
+                    <p className="text-xs text-slate-400 break-all">{sim.user?.email}</p>
+                  </div>
+                  <Badge variant="outline" className="bg-amber-500/15 text-amber-200 border-amber-500/40 capitalize">
+                    {sim.status?.toLowerCase().includes("cliente") ? "Aprovada pelo Cliente" : sim.status}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm text-slate-300">
+                  <div>
+                    <p className="text-slate-500">Valor Total</p>
+                    <p className="font-semibold text-slate-100">{formatCurrency(sim.total_amount || sim.requested_amount || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Parcelas</p>
+                    <p className="font-semibold text-slate-100">{sim.installments}x</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Criado em</p>
+                    <p className="font-semibold text-slate-100">{sim.created_at ? new Date(sim.created_at).toLocaleDateString("pt-BR") : "-"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => mobileApprove.mutate(sim.id)}
+                    disabled={mobileApprove.isPending}
+                  >
+                    {mobileApprove.isPending ? "Enviando..." : "Enviar ao Financeiro"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => mobileCancel.mutate(sim.id)}
+                    disabled={mobileCancel.isPending}
+                  >
+                    {mobileCancel.isPending ? "Cancelando..." : "Cancelar"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Filtros rápidos (casos) */}
       <QuickFilters

@@ -1,5 +1,12 @@
 """Add database indexes for mobile queries performance"""
 from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers, used by Alembic.
+revision = 'add_mobile_performance_indexes'
+down_revision = 'a8452ce612ad'
+branch_labels = None
+depends_on = None
 
 def upgrade():
     # Add index on mobile_simulations.user_id for faster joins

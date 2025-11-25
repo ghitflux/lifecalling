@@ -365,6 +365,16 @@ export function useFinanceQueue() {
     }
   });
 }
+
+export function useFinanceMobileQueue() {
+  return useQuery({
+    queryKey: ["financeMobileQueue"],
+    queryFn: async () => {
+      const response = await api.get("/finance/mobile/queue");
+      return response.data.items ?? [];
+    }
+  });
+}
 export function useFinanceDisburse() {
   const qc = useQueryClient();
   return useMutation({
@@ -375,6 +385,27 @@ export function useFinanceDisburse() {
       qc.invalidateQueries({queryKey:["finance","queue"]});
       qc.invalidateQueries({queryKey:["contracts"]});
       qc.invalidateQueries({queryKey:["cases"]});
+    }
+  });
+}
+
+export function useFinanceMobileApprove() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (simulationId: string) => (await api.post(`/finance/mobile/${simulationId}/approve`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["financeMobileQueue"] });
+      qc.invalidateQueries({ queryKey: ["financeQueue"] });
+    }
+  });
+}
+
+export function useFinanceMobileCancel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (simulationId: string) => (await api.post(`/finance/mobile/${simulationId}/cancel`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["financeMobileQueue"] });
     }
   });
 }

@@ -17,6 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { useMemo, useState } from "react";
 import { Download, Plus, Trophy, Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { startOfMonthBrasilia, endOfMonthBrasilia, formatDateBrasilia } from "@/lib/timezone";
 
 export default function RankingsPage() {
   const { user } = useAuth();
@@ -35,13 +36,11 @@ export default function RankingsPage() {
   // Estados para filtro por período (padrão: mês atual)
   const [startDate, setStartDate] = useState<string>(() => {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    return firstDay.toISOString().split("T")[0];
+    return formatDateBrasilia(startOfMonthBrasilia(now));
   });
   const [endDate, setEndDate] = useState<string>(() => {
     const now = new Date();
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return lastDay.toISOString().split("T")[0];
+    return formatDateBrasilia(endOfMonthBrasilia(now));
   });
 
 
@@ -164,10 +163,8 @@ export default function RankingsPage() {
 
   const handleClearDateRange = () => {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setStartDate(firstDay.toISOString().split("T")[0]);
-    setEndDate(lastDay.toISOString().split("T")[0]);
+    setStartDate(formatDateBrasilia(startOfMonthBrasilia(now)));
+    setEndDate(formatDateBrasilia(endOfMonthBrasilia(now)));
   };
 
   const handleExportReport = async () => {
