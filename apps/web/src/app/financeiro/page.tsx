@@ -2,7 +2,6 @@
 import { useLiveCaseEvents } from "@/lib/ws";
 import {
   useFinanceQueue,
-  useFinanceDisburseSimple,
   useUploadContractAttachment,
   useCancelContract,
   useDeleteContract,
@@ -18,8 +17,8 @@ import {
   useUsers,
   useReopenCase,
   useFinanceMobileQueue,
-  useFinanceMobileApprove,
-  useFinanceMobileCancel
+  useFinanceMobileCancel,
+  useFinanceDisburseSimple
 } from "@/lib/hooks";
 import {
   ExpenseModal,
@@ -27,6 +26,7 @@ import {
   AttachmentsModal,
   FinanceCard,
   Button,
+  Badge,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -38,6 +38,7 @@ import {
   MiniAreaChart,
   DateRangeFilterWithCalendar
 } from "@lifecalling/ui";
+import { formatCurrency } from "@/lib/utils/currency";
 import React, { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -58,7 +59,9 @@ import {
   Calendar,
   User,
   X,
-  Search
+  Search,
+  AlertCircle,
+  CreditCard
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -89,8 +92,20 @@ export default function Page() {
 
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
   const { data: mobileItems = [], isLoading: loadingMobileQueue } = useFinanceMobileQueue();
-  const mobileApprove = useFinanceMobileApprove();
   const mobileCancel = useFinanceMobileCancel();
+  const [mobileDisburseModal, setMobileDisburseModal] = useState<{open:boolean; sim:any | null; form:{consultoria_bruta:number; imposto_percentual:number; tem_corretor:boolean; corretor_nome:string; corretor_comissao_valor:number | null; percentual_atendente:number | null; atendente_user_id:number | null}}>({
+    open: false,
+    sim: null,
+    form: {
+      consultoria_bruta: 0,
+      imposto_percentual: 14,
+      tem_corretor: false,
+      corretor_nome: "",
+      corretor_comissao_valor: null,
+      percentual_atendente: null,
+      atendente_user_id: null
+    }
+  });
   const { data: users = [] } = useUsers();
   const disb = useFinanceDisburseSimple();
   const cancelContract = useCancelContract();
@@ -183,6 +198,16 @@ export default function Page() {
 
   const transactionsTotalPages = Math.ceil(filteredTransactions.length / pageSize);
   const paginatedTransactions = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
+
+  const mobileStatusLabel = (status: string) => {
+    const s = (status || "").toLowerCase();
+    if (s.includes("cliente")) return "Aprovado pelo Cliente";
+    if (s.includes("simulacao_aprovada") || s === "approved") return "Simulação Aprovada";
+    if (s.includes("financeiro")) return "Aguardando Financeiro";
+    if (s.includes("contrato_efetivado")) return "Contrato Efetivado";
+    if (s.includes("cancel")) return "Cancelado";
+    return "Pendente";
+  };
 
   // Export CSV
   const exportToCSV = () => {
@@ -946,43 +971,61 @@ export default function Page() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {mobileItems.map((sim: any) => (
-              <div key={sim.id} className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
+              <div key={sim.id} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col gap-1">
                     <p className="text-sm text-slate-400">Cliente</p>
-                    <p className="font-semibold text-slate-100">{sim.user?.name || "Cliente Mobile"}</p>
+                    <p className="text-lg font-semibold text-slate-100">{sim.user?.name || "Cliente Mobile"}</p>
                     <p className="text-xs text-slate-400 break-all">{sim.user?.email}</p>
                   </div>
-                  <Badge variant="outline" className="bg-amber-500/15 text-amber-200 border-amber-500/40 capitalize">
-                    {sim.status?.toLowerCase().includes("cliente") ? "Aprovada pelo Cliente" : sim.status}
+                  <Badge variant="outline" className="bg-amber-500/15 text-amber-200 border-amber-500/40 capitalize px-3 py-1">
+                    {mobileStatusLabel(sim.status)}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm text-slate-300">
+
+                <div className="grid grid-cols-2 gap-4 text-sm text-slate-300 mb-4">
                   <div>
                     <p className="text-slate-500">Valor Total</p>
-                    <p className="font-semibold text-slate-100">{formatCurrency(sim.total_amount || sim.requested_amount || 0)}</p>
+                    <p className="text-lg font-semibold text-slate-100">{formatCurrency(sim.total_amount || sim.requested_amount || 0)}</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Parcelas</p>
-                    <p className="font-semibold text-slate-100">{sim.installments}x</p>
+                    <p className="text-lg font-semibold text-slate-100">{sim.installments}x</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Criado em</p>
                     <p className="font-semibold text-slate-100">{sim.created_at ? new Date(sim.created_at).toLocaleDateString("pt-BR") : "-"}</p>
                   </div>
+                  <div>
+                    <p className="text-slate-500">Proposta</p>
+                    <p className="font-semibold text-slate-100">{sim.simulation_type || "Mobile"}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-4">
+
+                <div className="flex items-center gap-3">
                   <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => mobileApprove.mutate(sim.id)}
-                    disabled={mobileApprove.isPending}
+                    className="bg-emerald-600 hover:bg-emerald-700 flex-1"
+                    onClick={() => {
+                      setMobileDisburseModal({
+                        open: true,
+                        sim,
+                        form: {
+                          consultoria_bruta: Number(sim.total_amount || sim.requested_amount || 0),
+                          imposto_percentual: 14,
+                          tem_corretor: false,
+                          corretor_nome: "",
+                          corretor_comissao_valor: null,
+                          percentual_atendente: 70,
+                          atendente_user_id: null
+                        }
+                      });
+                    }}
                   >
-                    {mobileApprove.isPending ? "Enviando..." : "Enviar ao Financeiro"}
+                    Efetivar Contrato
                   </Button>
                   <Button
-                    size="sm"
                     variant="destructive"
+                    className="flex-1"
                     onClick={() => mobileCancel.mutate(sim.id)}
                     disabled={mobileCancel.isPending}
                   >
@@ -994,6 +1037,239 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {/* Modal Efetivar Contrato Mobile */}
+      {mobileDisburseModal.open && mobileDisburseModal.sim && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-xl space-y-4">
+            <h3 className="text-xl font-semibold text-slate-100">Confirmar Liberação</h3>
+
+            <div className="rounded-lg border border-amber-600/40 bg-amber-500/10 text-amber-100 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-5 w-5 text-amber-300" />
+                <div>
+                  <p className="font-semibold">Confirme a liberação</p>
+                  <p className="text-amber-200 mt-1">
+                    Tem certeza que deseja efetivar a liberação para <strong>{mobileDisburseModal.sim.user?.name || "Cliente"}</strong>?
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Valores da Simulação */}
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Liberado Cliente:</span>
+                <span className="font-medium text-slate-100">
+                  {formatCurrency(Number(mobileDisburseModal.sim.total_amount || mobileDisburseModal.sim.requested_amount || 0))}
+                </span>
+              </div>
+
+              {/* Campo Editável: Consultoria Bruta */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-300">
+                  Consultoria Bruta (editável):
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  value={formatCurrency(mobileDisburseModal.form.consultoria_bruta)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    const numValue = Number(value) / 100;
+                    setMobileDisburseModal(m => m ? ({...m, form: {...m.form, consultoria_bruta: numValue}}) : m);
+                  }}
+                  placeholder="R$ 0,00"
+                />
+                <p className="text-xs text-slate-500">
+                  Valor original da simulação: {formatCurrency(Number(mobileDisburseModal.sim.total_amount || mobileDisburseModal.sim.requested_amount || 0))}
+                </p>
+              </div>
+
+              {/* Cálculos Automáticos */}
+              {mobileDisburseModal.form.consultoria_bruta > 0 && (
+                <div className="space-y-1.5 border-t border-slate-700 pt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Imposto ({mobileDisburseModal.form.imposto_percentual}%):</span>
+                    <span className="font-medium text-red-400">
+                      {formatCurrency(mobileDisburseModal.form.consultoria_bruta * (mobileDisburseModal.form.imposto_percentual / 100))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400 font-semibold">Consultoria Líquida (calculada):</span>
+                    <span className="font-semibold text-emerald-400">
+                      {formatCurrency(mobileDisburseModal.form.consultoria_bruta * (1 - mobileDisburseModal.form.imposto_percentual / 100))}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Comissão de Corretor (Opcional) */}
+            <div className="space-y-3 pt-2 border-t border-slate-700">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-slate-700"
+                  checked={mobileDisburseModal.form.tem_corretor}
+                  onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, tem_corretor: e.target.checked}}) : m)}
+                />
+                <span className="text-sm font-semibold text-slate-200">Tem Corretor?</span>
+              </label>
+
+              {mobileDisburseModal.form.tem_corretor && (
+                <div className="space-y-3 pl-6">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-1 block">
+                      Nome do Corretor
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full rounded border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm"
+                      value={mobileDisburseModal.form.corretor_nome}
+                      onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, corretor_nome: e.target.value}}) : m)}
+                      placeholder="Nome completo do corretor"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-slate-400 mb-1 block">
+                      Valor da Comissão
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full rounded border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm"
+                      value={mobileDisburseModal.form.corretor_comissao_valor ? formatCurrency(mobileDisburseModal.form.corretor_comissao_valor) : ""}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        const numValue = Number(value) / 100;
+                        setMobileDisburseModal(m => m ? ({...m, form: {...m.form, corretor_comissao_valor: numValue}}) : m);
+                      }}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+
+                  {mobileDisburseModal.form.corretor_comissao_valor && (
+                    <div className="rounded-lg bg-orange-900/30 border border-orange-700 p-2 text-sm text-orange-300">
+                      Despesa de comissão: <strong>{formatCurrency(mobileDisburseModal.form.corretor_comissao_valor)}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Distribuição da Consultoria Líquida */}
+            <div className="space-y-3 pt-2 border-t border-slate-700">
+              <h4 className="text-sm font-semibold text-slate-100">Distribuição da Consultoria Líquida</h4>
+
+              {/* Grid 2 Colunas: Atendente + Percentual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Seleção de Atendente */}
+                <div>
+                  <label className="text-sm text-slate-400 mb-1 block">
+                    Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
+                    value={mobileDisburseModal.form.atendente_user_id ?? ""}
+                    onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
+                  >
+                    <option value="">Selecione um atendente</option>
+                    {users.map((u:any) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Percentual para Atendente */}
+                <div>
+                  <label className="text-sm text-slate-400 mb-1 block">
+                    Percentual para Atendente
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
+                    value={mobileDisburseModal.form.percentual_atendente ?? 70}
+                    onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, percentual_atendente: Number(e.target.value)}}) : m)}
+                  >
+                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
+                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
+                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
+                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
+                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
+                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
+                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
+                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
+                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
+                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
+                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Preview da Distribuição */}
+              {mobileDisburseModal.form.consultoria_bruta > 0 && (() => {
+                // 1. Calcular consultoria líquida (Bruta - Imposto)
+                const liquidaAposImposto = mobileDisburseModal.form.consultoria_bruta * (1 - mobileDisburseModal.form.imposto_percentual / 100);
+
+                // 2. Deduzir comissão do corretor (se houver)
+                const comissaoValor = mobileDisburseModal.form.tem_corretor ? (mobileDisburseModal.form.corretor_comissao_valor || 0) : 0;
+                const liquidaParaDistribuir = liquidaAposImposto - comissaoValor;
+                const percentual = mobileDisburseModal.form.percentual_atendente ?? 70;
+
+                return (
+                  <div className="rounded-lg bg-slate-800/50 p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Atendente ({percentual}%):</span>
+                      <span className="font-medium text-emerald-400">
+                        {formatCurrency((liquidaParaDistribuir * percentual) / 100)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Balcão ({100 - percentual}%):</span>
+                      <span className="font-medium text-cyan-400">
+                        {formatCurrency((liquidaParaDistribuir * (100 - percentual)) / 100)}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-700 flex justify-between font-semibold">
+                      <span className="text-slate-200">Total Líquido:</span>
+                      <span className="text-slate-100">{formatCurrency(liquidaParaDistribuir)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-700">
+              <Button variant="outline" onClick={() => setMobileDisburseModal({open:false, sim:null, form: mobileDisburseModal.form})}>Cancelar</Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={async () => {
+                  if (!mobileDisburseModal.sim) return;
+                  try {
+                    await api.post(`/finance/mobile/${mobileDisburseModal.sim.id}/disburse`, {
+                      consultoria_bruta: mobileDisburseModal.form.consultoria_bruta,
+                      imposto_percentual: mobileDisburseModal.form.imposto_percentual,
+                      tem_corretor: mobileDisburseModal.form.tem_corretor,
+                      corretor_nome: mobileDisburseModal.form.corretor_nome || null,
+                      corretor_comissao_valor: mobileDisburseModal.form.corretor_comissao_valor,
+                      percentual_atendente: mobileDisburseModal.form.percentual_atendente || undefined,
+                      atendente_user_id: mobileDisburseModal.form.atendente_user_id || undefined,
+                    });
+                    queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
+                    setMobileDisburseModal({open:false, sim:null, form: mobileDisburseModal.form});
+                    toast.success("Contrato efetivado");
+                  } catch (error:any) {
+                    toast.error(error?.response?.data?.detail || "Erro ao efetivar contrato");
+                  }
+                }}
+              >
+                <CreditCard className="h-4 w-4 mr-1" />
+                Confirmar Liberação
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filtros rápidos (casos) */}
       <QuickFilters

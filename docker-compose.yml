@@ -8,6 +8,8 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     ports: ["5433:5432"]
+    networks:
+      - life-net
 
   api:
     build: ./apps/api
@@ -25,6 +27,8 @@ services:
       - COOKIE_DOMAIN=
       - TZ=America/Sao_Paulo
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - life-net
 
   web:
     build:
@@ -36,7 +40,31 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NODE_ENV=production
+    networks:
+      - life-net
+
+  mobile:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ../life-mobile:/app
+    environment:
+      - API_URL=http://api:8000
+      - NEXT_PUBLIC_API_BASE_URL=http://api:8000
+    command: sh -c "npm install && npm run web"
+    ports:
+      - "19006:19006"
+    depends_on:
+      - api
+    stdin_open: true
+    tty: true
+    networks:
+      - life-net
 
 volumes:
   db_data:
   uploads:
+
+networks:
+  life-net:
+    name: life-net

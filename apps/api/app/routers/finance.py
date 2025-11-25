@@ -210,6 +210,15 @@ def serialize_mobile_simulation(sim: MobileSimulation):
         "seguro": to_float(sim.seguro)
     }
 
+class MobileDisburseIn(BaseModel):
+    consultoria_bruta: float | None = None
+    imposto_percentual: float | None = None
+    tem_corretor: bool | None = None
+    corretor_nome: str | None = None
+    corretor_comissao_valor: float | None = None
+    percentual_atendente: float | None = None
+    atendente_user_id: int | None = None
+
 
 @r.get("/mobile/queue")
 def finance_mobile_queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
@@ -273,17 +282,65 @@ def finance_mobile_cancel(simulation_id: str, user=Depends(require_roles("admin"
 
 
 @r.post("/mobile/{simulation_id}/disburse")
-def finance_mobile_disburse(simulation_id: str, user=Depends(require_roles("admin", "supervisor", "financeiro"))):
+def finance_mobile_disburse(
+    simulation_id: str,
+    payload: MobileDisburseIn | None = None,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
     """Marca simulação mobile como contrato efetivado e registra receita."""
     with SessionLocal() as db:
         sim = db.query(MobileSimulation).options(joinedload(MobileSimulation.user)).filter(MobileSimulation.id == simulation_id).first()
         if not sim:
             raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
         sim.status = "contrato_efetivado"
-        income = _create_mobile_income(db, sim, user)
+
+        bruto = Decimal(str(payload.consultoria_bruta)) if payload and payload.consultoria_bruta is not None else (sim.total_amount or sim.requested_amount or Decimal("0"))
+        imposto_percentual = Decimal(str(payload.imposto_percentual)) if payload and payload.imposto_percentual is not None else Decimal("14")
+        imposto_valor = (bruto * imposto_percentual / Decimal("100")).quantize(Decimal("0.01"))
+        liquido = (bruto - imposto_valor).quantize(Decimal("0.01"))
+
+        def add_income(amount: Decimal, name_suffix: str, agent_id: int | None = None):
+            inc = FinanceIncome(
+                date=now_brt(),
+                income_type="Contrato Mobile",
+                income_name=f"Contrato Mobile {sim.id} {name_suffix}".strip(),
+                amount=amount,
+                created_by=user.id,
+                agent_user_id=agent_id or sim.user_id,
+                client_name=sim.user.name if sim.user else None,
+                client_cpf=getattr(sim.user, "cpf", None),
+                origin="mobile"
+            )
+            db.add(inc)
+            return inc
+
+        if payload and payload.percentual_atendente and payload.atendente_user_id:
+            atendente_percent = Decimal(str(payload.percentual_atendente)) / Decimal("100")
+            atendente_valor = (liquido * atendente_percent).quantize(Decimal("0.01"))
+            balcao_valor = (liquido - atendente_valor).quantize(Decimal("0.01"))
+            add_income(atendente_valor, "(Atendente)", payload.atendente_user_id)
+            add_income(balcao_valor, "(Balcão)", sim.user_id)
+        else:
+            add_income(liquido, "", sim.user_id)
+
+        if payload and payload.tem_corretor and payload.corretor_comissao_valor:
+            try:
+                val = Decimal(str(payload.corretor_comissao_valor))
+                exp = FinanceExpense(
+                    date=now_brt(),
+                    expense_type="Comissão Corretor - Mobile",
+                    expense_name=payload.corretor_nome or "Comissão Corretor",
+                    amount=val,
+                    created_by=user.id,
+                    origin="mobile"
+                )
+                db.add(exp)
+            except Exception:
+                pass
         db.commit()
         # TODO: enviar notificação para app mobile informando contrato efetivado
-        return {"message": "Contrato mobile efetivado", "simulation": serialize_mobile_simulation(sim), "income_id": income.id}
+        return {"message": "Contrato mobile efetivado", "simulation": serialize_mobile_simulation(sim)}
 
 
 @r.get("/case/{case_id}")

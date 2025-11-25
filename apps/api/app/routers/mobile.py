@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
 from typing import List, Optional
@@ -64,6 +65,15 @@ class AdminSimulationResponse(SimulationResponse):
     document_url: Optional[str] = None
     document_type: Optional[str] = None
     document_filename: Optional[str] = None
+class DocumentResponse(BaseModel):
+    id: str
+    document_type: Optional[str] = None
+    document_filename: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class MarginResponse(BaseModel):
     available_margin: float
@@ -159,6 +169,8 @@ async def register_mobile_client(
         name=client_data.name,
         email=client_data.email,
         password_hash=hash_password(client_data.password),
+        cpf=(client_data.cpf or "").strip() or None,
+        phone=(client_data.phone or "").strip() or None,
         role="mobile_client",  # Role específica para clientes mobile
         active=True
     )
@@ -284,6 +296,71 @@ async def get_simulations(
     return db.query(MobileSimulation).filter(
         MobileSimulation.user_id == current_user.id
     ).order_by(MobileSimulation.created_at.desc()).all()
+
+@router.post("/simulations/{simulation_id}/approve-by-client", response_model=SimulationResponse)
+async def approve_simulation_by_client(
+    simulation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    sim = db.query(MobileSimulation).filter(
+        MobileSimulation.id == simulation_id,
+        MobileSimulation.user_id == current_user.id
+    ).first()
+
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    sim.status = "approved_by_client"
+    db.commit()
+    db.refresh(sim)
+    return sim
+
+@router.get("/documents", response_model=List[DocumentResponse])
+async def list_documents(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Lista documentos enviados pelo cliente (simulações com anexo)."""
+    sims = db.query(MobileSimulation).filter(
+        MobileSimulation.user_id == current_user.id,
+        MobileSimulation.document_url.isnot(None)
+    ).order_by(MobileSimulation.created_at.desc()).all()
+
+    return [
+        {
+            "id": sim.id,
+            "document_type": sim.document_type,
+            "document_filename": sim.document_filename,
+            "status": sim.status,
+            "created_at": sim.created_at,
+        }
+        for sim in sims
+    ]
+
+@router.get("/documents/{simulation_id}")
+async def download_document(
+    simulation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download de documento do próprio cliente."""
+    simulation = db.query(MobileSimulation).filter(
+        MobileSimulation.id == simulation_id,
+        MobileSimulation.user_id == current_user.id
+    ).first()
+
+    if not simulation:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    if not simulation.document_url:
+        raise HTTPException(status_code=404, detail="Nenhum documento anexado a esta simulação")
+
+    return FileResponse(
+        path=simulation.document_url,
+        filename=simulation.document_filename,
+        media_type=f"{'application/pdf' if simulation.document_type == 'pdf' else 'image/' + simulation.document_type}"
+    )
 
 @router.get("/margins/current", response_model=MarginResponse)
 async def get_current_margin(
@@ -458,7 +535,7 @@ async def approve_simulation(
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
         
-    sim.status = "approved"
+    sim.status = "simulacao_aprovada"
     db.commit()
     return {"message": "Simulação aprovada com sucesso"}
 

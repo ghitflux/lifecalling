@@ -46,15 +46,19 @@ export default function SimulationDetailPage() {
     const statusTone: Record<string, string> = {
         approved: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
         pending: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
-        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30"
+        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
+        approved_by_client: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
+        cliente_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
+        simulacao_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30"
     };
 
     const statusLabel: Record<string, string> = {
-        approved: "Aprovado",
+        approved: "Simulação Aprovada",
         pending: "Pendente",
-        rejected: "Reprovado",
-        "approved_by_client": "Aprovada pelo Cliente",
-        "cliente_aprovada": "Aprovada pelo Cliente"
+        rejected: "Reprovada",
+        approved_by_client: "Aprovado pelo Cliente",
+        cliente_aprovada: "Aprovado pelo Cliente",
+        simulacao_aprovada: "Simulação Aprovada"
     };
 
     const productInfo: Record<string, { label: string; icon: JSX.Element }> = {
@@ -578,4 +582,3 @@ export default function SimulationDetailPage() {
         </div>
     );
 }
-    const isCustomerApproved = (simulation?.status || "").toLowerCase().includes("approved_by_client") || (simulation?.status || "").toLowerCase().includes("cliente");

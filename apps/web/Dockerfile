@@ -8,13 +8,17 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package*.json ./
-RUN corepack enable pnpm && pnpm i --no-frozen-lockfile
+COPY package*.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copia apenas manifests para resolver workspaces
+COPY apps ./apps
+COPY packages ./packages
+RUN corepack enable pnpm && pnpm install --no-frozen-lockfile --recursive
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY pnpm-lock.yaml pnpm-workspace.yaml package*.json ./
 COPY . .
 
 # Set environment variables for build
