@@ -515,7 +515,11 @@ export default function Page() {
     impostoPercentual?: number,
     temCorretor?: boolean,
     corretorNome?: string,
-    corretorComissaoValor?: number
+    corretorComissaoValor?: number,
+    atendente1UserId?: number,
+    percentualAtendente1?: number,
+    atendente2UserId?: number,
+    percentualAtendente2?: number
   ) => {
     try {
       await disb.mutateAsync({
@@ -525,9 +529,20 @@ export default function Page() {
         tem_corretor: temCorretor || false,
         corretor_nome: corretorNome || null,
         corretor_comissao_valor: corretorComissaoValor || null,
+        // Novos parâmetros para 2 agentes
+        atendente1_user_id: atendente1UserId,
+        percentual_atendente1: percentualAtendente1 || 0,
+        atendente2_user_id: atendente2UserId,
+        percentual_atendente2: percentualAtendente2 || 0,
+        // Compatibilidade com campos antigos
         percentual_atendente: percentualAtendente,
         atendente_user_id: atendenteUserId
       });
+      queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
+      queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["finance", "commissions"] });
       toast.success("Liberação efetivada com sucesso!");
     } catch (error) {
       console.error("Erro efetivar:", error);

@@ -69,7 +69,11 @@ export interface FinanceCardProps {
     impostoPercentual?: number,
     temCorretor?: boolean,
     corretorNome?: string,
-    corretorComissaoValor?: number
+    corretorComissaoValor?: number,
+    atendente1UserId?: number,
+    percentualAtendente1?: number,
+    atendente2UserId?: number,
+    percentualAtendente2?: number
   ) => void;
   onCancel?: (id: number) => void;
   onReopen?: (id: number) => void;
@@ -236,8 +240,14 @@ export function FinanceCard({
   const [showReopenConfirm, setShowReopenConfirm] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
 
-  // Estados para distribuição
-  const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70); // Padrão 70%
+  // Estados para distribuição (suporte para até 2 agentes)
+  const [atendente1UserId, setAtendente1UserId] = React.useState<number | null>(null);
+  const [percentualAtendente1, setPercentualAtendente1] = React.useState<number>(0);
+  const [atendente2UserId, setAtendente2UserId] = React.useState<number | null>(null);
+  const [percentualAtendente2, setPercentualAtendente2] = React.useState<number>(0);
+
+  // Estados antigos (mantidos para compatibilidade)
+  const [percentualAtendente, setPercentualAtendente] = React.useState<number>(70);
   const [selectedAtendenteId, setSelectedAtendenteId] = React.useState<number | null>(null);
 
   // Estados para consultoria bruta + imposto + corretor
@@ -257,7 +267,8 @@ export function FinanceCard({
   // Inicializar atendente selecionado com o atendente do caso ao abrir modal
   React.useEffect(() => {
     if (showDisburseConfirm && assignedUserId) {
-      setSelectedAtendenteId(assignedUserId);
+      setAtendente1UserId(assignedUserId);
+      setSelectedAtendenteId(assignedUserId); // Compatibilidade
     }
   }, [showDisburseConfirm, assignedUserId]);
 
@@ -1194,51 +1205,94 @@ export function FinanceCard({
             <div className="space-y-3 pt-2 border-t">
               <h4 className="text-sm font-semibold">Distribuição da Consultoria Líquida</h4>
 
-              {/* Grid 2 Colunas: Atendente + Percentual */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Seleção de Atendente */}
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">
-                    Atendente
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={selectedAtendenteId || ""}
-                    onChange={(e) => setSelectedAtendenteId(Number(e.target.value) || null)}
-                  >
-                    <option value="">Selecione um atendente</option>
-                    {availableUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Percentual para Atendente */}
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">
-                    Percentual para Atendente
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                    value={percentualAtendente}
-                    onChange={(e) => setPercentualAtendente(Number(e.target.value))}
-                  >
-                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
-                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
-                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
-                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
-                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
-                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
-                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
-                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
-                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
-                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
-                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
-                  </select>
+              {/* Atendente 1 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Atendente 1</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Nome</label>
+                    <select
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={atendente1UserId || ""}
+                      onChange={(e) => setAtendente1UserId(Number(e.target.value) || null)}
+                    >
+                      <option value="">Balcão (sem atendente)</option>
+                      {availableUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Percentual (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={percentualAtendente1}
+                      onChange={(e) => {
+                        const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                        setPercentualAtendente1(value);
+                      }}
+                      placeholder="0-100%"
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Atendente 2 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Atendente 2 (opcional)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Nome</label>
+                    <select
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={atendente2UserId || ""}
+                      onChange={(e) => setAtendente2UserId(Number(e.target.value) || null)}
+                    >
+                      <option value="">Nenhum</option>
+                      {availableUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Percentual (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={percentualAtendente2}
+                      onChange={(e) => {
+                        const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                        setPercentualAtendente2(value);
+                      }}
+                      placeholder="0-100%"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Validação de Percentual */}
+              {(() => {
+                const totalPercentual = percentualAtendente1 + percentualAtendente2;
+                if (totalPercentual > 100) {
+                  return (
+                    <div className="rounded-lg bg-red-900/30 border border-red-700 p-2 text-sm text-red-300">
+                      <strong>Erro:</strong> A soma dos percentuais não pode ultrapassar 100%. Atual: {totalPercentual}%
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Preview da Distribuição */}
               {consultoriaBruta && (() => {
@@ -1249,20 +1303,43 @@ export function FinanceCard({
                 const comissaoValor = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
                 const liquidaParaDistribuir = liquidaAposImposto - comissaoValor;
 
+                const percentual1 = percentualAtendente1;
+                const percentual2 = percentualAtendente2;
+                const percentualBalcao = 100 - percentual1 - percentual2;
+
+                const valor1 = (liquidaParaDistribuir * percentual1) / 100;
+                const valor2 = (liquidaParaDistribuir * percentual2) / 100;
+                const valorBalcao = (liquidaParaDistribuir * percentualBalcao) / 100;
+
+                const atendente1Nome = availableUsers.find((u) => u.id === atendente1UserId)?.name || "Não selecionado";
+                const atendente2Nome = availableUsers.find((u) => u.id === atendente2UserId)?.name || "Não selecionado";
+
                 return (
                   <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Atendente ({percentualAtendente}%):</span>
-                      <span className="font-medium text-success">
-                        {formatCurrency((liquidaParaDistribuir * percentualAtendente) / 100)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Balcão ({100 - percentualAtendente}%):</span>
-                      <span className="font-medium text-info">
-                        {formatCurrency((liquidaParaDistribuir * (100 - percentualAtendente)) / 100)}
-                      </span>
-                    </div>
+                    {percentual1 > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{atendente1Nome} ({percentual1}%):</span>
+                        <span className="font-medium text-success">
+                          {formatCurrency(valor1)}
+                        </span>
+                      </div>
+                    )}
+                    {percentual2 > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{atendente2Nome} ({percentual2}%):</span>
+                        <span className="font-medium text-success">
+                          {formatCurrency(valor2)}
+                        </span>
+                      </div>
+                    )}
+                    {percentualBalcao > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Balcão ({percentualBalcao}%):</span>
+                        <span className="font-medium text-info">
+                          {formatCurrency(valorBalcao)}
+                        </span>
+                      </div>
+                    )}
                     <div className="pt-2 border-t flex justify-between font-semibold">
                       <span>Total Líquido:</span>
                       <span>{formatCurrency(liquidaParaDistribuir)}</span>
@@ -1272,6 +1349,7 @@ export function FinanceCard({
               })()}
             </div>
 
+
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" onClick={() => {
                 setShowDisburseConfirm(false);
@@ -1279,7 +1357,14 @@ export function FinanceCard({
                 Cancelar
               </Button>
               <Button
+                disabled={percentualAtendente1 + percentualAtendente2 > 100}
                 onClick={() => {
+                  // Validar percentuais
+                  const totalPercentual = percentualAtendente1 + percentualAtendente2;
+                  if (totalPercentual > 100) {
+                    return;
+                  }
+
                   const brutaValue = parseCurrencyToNumber(consultoriaBruta);
                   const comissaoValue = temCorretor ? parseCurrencyToNumber(corretorComissao) : 0;
 
@@ -1291,7 +1376,11 @@ export function FinanceCard({
                     impostoPercentual,
                     temCorretor,
                     temCorretor ? corretorNome : undefined,
-                    temCorretor ? comissaoValue : undefined
+                    temCorretor ? comissaoValue : undefined,
+                    atendente1UserId || undefined,
+                    percentualAtendente1,
+                    atendente2UserId || undefined,
+                    percentualAtendente2
                   );
                   setShowDisburseConfirm(false);
                 }}
