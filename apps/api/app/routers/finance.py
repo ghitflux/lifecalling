@@ -218,6 +218,11 @@ class MobileDisburseIn(BaseModel):
     corretor_comissao_valor: float | None = None
     percentual_atendente: float | None = None
     atendente_user_id: int | None = None
+    # Novos campos para suportar até 2 agentes
+    atendente1_user_id: int | None = None
+    percentual_atendente1: float | None = None
+    atendente2_user_id: int | None = None
+    percentual_atendente2: float | None = None
 
 
 @r.get("/mobile/queue")
@@ -315,14 +320,43 @@ def finance_mobile_disburse(
             db.add(inc)
             return inc
 
-        if payload and payload.percentual_atendente and payload.atendente_user_id:
-            atendente_percent = Decimal(str(payload.percentual_atendente)) / Decimal("100")
-            atendente_valor = (liquido * atendente_percent).quantize(Decimal("0.01"))
-            balcao_valor = (liquido - atendente_valor).quantize(Decimal("0.01"))
-            add_income(atendente_valor, "(Atendente)", payload.atendente_user_id)
-            add_income(balcao_valor, "(Balcão)", sim.user_id)
+        # Distribuição de receitas (suporte para até 2 agentes)
+        # Nova lógica: atendente1_user_id, percentual_atendente1, atendente2_user_id, percentual_atendente2
+        # Compatibilidade: atendente_user_id, percentual_atendente
+        
+        if payload:
+            # Usar novos campos se disponíveis
+            if payload.atendente1_user_id or payload.atendente2_user_id:
+                percentual1 = Decimal(str(payload.percentual_atendente1 or 0))
+                percentual2 = Decimal(str(payload.percentual_atendente2 or 0))
+                percentual_balcao = Decimal('100') - percentual1 - percentual2
+                
+                # Criar receitas para cada agente
+                if payload.atendente1_user_id and percentual1 > 0:
+                    valor1 = (liquido * percentual1 / Decimal('100')).quantize(Decimal('0.01'))
+                    add_income(valor1, '(Atendente 1)', payload.atendente1_user_id)
+                
+                if payload.atendente2_user_id and percentual2 > 0:
+                    valor2 = (liquido * percentual2 / Decimal('100')).quantize(Decimal('0.01'))
+                    add_income(valor2, '(Atendente 2)', payload.atendente2_user_id)
+                
+                # Balcão recebe o restante
+                if percentual_balcao > 0:
+                    valor_balcao = (liquido * percentual_balcao / Decimal('100')).quantize(Decimal('0.01'))
+                    add_income(valor_balcao, '(Balcão)', sim.user_id)
+                    
+            # Compatibilidade com campos antigos
+            elif payload.percentual_atendente and payload.atendente_user_id:
+                atendente_percent = Decimal(str(payload.percentual_atendente)) / Decimal('100')
+                atendente_valor = (liquido * atendente_percent).quantize(Decimal('0.01'))
+                balcao_valor = (liquido - atendente_valor).quantize(Decimal('0.01'))
+                add_income(atendente_valor, '(Atendente)', payload.atendente_user_id)
+                add_income(balcao_valor, '(Balcão)', sim.user_id)
+            else:
+                # Sem distribuição - todo valor vai para o balcão
+                add_income(liquido, '', sim.user_id)
         else:
-            add_income(liquido, "", sim.user_id)
+            add_income(liquido, '', sim.user_id)
 
         if payload and payload.tem_corretor and payload.corretor_comissao_valor:
             try:

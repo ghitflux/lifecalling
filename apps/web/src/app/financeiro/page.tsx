@@ -93,7 +93,7 @@ export default function Page() {
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
   const { data: mobileItems = [], isLoading: loadingMobileQueue } = useFinanceMobileQueue();
   const mobileCancel = useFinanceMobileCancel();
-  const [mobileDisburseModal, setMobileDisburseModal] = useState<{open:boolean; sim:any | null; form:{consultoria_bruta:number; imposto_percentual:number; tem_corretor:boolean; corretor_nome:string; corretor_comissao_valor:number | null; percentual_atendente:number | null; atendente_user_id:number | null}}>({
+  const [mobileDisburseModal, setMobileDisburseModal] = useState<{open:boolean; sim:any | null; form:{consultoria_bruta:number; imposto_percentual:number; tem_corretor:boolean; corretor_nome:string; corretor_comissao_valor:number | null; atendente1_user_id:number | null; percentual_atendente1:number; atendente2_user_id:number | null; percentual_atendente2:number}}>({
     open: false,
     sim: null,
     form: {
@@ -102,8 +102,10 @@ export default function Page() {
       tem_corretor: false,
       corretor_nome: "",
       corretor_comissao_valor: null,
-      percentual_atendente: null,
-      atendente_user_id: null
+      atendente1_user_id: null,
+      percentual_atendente1: 0,
+      atendente2_user_id: null,
+      percentual_atendente2: 0
     }
   });
   const { data: users = [] } = useUsers();
@@ -1015,8 +1017,10 @@ export default function Page() {
                           tem_corretor: false,
                           corretor_nome: "",
                           corretor_comissao_valor: null,
-                          percentual_atendente: 70,
-                          atendente_user_id: null
+                          atendente1_user_id: null,
+                          percentual_atendente1: 0,
+                          atendente2_user_id: null,
+                          percentual_atendente2: 0
                         }
                       });
                     }}
@@ -1162,49 +1166,90 @@ export default function Page() {
             <div className="space-y-3 pt-2 border-t border-slate-700">
               <h4 className="text-sm font-semibold text-slate-100">Distribuição da Consultoria Líquida</h4>
 
-              {/* Grid 2 Colunas: Atendente + Percentual */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Seleção de Atendente */}
-                <div>
-                  <label className="text-sm text-slate-400 mb-1 block">
-                    Atendente
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
-                    value={mobileDisburseModal.form.atendente_user_id ?? ""}
-                    onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
-                  >
-                    <option value="">Selecione um atendente</option>
-                    {users.map((u:any) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Percentual para Atendente */}
-                <div>
-                  <label className="text-sm text-slate-400 mb-1 block">
-                    Percentual para Atendente
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
-                    value={mobileDisburseModal.form.percentual_atendente ?? 70}
-                    onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, percentual_atendente: Number(e.target.value)}}) : m)}
-                  >
-                    <option value="0">0% (Atendente) + 100% (Balcão)</option>
-                    <option value="10">10% (Atendente) + 90% (Balcão)</option>
-                    <option value="20">20% (Atendente) + 80% (Balcão)</option>
-                    <option value="30">30% (Atendente) + 70% (Balcão)</option>
-                    <option value="40">40% (Atendente) + 60% (Balcão)</option>
-                    <option value="50">50% (Atendente) + 50% (Balcão)</option>
-                    <option value="60">60% (Atendente) + 40% (Balcão)</option>
-                    <option value="70">70% (Atendente) + 30% (Balcão)</option>
-                    <option value="80">80% (Atendente) + 20% (Balcão)</option>
-                    <option value="90">90% (Atendente) + 10% (Balcão)</option>
-                    <option value="100">100% (Atendente) + 0% (Balcão)</option>
-                  </select>
+              {/* Atendente 1 */}
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300 font-medium">Atendente 1</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Nome</label>
+                    <select
+                      className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
+                      value={mobileDisburseModal.form.atendente1_user_id ?? ""}
+                      onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente1_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
+                    >
+                      <option value="">Balcão (sem atendente)</option>
+                      {users.map((u:any) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Percentual (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
+                      value={mobileDisburseModal.form.percentual_atendente1}
+                      onChange={e => {
+                        const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                        setMobileDisburseModal(m => m ? ({...m, form: {...m.form, percentual_atendente1: value}}) : m);
+                      }}
+                      placeholder="0-100%"
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Atendente 2 */}
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300 font-medium">Atendente 2 (opcional)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Nome</label>
+                    <select
+                      className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
+                      value={mobileDisburseModal.form.atendente2_user_id ?? ""}
+                      onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente2_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
+                    >
+                      <option value="">Nenhum</option>
+                      {users.map((u:any) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Percentual (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      className="w-full px-3 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-100 text-sm"
+                      value={mobileDisburseModal.form.percentual_atendente2}
+                      onChange={e => {
+                        const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                        setMobileDisburseModal(m => m ? ({...m, form: {...m.form, percentual_atendente2: value}}) : m);
+                      }}
+                      placeholder="0-100%"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Validação de Percentual */}
+              {(() => {
+                const totalPercentual = mobileDisburseModal.form.percentual_atendente1 + mobileDisburseModal.form.percentual_atendente2;
+                if (totalPercentual > 100) {
+                  return (
+                    <div className="rounded-lg bg-red-900/30 border border-red-700 p-2 text-sm text-red-300">
+                      <strong>Erro:</strong> A soma dos percentuais não pode ultrapassar 100%. Atual: {totalPercentual}%
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Preview da Distribuição */}
               {mobileDisburseModal.form.consultoria_bruta > 0 && (() => {
@@ -1214,22 +1259,44 @@ export default function Page() {
                 // 2. Deduzir comissão do corretor (se houver)
                 const comissaoValor = mobileDisburseModal.form.tem_corretor ? (mobileDisburseModal.form.corretor_comissao_valor || 0) : 0;
                 const liquidaParaDistribuir = liquidaAposImposto - comissaoValor;
-                const percentual = mobileDisburseModal.form.percentual_atendente ?? 70;
+
+                const percentual1 = mobileDisburseModal.form.percentual_atendente1;
+                const percentual2 = mobileDisburseModal.form.percentual_atendente2;
+                const percentualBalcao = 100 - percentual1 - percentual2;
+
+                const valor1 = (liquidaParaDistribuir * percentual1) / 100;
+                const valor2 = (liquidaParaDistribuir * percentual2) / 100;
+                const valorBalcao = (liquidaParaDistribuir * percentualBalcao) / 100;
+
+                const atendente1Nome = users.find((u:any) => u.id === mobileDisburseModal.form.atendente1_user_id)?.name || "Não selecionado";
+                const atendente2Nome = users.find((u:any) => u.id === mobileDisburseModal.form.atendente2_user_id)?.name || "Não selecionado";
 
                 return (
                   <div className="rounded-lg bg-slate-800/50 p-3 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Atendente ({percentual}%):</span>
-                      <span className="font-medium text-emerald-400">
-                        {formatCurrency((liquidaParaDistribuir * percentual) / 100)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Balcão ({100 - percentual}%):</span>
-                      <span className="font-medium text-cyan-400">
-                        {formatCurrency((liquidaParaDistribuir * (100 - percentual)) / 100)}
-                      </span>
-                    </div>
+                    {percentual1 > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{atendente1Nome} ({percentual1}%):</span>
+                        <span className="font-medium text-emerald-400">
+                          {formatCurrency(valor1)}
+                        </span>
+                      </div>
+                    )}
+                    {percentual2 > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{atendente2Nome} ({percentual2}%):</span>
+                        <span className="font-medium text-emerald-400">
+                          {formatCurrency(valor2)}
+                        </span>
+                      </div>
+                    )}
+                    {percentualBalcao > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Balcão ({percentualBalcao}%):</span>
+                        <span className="font-medium text-cyan-400">
+                          {formatCurrency(valorBalcao)}
+                        </span>
+                      </div>
+                    )}
                     <div className="pt-2 border-t border-slate-700 flex justify-between font-semibold">
                       <span className="text-slate-200">Total Líquido:</span>
                       <span className="text-slate-100">{formatCurrency(liquidaParaDistribuir)}</span>
@@ -1243,8 +1310,17 @@ export default function Page() {
               <Button variant="outline" onClick={() => setMobileDisburseModal({open:false, sim:null, form: mobileDisburseModal.form})}>Cancelar</Button>
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={mobileDisburseModal.form.percentual_atendente1 + mobileDisburseModal.form.percentual_atendente2 > 100}
                 onClick={async () => {
                   if (!mobileDisburseModal.sim) return;
+
+                  // Validar percentuais
+                  const totalPercentual = mobileDisburseModal.form.percentual_atendente1 + mobileDisburseModal.form.percentual_atendente2;
+                  if (totalPercentual > 100) {
+                    toast.error("A soma dos percentuais não pode ultrapassar 100%");
+                    return;
+                  }
+
                   try {
                     await api.post(`/finance/mobile/${mobileDisburseModal.sim.id}/disburse`, {
                       consultoria_bruta: mobileDisburseModal.form.consultoria_bruta,
@@ -1252,12 +1328,18 @@ export default function Page() {
                       tem_corretor: mobileDisburseModal.form.tem_corretor,
                       corretor_nome: mobileDisburseModal.form.corretor_nome || null,
                       corretor_comissao_valor: mobileDisburseModal.form.corretor_comissao_valor,
-                      percentual_atendente: mobileDisburseModal.form.percentual_atendente || undefined,
-                      atendente_user_id: mobileDisburseModal.form.atendente_user_id || undefined,
+                      atendente1_user_id: mobileDisburseModal.form.atendente1_user_id || undefined,
+                      percentual_atendente1: mobileDisburseModal.form.percentual_atendente1,
+                      atendente2_user_id: mobileDisburseModal.form.atendente2_user_id || undefined,
+                      percentual_atendente2: mobileDisburseModal.form.percentual_atendente2,
                     });
                     queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
+                    queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
+                    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                    queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
+                    queryClient.invalidateQueries({ queryKey: ["finance", "commissions"] });
                     setMobileDisburseModal({open:false, sim:null, form: mobileDisburseModal.form});
-                    toast.success("Contrato efetivado");
+                    toast.success("Contrato efetivado com sucesso!");
                   } catch (error:any) {
                     toast.error(error?.response?.data?.detail || "Erro ao efetivar contrato");
                   }
