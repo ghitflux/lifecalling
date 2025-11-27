@@ -7,7 +7,7 @@ import io
 from ..db import SessionLocal
 from ..rbac import require_roles
 from ..models import (
-    Client, Case, PayrollClient, PayrollContract, PayrollLine, ClientPhone, ClientAddress
+    Client, Case, CaseEvent, PayrollClient, PayrollContract, PayrollLine, ClientPhone, ClientAddress
 )
 from ..schemas import (
     ClientAddressCreate, ClientAddressUpdate, ClientAddressResponse,
@@ -1794,3 +1794,82 @@ async def bulk_update_cadastro(
     db.commit()
 
     return result
+
+
+@r.post("/{client_id}/cases")
+def create_client_case(
+    client_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "atendente"))
+):
+    """
+    Cria um novo caso para um cliente.
+
+    Validações:
+    - Cliente deve existir
+    - Cliente não pode ter caso com status: novo, caso_cancelado, em_atendimento
+    - Não afeta contratos efetivados existentes
+    - Permite múltiplos contratos ativos/efetivados
+    """
+    from ..models import now_brt
+
+    # Verificar se cliente existe
+    client = db.query(Client).get(client_id)
+    if not client:
+        raise HTTPException(404, "Cliente não encontrado")
+
+    # Validar: verificar se cliente já tem caso com status proibidos
+    forbidden_statuses = ["novo", "caso_cancelado", "em_atendimento"]
+    existing_case = db.query(Case).filter(
+        Case.client_id == client_id,
+        Case.status.in_(forbidden_statuses)
+    ).first()
+
+    if existing_case:
+        status_labels = {
+            "novo": "Novo",
+            "caso_cancelado": "Cancelado",
+            "em_atendimento": "Em Atendimento"
+        }
+        status_label = status_labels.get(existing_case.status, existing_case.status)
+        raise HTTPException(
+            400,
+            f"Cliente já possui um caso com status '{status_label}'. "
+            f"Não é possível criar um novo caso enquanto houver casos com status: "
+            f"Novo, Cancelado ou Em Atendimento."
+        )
+
+    # Criar novo caso
+    new_case = Case(
+        client_id=client_id,
+        status="novo",
+        created_at=now_brt(),
+        last_update_at=now_brt(),
+        source="manual"
+    )
+
+    db.add(new_case)
+    db.flush()  # Gera o ID do caso antes de criar o evento
+
+    # Registrar evento de criação
+    db.add(CaseEvent(
+        case_id=new_case.id,
+        type="case.created",
+        payload={
+            "created_by": user.name,
+            "created_by_id": user.id,
+            "client_id": client_id,
+            "client_name": client.name,
+            "client_cpf": client.cpf
+        },
+        created_by=user.id
+    ))
+
+    db.commit()
+    db.refresh(new_case)
+
+    return {
+        "ok": True,
+        "case_id": new_case.id,
+        "message": f"Caso #{new_case.id} criado com sucesso para o cliente {client.name}"
+    }

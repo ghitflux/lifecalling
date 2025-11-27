@@ -9,7 +9,7 @@ import { StatusBadge } from "@lifecalling/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle, MapPin } from "lucide-react";
+import { ArrowLeft, User, FileText, Calendar, DollarSign, Trash2, AlertTriangle, MapPin, Plus } from "lucide-react";
 import Financiamentos from "@/components/clients/Financiamentos";
 import { Snippet } from "@nextui-org/snippet";
 import CaseChat from "@/components/case/CaseChat";
@@ -117,8 +117,32 @@ export default function ClienteDetalhe() {
     }
   });
 
+  // Mutation para criar novo caso
+  const createCaseMutation = useMutation({
+    mutationFn: async (clientId: number) => {
+      const response = await api.post(`/clients/${clientId}/cases`);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["clientCases", id] });
+      queryClient.invalidateQueries({ queryKey: ["/clients", id] });
+      toast.success(data.message || "Caso criado com sucesso!");
+      setShowCreateCaseModal(false);
+      // Redirecionar para o novo caso
+      if (data.case_id) {
+        router.push(`/casos/${data.case_id}`);
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.detail || "Erro ao criar caso";
+      toast.error(errorMessage);
+      setShowCreateCaseModal(false);
+    }
+  });
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteCascadeModal, setShowDeleteCascadeModal] = useState(false);
+  const [showCreateCaseModal, setShowCreateCaseModal] = useState(false);
 
   const handleDeleteClient = () => {
     setShowDeleteModal(true);
@@ -354,10 +378,19 @@ export default function ClienteDetalhe() {
 
       {/* Casos Associados ao Cliente */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Casos Associados ao Cliente ({casos.length})
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Casos Associados ao Cliente ({casos.length})
+          </h2>
+          <Button
+            onClick={() => setShowCreateCaseModal(true)}
+            disabled={createCaseMutation.isPending}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Abrir Novo Caso
+          </Button>
+        </div>
 
         {casosLoading ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -533,6 +566,36 @@ export default function ClienteDetalhe() {
               disabled={deleteClientMutation.isPending}
             >
               {deleteClientMutation.isPending ? 'Excluindo...' : 'Confirmar Exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Criação de Caso */}
+      <Dialog open={showCreateCaseModal} onOpenChange={setShowCreateCaseModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-blue-600" />
+              Abrir Novo Caso
+            </DialogTitle>
+            <DialogDescription>
+              Deseja criar um novo caso para o cliente <strong>{client?.nome}</strong>?
+              <br />
+              <br />
+              O novo caso será criado com status "Novo" e ficará disponível na esteira de atendimento.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateCaseModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createCaseMutation.mutate(parseInt(id))}
+              disabled={createCaseMutation.isPending}
+            >
+              {createCaseMutation.isPending ? 'Criando...' : 'Criar Caso'}
             </Button>
           </DialogFooter>
         </DialogContent>
