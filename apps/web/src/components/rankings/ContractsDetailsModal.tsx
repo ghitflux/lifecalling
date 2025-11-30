@@ -203,9 +203,6 @@ export function ContractsDetailsModal({
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Contratos de {userName}</DialogTitle>
-          <DialogDescription>
-            Período: {formatDate(startDate)} - {formatDate(endDate)}
-          </DialogDescription>
         </DialogHeader>
         {content}
       </DialogContent>

@@ -8,6 +8,7 @@ from ..models import User, Case, Contract, Client
 from datetime import datetime, timedelta, date
 import io
 import csv
+import math
 
 r = APIRouter(prefix="/rankings", tags=["rankings"])
 
@@ -64,8 +65,11 @@ def _calcular_consultoria_liquida_por_usuario(
         .filter(FinanceIncome.agent_user_id.isnot(None))
         .filter(FinanceIncome.income_type.in_([
             "Consultoria Líquida - Atendente",
+            "Consultoria Líquida - Atendente 1",  # ✅ NOVO: Suporte para distribuição
+            "Consultoria Líquida - Atendente 2",  # ✅ NOVO: Suporte para distribuição
             "Consultoria Líquida - Balcão",
-            "Consultoria Líquida"
+            "Consultoria Líquida",
+            "Contrato Mobile"  # ✅ NOVO: Suporte para contratos mobile
         ]))
     )
 
@@ -203,34 +207,59 @@ def ranking_agents(
     all_users = all_users_q.offset((page-1)*per_page).limit(per_page).all()
     total_users = all_users_q.count()
 
-    # Estratégia para encontrar o atendente dono do contrato:
-    # 1) se Contract tiver agent_user_id, use;
-    # 2) senão, pegue Case.assigned_user_id (fallback).
-    owner_user_id = case(
-        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
-        else_=Case.assigned_user_id
-    )
+    # ✅ NOVA LÓGICA: Contar contratos considerando distribuição proporcional
+    # Se existir ContractAgent, usar percentual (contrato compartilhado)
+    # Se não existir, usar lógica legada (1 contrato completo)
 
-    # Buscar quantidade de contratos para o período atual
-    contracts_q = (
-        db.query(
-            owner_user_id.label("user_id"),
-            func.count(Contract.id).label("qtd")
-        )
-        .join(Case, Case.id == Contract.case_id, isouter=True)
-        .filter(Contract.status == "ativo")
-    )
+    from ..models import ContractAgent
 
-    # Aplicar filtro de data usando signed_at como principal
+    # Query base de contratos no período
+    contracts_base_q = db.query(Contract).filter(Contract.status == "ativo")
+
     if from_ and to:
-        contracts_q = contracts_q.filter(
+        contracts_base_q = contracts_base_q.filter(
             func.coalesce(
                 Contract.signed_at, Contract.disbursed_at, Contract.created_at
             ).between(start, end)
         )
 
-    contracts_data = contracts_q.group_by(owner_user_id).all()
-    contracts_map = {r.user_id: {"qtd": r.qtd} for r in contracts_data}
+    all_contracts = contracts_base_q.all()
+
+    # Mapear contratos por usuário (considerando distribuição)
+    contracts_map = {}
+
+    for contract in all_contracts:
+        # Verificar se tem distribuição em ContractAgent
+        agents = db.query(ContractAgent).filter(
+            ContractAgent.contract_id == contract.id
+        ).all()
+
+        if agents:
+            # TEM DISTRIBUIÇÃO: contar proporcionalmente
+            for agent in agents:
+                user_id = agent.user_id
+                percentual_frac = float(agent.percentual) / 100.0  # 30% = 0.3 contratos
+
+                if user_id not in contracts_map:
+                    contracts_map[user_id] = {"qtd": 0.0}
+
+                contracts_map[user_id]["qtd"] += percentual_frac
+        else:
+            # SEM DISTRIBUIÇÃO (legado): usar agent_user_id ou assigned_user_id
+            # Conta 1 contrato completo para o atendente
+            case = db.query(Case).filter(Case.id == contract.case_id).first()
+            owner_id = contract.agent_user_id or (case.assigned_user_id if case else None)
+
+            if owner_id:
+                if owner_id not in contracts_map:
+                    contracts_map[owner_id] = {"qtd": 0.0}
+
+                contracts_map[owner_id]["qtd"] += 1.0
+
+    # ✅ AJUSTE: Arredondar contratos para INTEIRO (sempre para cima se houver fração)
+    for user_id in contracts_map:
+        # Se tem pelo menos uma fração de contrato, arredondar para cima
+        contracts_map[user_id]["qtd"] = math.ceil(contracts_map[user_id]["qtd"])
 
     # Buscar consultoria líquida por atendente (NOVO: com dedução de despesas)
     consultoria_liquida_map = _calcular_consultoria_liquida_por_usuario(
@@ -244,24 +273,51 @@ def ranking_agents(
     for user_id in contracts_map:
         contracts_map[user_id]["consult_sum"] = consultoria_liquida_map.get(user_id, 0)
 
-    # Período anterior para trend - quantidade de contratos
-    prev_q = (
-        db.query(
-            owner_user_id.label("user_id"),
-            func.count(Contract.id).label("qtd")
-        )
-        .join(Case, Case.id == Contract.case_id, isouter=True)
-        .filter(Contract.status == "ativo")
-        .group_by(owner_user_id)
-    )
+    # Período anterior para trend - quantidade de contratos (COM DISTRIBUIÇÃO)
+    prev_contracts_base_q = db.query(Contract).filter(Contract.status == "ativo")
+
     if from_ and to:
-        prev_q = prev_q.filter(
+        prev_contracts_base_q = prev_contracts_base_q.filter(
             func.coalesce(
                 Contract.signed_at, Contract.disbursed_at, Contract.created_at
             ).between(prev_start, prev_end)
         )
-    prev = prev_q.all()
-    prev_map = {r.user_id: {"qtd": r.qtd} for r in prev}
+
+    prev_contracts = prev_contracts_base_q.all()
+
+    # Mapear contratos do período anterior por usuário (considerando distribuição)
+    prev_map = {}
+
+    for contract in prev_contracts:
+        # Verificar se tem distribuição em ContractAgent
+        agents = db.query(ContractAgent).filter(
+            ContractAgent.contract_id == contract.id
+        ).all()
+
+        if agents:
+            # TEM DISTRIBUIÇÃO: contar proporcionalmente
+            for agent in agents:
+                user_id = agent.user_id
+                percentual_frac = float(agent.percentual) / 100.0
+
+                if user_id not in prev_map:
+                    prev_map[user_id] = {"qtd": 0.0}
+
+                prev_map[user_id]["qtd"] += percentual_frac
+        else:
+            # SEM DISTRIBUIÇÃO (legado)
+            case = db.query(Case).filter(Case.id == contract.case_id).first()
+            owner_id = contract.agent_user_id or (case.assigned_user_id if case else None)
+
+            if owner_id:
+                if owner_id not in prev_map:
+                    prev_map[owner_id] = {"qtd": 0.0}
+
+                prev_map[owner_id]["qtd"] += 1.0
+
+    # ✅ AJUSTE: Arredondar contratos para INTEIRO (sempre para cima se houver fração)
+    for user_id in prev_map:
+        prev_map[user_id]["qtd"] = math.ceil(prev_map[user_id]["qtd"])
 
     # Buscar consultoria líquida do período anterior (NOVO: com dedução de despesas)
     prev_consultoria_map = _calcular_consultoria_liquida_por_usuario(
@@ -883,19 +939,39 @@ def get_user_contracts(
 
     start, end, _, _ = _parse_range(from_, to)
 
-    # Estratégia para encontrar o atendente dono do contrato
-    owner_user_id = case(
-        (Contract.agent_user_id.isnot(None), Contract.agent_user_id),
-        else_=Case.assigned_user_id
+    # ✅ NOVA LÓGICA: Buscar contratos considerando ContractAgent (distribuição)
+    from ..models import ContractAgent
+
+    # Buscar contratos onde o usuário está em ContractAgent OU é o agent_user_id/assigned_user_id
+    # Subconsulta: IDs de contratos onde o usuário está em ContractAgent
+    contract_ids_from_agents = (
+        db.query(ContractAgent.contract_id)
+        .filter(ContractAgent.user_id == user_id)
+        .subquery()
     )
 
-    # Query base de contratos do usuário
+    # Importar operadores SQL
+    from sqlalchemy import or_, and_
+
+    # Query base: contratos do usuário (via ContractAgent OU agent_user_id/assigned_user_id)
     base_query = (
         db.query(Contract, Case, Client)
         .join(Case, Case.id == Contract.case_id)
         .join(Client, Client.id == Case.client_id)
         .filter(Contract.status == "ativo")
-        .filter(owner_user_id == user_id)
+        .filter(
+            or_(
+                # Contrato compartilhado (via ContractAgent)
+                Contract.id.in_(contract_ids_from_agents),
+                # Contrato legado (via agent_user_id ou assigned_user_id)
+                and_(
+                    ~Contract.id.in_(
+                        db.query(ContractAgent.contract_id).distinct()
+                    ),
+                    func.coalesce(Contract.agent_user_id, Case.assigned_user_id) == user_id
+                )
+            )
+        )
     )
 
     # Aplicar filtro de data
@@ -918,15 +994,24 @@ def get_user_contracts(
     # Buscar contratos
     results = contracts_query.all()
 
-    # Calcular totalizadores
+    # Calcular totalizadores (mesma lógica de filtro que base_query)
     summary_query = (
-        db.query(
-            func.count(Contract.id).label("total_contracts"),
-            func.coalesce(func.sum(Contract.consultoria_valor_liquido), 0).label("total_consultoria")
-        )
+        db.query(Contract, Case)
         .join(Case, Case.id == Contract.case_id)
         .filter(Contract.status == "ativo")
-        .filter(owner_user_id == user_id)
+        .filter(
+            or_(
+                # Contrato compartilhado (via ContractAgent)
+                Contract.id.in_(contract_ids_from_agents),
+                # Contrato legado (via agent_user_id ou assigned_user_id)
+                and_(
+                    ~Contract.id.in_(
+                        db.query(ContractAgent.contract_id).distinct()
+                    ),
+                    func.coalesce(Contract.agent_user_id, Case.assigned_user_id) == user_id
+                )
+            )
+        )
     )
 
     if from_ and to:
@@ -936,14 +1021,58 @@ def get_user_contracts(
             ).between(start, end)
         )
 
-    summary_result = summary_query.first()
-    total_contracts = int(summary_result.total_contracts or 0)
-    total_consultoria = float(summary_result.total_consultoria or 0)
+    summary_contracts = summary_query.all()
+
+    # Calcular totais considerando distribuição proporcional
+    total_contracts = 0.0
+    total_consultoria = 0.0
+
+    for contract, case_obj in summary_contracts:
+        # Buscar percentual do usuário neste contrato
+        agent_record = db.query(ContractAgent).filter(
+            ContractAgent.contract_id == contract.id,
+            ContractAgent.user_id == user_id
+        ).first()
+
+        if agent_record:
+            # Contrato compartilhado - contar proporcionalmente
+            percentual_frac = float(agent_record.percentual) / 100.0
+            total_contracts += percentual_frac
+
+            # Consultoria proporcional (usar receita real do FinanceIncome)
+            # A consultoria_valor_liquido do contrato é o valor TOTAL
+            # Mas a receita já foi distribuída corretamente no FinanceIncome
+        else:
+            # Contrato legado - contar 100%
+            total_contracts += 1.0
+
+    # Buscar consultoria líquida real do FinanceIncome (já distribuída)
+    consultoria_map = _calcular_consultoria_liquida_por_usuario(
+        db,
+        start_date=start if (from_ and to) else None,
+        end_date=end if (from_ and to) else None,
+        user_id=user_id
+    )
+    total_consultoria = consultoria_map.get(user_id, 0)
+
+    # ✅ AJUSTE: Arredondar contratos para INTEIRO (sempre para cima se houver fração)
+    total_contracts = math.ceil(total_contracts) if total_contracts > 0 else 0
     ticket_medio = (total_consultoria / total_contracts) if total_contracts > 0 else 0
 
     # Formatar itens
     items = []
     for contract, case_obj, client in results:
+        # Buscar percentual do usuário neste contrato
+        agent_record = db.query(ContractAgent).filter(
+            ContractAgent.contract_id == contract.id,
+            ContractAgent.user_id == user_id
+        ).first()
+
+        percentual_usuario = float(agent_record.percentual) if agent_record else 100.0
+
+        # Consultoria proporcional do usuário
+        consultoria_proporcional = float(contract.consultoria_valor_liquido or 0) * (percentual_usuario / 100.0)
+
         items.append({
             "contract_id": contract.id,
             "case_id": case_obj.id,
@@ -961,6 +1090,8 @@ def get_user_contracts(
             "consultoria_valor_liquido": float(
                 contract.consultoria_valor_liquido or 0
             ),
+            "consultoria_proporcional": round(consultoria_proporcional, 2),  # Valor proporcional do usuário
+            "percentual_usuario": percentual_usuario,  # Percentual do usuário neste contrato
             "total_amount": float(contract.total_amount or 0),
             "installments": contract.installments or 0,
             "status": contract.status,

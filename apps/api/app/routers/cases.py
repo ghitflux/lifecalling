@@ -493,9 +493,23 @@ def list_attachments(case_id: int, user=Depends(get_current_user)):
         if not c:
             raise HTTPException(404, "Case not found")
 
-        attachments = (
-            db.query(Attachment).filter(Attachment.case_id == case_id).all()
+        # ✅ AJUSTE: Buscar anexos de TODOS os casos do mesmo cliente
+        # Buscar todos os case_ids do mesmo cliente
+        all_cases_of_client = (
+            db.query(Case.id)
+            .filter(Case.client_id == c.client_id)
+            .all()
         )
+        case_ids = [case.id for case in all_cases_of_client]
+
+        # Buscar anexos de todos os casos do cliente
+        attachments = (
+            db.query(Attachment)
+            .filter(Attachment.case_id.in_(case_ids))
+            .order_by(Attachment.created_at.desc())
+            .all()
+        )
+
         return {
             "items": [
                 {
@@ -507,6 +521,8 @@ def list_attachments(case_id: int, user=Depends(get_current_user)):
                         a.created_at.isoformat() if a.created_at else None
                     ),
                     "uploaded_by": a.uploaded_by,
+                    "case_id": a.case_id,  # ✅ NOVO: Indicar de qual caso é o anexo
+                    "is_from_current_case": a.case_id == case_id,  # ✅ NOVO: Flag para identificar se é do caso atual
                 }
                 for a in attachments
             ]

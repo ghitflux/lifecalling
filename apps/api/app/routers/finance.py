@@ -912,6 +912,79 @@ async def disburse_simple(
             db.add(ct)
             db.flush()
 
+            # ✅ CRIAR REGISTROS EM ContractAgent PARA DISTRIBUIÇÃO
+            from ..models import ContractAgent
+
+            # Limpar registros antigos se houver
+            db.query(ContractAgent).filter(
+                ContractAgent.contract_id == ct.id
+            ).delete()
+
+            # Criar novos registros baseado na distribuição
+            if data.atendente1_user_id or data.atendente2_user_id:
+                # Nova lógica com até 2 agentes
+                if data.atendente1_user_id and data.percentual_atendente1:
+                    agent1 = ContractAgent(
+                        contract_id=ct.id,
+                        user_id=data.atendente1_user_id,
+                        percentual=data.percentual_atendente1,
+                        is_primary=True  # Primeiro atendente é o principal
+                    )
+                    db.add(agent1)
+
+                if data.atendente2_user_id and data.percentual_atendente2:
+                    agent2 = ContractAgent(
+                        contract_id=ct.id,
+                        user_id=data.atendente2_user_id,
+                        percentual=data.percentual_atendente2,
+                        is_primary=False
+                    )
+                    db.add(agent2)
+
+                # Balcão recebe o restante
+                percentual1 = data.percentual_atendente1 or 0
+                percentual2 = data.percentual_atendente2 or 0
+                percentual_balcao = 100 - percentual1 - percentual2
+
+                if percentual_balcao > 0 and balcao_user_id:
+                    agent_balcao = ContractAgent(
+                        contract_id=ct.id,
+                        user_id=balcao_user_id,
+                        percentual=percentual_balcao,
+                        is_primary=False
+                    )
+                    db.add(agent_balcao)
+            elif data.percentual_atendente and data.atendente_user_id:
+                # Compatibilidade com campo único
+                agent = ContractAgent(
+                    contract_id=ct.id,
+                    user_id=data.atendente_user_id,
+                    percentual=data.percentual_atendente,
+                    is_primary=True
+                )
+                db.add(agent)
+
+                # Balcão recebe o restante
+                percentual_balcao = 100.0 - data.percentual_atendente
+                if percentual_balcao > 0 and balcao_user_id:
+                    agent_balcao = ContractAgent(
+                        contract_id=ct.id,
+                        user_id=balcao_user_id,
+                        percentual=percentual_balcao,
+                        is_primary=False
+                    )
+                    db.add(agent_balcao)
+            else:
+                # Sem distribuição - 100% para balcão ou atendente do caso
+                if ct.agent_user_id:
+                    agent = ContractAgent(
+                        contract_id=ct.id,
+                        user_id=ct.agent_user_id,
+                        percentual=100.0,
+                        is_primary=True
+                    )
+                    db.add(agent)
+
             # ✅ CRIAR DESPESA DE IMPOSTO AUTOMATICAMENTE
             if imposto_valor > 0:
                 from ..models import FinanceExpense
