@@ -31,17 +31,17 @@ const NAV: Item[] = [
   { label: "Auditoria", href: "/admin/auditoria/sla", icon: Shield, roles: ["admin", "supervisor"] },
   { label: "Importação", href: "/importacao", icon: Upload, roles: ["admin"] },
   { label: "Usuários", href: "/usuarios", icon: Users, roles: ["admin"] },
-  {
-    label: "Life Mobile",
-    href: "/life-mobile",
-    icon: Smartphone,
-    roles: ["admin", "supervisor", "atendente"],
-    subItems: [
-      { label: "Dashboard", href: "/life-mobile" },
-      { label: "Clientes", href: "/life-mobile/clientes" },
-      { label: "Simulações", href: "/life-mobile/simulacoes" }
-    ]
-  },
+  // {
+  //   label: "Life Mobile",
+  //   href: "/life-mobile",
+  //   icon: Smartphone,
+  //   roles: ["admin", "supervisor", "atendente"],
+  //   subItems: [
+  //     { label: "Dashboard", href: "/life-mobile" },
+  //     { label: "Clientes", href: "/life-mobile/clientes" },
+  //     { label: "Simulações", href: "/life-mobile/simulacoes" }
+  //   ]
+  // },
   { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
 ];
 
@@ -49,7 +49,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const role = user?.role ?? "atendente";
   const [collapsed, setCollapsed] = useState<boolean>(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["Life Mobile"]); // Default expand Life Mobile for visibility
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]); // Default expand Life Mobile for visibility
   const pathname = usePathname();
 
   const toggleMenu = (label: string) => {
