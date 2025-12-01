@@ -20,6 +20,7 @@ import {
   useFinanceMobileCancel,
   useFinanceDisburseSimple
 } from "@/lib/hooks";
+import { mobileApi } from "@/services/mobileApi";
 import {
   ExpenseModal,
   IncomeModal,
@@ -36,7 +37,12 @@ import {
   Pagination,
   KPICard,
   MiniAreaChart,
-  DateRangeFilterWithCalendar
+  DateRangeFilterWithCalendar,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
 } from "@lifecalling/ui";
 import { formatCurrency } from "@/lib/utils/currency";
 import React, { useState, useMemo } from "react";
@@ -74,6 +80,13 @@ export default function Page() {
   useLiveCaseEvents();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: (() => Promise<void>) | null;
+  }>({ open: false, title: "", description: "", onConfirm: null });
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Função para atualizar tabela de receitas e despesas
   const handleRefreshTransactions = () => {
@@ -92,6 +105,12 @@ export default function Page() {
 
   const { data: items = [], isLoading: loadingQueue } = useFinanceQueue();
   const { data: mobileItems = [], isLoading: loadingMobileQueue } = useFinanceMobileQueue();
+  const { data: adminSimulations = [] } = useQuery({
+    queryKey: ["adminSimulations"],
+    queryFn: mobileApi.getAdminSimulations,
+    staleTime: 60_000
+  });
+  const [mobileStatusFilter, setMobileStatusFilter] = useState<"approved_by_client" | "financeiro_pendente" | "contrato_efetivado" | "financeiro_cancelado">("approved_by_client");
   const mobileCancel = useFinanceMobileCancel();
   const [mobileDisburseModal, setMobileDisburseModal] = useState<{open:boolean; sim:any | null; form:{consultoria_bruta:number; imposto_percentual:number; tem_corretor:boolean; corretor_nome:string; corretor_comissao_valor:number | null; atendente1_user_id:number | null; percentual_atendente1:number; atendente2_user_id:number | null; percentual_atendente2:number}}>({
     open: false,
@@ -981,13 +1000,31 @@ export default function Page() {
             Atualizar
           </Button>
         </div>
+        <div className="flex items-center gap-2 text-sm text-slate-300">
+          <span>Filtro:</span>
+          {([
+            { value: "approved_by_client", label: "Aguardando Financeiro" },
+            { value: "contrato_efetivado", label: "Efetivados" },
+            { value: "financeiro_cancelado", label: "Cancelados" }
+          ] as const).map(f => (
+            <Button
+              key={f.value}
+              variant={mobileStatusFilter === f.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMobileStatusFilter(f.value)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
         {loadingMobileQueue ? (
           <div className="text-center py-6 text-muted-foreground">Carregando contratos mobile...</div>
-        ) : mobileItems.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground">Nenhuma simulação mobile aguardando ação.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {mobileItems.map((sim: any) => (
+            {(mobileStatusFilter === "approved_by_client"
+              ? mobileItems
+              : adminSimulations.filter((sim: any) => (sim.status || "").toLowerCase() === mobileStatusFilter)
+            ).map((sim: any) => (
               <div key={sim.id} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex flex-col gap-1">
@@ -1020,42 +1057,100 @@ export default function Page() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Button
-                    className="bg-emerald-600 hover:bg-emerald-700 flex-1"
-                    onClick={() => {
-                      setMobileDisburseModal({
-                        open: true,
-                        sim,
-                        form: {
-                          consultoria_bruta: Number(sim.total_amount || sim.requested_amount || 0),
-                          imposto_percentual: 14,
-                          tem_corretor: false,
-                          corretor_nome: "",
-                          corretor_comissao_valor: null,
-                          atendente1_user_id: null,
-                          percentual_atendente1: 0,
-                          atendente2_user_id: null,
-                          percentual_atendente2: 0
-                        }
-                      });
-                    }}
-                  >
-                    Efetivar Contrato
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={() => mobileCancel.mutate(sim.id)}
-                    disabled={mobileCancel.isPending}
-                  >
-                    {mobileCancel.isPending ? "Cancelando..." : "Cancelar"}
-                  </Button>
+                  {mobileStatusFilter === "approved_by_client" && (
+                    <>
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700 flex-1"
+                        onClick={() => {
+                          setMobileDisburseModal({
+                            open: true,
+                            sim,
+                            form: {
+                              consultoria_bruta: Number(sim.total_amount || sim.requested_amount || 0),
+                              imposto_percentual: 14,
+                              tem_corretor: false,
+                              corretor_nome: "",
+                              corretor_comissao_valor: null,
+                              atendente1_user_id: null,
+                              percentual_atendente1: 0,
+                              atendente2_user_id: null,
+                              percentual_atendente2: 0
+                            }
+                          });
+                        }}
+                      >
+                        Efetivar Contrato
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => mobileCancel.mutate(sim.id)}
+                        disabled={mobileCancel.isPending}
+                      >
+                        {mobileCancel.isPending ? "Cancelando..." : "Cancelar"}
+                      </Button>
+                    </>
+                  )}
+                  {mobileStatusFilter !== "approved_by_client" && (
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => {
+                        setConfirmModal({
+                          open: true,
+                          title: "Reabrir contrato mobile",
+                          description: "As receitas e despesas serão removidas e o contrato voltará para a fila de financeiro. Confirme para continuar.",
+                          onConfirm: async () => {
+                            await api.post(`/finance/mobile/${sim.id}/reopen`);
+                            toast.success("Contrato reaberto para ajuste");
+                            queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
+                            queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
+                          }
+                        });
+                      }}
+                    >
+                      Reabrir para Ajuste
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+    </div>
+
+      {/* Modal de Confirmação Global */}
+      <Dialog open={confirmModal.open} onOpenChange={(open) => setConfirmModal(m => ({ ...m, open }))}>
+        <DialogContent className="bg-slate-900 text-slate-100 border border-slate-800">
+          <DialogHeader>
+            <DialogTitle>{confirmModal.title}</DialogTitle>
+            {confirmModal.description && <DialogDescription className="text-slate-400">{confirmModal.description}</DialogDescription>}
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmModal({ open: false, title: "", description: "", onConfirm: null })}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={confirmLoading}
+              onClick={async () => {
+                if (!confirmModal.onConfirm) return;
+                setConfirmLoading(true);
+                try {
+                  await confirmModal.onConfirm();
+                  setConfirmModal({ open: false, title: "", description: "", onConfirm: null });
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setConfirmLoading(false);
+                }
+              }}
+            >
+              {confirmLoading ? "Processando..." : "Confirmar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Efetivar Contrato Mobile */}
       {mobileDisburseModal.open && mobileDisburseModal.sim && (
@@ -1193,7 +1288,7 @@ export default function Page() {
                       onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente1_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
                     >
                       <option value="">Balcão (sem atendente)</option>
-                      {users.map((u:any) => (
+                      {users.filter((u:any) => u.role === "atendente").map((u:any) => (
                         <option key={u.id} value={u.id}>{u.name}</option>
                       ))}
                     </select>
@@ -1229,7 +1324,7 @@ export default function Page() {
                       onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente2_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
                     >
                       <option value="">Nenhum</option>
-                      {users.map((u:any) => (
+                      {users.filter((u:any) => u.role === "atendente").map((u:any) => (
                         <option key={u.id} value={u.id}>{u.name}</option>
                       ))}
                     </select>
@@ -1326,38 +1421,40 @@ export default function Page() {
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700"
                 disabled={mobileDisburseModal.form.percentual_atendente1 + mobileDisburseModal.form.percentual_atendente2 > 100}
-                onClick={async () => {
+                onClick={() => {
                   if (!mobileDisburseModal.sim) return;
 
-                  // Validar percentuais
                   const totalPercentual = mobileDisburseModal.form.percentual_atendente1 + mobileDisburseModal.form.percentual_atendente2;
                   if (totalPercentual > 100) {
                     toast.error("A soma dos percentuais não pode ultrapassar 100%");
                     return;
                   }
 
-                  try {
-                    await api.post(`/finance/mobile/${mobileDisburseModal.sim.id}/disburse`, {
-                      consultoria_bruta: mobileDisburseModal.form.consultoria_bruta,
-                      imposto_percentual: mobileDisburseModal.form.imposto_percentual,
-                      tem_corretor: mobileDisburseModal.form.tem_corretor,
-                      corretor_nome: mobileDisburseModal.form.corretor_nome || null,
-                      corretor_comissao_valor: mobileDisburseModal.form.corretor_comissao_valor,
-                      atendente1_user_id: mobileDisburseModal.form.atendente1_user_id || undefined,
-                      percentual_atendente1: mobileDisburseModal.form.percentual_atendente1,
-                      atendente2_user_id: mobileDisburseModal.form.atendente2_user_id || undefined,
-                      percentual_atendente2: mobileDisburseModal.form.percentual_atendente2,
-                    });
-                    queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
-                    queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
-                    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-                    queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
-                    queryClient.invalidateQueries({ queryKey: ["finance", "commissions"] });
-                    setMobileDisburseModal({open:false, sim:null, form: mobileDisburseModal.form});
-                    toast.success("Contrato efetivado com sucesso!");
-                  } catch (error:any) {
-                    toast.error(error?.response?.data?.detail || "Erro ao efetivar contrato");
-                  }
+                  setConfirmModal({
+                    open: true,
+                    title: "Confirmar efetivação",
+                    description: "Esta ação efetiva o contrato mobile e gera lançamentos financeiros. Confirme para continuar.",
+                    onConfirm: async () => {
+                      await api.post(`/finance/mobile/${mobileDisburseModal.sim!.id}/disburse`, {
+                        consultoria_bruta: mobileDisburseModal.form.consultoria_bruta,
+                        imposto_percentual: mobileDisburseModal.form.imposto_percentual,
+                        tem_corretor: mobileDisburseModal.form.tem_corretor,
+                        corretor_nome: mobileDisburseModal.form.corretor_nome || null,
+                        corretor_comissao_valor: mobileDisburseModal.form.corretor_comissao_valor,
+                        atendente1_user_id: mobileDisburseModal.form.atendente1_user_id || undefined,
+                        percentual_atendente1: mobileDisburseModal.form.percentual_atendente1,
+                        atendente2_user_id: mobileDisburseModal.form.atendente2_user_id || undefined,
+                        percentual_atendente2: mobileDisburseModal.form.percentual_atendente2,
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["financeMobileQueue"] });
+                      queryClient.invalidateQueries({ queryKey: ["financeQueue"] });
+                      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                      queryClient.invalidateQueries({ queryKey: ["financeMetrics"] });
+                      queryClient.invalidateQueries({ queryKey: ["finance", "commissions"] });
+                      setMobileDisburseModal({open:false, sim:null, form: mobileDisburseModal.form});
+                      toast.success("Contrato efetivado com sucesso!");
+                    }
+                  });
                 }}
               >
                 <CreditCard className="h-4 w-4 mr-1" />
@@ -1492,7 +1589,7 @@ export default function Page() {
                     }}
                     fullCaseDetails={selectedCaseId === item.id ? fullCaseDetails : undefined}
                     onLoadFullDetails={handleLoadFullDetails}
-                    availableUsers={users}
+                    availableUsers={users.filter((u: any) => u.role === "atendente")}
                     assignedUserId={item.assigned_user_id}
                   />
                 );
@@ -1934,7 +2031,7 @@ export default function Page() {
                 created_at: financeCardDetails.created_at
               }}
               fullCaseDetails={financeCardDetails}
-              availableUsers={users}
+              availableUsers={users.filter((u: any) => u.role === "atendente")}
               assignedUserId={financeCardDetails.assigned_user_id}
             />
           </div>

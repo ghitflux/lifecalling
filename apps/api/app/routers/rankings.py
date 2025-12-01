@@ -63,14 +63,17 @@ def _calcular_consultoria_liquida_por_usuario(
             ).label("receitas_liquidas")
         )
         .filter(FinanceIncome.agent_user_id.isnot(None))
-        .filter(FinanceIncome.income_type.in_([
-            "Consultoria Líquida - Atendente",
-            "Consultoria Líquida - Atendente 1",  # ✅ NOVO: Suporte para distribuição
-            "Consultoria Líquida - Atendente 2",  # ✅ NOVO: Suporte para distribuição
-            "Consultoria Líquida - Balcão",
-            "Consultoria Líquida",
-            "Contrato Mobile"  # ✅ NOVO: Suporte para contratos mobile
-        ]))
+        .filter(
+            (FinanceIncome.income_type.in_([
+                "Consultoria Líquida - Atendente",
+                "Consultoria Líquida - Atendente 1",
+                "Consultoria Líquida - Atendente 2",
+                "Consultoria Líquida - Balcão",
+                "Consultoria Líquida",
+                "Contrato Mobile"
+            ])) |
+            (FinanceIncome.origin == "mobile")  # ✅ Incluir TODAS as receitas com origin='mobile'
+        )
     )
 
     if user_id:
@@ -199,8 +202,8 @@ def ranking_agents(
 
     start, end, prev_start, prev_end = _parse_range(from_, to)
 
-    # Buscar TODOS os usuários do sistema (não só atendentes)
-    all_users_q = db.query(User)
+    # Buscar APENAS usuários com role "atendente"
+    all_users_q = db.query(User).filter(User.role == "atendente")
     if agent_id:
         all_users_q = all_users_q.filter(User.id == agent_id)
 

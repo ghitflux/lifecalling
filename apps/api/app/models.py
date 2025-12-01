@@ -20,6 +20,8 @@ class User(Base):
     email = Column(String(180), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(30), nullable=False)  # admin|supervisor|financeiro|calculista|atendente
+    cpf = Column(String(14), nullable=True)  # Clientes mobile podem preencher
+    phone = Column(String(20), nullable=True)  # WhatsApp/telefone preferencial
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=now_brt)
 
@@ -47,6 +49,10 @@ class Client(Base):
     status_desconto = Column(String(1), nullable=True)        # Status do desconto (1-6, S)
     status_legenda = Column(String(120), nullable=True)       # Descrição do status
     cpf_matricula = Column(String(60), nullable=True, index=True)  # Chave normalizada: cpf|matricula
+
+    # Auditoria
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=now_brt, nullable=True)
 
     __table_args__ = (UniqueConstraint('cpf','matricula', name='uq_client_cpf_matricula'),)
 
@@ -696,5 +702,21 @@ class MobileSimulation(Base):
     status = Column(String(20), default="pending")  # pending, approved, rejected
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
+
+    user = relationship("User")
+
+class MobileNotification(Base):
+    """
+    Notificações simples para usuários mobile.
+    """
+    __tablename__ = "mobile_notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String(50), default="info")
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=now_brt)
 
     user = relationship("User")

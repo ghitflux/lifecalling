@@ -820,7 +820,7 @@ export default function FinanceiroPageClient() {
 
   const availableFilters = [
     { id: "aprovado", label: "Aguardando Financeiro", value: "aprovado", color: "success" as const, count: statusCounts.aprovado },
-    { id: "liberado", label: "Contrato Efetivado", value: "liberado", color: "primary" as const, count: statusCounts.liberado },
+    { id: "liberado", label: "Efetivados", value: "liberado", color: "primary" as const, count: statusCounts.liberado },
     { id: "cancelado", label: "Cancelados", value: "cancelado", color: "danger" as const, count: statusCounts.cancelado }
   ];
 
@@ -986,68 +986,48 @@ export default function FinanceiroPageClient() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {mobileItems.map((sim: any) => (
-              <div key={sim.id} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm text-slate-400">Cliente</p>
-                    <p className="text-lg font-semibold text-slate-100">{sim.user?.name || "Cliente Mobile"}</p>
-                    <p className="text-xs text-slate-400 break-all">{sim.user?.email}</p>
-                  </div>
-                  <Badge variant="outline" className="bg-amber-500/15 text-amber-200 border-amber-500/40 capitalize px-3 py-1">
-                    {mobileStatusLabel(sim.status)}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm text-slate-300 mb-4">
-                  <div>
-                    <p className="text-slate-500">Valor Total</p>
-                    <p className="text-lg font-semibold text-slate-100">{formatCurrency(sim.total_amount || sim.requested_amount || 0)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Parcelas</p>
-                    <p className="text-lg font-semibold text-slate-100">{sim.installments}x</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Criado em</p>
-                    <p className="font-semibold text-slate-100">{sim.created_at ? new Date(sim.created_at).toLocaleDateString("pt-BR") : "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Proposta</p>
-                    <p className="font-semibold text-slate-100">{sim.simulation_type || "Mobile"}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Button
-                    className="bg-emerald-600 hover:bg-emerald-700 flex-1"
-                    onClick={() => {
-                      setMobileDisburseModal({
-                        open: true,
-                        sim,
-                        form: {
-                          consultoria_bruta: Number(sim.total_amount || sim.requested_amount || 0),
-                          imposto_percentual: 14,
-                          tem_corretor: false,
-                          corretor_nome: "",
-                          corretor_comissao_valor: null,
-                          percentual_atendente: 70,
-                          atendente_user_id: null
-                        }
-                      });
-                    }}
-                  >
-                    Efetivar Contrato
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={() => mobileCancel.mutate(sim.id)}
-                    disabled={mobileCancel.isPending}
-                  >
-                    {mobileCancel.isPending ? "Cancelando..." : "Cancelar"}
-                  </Button>
-                </div>
-              </div>
+              <FinanceCard
+                key={sim.id}
+                id={sim.id}
+                clientName={sim.user?.name || "Cliente Mobile"}
+                clientCpf={sim.user?.cpf || sim.user?.email}
+                simulationResult={{
+                  banco: sim.banco || "Mobile",
+                  valorLiberado: Number(sim.total_amount || sim.requested_amount || 0),
+                  valorParcela: Number(sim.installment_amount || 0),
+                  liberadoCliente: Number(sim.total_amount || sim.requested_amount || 0),
+                  custoConsultoria: Number(sim.total_amount || sim.requested_amount || 0),
+                  custoConsultoriaLiquido: Number(sim.total_amount || sim.requested_amount || 0) * 0.86,
+                  taxaJuros: 0,
+                  prazo: sim.installments || 0
+                }}
+                status={sim.status === "contrato_efetivado" ? "contrato_efetivado" : "financeiro_pendente"}
+                caseDetails={{
+                  cpf: sim.user?.cpf || "",
+                  matricula: sim.user?.matricula || "",
+                  created_at: sim.created_at
+                }}
+                onDisburse={(id) => {
+                  const simData = mobileItems.find((s: any) => s.id === id);
+                  if (simData) {
+                    setMobileDisburseModal({
+                      open: true,
+                      sim: simData,
+                      form: {
+                        consultoria_bruta: Number(simData.total_amount || simData.requested_amount || 0),
+                        imposto_percentual: 14,
+                        tem_corretor: false,
+                        corretor_nome: "",
+                        corretor_comissao_valor: null,
+                        percentual_atendente: 70,
+                        atendente_user_id: null
+                      }
+                    });
+                  }
+                }}
+                onCancelCase={(id) => mobileCancel.mutate(String(id))}
+                availableUsers={users.filter((u: any) => u.role === "atendente")}
+              />
             ))}
           </div>
         )}
@@ -1190,7 +1170,7 @@ export default function FinanceiroPageClient() {
                     onChange={e => setMobileDisburseModal(m => m ? ({...m, form: {...m.form, atendente_user_id: e.target.value === "" ? null : Number(e.target.value)}}) : m)}
                   >
                     <option value="">Selecione um atendente</option>
-                    {users.map((u:any) => (
+                    {users.filter((u:any) => u.role === "atendente").map((u:any) => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
                   </select>
@@ -1301,7 +1281,7 @@ export default function FinanceiroPageClient() {
         onFilterToggle={handleFilterToggle}
         availableFilters={[
           { id: "aprovado", label: "Aguardando Financeiro", value: "aprovado", color: "success", count: statusCounts.aprovado },
-          { id: "liberado", label: "Contrato Efetivado", value: "liberado", color: "primary", count: statusCounts.liberado },
+          { id: "liberado", label: "Efetivados", value: "liberado", color: "primary", count: statusCounts.liberado },
           { id: "cancelado", label: "Cancelados", value: "cancelado", color: "danger", count: statusCounts.cancelado }
         ]}
         onClearAll={handleClearFilters}

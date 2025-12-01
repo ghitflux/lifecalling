@@ -12,7 +12,8 @@ import {
     FileText,
     Download,
     Paperclip,
-    CreditCard
+    CreditCard,
+    Calculator
 } from "lucide-react";
 import {
     Card,
@@ -25,7 +26,8 @@ import {
 import { mobileApi } from "@/services/mobileApi";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils/currency";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { SimulationFormMultiBank } from "@/components/mobile/SimulationFormMultiBank";
 
 type BankEntry = {
     bank?: string;
@@ -42,9 +44,11 @@ export default function SimulationDetailPage() {
     const queryClient = useQueryClient();
     const id = params.id as string;
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const [calculatedSimulation, setCalculatedSimulation] = useState<any>(null);
+    const [forceShowForm, setForceShowForm] = useState(false);
 
     const statusTone: Record<string, string> = {
-        approved: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
+        approved: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
         pending: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
         rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
         approved_by_client: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
@@ -53,14 +57,13 @@ export default function SimulationDetailPage() {
     };
 
     const statusLabel: Record<string, string> = {
-        approved: "Simulação Aprovada",
+        approved: "Aguardando aprovação do cliente",
         pending: "Pendente",
         rejected: "Reprovada",
         approved_by_client: "Aprovado pelo Cliente",
         cliente_aprovada: "Aprovado pelo Cliente",
         simulacao_aprovada: "Simulação Aprovada"
     };
-
     const productInfo: Record<string, { label: string; icon: JSX.Element }> = {
         emprestimo_consignado: { label: "Empréstimo Consignado", icon: <FileText className="h-4 w-4" /> },
         cartao_beneficio: { label: "Cartão Benefício", icon: <CreditCard className="h-4 w-4" /> },
@@ -81,6 +84,10 @@ export default function SimulationDetailPage() {
         enabled: Boolean(id)
     });
 
+    const isCustomerApproved =
+        (simulation?.status || "").toLowerCase() === "approved_by_client" ||
+        (simulation?.status || "").toLowerCase() === "cliente_aprovada";
+
     const { data: allSimulations } = useQuery({
         queryKey: ["adminSimulations"],
         queryFn: mobileApi.getAdminSimulations,
@@ -89,9 +96,55 @@ export default function SimulationDetailPage() {
         refetchOnWindowFocus: false,
     });
 
+    const updateSimulationMutation = useMutation({
+        mutationFn: async (data: any) => {
+            if (!simulation?.id || !simulation?.user_id) {
+                throw new Error("Cliente não encontrado");
+            }
+
+            const totalParcela = data.banks.reduce((acc: number, bank: any) => acc + (bank.parcela || 0), 0);
+            const totalLiberado = data.banks.reduce((acc: number, bank: any) => acc + (bank.valorLiberado || 0), 0);
+
+            return mobileApi.updateAdminSimulation(simulation.id, {
+                simulation_type: "multi_bank",
+                requested_amount: totalLiberado,
+                installments: data.prazo,
+                interest_rate: 0,
+                installment_value: totalParcela,
+                total_amount: totalLiberado,
+                banks_json: data.banks,
+                prazo: data.prazo,
+                coeficiente: data.coeficiente,
+                seguro: data.seguro,
+                percentual_consultoria: data.percentualConsultoria
+            });
+        },
+        onSuccess: (updated) => {
+            setCalculatedSimulation(updated);
+            setForceShowForm(false);
+            toast.success("Simulação atualizada e enviada ao cliente para aprovação.");
+            queryClient.invalidateQueries({ queryKey: ["adminSimulation", id] });
+            queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
+        },
+        onError: (error: any) => {
+            console.error(error);
+            toast.error(error?.message || "Erro ao atualizar simulação");
+        }
+    });
+
     const banks: BankEntry[] = (simulation?.banks_json as BankEntry[] | undefined) || [];
+    const currentSimulation = calculatedSimulation || simulation;
+    const currentBanks: BankEntry[] = (currentSimulation?.banks_json as BankEntry[] | undefined) || [];
+    const showMultiBankForm = forceShowForm || (
+        (!currentBanks || currentBanks.length === 0) &&
+        (
+            (currentSimulation?.simulation_type || simulation?.simulation_type) === "document_upload" ||
+            ((currentSimulation?.simulation_type || simulation?.simulation_type) === "multi_bank" && currentBanks.length === 0)
+        )
+    );
+
     const totals = useMemo(() => {
-        if (!simulation) {
+        if (!currentSimulation) {
             return {
                 totalParcela: 0,
                 saldoTotal: 0,
@@ -104,12 +157,12 @@ export default function SimulationDetailPage() {
             };
         }
 
-        const totalParcela = banks.reduce((sum, b) => sum + (b.parcela || 0), 0);
-        const saldoTotal = banks.reduce((sum, b) => sum + (b.saldoDevedor || 0), 0);
-        const liberadoTotal = banks.reduce((sum, b) => sum + (b.valorLiberado || 0), 0);
-        const seguroObrigatorio = simulation.seguro ?? 0;
-        const totalFinanciado = simulation.total_amount ?? simulation.requested_amount ?? liberadoTotal;
-        const custoConsultoria = ((simulation.percentual_consultoria ?? 0) / 100) * totalFinanciado;
+        const totalParcela = currentBanks.reduce((sum, b) => sum + (b.parcela || 0), 0);
+        const saldoTotal = currentBanks.reduce((sum, b) => sum + (b.saldoDevedor || 0), 0);
+        const liberadoTotal = currentBanks.reduce((sum, b) => sum + (b.valorLiberado || 0), 0);
+        const seguroObrigatorio = currentSimulation.seguro ?? 0;
+        const totalFinanciado = currentSimulation.total_amount ?? currentSimulation.requested_amount ?? liberadoTotal;
+        const custoConsultoria = ((currentSimulation.percentual_consultoria ?? 0) / 100) * totalFinanciado;
         const valorLiquido = liberadoTotal - seguroObrigatorio - custoConsultoria;
 
         return {
@@ -122,7 +175,7 @@ export default function SimulationDetailPage() {
             valorLiquido,
             liberadoCliente: valorLiquido
         };
-    }, [banks, simulation]);
+    }, [currentBanks, currentSimulation]);
 
     const history = useMemo(() => {
         if (!allSimulations || !simulation?.user_email) return [];
@@ -152,6 +205,21 @@ export default function SimulationDetailPage() {
         },
         onError: () => {
             toast.error("Erro ao reprovar simulação");
+        }
+    });
+
+    const approveCalculatedMutation = useMutation({
+        mutationFn: async () => {
+            if (!calculatedSimulation?.id) throw new Error("Nenhuma simulação calculada");
+            await mobileApi.approveSimulation(calculatedSimulation.id as unknown as string);
+        },
+        onSuccess: () => {
+            toast.success("Simulação enviada/aprovada para o app.");
+            router.push("/life-mobile/simulacoes");
+        },
+        onError: (error: any) => {
+            console.error(error);
+            toast.error(error?.message || "Erro ao enviar/aprovar simulação");
         }
     });
 
@@ -264,51 +332,53 @@ export default function SimulationDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Simulation Data Card */}
-                    <Card className="bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/40">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-slate-100">
-                                <FileText className="h-5 w-5 text-indigo-300" />
-                                Dados da Simulação
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-4 text-slate-200">
-                            <div>
-                                <p className="text-sm text-slate-400">Produto</p>
-                                    <p className="font-medium capitalize">
-                                        {simulation.type?.replace(/_/g, ' ') || simulation.simulation_type?.replace(/_/g, ' ') || 'N/A'}
-                                    </p>
-                                    {simulation.type && productInfo[simulation.type] && (
-                                        <div className="mt-2">
-                                            <Badge className="bg-slate-800 text-slate-100 border-slate-700 gap-1">
-                                                {productInfo[simulation.type].icon}
-                                                {productInfo[simulation.type].label}
-                                            </Badge>
-                                        </div>
-                                    )}
-                                </div>
-                            <div>
-                                <p className="text-sm text-slate-400">Valor Solicitado</p>
-                                <p className="font-medium">{formatCurrency(simulation.amount || simulation.requested_amount || 0)}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-400">Parcelas</p>
-                                <p className="font-medium">{simulation.installments}x</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-400">Taxa de Juros</p>
-                                <p className="font-medium">{simulation.interest_rate}%</p>
-                            </div>
-                            {simulation.prazo && (
+                    {/* Simulation Data Card - Only show if no calculated simulation */}
+                    {!calculatedSimulation && (
+                        <Card className="bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/40">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-slate-100">
+                                    <FileText className="h-5 w-5 text-indigo-300" />
+                                    Dados da Simulação
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-2 gap-4 text-slate-200">
                                 <div>
-                                    <p className="text-sm text-slate-400">Prazo</p>
-                                    <p className="font-medium">{simulation.prazo} meses</p>
+                                    <p className="text-sm text-slate-400">Produto</p>
+                                        <p className="font-medium capitalize">
+                                            {simulation.type?.replace(/_/g, ' ') || simulation.simulation_type?.replace(/_/g, ' ') || 'N/A'}
+                                        </p>
+                                        {simulation.type && productInfo[simulation.type] && (
+                                            <div className="mt-2">
+                                                <Badge className="bg-slate-800 text-slate-100 border-slate-700 gap-1">
+                                                    {productInfo[simulation.type].icon}
+                                                    {productInfo[simulation.type].label}
+                                                </Badge>
+                                            </div>
+                                        )}
+                                    </div>
+                                <div>
+                                    <p className="text-sm text-slate-400">Valor Solicitado</p>
+                                    <p className="font-medium">{formatCurrency(simulation.amount || simulation.requested_amount || 0)}</p>
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                                <div>
+                                    <p className="text-sm text-slate-400">Parcelas</p>
+                                    <p className="font-medium">{simulation.installments}x</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-slate-400">Taxa de Juros</p>
+                                    <p className="font-medium">{simulation.interest_rate}%</p>
+                                </div>
+                                {simulation.prazo && (
+                                    <div>
+                                        <p className="text-sm text-slate-400">Prazo</p>
+                                        <p className="font-medium">{simulation.prazo} meses</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
-                    {banks.length > 0 && (
+                    {currentBanks.length > 0 && (
                         <Card className="bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/40">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 text-slate-100">
@@ -317,7 +387,7 @@ export default function SimulationDetailPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {banks.map((bank, index) => {
+                                {currentBanks.map((bank, index) => {
                                     const bankName = bank.bank || bank.banco || `Banco ${index + 1}`;
                                     const productLabel = bank.product
                                         ? productLabels[bank.product] || bank.product.replace(/_/g, " ")
@@ -404,6 +474,13 @@ export default function SimulationDetailPage() {
                             </CardContent>
                         </Card>
                     )}
+
+                    {showMultiBankForm && (
+                        <SimulationFormMultiBank
+                            onCalculate={updateSimulationMutation.mutate}
+                            loading={updateSimulationMutation.isPending}
+                        />
+                    )}
                 </div>
 
                 {/* Right Column - Results & Actions */}
@@ -457,48 +534,87 @@ export default function SimulationDetailPage() {
                                     <DollarSign className="h-5 w-5 text-emerald-300" />
                                     Resultado da Simulação
                                 </CardTitle>
-                                <Badge className={statusTone[simulation.status] || "bg-slate-800 text-slate-200 border border-slate-700"}>
-                                    {statusLabel[simulation.status] || simulation.status}
+                                <Badge className={calculatedSimulation ? "bg-amber-500/20 text-amber-200 border-amber-500/40" : (statusTone[simulation.status] || "bg-slate-800 text-slate-200 border border-slate-700")}>
+                                    {calculatedSimulation ? "Calculada" : (statusLabel[simulation.status] || simulation.status)}
                                 </Badge>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4 text-slate-200">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Valor Parcela Total</span>
-                                <span className="font-semibold">{formatCurrency(totals.totalParcela)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Saldo Devedor Total</span>
-                                <span className="font-semibold">{formatCurrency(totals.saldoTotal)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Valor Liberado Total</span>
-                                <span className="font-semibold text-emerald-300">{formatCurrency(totals.liberadoTotal)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Seguro Obrigatório</span>
-                                <span className="font-semibold">{formatCurrency(totals.seguroObrigatorio)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Valor Total Financiado</span>
-                                <span className="font-semibold">{formatCurrency(totals.totalFinanciado)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Custo Consultoria</span>
-                                <span className="font-semibold">{formatCurrency(totals.custoConsultoria)}</span>
-                            </div>
-                            <div className="flex items-center justify-between border-t border-slate-800 pt-3 mt-3">
-                                <span className="text-sm text-emerald-300 font-semibold">Liberado para o Cliente</span>
-                                <span className="text-2xl font-bold text-emerald-300">{formatCurrency(totals.liberadoCliente)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Valor Parcela (registro)</span>
-                                <span className="font-semibold">{formatCurrency(simulation.installment_value || 0)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Valor Total (registro)</span>
-                                <span className="font-semibold">{formatCurrency(simulation.total_amount || 0)}</span>
-                            </div>
+                            {showMultiBankForm && !calculatedSimulation ? (
+                                <div className="text-slate-400 text-sm">
+                                    Monte e calcule a simulação multi-bancos para preencher os valores.
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Valor Parcela Total</span>
+                                        <span className="font-semibold">{formatCurrency(totals.totalParcela)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Saldo Devedor Total</span>
+                                        <span className="font-semibold">{formatCurrency(totals.saldoTotal)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Valor Liberado Total</span>
+                                        <span className="font-semibold text-emerald-300">{formatCurrency(totals.liberadoTotal)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Seguro Obrigatório</span>
+                                        <span className="font-semibold">{formatCurrency(totals.seguroObrigatorio)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Valor Total Financiado</span>
+                                        <span className="font-semibold">{formatCurrency(totals.totalFinanciado)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Custo Consultoria</span>
+                                        <span className="font-semibold">{formatCurrency(totals.custoConsultoria)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between border-t border-slate-800 pt-3 mt-3">
+                                        <span className="text-sm text-emerald-300 font-semibold">Liberado para o Cliente</span>
+                                        <span className="text-2xl font-bold text-emerald-300">{formatCurrency(totals.liberadoCliente)}</span>
+                                    </div>
+                                    {!calculatedSimulation && (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-slate-400">Valor Parcela (registro)</span>
+                                                <span className="font-semibold">{formatCurrency(simulation.installment_value || 0)}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-slate-400">Valor Total (registro)</span>
+                                                <span className="font-semibold">{formatCurrency(simulation.total_amount || 0)}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                    {calculatedSimulation && (
+                                        <div className="space-y-2 pt-3 border-t border-slate-800">
+                                            <Button
+                                                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                                onClick={() => approveCalculatedMutation.mutate()}
+                                                disabled={approveCalculatedMutation.isPending}
+                                            >
+                                                {approveCalculatedMutation.isPending ? "Enviando..." : (
+                                                    <>
+                                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                                        Enviar/Aprovar no App
+                                                    </>
+                                                )}
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full border-slate-700 text-slate-100 hover:bg-slate-800"
+                                                onClick={() => {
+                                                    setCalculatedSimulation(null);
+                                                    setForceShowForm(true);
+                                                }}
+                                            >
+                                                <Calculator className="h-4 w-4 mr-2" />
+                                                Nova Simulação
+                                            </Button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </CardContent>
                     </Card>
 

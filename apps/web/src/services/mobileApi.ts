@@ -47,6 +47,7 @@ export interface AdminClient {
 }
 
 export interface AdminSimulation extends Simulation {
+  user_id: number;
   user_name: string;
   user_email: string;
   // Additional client info
@@ -75,6 +76,11 @@ export const mobileApi = {
 
   createAdminSimulation: async (data: CreateSimulationDTO & { user_id: number }) => {
     const response = await api.post<AdminSimulation>(`${basePath}/admin/simulations`, data);
+    return response.data;
+  },
+
+  updateAdminSimulation: async (id: string, data: Partial<CreateSimulationDTO>) => {
+    const response = await api.put<AdminSimulation>(`${basePath}/admin/simulations/${id}`, data);
     return response.data;
   },
 

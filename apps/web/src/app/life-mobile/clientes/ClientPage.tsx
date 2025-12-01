@@ -136,6 +136,14 @@ function ClientSimulationsModal({ client }: { client: AdminClient }) {
 }
 
 function ClientDetailsModal({ client }: { client: AdminClient }) {
+    const queryClient = useQueryClient();
+    const cachedSimulations = queryClient.getQueryData<AdminSimulation[]>(["adminSimulations"]);
+    const simulations: AdminSimulation[] = (cachedSimulations || []).filter(sim => sim.user_email === client.email);
+    const simulationsSorted = [...simulations].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    const contratosEfetivados = simulationsSorted.filter(sim => (sim.status || "").toLowerCase() === "contrato_efetivado");
+
     const formattedCreatedAt = client.created_at ? new Date(client.created_at).toLocaleDateString("pt-BR") : "-";
 
     return (
@@ -182,6 +190,50 @@ function ClientDetailsModal({ client }: { client: AdminClient }) {
                         >
                             {client.phone || "-"}
                         </Snippet>
+                    </div>
+                </div>
+                <div className="border-t border-slate-800 pt-3">
+                    <p className="text-sm text-slate-400 mb-2">Histórico de Simulações</p>
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {simulationsSorted.length === 0 && (
+                            <p className="text-slate-500 text-sm">Nenhuma simulação encontrada.</p>
+                        )}
+                        {simulationsSorted.map(sim => (
+                            <div
+                                key={sim.id}
+                                className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm"
+                            >
+                                <div>
+                                    <p className="font-semibold text-slate-100">{(sim.type || sim.simulation_type || '').replace(/_/g, ' ') || 'Simulação'}</p>
+                                    <p className="text-xs text-slate-400">
+                                        {new Date(sim.created_at).toLocaleString('pt-BR')} • {sim.status}
+                                    </p>
+                                </div>
+                                <p className="font-semibold text-emerald-200">{sim.amount ? `R$ ${sim.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="border-t border-slate-800 pt-3">
+                    <p className="text-sm text-slate-400 mb-2">Contratos Efetivados</p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {contratosEfetivados.length === 0 && (
+                            <p className="text-slate-500 text-sm">Nenhum contrato efetivado.</p>
+                        )}
+                        {contratosEfetivados.map(sim => (
+                            <div
+                                key={sim.id}
+                                className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm"
+                            >
+                                <div>
+                                    <p className="font-semibold text-slate-100">{(sim.type || sim.simulation_type || '').replace(/_/g, ' ') || 'Contrato Mobile'}</p>
+                                    <p className="text-xs text-slate-400">
+                                        {new Date(sim.created_at).toLocaleString('pt-BR')}
+                                    </p>
+                                </div>
+                                <p className="font-semibold text-emerald-200">{sim.amount ? `R$ ${sim.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

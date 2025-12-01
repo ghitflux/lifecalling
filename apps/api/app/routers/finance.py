@@ -10,7 +10,7 @@ from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
 from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
 from ..db import SessionLocal
-from ..models import Case, CaseEvent, Contract, now_brt, MobileSimulation, FinanceIncome, FinanceExpense
+from ..models import Case, CaseEvent, Contract, now_brt, MobileSimulation, FinanceIncome, FinanceExpense, User
 from ..rbac import require_roles
 from ..events import eventbus
 from ..config import settings
@@ -242,8 +242,17 @@ def finance_mobile_queue(user=Depends(require_roles("admin", "supervisor", "fina
         )
         return {"items": [serialize_mobile_simulation(s) for s in sims]}
 
+def _get_balcao_user_id(db, fallback_user_id: int | None = None) -> int | None:
+    balcao_user = db.query(User).filter(User.email == 'balcao@lifecalling.com', User.active == True).first()
+    if balcao_user:
+        return balcao_user.id
+    return fallback_user_id
+
 
 def _create_mobile_income(db, sim: MobileSimulation, current_user):
+    # Não atribuir ao cliente; preferir balcão, senão quem estiver processando
+    balcao_user_id = _get_balcao_user_id(db, current_user.id)
+
     amount = sim.total_amount or sim.requested_amount or Decimal("0")
     income = FinanceIncome(
         date=now_brt(),
@@ -251,7 +260,7 @@ def _create_mobile_income(db, sim: MobileSimulation, current_user):
         income_name=f"Contrato Mobile {sim.id}",
         amount=amount,
         created_by=current_user.id,
-        agent_user_id=sim.user_id,
+        agent_user_id=balcao_user_id,
         client_name=sim.user.name if sim.user else None,
         client_cpf=getattr(sim.user, "cpf", None),
         origin="mobile"
@@ -305,6 +314,32 @@ def finance_mobile_disburse(
         imposto_valor = (bruto * imposto_percentual / Decimal("100")).quantize(Decimal("0.01"))
         liquido = (bruto - imposto_valor).quantize(Decimal("0.01"))
 
+        # Usuário balcão para contratos mobile (fallback: atendente 1 -> atendente 2 -> usuário atual)
+        balcao_user_id = _get_balcao_user_id(
+            db,
+            payload.atendente1_user_id
+            or payload.atendente2_user_id
+            or user.id
+        )
+
+        # Criar despesa de imposto (se houver valor)
+        if imposto_valor > 0:
+            tax_expense = FinanceExpense(
+                description=f"Imposto sobre consultoria bruta - Contrato Mobile #{sim.id}",
+                amount=imposto_valor,
+                expense_type="Impostos",
+                expense_name=f"Imposto sobre consultoria bruta - Contrato Mobile #{sim.id}",
+                date=now_brt(),
+                month=now_brt().month,
+                year=now_brt().year,
+                created_by=user.id,
+                agent_user_id=balcao_user_id,
+                client_cpf=getattr(sim.user, "cpf", None) if sim.user else None,
+                client_name=sim.user.name if sim.user else None,
+                origin="mobile"
+            )
+            db.add(tax_expense)
+
         def add_income(amount: Decimal, name_suffix: str, agent_id: int | None = None):
             inc = FinanceIncome(
                 date=now_brt(),
@@ -312,7 +347,7 @@ def finance_mobile_disburse(
                 income_name=f"Contrato Mobile {sim.id} {name_suffix}".strip(),
                 amount=amount,
                 created_by=user.id,
-                agent_user_id=agent_id or sim.user_id,
+                agent_user_id=agent_id or balcao_user_id,  # Balcão/house account padrão
                 client_name=sim.user.name if sim.user else None,
                 client_cpf=getattr(sim.user, "cpf", None),
                 origin="mobile"
@@ -343,7 +378,7 @@ def finance_mobile_disburse(
                 # Balcão recebe o restante
                 if percentual_balcao > 0:
                     valor_balcao = (liquido * percentual_balcao / Decimal('100')).quantize(Decimal('0.01'))
-                    add_income(valor_balcao, '(Balcão)', sim.user_id)
+                    add_income(valor_balcao, '(Balcão)', balcao_user_id)
                     
             # Compatibilidade com campos antigos
             elif payload.percentual_atendente and payload.atendente_user_id:
@@ -351,30 +386,175 @@ def finance_mobile_disburse(
                 atendente_valor = (liquido * atendente_percent).quantize(Decimal('0.01'))
                 balcao_valor = (liquido - atendente_valor).quantize(Decimal('0.01'))
                 add_income(atendente_valor, '(Atendente)', payload.atendente_user_id)
-                add_income(balcao_valor, '(Balcão)', sim.user_id)
+                add_income(balcao_valor, '(Balcão)', balcao_user_id)
             else:
                 # Sem distribuição - todo valor vai para o balcão
-                add_income(liquido, '', sim.user_id)
+                add_income(liquido, '', balcao_user_id)
         else:
-            add_income(liquido, '', sim.user_id)
+            add_income(liquido, '', balcao_user_id)
 
+        # Criar despesa de comissão de corretor (com nome e CPF do cliente)
         if payload and payload.tem_corretor and payload.corretor_comissao_valor:
             try:
                 val = Decimal(str(payload.corretor_comissao_valor))
                 exp = FinanceExpense(
                     date=now_brt(),
+                    month=now_brt().month,
+                    year=now_brt().year,
                     expense_type="Comissão Corretor - Mobile",
                     expense_name=payload.corretor_nome or "Comissão Corretor",
+                    description=f"Comissão de corretor - {payload.corretor_nome or 'Corretor'} - Contrato Mobile #{sim.id}",
                     amount=val,
                     created_by=user.id,
+                    agent_user_id=balcao_user_id,
+                    client_name=sim.user.name if sim.user else None,
+                    client_cpf=getattr(sim.user, "cpf", None) if sim.user else None,
                     origin="mobile"
                 )
                 db.add(exp)
             except Exception:
                 pass
+
+        # Criar Case e Contract para integração com Rankings
+        mobile_user = sim.user
+        print(f"[DEBUG] mobile_user: {mobile_user}")
+        print(f"[DEBUG] mobile_user.cpf: {getattr(mobile_user, 'cpf', 'ATTR_NOT_FOUND') if mobile_user else 'USER_IS_NONE'}")
+
+        if mobile_user and hasattr(mobile_user, 'cpf') and mobile_user.cpf:
+            # Buscar ou criar Cliente
+            from ..models import Client, Case, Contract, ContractAgent
+
+            print(f"[DEBUG] Criando Contract para mobile user CPF: {mobile_user.cpf}")
+
+            # Buscar cliente por CPF (remover formatação se houver)
+            cpf_numbers = ''.join(c for c in mobile_user.cpf if c.isdigit())
+            client = db.query(Client).filter(Client.cpf == cpf_numbers).first()
+
+            if not client:
+                # Criar cliente básico
+                print(f"[DEBUG] Cliente não encontrado, criando novo cliente")
+                client = Client(
+                    name=mobile_user.name or "Cliente Mobile",
+                    cpf=cpf_numbers,
+                    matricula=f"MOBILE_{mobile_user.id}",  # Matrícula obrigatória
+                    telefone_preferencial=getattr(mobile_user, "phone", None),
+                    created_by=user.id
+                )
+                db.add(client)
+                db.flush()
+                print(f"[DEBUG] Cliente criado: {client.id}")
+            else:
+                print(f"[DEBUG] Cliente encontrado: {client.id}")
+
+            # Determinar atendente responsável
+            atendente_responsavel = balcao_user_id
+            if payload:
+                if payload.atendente1_user_id:
+                    atendente_responsavel = payload.atendente1_user_id
+                elif payload.atendente_user_id:
+                    atendente_responsavel = payload.atendente_user_id
+
+            # Criar Case para o contrato mobile
+            case = Case(
+                client_id=client.id,
+                status="contrato_efetivado",
+                assigned_user_id=atendente_responsavel
+            )
+            db.add(case)
+            db.flush()
+
+            # Criar Contract vinculado ao Case
+            contract = Contract(
+                case_id=case.id,
+                status="ativo",
+                total_amount=float(bruto),
+                installments=sim.installments or 0,
+                disbursed_at=now_brt(),
+                signed_at=now_brt(),
+                created_at=now_brt(),
+                created_by=user.id,
+                agent_user_id=atendente_responsavel,
+                consultoria_valor_liquido=float(liquido),
+                consultoria_bruta=float(bruto),
+                imposto_percentual=float(imposto_percentual),
+                imposto_valor=float(imposto_valor),
+                tem_corretor=payload.tem_corretor if payload else False,
+                corretor_nome=payload.corretor_nome if payload and payload.tem_corretor else None,
+                corretor_comissao_valor=float(payload.corretor_comissao_valor) if payload and payload.tem_corretor and payload.corretor_comissao_valor else None
+            )
+            db.add(contract)
+            db.flush()
+
+            # Criar registros em ContractAgent para distribuição
+            if payload:
+                if payload.atendente1_user_id or payload.atendente2_user_id:
+                    # Nova lógica com até 2 agentes
+                    percentual1 = float(payload.percentual_atendente1 or 0)
+                    percentual2 = float(payload.percentual_atendente2 or 0)
+
+                    if payload.atendente1_user_id and percentual1 > 0:
+                        agent1 = ContractAgent(
+                            contract_id=contract.id,
+                            user_id=payload.atendente1_user_id,
+                            percentual=percentual1,
+                            is_primary=True
+                        )
+                        db.add(agent1)
+
+                    if payload.atendente2_user_id and percentual2 > 0:
+                        agent2 = ContractAgent(
+                            contract_id=contract.id,
+                            user_id=payload.atendente2_user_id,
+                            percentual=percentual2,
+                            is_primary=False
+                        )
+                        db.add(agent2)
+
+                # Compatibilidade com campos antigos
+                elif payload.atendente_user_id and payload.percentual_atendente:
+                    agent = ContractAgent(
+                        contract_id=contract.id,
+                        user_id=payload.atendente_user_id,
+                        percentual=float(payload.percentual_atendente),
+                        is_primary=True
+                    )
+                    db.add(agent)
+
         db.commit()
         # TODO: enviar notificação para app mobile informando contrato efetivado
         return {"message": "Contrato mobile efetivado", "simulation": serialize_mobile_simulation(sim)}
+
+@r.post("/mobile/{simulation_id}/reopen")
+def finance_mobile_reopen(
+    simulation_id: str,
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """
+    Reabre um contrato mobile já efetivado/cancelado para ajuste,
+    colocando-o novamente em 'approved_by_client' (fila financeira).
+    Remove receitas e despesas originadas desta simulação para evitar duplicidade.
+    """
+    with SessionLocal() as db:
+        sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
+        if not sim:
+            raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+        # Limpar receitas/despesas vinculadas pelo nome contendo o ID da simulação
+        # Apagar receitas/despesas mobile relacionadas a esta simulação
+        db.query(FinanceIncome).filter(
+            FinanceIncome.origin == "mobile",
+            FinanceIncome.income_name.ilike(f"%{simulation_id}%")
+        ).delete(synchronize_session=False)
+
+        db.query(FinanceExpense).filter(
+            FinanceExpense.origin == "mobile",
+            FinanceExpense.expense_name.ilike(f"%{simulation_id}%")
+        ).delete(synchronize_session=False)
+
+        sim.status = "approved_by_client"
+        db.commit()
+        db.refresh(sim)
+        return {"message": "Simulação mobile reaberta para ajuste", "simulation": serialize_mobile_simulation(sim)}
 
 
 @r.get("/case/{case_id}")

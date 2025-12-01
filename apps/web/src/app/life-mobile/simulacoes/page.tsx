@@ -32,13 +32,17 @@ export default function LifeMobileSimulationsPage() {
     });
 
     const statusTone: Record<string, string> = {
-        approved: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/40",
+        approved: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
+        approved_by_client: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/40",
+        cliente_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/40",
         pending: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
         rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/40"
     };
 
     const statusLabel: Record<string, string> = {
-        approved: "Aprovado",
+        approved: "Aguardando aprovação do cliente",
+        approved_by_client: "Aprovado pelo cliente",
+        cliente_aprovada: "Aprovado pelo cliente",
         pending: "Pendente",
         rejected: "Reprovado"
     };
@@ -49,9 +53,21 @@ export default function LifeMobileSimulationsPage() {
             (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
 
-        // Filter by status
+        // Filter by status (consider grouped statuses)
         if (status !== "todas") {
-            filtered = filtered.filter(sim => sim.status === status);
+            filtered = filtered.filter(sim => {
+                const st = (sim.status || "").toLowerCase();
+                if (status === "pending") {
+                    return st === "pending" || st === "simulation_requested" || st === "approved"; // aguardando cliente
+                }
+                if (status === "approved") {
+                    return st === "approved_by_client" || st === "cliente_aprovada" || st === "simulacao_aprovada";
+                }
+                if (status === "rejected") {
+                    return st === "rejected";
+                }
+                return true;
+            });
         }
 
         // Filter by search term
@@ -73,7 +89,7 @@ export default function LifeMobileSimulationsPage() {
             className="cursor-pointer transition-shadow border bg-slate-900/70 border-slate-800 hover:border-slate-600 hover:shadow-lg hover:shadow-black/40"
             style={{
                 borderLeftColor:
-                    sim.status === "approved" ? "#22c55e" :
+                    (sim.status === "approved_by_client" || sim.status === "cliente_aprovada" || sim.status === "simulacao_aprovada") ? "#22c55e" :
                         sim.status === "rejected" ? "#ef4444" :
                             "#f59e0b",
                 borderLeftWidth: 4

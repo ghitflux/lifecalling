@@ -8,7 +8,7 @@ import os
 import shutil
 from pathlib import Path
 from ..db import SessionLocal
-from ..models import User, MobileSimulation, now_brt
+from ..models import User, MobileSimulation, MobileNotification, now_brt
 from ..security import get_current_user, hash_password
 from decimal import Decimal
 
@@ -48,6 +48,7 @@ class MobileSimulationResponse(SimulationResponse):
     pass
 
 class AdminSimulationResponse(SimulationResponse):
+    user_id: int
     """
     Response para os endpoints administrativos com todos os detalhes
     necess��rios para o frontend.
@@ -97,6 +98,7 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
     fake_cpf = generate_fake_cpf(sim.user_id)
     fake_phone = generate_fake_phone(sim.user_id)
     return {
+        "user_id": sim.user_id,
         "id": sim.id,
         "simulation_type": sim.simulation_type,
         "type": sim.simulation_type,
@@ -314,6 +316,39 @@ async def approve_simulation_by_client(
     sim.status = "approved_by_client"
     db.commit()
     db.refresh(sim)
+    create_notification(
+        db,
+        current_user.id,
+        "Simulação aprovada",
+        "Você aprovou a simulação. Vamos iniciar o financeiro.",
+        "success"
+    )
+    return sim
+
+@router.post("/simulations/{simulation_id}/reject-by-client", response_model=SimulationResponse)
+async def reject_simulation_by_client(
+    simulation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    sim = db.query(MobileSimulation).filter(
+        MobileSimulation.id == simulation_id,
+        MobileSimulation.user_id == current_user.id
+    ).first()
+
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    sim.status = "rejected"
+    db.commit()
+    db.refresh(sim)
+    create_notification(
+        db,
+        current_user.id,
+        "Simulação rejeitada",
+        "Você rejeitou esta simulação.",
+        "warning"
+    )
     return sim
 
 @router.get("/documents", response_model=List[DocumentResponse])
@@ -415,13 +450,26 @@ class MobileSimulationCreateAdmin(BaseModel):
     seguro: Optional[float] = None
     percentual_consultoria: Optional[float] = None
 
+class MobileSimulationUpdateAdmin(BaseModel):
+    simulation_type: Optional[str] = None
+    requested_amount: Optional[float] = None
+    installments: Optional[int] = None
+    interest_rate: Optional[float] = None
+    installment_value: Optional[float] = None
+    total_amount: Optional[float] = None
+    banks_json: Optional[List[dict]] = None
+    prazo: Optional[int] = None
+    coeficiente: Optional[str] = None
+    seguro: Optional[float] = None
+    percentual_consultoria: Optional[float] = None
+
 @router.get("/admin/clients", response_model=List[AdminClientResponse])
 async def get_admin_clients(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Verify admin access
-    if current_user.role not in ["admin", "supervisor", "atendente"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # CORRIGIDO: Retornar APENAS clientes mobile (role = 'mobile_client')
@@ -449,7 +497,7 @@ async def get_admin_simulations(
     db: Session = Depends(get_db)
 ):
     # Verify admin access
-    if current_user.role not in ["admin", "supervisor", "atendente"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # Join with User to get client details
@@ -462,13 +510,26 @@ async def get_admin_simulations(
     )
     return [serialize_admin_simulation(sim) for sim in simulations]
 
+def create_notification(db: Session, user_id: int, title: str, message: str, type: str = "info"):
+    notif = MobileNotification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        type=type,
+        created_at=now_brt()
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+    return notif
+
 @router.post("/admin/simulations", response_model=AdminSimulationResponse)
 def create_admin_simulation(
     simulation: MobileSimulationCreateAdmin,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "supervisor", "atendente"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Verify target user exists
@@ -497,6 +558,31 @@ def create_admin_simulation(
     db.refresh(db_simulation)
     return serialize_admin_simulation(db_simulation)
 
+@router.put("/admin/simulations/{simulation_id}", response_model=AdminSimulationResponse)
+def update_admin_simulation(
+    simulation_id: str,
+    payload: MobileSimulationUpdateAdmin,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    sim = db.query(MobileSimulation).options(selectinload(MobileSimulation.user)).filter(MobileSimulation.id == simulation_id).first()
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    # Atualiza campos informados
+    for field, value in payload.model_dump(exclude_none=True).items():
+        setattr(sim, field, value)
+
+    # Mantém status como pending até que o admin aprove explicitamente
+    # A notificação será criada apenas quando aprovar via botão "Enviar/Aprovar no App"
+
+    db.commit()
+    db.refresh(sim)
+    return serialize_admin_simulation(sim)
+
 @router.get("/admin/simulations/{simulation_id}", response_model=AdminSimulationResponse)
 async def get_admin_simulation_by_id(
     simulation_id: str,
@@ -504,7 +590,7 @@ async def get_admin_simulation_by_id(
     db: Session = Depends(get_db)
 ):
     # Verify admin access
-    if current_user.role not in ["admin", "supervisor", "atendente"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # Join with User to get client details
@@ -528,16 +614,41 @@ async def approve_simulation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role not in ["admin", "supervisor"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
         
     sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
-        
-    sim.status = "simulacao_aprovada"
+
+    # Verificar se o cliente já aprovou
+    client_approved_statuses = ["approved_by_client", "cliente_aprovada", "simulacao_aprovada"]
+
+    if sim.status.lower() in client_approved_statuses:
+        # Cliente já aprovou, enviar direto para o financeiro
+        sim.status = "financeiro_pendente"
+        create_notification(
+            db,
+            sim.user_id,
+            "Proposta enviada ao financeiro",
+            "Sua simulação foi aprovada e enviada ao setor financeiro para processamento.",
+            "success"
+        )
+        message = "Simulação enviada ao financeiro com sucesso"
+    else:
+        # Primeira aprovação do admin, aguardando aprovação do cliente no app
+        sim.status = "approved"
+        create_notification(
+            db,
+            sim.user_id,
+            "Nova proposta disponível",
+            "Sua simulação foi aprovada e aguarda sua confirmação.",
+            "info"
+        )
+        message = "Simulação aprovada e enviada para o cliente"
+
     db.commit()
-    return {"message": "Simulação aprovada com sucesso"}
+    return {"message": message}
 
 @router.post("/admin/simulations/{simulation_id}/reject")
 async def reject_simulation(
@@ -545,14 +656,24 @@ async def reject_simulation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role not in ["admin", "supervisor"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
         
     sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
-        
+
     sim.status = "rejected"
+
+    # Criar notificação para o cliente
+    create_notification(
+        db,
+        sim.user_id,
+        "Proposta reprovada",
+        "Sua simulação foi reprovada. Entre em contato para mais informações.",
+        "error"
+    )
+
     db.commit()
     return {"message": "Simulação reprovada com sucesso"}
 
@@ -563,7 +684,7 @@ async def get_simulation_document(
     db: Session = Depends(get_db)
 ):
     """Retorna o documento anexado a uma simulação"""
-    if current_user.role not in ["admin", "supervisor", "atendente"]:
+    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     simulation = db.query(MobileSimulation).filter(
@@ -583,4 +704,61 @@ async def get_simulation_document(
         filename=simulation.document_filename,
         media_type=f"{'application/pdf' if simulation.document_type == 'pdf' else 'image/' + simulation.document_type}"
     )
+
+# ======================
+# NOTIFICAÇÕES
+# ======================
+
+class NotificationResponse(BaseModel):
+    id: int
+    title: str
+    message: str
+    type: str
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+@router.get("/notifications")
+async def get_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retorna todas as notificações do usuário logado"""
+    notifications = db.query(MobileNotification).filter(
+        MobileNotification.user_id == current_user.id
+    ).order_by(MobileNotification.created_at.desc()).all()
+
+    return [
+        {
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
+            "type": n.type,
+            "is_read": n.is_read,
+            "created_at": n.created_at
+        }
+        for n in notifications
+    ]
+
+@router.put("/notifications/{notification_id}/read")
+async def mark_notification_as_read(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Marca uma notificação como lida"""
+    notification = db.query(MobileNotification).filter(
+        MobileNotification.id == notification_id,
+        MobileNotification.user_id == current_user.id
+    ).first()
+
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notificação não encontrada")
+
+    notification.is_read = True
+    db.commit()
+
+    return {"message": "Notificação marcada como lida"}
 
