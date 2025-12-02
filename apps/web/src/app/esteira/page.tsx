@@ -9,8 +9,9 @@ import { useMyStats } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { buildCasesQuery } from "@/lib/query";
 import { toast } from "sonner";
-import { Search, X, Building2, Activity, CheckCircle, AlertCircle, TrendingUp, DollarSign, Target } from "lucide-react";
+import { Search, X, Building2, Activity, CheckCircle, AlertCircle, TrendingUp, DollarSign, Target, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 interface Case {
   id: number;
@@ -28,24 +29,6 @@ interface Case {
   entidade?: string;
 }
 
-// Lista completa de todos os status possíveis no sistema
-const ALL_AVAILABLE_STATUSES = [
-  { value: "novo", label: "Novo", color: "blue" },
-  { value: "em_atendimento", label: "Em Atendimento", color: "yellow" },
-  { value: "calculista_pendente", label: "Calculista Pendente", color: "purple" },
-  { value: "calculo_aprovado", label: "Cálculo Aprovado", color: "green" },
-  { value: "fechamento_pendente", label: "Fechamento Pendente", color: "cyan" },
-  { value: "fechamento_aprovado", label: "Fechamento Aprovado", color: "emerald" },
-  { value: "financeiro_pendente", label: "Financeiro Pendente", color: "indigo" },
-  { value: "contrato_efetivado", label: "Contrato Efetivado", color: "success" },
-  { value: "devolvido_financeiro", label: "Devolvido Financeiro", color: "orange" },
-  { value: "contrato_cancelado", label: "Contrato Cancelado", color: "danger" },
-  { value: "caso_cancelado", label: "Cancelado", color: "danger" },
-  { value: "encerrado", label: "Encerrado", color: "muted" },
-  { value: "sem_contato", label: "Sem Contato", color: "gray" },
-  { value: "arquivado", label: "Arquivado", color: "muted" },
-] as const;
-
 function EsteiraPageContent() {
   useLiveCaseEvents();
   const router = useRouter();
@@ -60,14 +43,16 @@ function EsteiraPageContent() {
   const [globalPage, setGlobalPage] = useState(1);
   const [globalPageSize, setGlobalPageSize] = useState(20);
   const [globalSearchTerm, setGlobalSearchTerm] = useState("");
-  const [globalSelectedStatus, setGlobalSelectedStatus] = useState<string[]>([]);
-  const [globalEntityFilter, setGlobalEntityFilter] = useState("");
+  const [globalSelectedBanco, setGlobalSelectedBanco] = useState<string | null>(null);
+  const [globalSelectedCargo, setGlobalSelectedCargo] = useState<string | null>(null);
+  const [globalSelectedStatus, setGlobalSelectedStatus] = useState<string | null>(null);
 
   const [myPage, setMyPage] = useState(1);
   const [myPageSize, setMyPageSize] = useState(20);
   const [mySearchTerm, setMySearchTerm] = useState("");
-  const [mySelectedStatus, setMySelectedStatus] = useState<string[]>([]);
-  const [myEntityFilter, setMyEntityFilter] = useState("");
+  const [mySelectedBanco, setMySelectedBanco] = useState<string | null>(null);
+  const [mySelectedCargo, setMySelectedCargo] = useState<string | null>(null);
+  const [mySelectedStatus, setMySelectedStatus] = useState<string | null>(null);
 
   // Busca em tempo real (como módulo Clientes)
 
@@ -76,12 +61,12 @@ function EsteiraPageContent() {
   // Reset página quando filtros mudam
   useEffect(() => {
     setGlobalPage(1);
-  }, [globalSelectedStatus, globalSearchTerm]);
-  
+  }, [globalSelectedBanco, globalSelectedCargo, globalSelectedStatus, globalSearchTerm]);
+
 
   useEffect(() => {
     setMyPage(1);
-  }, [mySelectedStatus, mySearchTerm]);
+  }, [mySelectedBanco, mySelectedCargo, mySelectedStatus, mySearchTerm]);
 
   useEffect(() => {
     setGlobalPage(1);
@@ -147,29 +132,35 @@ function EsteiraPageContent() {
       "global",
       globalPage,
       globalPageSize,
+      globalSelectedBanco,
+      globalSelectedCargo,
       globalSelectedStatus,
-      globalSearchTerm,
-      globalEntityFilter
+      globalSearchTerm
     ],
     queryFn: async () => {
       const isManager = ["admin", "supervisor"].includes(user?.role ?? "");
+
+      // Determinar ordenação: se tem filtro de banco, ordenar por contratos daquele banco
+      const orderBy = globalSelectedBanco ? `financiamentos_banco_desc:${globalSelectedBanco}` : "financiamentos_desc";
 
       const params = buildCasesQuery(
         isManager
           ? {
               page: globalPage,
               page_size: globalPageSize,
-              order: "financiamentos_desc",
+              order: orderBy,
               q: globalSearchTerm,
-              entidade: globalEntityFilter || undefined,
-              status: globalSelectedStatus.length ? globalSelectedStatus : undefined,
+              banco: globalSelectedBanco || undefined,
+              cargo: globalSelectedCargo || undefined,
+              status: globalSelectedStatus ? [globalSelectedStatus] : undefined,
             }
           : {
               page: globalPage,
               page_size: globalPageSize,
-              order: "financiamentos_desc",
+              order: orderBy,
               q: globalSearchTerm,
-              entidade: globalEntityFilter || undefined,
+              banco: globalSelectedBanco || undefined,
+              cargo: globalSelectedCargo || undefined,
               status: ["novo"],     // atendente só vê novos
               // REMOVIDO assigned=0 para permitir ver casos expirados também
             }
@@ -190,14 +181,19 @@ function EsteiraPageContent() {
 
   // Query para listar meus atendimentos
   const { data: myData, isLoading: loadingMine, error: errorMine } = useQuery({
-    queryKey: ["cases", "mine", myPage, myPageSize, mySelectedStatus, mySearchTerm, myEntityFilter],
+    queryKey: ["cases", "mine", myPage, myPageSize, mySelectedBanco, mySelectedCargo, mySelectedStatus, mySearchTerm],
     queryFn: async () => {
+      // Determinar ordenação: se tem filtro de banco, ordenar por contratos daquele banco
+      const orderBy = mySelectedBanco ? `financiamentos_banco_desc:${mySelectedBanco}` : "financiamentos_desc";
+
       const params = buildCasesQuery({
         page: myPage,
         page_size: myPageSize,
+        order: orderBy,
         q: mySearchTerm,
-        entidade: myEntityFilter || undefined,
-        status: mySelectedStatus.length ? mySelectedStatus : undefined,
+        banco: mySelectedBanco || undefined,
+        cargo: mySelectedCargo || undefined,
+        status: mySelectedStatus ? [mySelectedStatus] : undefined,
         mine: true,
       });
 
@@ -269,7 +265,7 @@ function EsteiraPageContent() {
     router.push(`/casos/${caseId}`);
   };
 
-  // Query para buscar filtros disponíveis (bancos e status)
+  // Query para buscar filtros disponíveis (bancos, cargos e status)
   const { data: filtersData } = useQuery({
     queryKey: ["client-filters"],
     queryFn: async () => {
@@ -278,25 +274,6 @@ function EsteiraPageContent() {
     },
     staleTime: 60000, // Cache por 1 minuto
   });
-
-  // Mesclar lista completa de status com dados da API
-  const mergedStatuses = useMemo(() => {
-    if (!filtersData?.status) {
-      // Se API não retornou, usar lista completa com count 0
-      return ALL_AVAILABLE_STATUSES.map(s => ({ ...s, count: 0 }));
-    }
-
-    // Criar mapa dos counts da API
-    const apiCounts = new Map(
-      filtersData.status.map((s: any) => [s.value, s.count])
-    );
-
-    // Retornar lista completa com counts atualizados
-    return ALL_AVAILABLE_STATUSES.map(status => ({
-      ...status,
-      count: apiCounts.get(status.value) || 0,
-    }));
-  }, [filtersData]);
 
   const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
 
@@ -365,74 +342,112 @@ function EsteiraPageContent() {
               <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome, CPF ou banco..."
+                  <Input
+                    placeholder="Buscar por nome, CPF ou matrícula..."
                     value={globalSearchTerm}
                     onChange={(e) => {
                       setGlobalSearchTerm(e.target.value);
                     }}
-                    className="w-full pl-10 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent border border-input bg-muted text-foreground placeholder:text-muted-foreground"
+                    className="pl-10"
                   />
-                  {globalSearchTerm && (
-                    <button
-                      onClick={() => {
-                        setGlobalSearchTerm("");
-                      }}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {globalTotal} {globalTotal === 1 ? 'disponível' : 'disponíveis'}
                 </div>
               </div>
 
-              {/* Filtros Rápidos */}
+              {/* Filtros Rápidos - Dropdowns */}
               <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Dropdown Banco */}
+                  {filtersData?.bancos && filtersData.bancos.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Building2 className="h-3.5 w-3.5" />
+                        Banco
+                      </label>
+                      <select
+                        value={globalSelectedBanco || ""}
+                        onChange={(e) => {
+                          setGlobalSelectedBanco(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os bancos</option>
+                        {filtersData.bancos.map((banco: any) => (
+                          <option key={banco.value} value={banco.value}>
+                            {banco.label} ({banco.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-                {/* Filtro por Status - APENAS ADMIN */}
-                {isAdminOrSupervisor && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Status:</span>
-                      {globalSelectedStatus.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setGlobalSelectedStatus([]);
-                          }}
-                          className="h-6 text-xs"
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Limpar
-                        </Button>
-                      )}
+                  {/* Dropdown Cargo */}
+                  {filtersData?.cargos && filtersData.cargos.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <User className="h-3.5 w-3.5" />
+                        Cargo
+                      </label>
+                      <select
+                        value={globalSelectedCargo || ""}
+                        onChange={(e) => {
+                          setGlobalSelectedCargo(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os cargos</option>
+                        {filtersData.cargos.map((cargo: any) => (
+                          <option key={cargo.value} value={cargo.value}>
+                            {cargo.label} ({cargo.count})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {mergedStatuses.map((status) => (
-                        <Badge
-                          key={status.value}
-                          variant={globalSelectedStatus.includes(status.value) ? "default" : "outline"}
-                          className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors ${
-                            status.count === 0 ? 'opacity-50' : ''
-                          }`}
-                          onClick={() => {
-                            setGlobalSelectedStatus(prev =>
-                              prev.includes(status.value)
-                                ? prev.filter(s => s !== status.value)
-                                : [...prev, status.value]
-                            );
-                          }}
-                        >
-                          {status.label} ({String(status.count || 0)})
-                        </Badge>
-                      ))}
+                  )}
+
+                  {/* Dropdown Status - APENAS ADMIN */}
+                  {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Activity className="h-3.5 w-3.5" />
+                        Status do Caso
+                      </label>
+                      <select
+                        value={globalSelectedStatus || ""}
+                        onChange={(e) => {
+                          setGlobalSelectedStatus(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os status</option>
+                        {filtersData.status.map((status: any) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label} ({status.count})
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                  )}
+                </div>
+
+                {/* Botão Limpar Filtros */}
+                {(globalSelectedBanco || globalSelectedCargo || globalSelectedStatus) && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setGlobalSelectedBanco(null);
+                        setGlobalSelectedCargo(null);
+                        setGlobalSelectedStatus(null);
+                      }}
+                      className="h-9"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Limpar filtros
+                    </Button>
                   </div>
                 )}
               </div>
@@ -491,74 +506,117 @@ function EsteiraPageContent() {
             {/* Filtros - Sistema Clientes */}
             <Card className="p-4 space-y-4">
               {/* Busca */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                    placeholder="Buscar por nome, CPF ou banco..."
-                  value={mySearchTerm}
-                  onChange={(e) => {
-                    setMySearchTerm(e.target.value);
-                  }}
-                  className="w-full pl-10 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent border border-input bg-muted text-foreground placeholder:text-muted-foreground"
-                />
-                {mySearchTerm && (
-                  <button
-                    onClick={() => {
-                      setMySearchTerm("");
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, CPF ou matrícula..."
+                    value={mySearchTerm}
+                    onChange={(e) => {
+                      setMySearchTerm(e.target.value);
                     }}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {myTotal} {myTotal === 1 ? 'caso' : 'casos'}
+                </div>
               </div>
 
-              {/* Filtros Rápidos por Status */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Status:</span>
-                  {mySelectedStatus.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setMySelectedStatus([]);
-                      }}
-                      className="h-6 text-xs"
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Limpar
-                    </Button>
+              {/* Filtros Rápidos - Dropdowns */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Dropdown Banco */}
+                  {filtersData?.bancos && filtersData.bancos.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Building2 className="h-3.5 w-3.5" />
+                        Banco
+                      </label>
+                      <select
+                        value={mySelectedBanco || ""}
+                        onChange={(e) => {
+                          setMySelectedBanco(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os bancos</option>
+                        {filtersData.bancos.map((banco: any) => (
+                          <option key={banco.value} value={banco.value}>
+                            {banco.label} ({banco.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Dropdown Cargo */}
+                  {filtersData?.cargos && filtersData.cargos.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <User className="h-3.5 w-3.5" />
+                        Cargo
+                      </label>
+                      <select
+                        value={mySelectedCargo || ""}
+                        onChange={(e) => {
+                          setMySelectedCargo(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os cargos</option>
+                        {filtersData.cargos.map((cargo: any) => (
+                          <option key={cargo.value} value={cargo.value}>
+                            {cargo.label} ({cargo.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Dropdown Status */}
+                  {filtersData?.status && filtersData.status.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Activity className="h-3.5 w-3.5" />
+                        Status do Caso
+                      </label>
+                      <select
+                        value={mySelectedStatus || ""}
+                        onChange={(e) => {
+                          setMySelectedStatus(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os status</option>
+                        {filtersData.status.map((status: any) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label} ({status.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {mergedStatuses.map((status) => (
-                    <Badge
-                      key={status.value}
-                      variant={mySelectedStatus.includes(status.value) ? "default" : "outline"}
-                      className={`cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors ${
-                        status.count === 0 ? 'opacity-50' : ''
-                      }`}
-                      onClick={() => {
-                        setMySelectedStatus(prev =>
-                          prev.includes(status.value)
-                            ? prev.filter(s => s !== status.value)
-                            : [...prev, status.value]
-                        );
-                      }}
-                    >
-                      {status.label} ({String(status.count || 0)})
-                    </Badge>
-                  ))}
-                </div>
-              </div>
 
-              {/* Contador de Casos */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Activity className="h-4 w-4" />
-                <span>Total de casos atribuídos: <strong>{myTotal}</strong></span>
+                {/* Botão Limpar Filtros */}
+                {(mySelectedBanco || mySelectedCargo || mySelectedStatus) && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setMySelectedBanco(null);
+                        setMySelectedCargo(null);
+                        setMySelectedStatus(null);
+                      }}
+                      className="h-9"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Limpar filtros
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
 

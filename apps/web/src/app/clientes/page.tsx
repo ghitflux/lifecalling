@@ -43,9 +43,13 @@ export default function Clientes() {
   const { data, isLoading } = useQuery({
     queryKey: ["/clients", page, pageSize, searchTerm, selectedBanco, selectedCargo, selectedStatus, semContratos],
     queryFn: async () => {
+      // Determinar ordenação: se tem filtro de banco, ordenar por contratos daquele banco
+      const orderBy = selectedBanco ? `contratos_banco_desc:${selectedBanco}` : "contratos_desc";
+
       const params = new URLSearchParams({
         page: page.toString(),
         page_size: pageSize.toString(),
+        order: orderBy,
       });
 
       if (searchTerm) {
