@@ -749,6 +749,14 @@ export default function CaseDetailPage() {
               </div>
             </div>
 
+            {/* Cargo */}
+            {caseDetail.client.cargo && (
+              <div>
+                <Label>Cargo</Label>
+                <Input value={caseDetail.client.cargo} disabled />
+              </div>
+            )}
+
             {/* Informações Financeiras do Cliente */}
             {caseDetail.client.financiamentos && caseDetail.client.financiamentos.length > 0 && (
               <div className="border-t pt-4">

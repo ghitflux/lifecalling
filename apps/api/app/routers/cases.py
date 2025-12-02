@@ -156,6 +156,7 @@ def get_case(
                 "name": c.client.name,
                 "cpf": c.client.cpf,
                 "matricula": c.client.matricula,
+                "cargo": financiamentos[0].cargo if financiamentos and financiamentos[0].cargo else None,
                 "matriculas": [
                     {"matricula": m.matricula, "orgao": m.orgao}
                     for m in matriculas
