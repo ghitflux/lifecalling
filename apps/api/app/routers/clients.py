@@ -79,6 +79,7 @@ def list_clients(
     page_size: int = Query(20, ge=1, le=200),
     q: str | None = None,
     banco: str | None = None,
+    cargo: str | None = None,
     status: str | None = None,
     sem_contratos: bool | None = None,
     db: Session = Depends(get_db),
@@ -96,6 +97,7 @@ def list_clients(
         page_size: Itens por página (padrão 20, máximo 200)
         q: Busca por nome, CPF ou matrícula
         banco: Filtrar por banco/entidade importada (entity_name de PayrollLine)
+        cargo: Filtrar por cargo do cliente
         status: Filtrar por status do caso
         sem_contratos: Se True, filtra apenas clientes sem financiamentos
     """
@@ -106,6 +108,7 @@ def list_clients(
         Client.cpf,
         Client.matricula,
         Client.orgao,
+        Client.cargo,
         func.count(Case.id).label("casos_count")
     ).outerjoin(
         Case, Case.client_id == Client.id
@@ -129,12 +132,16 @@ def list_clients(
             PayrollLine.entity_name.isnot(None)
         ).distinct().all()
         matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
-        
+
         if matching_entities:
             clients_query = clients_query.join(
                 PayrollLine,
                 PayrollLine.cpf == Client.cpf
             ).filter(PayrollLine.entity_name.in_(matching_entities))
+
+    # Filtrar por cargo
+    if cargo:
+        clients_query = clients_query.filter(Client.cargo == cargo)
 
     # Filtrar por status do caso
     if status:
@@ -153,7 +160,7 @@ def list_clients(
 
     # Agrupar antes de contar
     clients_query = clients_query.group_by(
-        Client.id, Client.name, Client.cpf, Client.matricula, Client.orgao
+        Client.id, Client.name, Client.cpf, Client.matricula, Client.orgao, Client.cargo
     )
 
     # Contar total ANTES da paginação
@@ -177,6 +184,7 @@ def list_clients(
             "matricula": client_data.matricula,
             "nome": client_data.nome,
             "orgao": client_data.orgao,
+            "cargo": client_data.cargo,
             "contratos": contratos_count,
             "casos": client_data.casos_count,
             "created_at": None  # Campo não disponível no modelo Client
@@ -199,8 +207,9 @@ def get_available_filters(
     ))
 ):
     """
-    Retorna filtros disponíveis para clientes (bancos credores).
+    Retorna filtros disponíveis para clientes (bancos credores e cargos).
     Bancos = Entidades importadas dos arquivos TXT (de PayrollLine)
+    Cargos = Cargos únicos dos clientes
     Órgãos = Órgãos pagadores dos clientes
     """
     # Listar entidades únicas das linhas de folha importadas (entity_name)
@@ -272,6 +281,25 @@ def get_available_filters(
         })
 
 
+    # Buscar cargos únicos dos clientes
+    cargos = db.query(Client.cargo).filter(
+        Client.cargo.isnot(None),
+        Client.cargo != ''
+    ).distinct().all()
+    cargos_list = sorted([c[0] for c in cargos if c[0]])
+
+    # Contar clientes por cargo
+    cargos_with_count = []
+    for cargo in cargos_list:
+        count = db.query(func.count(Client.id)).filter(
+            Client.cargo == cargo
+        ).scalar() or 0
+        cargos_with_count.append({
+            "value": cargo,
+            "label": cargo,
+            "count": count
+        })
+
     # Contar clientes sem contratos (sem financiamentos)
     clientes_sem_contratos = (
         db.query(func.count(Client.id))
@@ -288,6 +316,7 @@ def get_available_filters(
 
     return {
         "bancos": bancos_with_count,
+        "cargos": cargos_with_count,
         "status": status_with_count,
         "clientes_sem_contratos": clientes_sem_contratos
     }
@@ -380,6 +409,7 @@ def get_clients_stats(
 def export_clients_csv(
     q: str | None = None,
     banco: str | None = None,
+    cargo: str | None = None,
     status: str | None = None,
     sem_contratos: bool | None = None,
     fields: str = Query(default="nome,cpf,matricula,orgao", description="Campos separados por vírgula"),
@@ -392,10 +422,11 @@ def export_clients_csv(
     """
     Exporta clientes filtrados para CSV.
     Aceita os mesmos filtros do endpoint de listagem.
-    
+
     Args:
         q: Busca por nome, CPF ou matrícula
         banco: Filtrar por banco/entidade
+        cargo: Filtrar por cargo do cliente
         status: Filtrar por status do caso
         sem_contratos: Filtrar apenas clientes sem financiamentos
         fields: Campos a exportar, separados por vírgula
@@ -410,6 +441,7 @@ def export_clients_csv(
         Client.cpf,
         Client.matricula,
         Client.orgao,
+        Client.cargo,
         Client.telefone_preferencial,
         Client.numero_cliente,
         Client.observacoes,
@@ -445,13 +477,17 @@ def export_clients_csv(
             PayrollLine.entity_name.isnot(None)
         ).distinct().all()
         matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
-        
+
         if matching_entities:
             clients_query = clients_query.join(
                 PayrollLine,
                 PayrollLine.cpf == Client.cpf
             ).filter(PayrollLine.entity_name.in_(matching_entities))
-    
+
+    # Filtrar por cargo
+    if cargo:
+        clients_query = clients_query.filter(Client.cargo == cargo)
+
     if status:
         clients_query = clients_query.filter(Case.status == status)
     
@@ -465,7 +501,7 @@ def export_clients_csv(
     
     # Agrupar por cliente
     clients_query = clients_query.group_by(
-        Client.id, Client.name, Client.cpf, Client.matricula, Client.orgao,
+        Client.id, Client.name, Client.cpf, Client.matricula, Client.orgao, Client.cargo,
         Client.telefone_preferencial, Client.numero_cliente, Client.observacoes,
         Client.banco, Client.agencia, Client.conta, Client.chave_pix,
         Client.tipo_chave_pix, Client.orgao_pgto_code, Client.orgao_pgto_name,
@@ -543,6 +579,7 @@ def export_clients_csv(
             "cpf": cpf_formatted,
             "matricula": client_data.matricula or "",
             "orgao": client_data.orgao or "",
+            "cargo": client_data.cargo or "",
             "telefone_preferencial": client_data.telefone_preferencial or "",
             "numero_cliente": client_data.numero_cliente or "",
             "observacoes": client_data.observacoes or "",
@@ -572,6 +609,7 @@ def export_clients_csv(
         "cpf": "CPF",
         "matricula": "Matrícula",
         "orgao": "Órgão",
+        "cargo": "Cargo",
         "telefone_preferencial": "Telefone",
         "numero_cliente": "Número Cliente",
         "observacoes": "Observações",
@@ -693,6 +731,7 @@ def get_client(
         "matricula": c.matricula,
         "nome": c.name,
         "orgao": c.orgao,
+        "cargo": c.cargo,
         "created_at": None,  # Placeholder
         "contracts": contracts,
         "cases": [

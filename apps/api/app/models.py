@@ -32,6 +32,7 @@ class Client(Base):
     cpf = Column(String(11), nullable=False)         # somente dígitos
     matricula = Column(String(40), nullable=False)
     orgao = Column(String(180))
+    cargo = Column(String(255), nullable=True)    # Cargo do cliente
     telefone_preferencial = Column(String(20))
     numero_cliente = Column(String(20))
     observacoes = Column(Text)

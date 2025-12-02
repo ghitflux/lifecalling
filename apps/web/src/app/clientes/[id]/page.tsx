@@ -293,6 +293,10 @@ export default function ClienteDetalhe() {
             <label className="text-sm font-medium text-muted-foreground">Órgão</label>
             <p className="text-lg">{client.orgao || "—"}</p>
           </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Cargo</label>
+            <p className="text-lg">{client.cargo || "—"}</p>
+          </div>
         </div>
 
         {client.created_at && (

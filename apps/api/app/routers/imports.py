@@ -559,6 +559,8 @@ async def import_payroll_file(
 
                         if existing_line:
                             # Atualizar linha existente
+                            existing_line.nome = line.get("nome", "")
+                            existing_line.cargo = line.get("cargo", "")
                             existing_line.status_code = line["status_code"]
                             existing_line.status_description = line["status_description"]
                             existing_line.orgao = line["orgao"]

@@ -17,6 +17,7 @@ export default function Clientes() {
   const [pageSize, setPageSize] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBanco, setSelectedBanco] = useState<string | null>(null);
+  const [selectedCargo, setSelectedCargo] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [semContratos, setSemContratos] = useState<boolean>(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -40,7 +41,7 @@ export default function Clientes() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["/clients", page, pageSize, searchTerm, selectedBanco, selectedStatus, semContratos],
+    queryKey: ["/clients", page, pageSize, searchTerm, selectedBanco, selectedCargo, selectedStatus, semContratos],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -53,6 +54,10 @@ export default function Clientes() {
 
       if (selectedBanco) {
         params.append("banco", selectedBanco);
+      }
+
+      if (selectedCargo) {
+        params.append("cargo", selectedCargo);
       }
 
       if (selectedStatus) {
@@ -148,106 +153,102 @@ export default function Clientes() {
           </div>
         </div>
 
-        {/* Filtros Rápidos */}
+        {/* Filtros Rápidos - Dropdowns */}
         <div className="space-y-3">
-          {/* Filtro por Banco */}
-          {filtersData?.bancos && filtersData.bancos.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Banco:</span>
-                {selectedBanco && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedBanco(null);
-                      setPage(1);
-                    }}
-                    className="h-6 text-xs"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Limpar
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {filtersData.bancos.map((banco: any) => (
-                  <Badge
-                    key={banco.value}
-                    variant={selectedBanco === banco.value ? "default" : "outline"}
-                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                    onClick={() => {
-                      setSelectedBanco(selectedBanco === banco.value ? null : banco.value);
-                      setPage(1);
-                    }}
-                  >
-                    {banco.label} ({banco.count})
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Filtro por Status */}
-          {filtersData?.status && filtersData.status.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Status do Caso:</span>
-                {selectedStatus && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedStatus(null);
-                      setPage(1);
-                    }}
-                    className="h-6 text-xs"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Limpar
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {filtersData.status.map((status: any) => (
-                  <Badge
-                    key={status.value}
-                    variant={selectedStatus === status.value ? "default" : "outline"}
-                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                    onClick={() => {
-                      setSelectedStatus(selectedStatus === status.value ? null : status.value);
-                      setPage(1);
-                    }}
-                  >
-                    {status.label} ({status.count})
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-
-          {/* Filtro Sem Contratos */}
-          {filtersData?.clientes_sem_contratos > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Outros Filtros:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant={semContratos ? "default" : "outline"}
-                  className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                  onClick={() => {
-                    setSemContratos(!semContratos);
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Dropdown Banco */}
+            {filtersData?.bancos && filtersData.bancos.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Banco
+                </label>
+                <select
+                  value={selectedBanco || ""}
+                  onChange={(e) => {
+                    setSelectedBanco(e.target.value || null);
                     setPage(1);
                   }}
+                  className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  Sem Financiamentos ({filtersData.clientes_sem_contratos})
-                </Badge>
+                  <option value="">Todos os bancos</option>
+                  {filtersData.bancos.map((banco: any) => (
+                    <option key={banco.value} value={banco.value}>
+                      {banco.label} ({banco.count})
+                    </option>
+                  ))}
+                </select>
               </div>
+            )}
+
+            {/* Dropdown Cargo */}
+            {filtersData?.cargos && filtersData.cargos.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <User className="h-3.5 w-3.5" />
+                  Cargo
+                </label>
+                <select
+                  value={selectedCargo || ""}
+                  onChange={(e) => {
+                    setSelectedCargo(e.target.value || null);
+                    setPage(1);
+                  }}
+                  className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Todos os cargos</option>
+                  {filtersData.cargos.map((cargo: any) => (
+                    <option key={cargo.value} value={cargo.value}>
+                      {cargo.label} ({cargo.count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Dropdown Status */}
+            {filtersData?.status && filtersData.status.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <Activity className="h-3.5 w-3.5" />
+                  Status do Caso
+                </label>
+                <select
+                  value={selectedStatus || ""}
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value || null);
+                    setPage(1);
+                  }}
+                  className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Todos os status</option>
+                  {filtersData.status.map((status: any) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label} ({status.count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Botão Limpar Filtros */}
+          {(selectedBanco || selectedCargo || selectedStatus) && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedBanco(null);
+                  setSelectedCargo(null);
+                  setSelectedStatus(null);
+                  setPage(1);
+                }}
+                className="h-9"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Limpar filtros
+              </Button>
             </div>
           )}
         </div>
@@ -355,6 +356,7 @@ export default function Clientes() {
         filters={{
           searchTerm,
           selectedBanco,
+          selectedCargo,
           selectedStatus,
           semContratos,
         }}

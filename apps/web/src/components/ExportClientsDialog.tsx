@@ -21,6 +21,7 @@ interface ExportClientsDialogProps {
   filters: {
     searchTerm: string;
     selectedBanco: string | null;
+    selectedCargo?: string | null;
     selectedStatus: string | null;
     semContratos: boolean;
   };
@@ -36,6 +37,7 @@ const FIELD_CATEGORIES = {
       { id: "cpf", name: "CPF" },
       { id: "matricula", name: "Matrícula" },
       { id: "orgao", name: "Órgão" },
+      { id: "cargo", name: "Cargo" },
       { id: "telefone_preferencial", name: "Telefone" },
       { id: "numero_cliente", name: "Número Cliente" },
       { id: "observacoes", name: "Observações" },
@@ -134,6 +136,9 @@ export function ExportClientsDialog({
       }
       if (filters.selectedBanco) {
         params.append("banco", filters.selectedBanco);
+      }
+      if (filters.selectedCargo) {
+        params.append("cargo", filters.selectedCargo);
       }
       if (filters.selectedStatus) {
         params.append("status", filters.selectedStatus);

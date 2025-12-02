@@ -59,6 +59,7 @@ class AdminSimulationResponse(SimulationResponse):
     user_cpf: Optional[str] = None
     user_matricula: Optional[str] = None
     user_orgao: Optional[str] = None
+    user_phone: Optional[str] = None
     # Alias esperados pelo frontend
     amount: Optional[float] = None  # Mesmo valor de requested_amount
     type: Optional[str] = None      # Mesmo valor de simulation_type
@@ -761,4 +762,3 @@ async def mark_notification_as_read(
     db.commit()
 
     return {"message": "Notificação marcada como lida"}
-

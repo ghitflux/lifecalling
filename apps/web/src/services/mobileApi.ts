@@ -54,6 +54,7 @@ export interface AdminSimulation extends Simulation {
   user_cpf?: string;
   user_matricula?: string;
   user_orgao?: string;
+  user_phone?: string;
   // Fields for compatibility (fix lint errors)
   amount?: number;
   type?: string;

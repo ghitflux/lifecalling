@@ -351,7 +351,7 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
                 "cpf": cpf,
                 "matricula": matricula,
                 "nome": nome,
-                "cargo": "",  # Não usado
+                "cargo": cargo,  # Cargo extraído do arquivo
 
                 # Status do desconto
                 "status_code": status_code,

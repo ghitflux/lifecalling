@@ -31,21 +31,39 @@ export default function LifeMobileSimulationsPage() {
         refetchOnWindowFocus: false,
     });
 
+    const defaultBadgeTone = "bg-slate-800 text-slate-200 border border-slate-700";
+
     const statusTone: Record<string, string> = {
+        pending: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
+        simulation_requested: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
         approved: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
         approved_by_client: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/40",
         cliente_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/40",
-        pending: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
+        simulacao_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/40",
+        financeiro_pendente: "bg-blue-500/15 text-blue-200 border border-blue-500/30",
+        contrato_efetivado: "bg-emerald-600/20 text-emerald-200 border border-emerald-500/40",
+        financeiro_cancelado: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
         rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/40"
     };
 
     const statusLabel: Record<string, string> = {
-        approved: "Aguardando aprovação do cliente",
-        approved_by_client: "Aprovado pelo cliente",
-        cliente_aprovada: "Aprovado pelo cliente",
-        pending: "Pendente",
-        rejected: "Reprovado"
+        pending: "Em análise",
+        simulation_requested: "Em análise",
+        approved: "Aguardando cliente",
+        approved_by_client: "Aprovada pelo cliente",
+        cliente_aprovada: "Aprovada pelo cliente",
+        simulacao_aprovada: "Aprovada pelo cliente",
+        financeiro_pendente: "No Financeiro",
+        contrato_efetivado: "Contrato Efetivado",
+        rejected: "Reprovada",
+        financeiro_cancelado: "Cancelada pelo Financeiro"
     };
+
+    const getStatusTone = (status?: string) =>
+        statusTone[(status || "").toLowerCase()] || defaultBadgeTone;
+
+    const getStatusLabel = (status?: string) =>
+        statusLabel[(status || "").toLowerCase()] || status || "Status";
 
     const filterSimulations = (status: string) => {
         if (!simulations) return [];
@@ -58,13 +76,13 @@ export default function LifeMobileSimulationsPage() {
             filtered = filtered.filter(sim => {
                 const st = (sim.status || "").toLowerCase();
                 if (status === "pending") {
-                    return st === "pending" || st === "simulation_requested" || st === "approved"; // aguardando cliente
+                    return st === "pending" || st === "simulation_requested" || st === "approved";
                 }
                 if (status === "approved") {
-                    return st === "approved_by_client" || st === "cliente_aprovada" || st === "simulacao_aprovada";
+                    return ["approved_by_client", "cliente_aprovada", "simulacao_aprovada", "financeiro_pendente", "contrato_efetivado"].includes(st);
                 }
                 if (status === "rejected") {
-                    return st === "rejected";
+                    return st === "rejected" || st === "financeiro_cancelado";
                 }
                 return true;
             });
@@ -83,58 +101,63 @@ export default function LifeMobileSimulationsPage() {
         return filtered;
     };
 
-    const renderSimulationCard = (sim: AdminSimulation) => (
-        <Card
-            key={sim.id}
-            className="cursor-pointer transition-shadow border bg-slate-900/70 border-slate-800 hover:border-slate-600 hover:shadow-lg hover:shadow-black/40"
-            style={{
-                borderLeftColor:
-                    (sim.status === "approved_by_client" || sim.status === "cliente_aprovada" || sim.status === "simulacao_aprovada") ? "#22c55e" :
-                        sim.status === "rejected" ? "#ef4444" :
-                            "#f59e0b",
-                borderLeftWidth: 4
-            }}
-            onClick={() => router.push(`/life-mobile/simulacoes/${sim.id}`)}
-        >
-            <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-3">
-                    <div>
-                        <h3 className="font-semibold text-slate-100">{sim.user_name || "Usuário Desconhecido"}</h3>
-                        <p className="text-sm text-slate-400">{sim.user_email}</p>
-                    </div>
-                    <Badge
-                        variant="outline"
-                        className={statusTone[sim.status] || "bg-slate-800 text-slate-200 border border-slate-700"}
-                    >
-                        {statusLabel[sim.status] || sim.status}
-                    </Badge>
-                </div>
+    const renderSimulationCard = (sim: AdminSimulation) => {
+        const statusKey = (sim.status || "").toLowerCase();
 
-                <div className="grid grid-cols-2 gap-2 text-sm mb-3 text-slate-300">
-                    <div>
-                        <p className="text-slate-400">Valor</p>
-                        <p className="font-medium text-slate-100">{formatCurrency(sim.amount || sim.requested_amount || 0)}</p>
+        return (
+            <Card
+                key={sim.id}
+                className="cursor-pointer transition-shadow border bg-slate-900/70 border-slate-800 hover:border-slate-600 hover:shadow-lg hover:shadow-black/40"
+                style={{
+                    borderLeftColor:
+                        (statusKey === "rejected" || statusKey === "financeiro_cancelado") ? "#ef4444" :
+                        statusKey === "financeiro_pendente" ? "#3b82f6" :
+                        (["approved_by_client", "cliente_aprovada", "simulacao_aprovada", "contrato_efetivado"].includes(statusKey)) ? "#22c55e" :
+                        "#f59e0b",
+                    borderLeftWidth: 4
+                }}
+                onClick={() => router.push(`/life-mobile/simulacoes/${sim.id}`)}
+            >
+                <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 className="font-semibold text-slate-100">{sim.user_name || "Usuário Desconhecido"}</h3>
+                            <p className="text-sm text-slate-400">{sim.user_email}</p>
+                        </div>
+                        <Badge
+                            variant="outline"
+                            className={getStatusTone(statusKey)}
+                        >
+                            {getStatusLabel(statusKey)}
+                        </Badge>
                     </div>
-                    <div>
-                        <p className="text-slate-400">Tipo</p>
-                        <p className="font-medium capitalize text-slate-100">{sim.type}</p>
-                    </div>
-                    <div>
-                        <p className="text-slate-400">Parcelas</p>
-                        <p className="font-medium text-slate-100">{sim.installments}x</p>
-                    </div>
-                    <div>
-                        <p className="text-slate-400">Data</p>
-                        <p className="font-medium text-slate-100">{new Date(sim.created_at).toLocaleDateString("pt-BR")}</p>
-                    </div>
-                </div>
 
-                <div className="flex justify-end items-center text-indigo-300 text-sm font-medium">
-                    Ver detalhes <ChevronRight size={16} />
-                </div>
-            </CardContent>
-        </Card>
-    );
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-3 text-slate-300">
+                        <div>
+                            <p className="text-slate-400">Valor</p>
+                            <p className="font-medium text-slate-100">{formatCurrency(sim.amount || sim.requested_amount || 0)}</p>
+                        </div>
+                        <div>
+                            <p className="text-slate-400">Tipo</p>
+                            <p className="font-medium capitalize text-slate-100">{sim.type}</p>
+                        </div>
+                        <div>
+                            <p className="text-slate-400">Parcelas</p>
+                            <p className="font-medium text-slate-100">{sim.installments}x</p>
+                        </div>
+                        <div>
+                            <p className="text-slate-400">Data</p>
+                            <p className="font-medium text-slate-100">{new Date(sim.created_at).toLocaleDateString("pt-BR")}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end items-center text-indigo-300 text-sm font-medium">
+                        Ver detalhes <ChevronRight size={16} />
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    };
 
     return (
         <div className="p-6 space-y-6 bg-slate-950 min-h-screen text-slate-100">

@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils/currency";
 import { useMemo, useState } from "react";
 import { SimulationFormMultiBank } from "@/components/mobile/SimulationFormMultiBank";
+import { computeTotals, type SimulationInput } from "@/lib/utils/simulation-calculations";
 
 type BankEntry = {
     bank?: string;
@@ -47,23 +48,39 @@ export default function SimulationDetailPage() {
     const [calculatedSimulation, setCalculatedSimulation] = useState<any>(null);
     const [forceShowForm, setForceShowForm] = useState(false);
 
+    const defaultBadgeTone = "bg-slate-800 text-slate-200 border border-slate-700";
+
     const statusTone: Record<string, string> = {
-        approved: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
         pending: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
-        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
+        simulation_requested: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
+        approved: "bg-amber-500/15 text-amber-200 border border-amber-500/30",
         approved_by_client: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
         cliente_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
-        simulacao_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30"
+        simulacao_aprovada: "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30",
+        financeiro_pendente: "bg-blue-500/15 text-blue-200 border border-blue-500/30",
+        contrato_efetivado: "bg-emerald-600/20 text-emerald-200 border border-emerald-500/40",
+        financeiro_cancelado: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
+        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30"
     };
 
     const statusLabel: Record<string, string> = {
-        approved: "Aguardando aprovação do cliente",
-        pending: "Pendente",
+        pending: "Em análise",
+        simulation_requested: "Em análise",
+        approved: "Aguardando cliente",
         rejected: "Reprovada",
-        approved_by_client: "Aprovado pelo Cliente",
-        cliente_aprovada: "Aprovado pelo Cliente",
-        simulacao_aprovada: "Simulação Aprovada"
+        approved_by_client: "Aprovada pelo Cliente",
+        cliente_aprovada: "Aprovada pelo Cliente",
+        simulacao_aprovada: "Aprovada pelo Cliente",
+        financeiro_pendente: "No Financeiro",
+        contrato_efetivado: "Contrato Efetivado",
+        financeiro_cancelado: "Cancelada pelo Financeiro"
     };
+
+    const getStatusTone = (status?: string) =>
+        statusTone[(status || "").toLowerCase()] || defaultBadgeTone;
+
+    const getStatusLabel = (status?: string) =>
+        statusLabel[(status || "").toLowerCase()] || status || "Status";
     const productInfo: Record<string, { label: string; icon: JSX.Element }> = {
         emprestimo_consignado: { label: "Empréstimo Consignado", icon: <FileText className="h-4 w-4" /> },
         cartao_beneficio: { label: "Cartão Benefício", icon: <CreditCard className="h-4 w-4" /> },
@@ -86,7 +103,8 @@ export default function SimulationDetailPage() {
 
     const isCustomerApproved =
         (simulation?.status || "").toLowerCase() === "approved_by_client" ||
-        (simulation?.status || "").toLowerCase() === "cliente_aprovada";
+        (simulation?.status || "").toLowerCase() === "cliente_aprovada" ||
+        (simulation?.status || "").toLowerCase() === "simulacao_aprovada";
 
     const { data: allSimulations } = useQuery({
         queryKey: ["adminSimulations"],
@@ -142,21 +160,59 @@ export default function SimulationDetailPage() {
             ((currentSimulation?.simulation_type || simulation?.simulation_type) === "multi_bank" && currentBanks.length === 0)
         )
     );
+    const whatsappNumber = currentSimulation?.user_phone || simulation?.user_phone || "";
+    const whatsappLink = whatsappNumber ? `https://wa.me/${String(whatsappNumber).replace(/\D/g, "")}` : "";
 
     const totals = useMemo(() => {
-        if (!currentSimulation) {
-            return {
-                totalParcela: 0,
-                saldoTotal: 0,
-                liberadoTotal: 0,
-                seguroObrigatorio: 0,
-                totalFinanciado: 0,
-                custoConsultoria: 0,
-                valorLiquido: 0,
-                liberadoCliente: 0
-            };
+        const fallback = {
+            totalParcela: 0,
+            saldoTotal: 0,
+            liberadoTotal: 0,
+            seguroObrigatorio: 0,
+            totalFinanciado: 0,
+            custoConsultoria: 0,
+            valorLiquido: 0,
+            liberadoCliente: 0
+        };
+
+        if (!currentSimulation) return fallback;
+
+        const hasBanks = currentBanks && currentBanks.length > 0;
+        const hasCoeficiente = Boolean(currentSimulation.coeficiente);
+
+        if (hasBanks && hasCoeficiente) {
+            try {
+                const input: SimulationInput = {
+                    banks: currentBanks.map((bank, index) => ({
+                        bank: bank.bank || bank.banco || `Banco ${index + 1}`,
+                        parcela: Number(bank.parcela) || 0,
+                        saldoDevedor: Number(bank.saldoDevedor) || 0,
+                        valorLiberado: Number(bank.valorLiberado) || 0
+                    })),
+                    coeficiente: String(currentSimulation.coeficiente || "0"),
+                    seguro: Number(currentSimulation.seguro) || 0,
+                    percentualConsultoria: Number(currentSimulation.percentual_consultoria) || 0,
+                    prazo: Number(currentSimulation.prazo || currentSimulation.installments || simulation?.installments || 0)
+                };
+
+                const result = computeTotals(input);
+
+                return {
+                    totalParcela: result.valorParcelaTotal,
+                    saldoTotal: result.saldoTotal,
+                    liberadoTotal: result.liberadoTotal,
+                    seguroObrigatorio: input.seguro,
+                    totalFinanciado: result.totalFinanciado,
+                    custoConsultoria: result.custoConsultoria,
+                    valorLiquido: result.valorLiquido,
+                    liberadoCliente: result.liberadoCliente
+                };
+            } catch (err) {
+                console.warn("Erro ao calcular totais da simulação mobile", err);
+            }
         }
 
+        // Fallback simples se faltar coeficiente ou bancos
         const totalParcela = currentBanks.reduce((sum, b) => sum + (b.parcela || 0), 0);
         const saldoTotal = currentBanks.reduce((sum, b) => sum + (b.saldoDevedor || 0), 0);
         const liberadoTotal = currentBanks.reduce((sum, b) => sum + (b.valorLiberado || 0), 0);
@@ -175,7 +231,7 @@ export default function SimulationDetailPage() {
             valorLiquido,
             liberadoCliente: valorLiquido
         };
-    }, [currentBanks, currentSimulation]);
+    }, [currentBanks, currentSimulation, simulation?.installments]);
 
     const history = useMemo(() => {
         if (!allSimulations || !simulation?.user_email) return [];
@@ -263,9 +319,9 @@ export default function SimulationDetailPage() {
                 </div>
                 <Badge
                     variant="outline"
-                    className={statusTone[simulation.status] || "bg-slate-800 text-slate-200 border border-slate-700"}
+                    className={getStatusTone(simulation.status)}
                 >
-                    {statusLabel[simulation.status] || simulation.status}
+                    {getStatusLabel(simulation.status)}
                 </Badge>
             </div>
 
@@ -297,14 +353,14 @@ export default function SimulationDetailPage() {
                             )}
                             <div>
                                 <p className="text-sm text-slate-400">WhatsApp</p>
-                                {simulation.user_phone ? (
+                                {whatsappNumber ? (
                                     <a
                                         className="font-medium text-emerald-300 hover:text-emerald-200"
-                                        href={`https://wa.me/${String(simulation.user_phone).replace(/\D/g, "")}`}
+                                        href={whatsappLink}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        {simulation.user_phone}
+                                        {whatsappNumber}
                                     </a>
                                 ) : (
                                     <p className="font-medium text-slate-500">-</p>
@@ -439,42 +495,6 @@ export default function SimulationDetailPage() {
                         </Card>
                     )}
 
-                    {/* Attachments Card */}
-                    {simulation.document_url && (
-                        <Card className="bg-slate-900/80 border border-slate-800 shadow-lg shadow-black/40">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2 text-slate-100">
-                                    <Paperclip className="h-5 w-5 text-indigo-300" />
-                                    Anexos do Caso (1)
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between p-4 bg-slate-950/70 rounded-lg border border-slate-800">
-                                    <div className="flex items-center gap-3">
-                                        <FileText className="h-10 w-10 text-indigo-300" />
-                                        <div>
-                                            <p className="font-medium text-slate-100">
-                                                {simulation.document_filename || 'Documento anexado'}
-                                            </p>
-                                            <p className="text-sm text-slate-400">
-                                                {simulation.document_type?.toUpperCase()} • {new Date(simulation.created_at).toLocaleString('pt-BR')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="border-slate-700 text-slate-100 hover:bg-slate-800"
-                                        onClick={handleDownloadDocument}
-                                    >
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Download
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
                     {showMultiBankForm && (
                         <SimulationFormMultiBank
                             onCalculate={updateSimulationMutation.mutate}
@@ -534,8 +554,8 @@ export default function SimulationDetailPage() {
                                     <DollarSign className="h-5 w-5 text-emerald-300" />
                                     Resultado da Simulação
                                 </CardTitle>
-                                <Badge className={calculatedSimulation ? "bg-amber-500/20 text-amber-200 border-amber-500/40" : (statusTone[simulation.status] || "bg-slate-800 text-slate-200 border border-slate-700")}>
-                                    {calculatedSimulation ? "Calculada" : (statusLabel[simulation.status] || simulation.status)}
+                                <Badge className={calculatedSimulation ? "bg-amber-500/20 text-amber-200 border-amber-500/40" : getStatusTone(simulation.status)}>
+                                    {calculatedSimulation ? "Calculada" : getStatusLabel(simulation.status)}
                                 </Badge>
                             </div>
                         </CardHeader>
@@ -677,9 +697,9 @@ export default function SimulationDetailPage() {
                                 <div className="flex items-center gap-3">
                                     <Badge
                                         variant="outline"
-                                        className={statusTone[sim.status] || "bg-slate-800 text-slate-200 border border-slate-700"}
+                                        className={getStatusTone(sim.status)}
                                     >
-                                        {statusLabel[sim.status] || sim.status}
+                                        {getStatusLabel(sim.status)}
                                     </Badge>
                                     {sim.id !== simulation.id && (
                                         <Button variant="ghost" className="text-indigo-300 hover:text-indigo-200" onClick={() => router.push(`/life-mobile/simulacoes/${sim.id}`)}>
