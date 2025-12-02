@@ -203,6 +203,39 @@ def upsert_client(db: Session, cpf: str, matricula: str, nome: str, orgao: str =
     return client
 
 
+def cleanup_old_references(db: Session) -> int:
+    """
+    Remove referências antigas de PayrollLine, mantendo apenas os 2 meses mais recentes
+    para cada combinação única de (cpf, matricula, financiamento_code).
+
+    Args:
+        db: Sessão do banco
+
+    Returns:
+        Número de linhas deletadas
+    """
+    # SQL para deletar referências antigas, mantendo apenas as 2 mais recentes
+    # PostgreSQL: usa CTE (WITH) ao invés de subquery no DELETE
+    delete_query = text("""
+        WITH ranked AS (
+            SELECT
+                id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY cpf, matricula, financiamento_code
+                    ORDER BY ref_year DESC, ref_month DESC
+                ) as rn
+            FROM payroll_lines
+        )
+        DELETE FROM payroll_lines
+        WHERE id IN (SELECT id FROM ranked WHERE rn > 2)
+    """)
+
+    result = db.execute(delete_query)
+    deleted_count = result.rowcount
+    logger.info(f"Limpeza concluída: {deleted_count} linhas antigas removidas")
+    return deleted_count
+
+
 def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
                           status_summary: dict) -> Case:
     """
@@ -621,6 +654,16 @@ async def import_payroll_file(
             logger.info(f"Commit final: {processed_count} clientes processados")
         except Exception as e:
             logger.error(f"Erro no commit final: {e}")
+            db.rollback()
+
+        # Limpar referências antigas - manter apenas os 2 meses mais recentes por FIN
+        try:
+            logger.info("Iniciando limpeza de referências antigas...")
+            cleanup_old_references(db)
+            db.commit()
+            logger.info("Limpeza de referências antigas concluída")
+        except Exception as cleanup_error:
+            logger.error(f"Erro na limpeza de referências antigas: {cleanup_error}")
             db.rollback()
 
         # Atualizar estatísticas do batch
