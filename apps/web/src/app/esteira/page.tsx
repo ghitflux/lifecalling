@@ -20,6 +20,7 @@ interface Case {
     name: string;
     cpf: string;
     matricula: string;
+    cargo?: string;
   };
   created_at: string;
   assigned_to?: string;
@@ -27,6 +28,7 @@ interface Case {
   observacoes?: string;
   banco?: string;
   entidade?: string;
+  valor_mensalidade?: number;
 }
 
 function EsteiraPageContent() {
@@ -279,8 +281,8 @@ function EsteiraPageContent() {
 
     if (isLoading) {
       return (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 8 }, (_, i) => (
+        <div className="grid gap-3 grid-cols-1">
+          {Array.from({ length: 6 }, (_, i) => (
             <CaseSkeleton key={i} />
           ))}
         </div>
@@ -304,7 +306,7 @@ function EsteiraPageContent() {
     }
 
     return (
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1">
         {Array.isArray(cases) && cases.map((caso) => (
           <EsteiraCard
             key={caso.id}

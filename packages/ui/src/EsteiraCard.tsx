@@ -3,7 +3,7 @@ import React from "react";
 import { StatusBadge, type Status } from "./StatusBadge";
 import { Button } from "./Button";
 import { AdvancedCard } from "./AdvancedCard";
-import { User, Calendar, Hash, Building2, MessageSquare, Phone } from "lucide-react";
+import { User, Calendar, Hash, Building2, MessageSquare, Phone, Briefcase, DollarSign } from "lucide-react";
 
 interface EsteiraCardProps {
   caso: {
@@ -13,29 +13,39 @@ interface EsteiraCardProps {
       name: string;
       cpf: string;
       matricula: string;
+      cargo?: string;
     };
     assigned_to?: string;
     created_at: string;
     banco?: string;
     telefone_preferencial?: string;
     observacoes?: string;
+    valor_mensalidade?: number;
   };
   onAssign?: (id: number) => void;
   onView: (id: number) => void;
 }
 
 export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
+  const formatCurrency = (value?: number) => {
+    if (!value) return "—";
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   return (
     <AdvancedCard
       title={caso.client.name}
       subtitle={`CPF: ${caso.client.cpf}`}
       badge={<StatusBadge status={caso.status} size="sm" />}
       footer={
-        <div className="flex gap-1">
+        <div className="flex gap-2 justify-end">
           {onAssign && !caso.assigned_to && (
             <Button
               size="sm"
-              className="flex-1 text-xs"
+              className="text-xs px-4"
               onClick={() => onAssign(caso.id)}
             >
               Pegar Caso
@@ -44,7 +54,7 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 text-xs"
+            className="text-xs px-4"
             onClick={() => onView(caso.id)}
           >
             Ver Detalhes
@@ -52,34 +62,50 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
         </div>
       }
     >
-      <div className="grid grid-cols-2 gap-2">
-        {/* Linha 1 - Coluna 1: Matrícula */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Matrícula */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Hash className="h-3 w-3 flex-shrink-0" />
+          <Hash className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="truncate">Mat: {caso.client.matricula}</span>
         </div>
 
-        {/* Linha 1 - Coluna 2: Banco */}
+        {/* Cargo */}
+        {caso.client.cargo && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Briefcase className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{caso.client.cargo}</span>
+          </div>
+        )}
+
+        {/* Banco */}
         {caso.banco && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Building2 className="h-3 w-3 flex-shrink-0" />
+            <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
             <span className="truncate">{caso.banco}</span>
           </div>
         )}
 
-        {/* Linha 2 - Coluna 1: Atendente */}
-        {caso.assigned_to && (
+        {/* Valor da Mensalidade */}
+        {caso.valor_mensalidade && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <User className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{caso.assigned_to}</span>
+            <DollarSign className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate font-medium">{formatCurrency(caso.valor_mensalidade)}</span>
           </div>
         )}
 
-        {/* Linha 2 - Coluna 2: Data */}
+        {/* Data */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3 flex-shrink-0" />
+          <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
           <span>{new Date(caso.created_at).toLocaleDateString('pt-BR')}</span>
         </div>
+
+        {/* Atendente */}
+        {caso.assigned_to && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <User className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{caso.assigned_to}</span>
+          </div>
+        )}
       </div>
     </AdvancedCard>
   );

@@ -960,16 +960,31 @@ def list_cases(
 
                     if hasattr(c, "client") and c.client:
                         from app.models import PayrollLine
+                        from sqlalchemy import desc
                         num_financiamentos = db.query(PayrollLine).filter(
                             PayrollLine.cpf == c.client.cpf
                         ).count()
+
+                        # Buscar cargo e valor da mensalidade mais recente
+                        latest_payroll = db.query(PayrollLine).filter(
+                            PayrollLine.cpf == c.client.cpf
+                        ).order_by(
+                            desc(PayrollLine.ref_year),
+                            desc(PayrollLine.ref_month),
+                            desc(PayrollLine.valor_parcela_ref)
+                        ).first()
+
+                        cargo = latest_payroll.cargo if latest_payroll and latest_payroll.cargo else None
+                        valor_mensalidade = float(latest_payroll.valor_parcela_ref) if latest_payroll and latest_payroll.valor_parcela_ref else None
 
                         item["client"] = {
                             "name": c.client.name or "Nome não informado",
                             "cpf": c.client.cpf or "",
                             "matricula": c.client.matricula or "",
+                            "cargo": cargo,
                             "num_financiamentos": num_financiamentos,
                         }
+                        item["valor_mensalidade"] = valor_mensalidade
                     else:
                         client = (
                             db.get(Client, c.client_id)
@@ -978,16 +993,31 @@ def list_cases(
                         )
                         if client:
                             from app.models import PayrollLine
+                            from sqlalchemy import desc
                             num_financiamentos = db.query(PayrollLine).filter(
                                 PayrollLine.cpf == client.cpf
                             ).count()
+
+                            # Buscar cargo e valor da mensalidade mais recente
+                            latest_payroll = db.query(PayrollLine).filter(
+                                PayrollLine.cpf == client.cpf
+                            ).order_by(
+                                desc(PayrollLine.ref_year),
+                                desc(PayrollLine.ref_month),
+                                desc(PayrollLine.valor_parcela_ref)
+                            ).first()
+
+                            cargo = latest_payroll.cargo if latest_payroll and latest_payroll.cargo else None
+                            valor_mensalidade = float(latest_payroll.valor_parcela_ref) if latest_payroll and latest_payroll.valor_parcela_ref else None
 
                             item["client"] = {
                                 "name": client.name or "Nome não informado",
                                 "cpf": client.cpf or "",
                                 "matricula": client.matricula or "",
+                                "cargo": cargo,
                                 "num_financiamentos": num_financiamentos,
                             }
+                            item["valor_mensalidade"] = valor_mensalidade
                         else:
                             item["client"] = {
                                 "name": "Cliente não encontrado",
