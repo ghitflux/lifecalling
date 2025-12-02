@@ -219,7 +219,7 @@ export default function RankingsPage() {
       }
 
       // Excluir roles não-atendentes
-      const excludedRoles = ["admin", "supervisor", "calculista"];
+      const excludedRoles = ["super_admin", "admin", "supervisor", "calculista"];
       if (agent.role && excludedRoles.includes(agent.role.toLowerCase())) {
         return false;
       }
@@ -290,8 +290,8 @@ export default function RankingsPage() {
     return <span>{row.pos}</span>;
   }
 
-  const isAdmin = user?.role === "admin";
-  const isAdminOrSupervisor = user?.role === "admin" || user?.role === "supervisor";
+  const isAdmin = user?.role === "super_admin" || user?.role === "admin";
+  const isAdminOrSupervisor = user?.role === "super_admin" || user?.role === "admin" || user?.role === "supervisor";
 
   return (
     <div className="container mx-auto p-6 space-y-8">

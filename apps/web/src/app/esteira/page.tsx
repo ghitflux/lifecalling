@@ -9,9 +9,10 @@ import { useMyStats } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { buildCasesQuery } from "@/lib/query";
 import { toast } from "sonner";
-import { Search, X, Building2, Activity, CheckCircle, AlertCircle, TrendingUp, DollarSign, Target, User } from "lucide-react";
+import { Search, X, Building2, Activity, CheckCircle, AlertCircle, TrendingUp, DollarSign, Target, User, Phone, Briefcase, Hash, Calendar, CreditCard, MapPin, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Case {
   id: number;
@@ -39,7 +40,7 @@ function EsteiraPageContent() {
   const [activeTab, setActiveTab] = useState("global");
 
   // Verificar se é admin ou supervisor
-  const isAdminOrSupervisor = user?.role === 'admin' || user?.role === 'supervisor';
+  const isAdminOrSupervisor = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'supervisor';
 
   // Estados de paginação e filtro (simplificados)
   const [globalPage, setGlobalPage] = useState(1);
@@ -55,6 +56,13 @@ function EsteiraPageContent() {
   const [mySelectedBanco, setMySelectedBanco] = useState<string | null>(null);
   const [mySelectedCargo, setMySelectedCargo] = useState<string | null>(null);
   const [mySelectedStatus, setMySelectedStatus] = useState<string | null>(null);
+
+  // Estados para a tab Esteira
+  const [esteiraCurrentIndex, setEsteiraCurrentIndex] = useState(0);
+  const [esteiraSelectedBanco, setEsteiraSelectedBanco] = useState<string | null>(null);
+  const [esteiraSelectedCargo, setEsteiraSelectedCargo] = useState<string | null>(null);
+  const [esteiraSelectedStatus, setEsteiraSelectedStatus] = useState<string | null>(null);
+  const [esteiraSearchTerm, setEsteiraSearchTerm] = useState("");
 
   // Busca em tempo real (como módulo Clientes)
 
@@ -140,7 +148,7 @@ function EsteiraPageContent() {
       globalSearchTerm
     ],
     queryFn: async () => {
-      const isManager = ["admin", "supervisor"].includes(user?.role ?? "");
+      const isManager = ["super_admin", "admin", "supervisor"].includes(user?.role ?? "");
 
       // Determinar ordenação: se tem filtro de banco, ordenar por contratos daquele banco
       const orderBy = globalSelectedBanco ? `financiamentos_banco_desc:${globalSelectedBanco}` : "financiamentos_desc";
@@ -212,16 +220,103 @@ function EsteiraPageContent() {
   const myTotal = myData?.total ?? 0;
   const myTotalPages = Math.ceil(myTotal / myPageSize);
 
-  // Mutation para pegar um atendimento
+  // Query para a esteira (todos os casos com filtros aplicados)
+  const { data: esteiraData, isLoading: loadingEsteira, error: errorEsteira } = useQuery({
+    queryKey: ["cases", "esteira", esteiraSelectedBanco, esteiraSelectedCargo, esteiraSelectedStatus, esteiraSearchTerm],
+    queryFn: async () => {
+      const isManager = ["super_admin", "admin", "supervisor"].includes(user?.role ?? "");
+
+      // Para esteira, sempre mostrar apenas casos novos
+      const params = buildCasesQuery({
+        page: 1,
+        page_size: 1000, // Buscar muitos casos para navegação
+        order: "id_desc", // Usar ordenação simples por ID
+        q: esteiraSearchTerm,
+        status: ["novo"], // Sempre mostrar apenas casos novos na esteira
+      });
+
+      console.log('[Esteira] User role:', user?.role);
+      console.log('[Esteira] Is Manager:', isManager);
+      console.log('[Esteira] Fetching cases with params:', params.toString());
+      const response = await api.get(`/cases?${params.toString()}`);
+      console.log('[Esteira] Response:', response.data);
+      return response.data;
+    },
+    onError: (error) => {
+      console.error('[Esteira] Error fetching cases:', error);
+      console.error('[Esteira] Error details:', (error as any)?.response?.data);
+    },
+    enabled: !!user && activeTab === 'esteira',
+    staleTime: 5000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+    retry: 2,
+  });
+
+  const esteiraCases = esteiraData?.items ?? [];
+  const esteiraTotal = esteiraData?.total ?? 0;
+  const currentCase = esteiraCases[esteiraCurrentIndex];
+
+  // Query para buscar detalhes completos do caso atual na esteira
+  const { data: currentCaseDetails, isLoading: loadingCaseDetails } = useQuery({
+    queryKey: ["case", currentCase?.id],
+    queryFn: async () => {
+      if (!currentCase?.id) return null;
+      const response = await api.get(`/cases/${currentCase.id}`);
+      return response.data;
+    },
+    enabled: !!currentCase?.id && activeTab === 'esteira',
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Funções de navegação da esteira
+  const handleNextCase = () => {
+    if (esteiraCurrentIndex < esteiraCases.length - 1) {
+      setEsteiraCurrentIndex(esteiraCurrentIndex + 1);
+    }
+  };
+
+  const handlePreviousCase = () => {
+    if (esteiraCurrentIndex > 0) {
+      setEsteiraCurrentIndex(esteiraCurrentIndex - 1);
+    }
+  };
+
+  // Reset índice quando filtros mudam
+  useEffect(() => {
+    setEsteiraCurrentIndex(0);
+  }, [esteiraSelectedBanco, esteiraSelectedCargo, esteiraSelectedStatus, esteiraSearchTerm]);
+
+  // Mutation para pegar um atendimento na tab esteira (inline)
+  const assignCaseEsteiraMutation = useMutation({
+    mutationFn: async (caseId: number) => {
+      const response = await api.post(`/cases/${caseId}/assign`);
+      return { data: response.data, caseId };
+    },
+    onSuccess: (result) => {
+      // Atualiza as queries após pegar um caso
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+      queryClient.invalidateQueries({ queryKey: ["case", result.caseId] });
+      toast.success("Atendimento atribuído com sucesso!");
+      // NÃO redireciona - mantém na tab esteira para edição inline
+    },
+    onError: (error) => {
+      toast.error("Erro ao atribuir atendimento. Tente novamente.");
+      console.error("Assign case error:", error);
+    },
+  });
+
+  // Mutation para pegar um atendimento nas outras tabs (redireciona)
   const assignCaseMutation = useMutation({
     mutationFn: async (caseId: number) => {
       const response = await api.post(`/cases/${caseId}/assign`);
       return { data: response.data, caseId };
     },
     onSuccess: (result) => {
-      // Atualiza as queries apÃ³s pegar um caso
+      // Atualiza as queries após pegar um caso
       queryClient.invalidateQueries({ queryKey: ["cases"] });
-      toast.success("Atendimento atribuí­do com sucesso!");
+      toast.success("Atendimento atribuído com sucesso!");
       // Redireciona automaticamente para os detalhes do caso
       router.push(`/casos/${result.caseId}`);
     },
@@ -235,11 +330,16 @@ function EsteiraPageContent() {
     assignCaseMutation.mutate(caseId);
   };
 
+  const handlePegarAtendimentoEsteira = (caseId: number) => {
+    assignCaseEsteiraMutation.mutate(caseId);
+  };
+
   const handleViewCase = (caseId: number) => {
     // Salvar estado atual da esteira no sessionStorage
     const currentPage = activeTab === 'mine' ? myPage : globalPage;
     const currentStatusFilter = activeTab === 'mine' ? mySelectedStatus : globalSelectedStatus;
     const currentSearchTerm = activeTab === 'mine' ? mySearchTerm : globalSearchTerm;
+    const currentList = activeTab === 'mine' ? myCases : globalCases;
 
     // Forçar aba global se não estiver explicitamente em 'mine'
     const tabToSave = activeTab === 'mine' ? 'mine' : 'global';
@@ -258,6 +358,7 @@ function EsteiraPageContent() {
       status: currentStatusFilter,
       search: currentSearchTerm
     }));
+    sessionStorage.setItem('esteira-case-ids', JSON.stringify((currentList ?? []).map((c) => c.id)));
 
     // Verificar se foi salvo corretamente
     const savedPage = sessionStorage.getItem('esteira-page');

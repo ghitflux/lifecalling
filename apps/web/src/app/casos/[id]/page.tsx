@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { StatusBadge, type Status, SimulationResultCard, DetailsSkeleton } from 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { buildCasesQuery } from "@/lib/query";
 import { useSendToCalculista, useReassignCase, useUsers, useAttachments, useDeleteAttachment, useClientPhones, useAddClientPhone, useDeleteClientPhone, useCaseEvents, useMarkNoContact, useSendToFechamento, useAssignCase, useReturnToPipeline } from "@/lib/hooks";
 import { formatPhone, unformatPhone } from "@/lib/masks";
 import { Calendar, Database } from "lucide-react";
@@ -19,7 +20,7 @@ import { Snippet } from "@nextui-org/snippet";
 import { RefreshCw, ArrowLeft } from "lucide-react";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
-import { getComments } from "@/lib/comments";
+import { addComment, getComments } from "@/lib/comments";
 
 interface CaseDetail {
   id: number;
@@ -143,6 +144,147 @@ export default function CaseDetailPage() {
 
   // Hook para listar usuários ativos
   const { data: users } = useUsers();
+
+  // Estados para navegação entre casos
+  const [navigationReason, setNavigationReason] = useState("");
+  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
+  const [navigationDirection, setNavigationDirection] = useState<'next' | 'prev' | null>(null);
+  const [navigationFilters, setNavigationFilters] = useState<{
+    tab: 'global' | 'mine';
+    status?: string[];
+    search?: string;
+  }>({ tab: 'global' });
+  const [navigationPage, setNavigationPage] = useState(1);
+  const [navigationStoredIds, setNavigationStoredIds] = useState<number[]>([]);
+
+  // Restaurar filtros/estado da esteira salvos antes de abrir o caso
+  useEffect(() => {
+    try {
+      const savedTab = sessionStorage.getItem('esteira-tab');
+      const savedFiltersRaw = sessionStorage.getItem('esteira-filters');
+      const savedPage = sessionStorage.getItem('esteira-page');
+      const savedIds = sessionStorage.getItem('esteira-case-ids');
+      const parsedFilters = savedFiltersRaw ? JSON.parse(savedFiltersRaw) : {};
+      const normalizedStatus = Array.isArray(parsedFilters?.status)
+        ? parsedFilters.status.filter(Boolean)
+        : parsedFilters?.status
+          ? [parsedFilters.status].filter(Boolean)
+          : undefined;
+
+      setNavigationFilters({
+        tab: savedTab === 'mine' ? 'mine' : 'global',
+        status: normalizedStatus,
+        search: parsedFilters?.search || undefined,
+      });
+
+      if (savedPage) {
+        const parsed = parseInt(savedPage);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          setNavigationPage(parsed);
+        }
+      }
+
+      if (savedIds) {
+        const parsedIds = JSON.parse(savedIds);
+        if (Array.isArray(parsedIds)) {
+          const normalized = parsedIds.map((v) => Number(v)).filter((n) => Number.isFinite(n));
+          if (normalized.length) {
+            setNavigationStoredIds(normalized);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Navigation] Falha ao restaurar filtros da esteira', err);
+      setNavigationFilters({ tab: 'global' });
+    }
+  }, []);
+
+  const navigationQueryParams = useMemo(() => {
+    const statusFromFilters = navigationFilters.status?.filter(Boolean);
+    const isManager = ['super_admin', 'admin', 'supervisor'].includes(userRole);
+    const resolvedStatus = statusFromFilters && statusFromFilters.length > 0
+      ? statusFromFilters
+      : (!isManager && navigationFilters.tab !== 'mine' ? ['novo'] : undefined);
+
+    return buildCasesQuery({
+      page: navigationPage,
+      page_size: 1000,
+      order: "id_desc",
+      q: navigationFilters.search,
+      status: resolvedStatus,
+      mine: navigationFilters.tab === 'mine',
+    });
+  }, [navigationFilters, userRole, navigationPage]);
+
+  // Query para buscar lista de casos para navegação (segue filtros da esteira)
+  const { data: newCasesList, isLoading: loadingCasesList } = useQuery({
+    queryKey: ["cases", "navigation-list", "v4", navigationQueryParams.toString()],
+    queryFn: async () => {
+      const response = await api.get(`/cases?${navigationQueryParams.toString()}`);
+      console.log('[Navigation] Got', response.data?.total, 'cases');
+      return response.data;
+    },
+    refetchOnMount: true,
+    staleTime: 10000,
+    retry: 1,
+  });
+
+  const navigationItems = useMemo(() => {
+    if (newCasesList?.items?.length) return newCasesList.items;
+    if (navigationStoredIds.length) return navigationStoredIds.map((id) => ({ id }));
+    return [];
+  }, [newCasesList, navigationStoredIds]);
+
+  // Calcular posição atual e próximos/anteriores mesmo que o caso não esteja na lista
+  const navigationMeta = useMemo(() => {
+    const items = navigationItems;
+
+    if (!items.length) {
+      return {
+        exactIndex: -1,
+        effectiveIndex: -1,
+        total: 0,
+        prevCase: null as any,
+        nextCase: null as any,
+      };
+    }
+
+    const sortedItems = newCasesList?.items?.length
+      ? [...items].sort((a: any, b: any) => (b.id ?? 0) - (a.id ?? 0))
+      : items;
+    const exactIndex = sortedItems.findIndex((c: any) => c.id === caseId);
+
+    let insertionIndex = exactIndex;
+    if (insertionIndex === -1) {
+      insertionIndex = sortedItems.findIndex((c: any) => c.id < caseId);
+      if (insertionIndex === -1) {
+        insertionIndex = sortedItems.length;
+      }
+    }
+
+    const prevCase = insertionIndex > 0 ? sortedItems[insertionIndex - 1] : null;
+    const nextCase = exactIndex !== -1
+      ? sortedItems[exactIndex + 1] ?? null
+      : sortedItems[insertionIndex] ?? null;
+
+    const effectiveIndex = sortedItems.length === 0
+      ? -1
+      : Math.min(insertionIndex, sortedItems.length - 1);
+
+    return {
+      exactIndex,
+      effectiveIndex,
+      total: sortedItems.length,
+      prevCase,
+      nextCase,
+    };
+  }, [navigationItems, caseId, newCasesList]);
+
+  const navigationPositionLabel = useMemo(() => {
+    if (loadingCasesList) return "(...)";
+    if (!navigationMeta.total || navigationMeta.effectiveIndex < 0) return "(0/0)";
+    return `(${navigationMeta.effectiveIndex + 1}/${navigationMeta.total})`;
+  }, [loadingCasesList, navigationMeta]);
 
   // Query para buscar detalhes do caso (DEVE VIR ANTES de usar caseDetail)
   const { data: caseDetail, isLoading, error } = useQuery({
@@ -443,6 +585,40 @@ export default function CaseDetailPage() {
     }
   };
 
+  // Função para navegar para próximo/anterior caso
+  const handleNavigate = useCallback(async (direction: 'next' | 'prev') => {
+    const targetCase = direction === 'next' ? navigationMeta.nextCase : navigationMeta.prevCase;
+
+    if (!targetCase) {
+      toast.info(direction === 'next' ? "Este é o último caso" : "Este é o primeiro caso");
+      return;
+    }
+
+    // Salvar observação no chat antes de navegar
+    if (navigationReason.trim()) {
+      try {
+        await addComment(caseId, 'ATENDIMENTO', `[Navegação] ${navigationReason}`);
+      } catch (error) {
+        console.error('Erro ao salvar observação:', error);
+        toast.error('Erro ao salvar observação');
+        return;
+      }
+    }
+
+    router.push(`/casos/${targetCase.id}`);
+
+    // Limpar o estado
+    setNavigationReason("");
+    setShowNavigationDialog(false);
+    setNavigationDirection(null);
+  }, [navigationMeta, caseId, navigationReason, router]);
+
+  // Abrir dialog de navegação
+  const openNavigationDialog = (direction: 'next' | 'prev') => {
+    setNavigationDirection(direction);
+    setShowNavigationDialog(true);
+  };
+
 
   if (isLoading) {
     return <DetailsSkeleton />;
@@ -559,19 +735,65 @@ export default function CaseDetailPage() {
             Retornar à Esteira
           </Button>
 
-          {/* Botão Pegar Caso - aparece apenas em casos novos e não atribuídos */}
-          {caseDetail.status === 'novo' &&
-           !caseDetail.assigned_user_id &&
-           ['atendente', 'admin', 'supervisor'].includes(userRole) && (
+          {/* Botões de Navegação e Pegar Caso */}
+          <div className="flex items-center gap-2">
+            {/* Debug info */}
+            {console.log('[Render] Button state:', {
+              loadingCasesList,
+              position: navigationMeta.effectiveIndex,
+              prevDisabled: loadingCasesList || !navigationMeta.prevCase,
+              nextDisabled: loadingCasesList || !navigationMeta.nextCase,
+              listLength: newCasesList?.items?.length
+            })}
+
+            {/* Botão Caso Anterior */}
             <Button
-              variant="default"
-              onClick={handleAssignCase}
-              disabled={assignCase.isPending}
-              className="flex items-center gap-2"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                console.log('[Click] Anterior button clicked');
+                handleNavigate('prev');
+              }}
+              disabled={loadingCasesList || !navigationMeta.prevCase}
+              className="flex items-center gap-1"
             >
-              {assignCase.isPending ? "Pegando..." : "Pegar Este Caso"}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+              Anterior {navigationPositionLabel}
             </Button>
-          )}
+
+            {/* Botão Pegar Caso - aparece apenas em casos novos e não atribuídos */}
+            {caseDetail.status === 'novo' &&
+             !caseDetail.assigned_user_id &&
+             ['super_admin', 'admin', 'supervisor', 'atendente'].includes(userRole) && (
+              <Button
+                variant="default"
+                onClick={handleAssignCase}
+                disabled={assignCase.isPending}
+                size="sm"
+              >
+                {assignCase.isPending ? "Pegando..." : "Pegar Este Caso"}
+              </Button>
+            )}
+
+            {/* Botão Próximo Caso */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                console.log('[Click] Próximo button clicked');
+                openNavigationDialog('next');
+              }}
+              disabled={loadingCasesList || !navigationMeta.nextCase}
+              className="flex items-center gap-1"
+            >
+              Próximo {navigationPositionLabel}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </Button>
+          </div>
           <div>
             <h1 className="text-2xl font-semibold">Atendimento #{caseDetail.id}</h1>
             <div className="flex items-center gap-2 mt-1">
@@ -1204,6 +1426,45 @@ export default function CaseDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* Dialog para solicitar observação antes de navegar */}
+      {showNavigationDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">
+              Motivo da navegação
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Por favor, informe o motivo de estar indo para o {navigationDirection === 'next' ? 'próximo' : 'anterior'} caso:
+            </p>
+            <textarea
+              value={navigationReason}
+              onChange={(e) => setNavigationReason(e.target.value)}
+              placeholder="Ex: Cliente não atendeu, necessário verificar outros casos..."
+              className="w-full min-h-[100px] p-3 rounded-lg border border-border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowNavigationDialog(false);
+                  setNavigationReason("");
+                  setNavigationDirection(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => handleNavigate(navigationDirection!)}
+                disabled={navigationDirection === 'next' && !navigationReason.trim()}
+              >
+                Continuar
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

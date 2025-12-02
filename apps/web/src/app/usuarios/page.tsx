@@ -221,7 +221,7 @@ export default function UsuariosPage() {
     const active_users = users.filter(user => user.active).length;
     const inactive_users = users.filter(user => !user.active).length;
     const admin_users = users.filter(user => 
-      user.role === "admin" || user.role === "administrator" || user.role === "administrador"
+      user.role === "super_admin" || user.role === "admin" || user.role === "administrator" || user.role === "administrador"
     ).length;
 
     return {
@@ -257,7 +257,7 @@ export default function UsuariosPage() {
     setShowForm(true);
   };
 
-  const canManageUsers = user?.role === "admin" || user?.role === "supervisor";
+  const canManageUsers = user?.role === "super_admin" || user?.role === "admin" || user?.role === "supervisor";
 
   return (
     <div className="container mx-auto p-6 space-y-6">

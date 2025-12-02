@@ -16,6 +16,7 @@ export default function FAQPage() {
   // Função para verificar se uma seção deve ser exibida baseada na role do usuário
   const shouldShowSection = (roles: string[]) => {
     if (!user) return false;
+    if (user.role === "super_admin") return true;
     return roles.includes(user.role);
   };
 
@@ -23,7 +24,7 @@ export default function FAQPage() {
     {
       category: "Geral",
       icon: HelpCircle,
-      roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"],
+      roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"],
       questions: [
         {
           q: "O que é o Life Digital?",
@@ -31,7 +32,7 @@ export default function FAQPage() {
         },
         {
           q: "Como funciona o sistema de permissões?",
-          a: "O sistema possui 6 níveis de acesso: Admin, Supervisor, Atendente, Calculista, Fechamento e Financeiro. Cada perfil tem acesso a módulos específicos conforme sua função."
+          a: "O sistema possui 7 níveis de acesso: Super Admin, Admin, Supervisor, Atendente, Calculista, Fechamento e Financeiro. Cada perfil tem acesso a módulos específicos conforme sua função."
         },
         {
           q: "Posso acessar o sistema de qualquer dispositivo?",
@@ -50,7 +51,7 @@ export default function FAQPage() {
     {
       category: "Atendimento",
       icon: Users,
-      roles: ["admin", "supervisor", "atendente"],
+      roles: ["super_admin", "admin", "supervisor", "atendente"],
       questions: [
         {
           q: "Como pegar um novo caso?",
@@ -77,7 +78,7 @@ export default function FAQPage() {
     {
       category: "Calculista",
       icon: Calculator,
-      roles: ["admin", "supervisor", "calculista"],
+      roles: ["super_admin", "admin", "supervisor", "calculista"],
       questions: [
         {
           q: "Como faço uma simulação?",
@@ -108,7 +109,7 @@ export default function FAQPage() {
     {
       category: "Fechamento",
       icon: FileText,
-      roles: ["admin", "supervisor", "fechamento"],
+      roles: ["super_admin", "admin", "supervisor", "fechamento"],
       questions: [
         {
           q: "O que faz o módulo de Fechamento?",
@@ -131,7 +132,7 @@ export default function FAQPage() {
     {
       category: "Financeiro",
       icon: Banknote,
-      roles: ["admin", "supervisor", "financeiro"],
+      roles: ["super_admin", "admin", "supervisor", "financeiro"],
       questions: [
         {
           q: "Como efetivar uma liberação?",
@@ -177,7 +178,7 @@ export default function FAQPage() {
     {
       category: "Novidades e Atualizações",
       icon: TrendingUp,
-      roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"],
+      roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"],
       questions: [
         {
           q: "Quais foram as últimas melhorias no sistema?",

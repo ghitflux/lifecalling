@@ -139,7 +139,7 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
                   {/* Mensagem */}
                   <div className={`flex-1 max-w-[80%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <div className={`rounded-lg p-3 ${
-                      comment.role === 'admin'
+                      comment.role === 'super_admin' || comment.role === 'admin'
                         ? 'bg-red-600/90 backdrop-blur-sm border border-red-500/50 text-white'
                         : comment.role === 'supervisor'
                         ? 'bg-purple-600/90 backdrop-blur-sm border border-purple-500/50 text-white'
@@ -160,7 +160,7 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
                         <Badge 
                           variant="outline" 
                           className={`text-xs ${
-                            comment.role === 'admin' 
+                            comment.role === 'super_admin' || comment.role === 'admin' 
                               ? 'bg-red-100 text-red-800 border-red-300' 
                               : comment.role === 'supervisor'
                               ? 'bg-purple-100 text-purple-800 border-purple-300'

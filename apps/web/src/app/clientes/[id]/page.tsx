@@ -221,7 +221,7 @@ export default function ClienteDetalhe() {
             <p className="text-muted-foreground">Detalhes do cliente</p>
           </div>
         </div>
-        {user?.role === "admin" && (
+        {(user?.role === "super_admin" || user?.role === "admin") && (
           <Button
             variant="destructive"
             onClick={handleDeleteClientCascade}

@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // mapas de acesso por prefixo
-const RBAC: Record<string, Array<"admin"|"supervisor"|"financeiro"|"calculista"|"atendente"|"fechamento">> = {
-  "/esteira":      ["admin","supervisor","atendente"],
-  "/calculista":   ["admin","supervisor","calculista"],
-  "/fechamento":   ["admin","supervisor","fechamento"],
-  "/financeiro":   ["admin","supervisor","financeiro"],
-  "/contratos":    ["admin","supervisor","financeiro"],
-  "/casos":        ["admin","supervisor","atendente","calculista","financeiro","fechamento"],
-  "/dashboard":    ["admin","supervisor","financeiro","calculista"],
-  "/usuarios":     ["admin","supervisor"],
-  "/config":       ["admin"],
-  "/rankings":     ["admin","supervisor","financeiro","calculista","atendente","fechamento"],
-  "/faq":          ["admin","supervisor","financeiro","calculista","atendente","fechamento"],
+const RBAC: Record<string, Array<"super_admin"|"admin"|"supervisor"|"financeiro"|"calculista"|"atendente"|"fechamento">> = {
+  "/esteira":      ["super_admin","admin","supervisor","atendente"],
+  "/calculista":   ["super_admin","admin","supervisor","calculista"],
+  "/fechamento":   ["super_admin","admin","supervisor","fechamento"],
+  "/financeiro":   ["super_admin","admin","supervisor","financeiro"],
+  "/contratos":    ["super_admin","admin","supervisor","financeiro"],
+  "/casos":        ["super_admin","admin","supervisor","atendente","calculista","financeiro","fechamento"],
+  "/dashboard":    ["super_admin","admin","supervisor","financeiro","calculista"],
+  "/usuarios":     ["super_admin","admin","supervisor"],
+  "/config":       ["super_admin","admin"],
+  "/rankings":     ["super_admin","admin","supervisor","financeiro","calculista","atendente","fechamento"],
+  "/faq":          ["super_admin","admin","supervisor","financeiro","calculista","atendente","fechamento"],
+  "/life-mobile":  ["super_admin"],
 };
 
 // rota padrão por role para evitar loops de redirecionamento
 const DEFAULT_ROUTE: Record<string, string> = {
+  super_admin: "/dashboard",
   admin: "/dashboard",
   supervisor: "/dashboard",
   atendente: "/esteira",

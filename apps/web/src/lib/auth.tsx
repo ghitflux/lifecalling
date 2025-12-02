@@ -7,7 +7,7 @@ import { api } from "./api";
 /* ======================
  * Tipos
  * ===================== */
-export type Role = "admin" | "supervisor" | "financeiro" | "calculista" | "atendente" | "fechamento";
+export type Role = "super_admin" | "admin" | "supervisor" | "financeiro" | "calculista" | "atendente" | "fechamento";
 
 export type User = {
   id: number;
@@ -149,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             redirectTo = "/dashboard";
             break;
           case "admin":
+          case "super_admin":
           default:
             redirectTo = "/dashboard";
         }

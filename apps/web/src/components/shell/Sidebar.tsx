@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-type Role = "admin" | "supervisor" | "financeiro" | "calculista" | "atendente" | "fechamento";
+type Role = "super_admin" | "admin" | "supervisor" | "financeiro" | "calculista" | "atendente" | "fechamento";
 
 type Item = {
   label: string;
@@ -21,28 +21,28 @@ type Item = {
 };
 
 const NAV: Item[] = [
-  { label: "Atendimento", href: "/esteira", icon: Home, roles: ["admin", "supervisor", "atendente"] },
-  { label: "Dashboard", href: "/dashboard", icon: BarChart3, roles: ["admin", "supervisor"] },
-  { label: "Rankings", href: "/rankings", icon: Trophy, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
-  { label: "Calculista", href: "/calculista", icon: Calculator, roles: ["admin", "supervisor", "calculista"] },
-  { label: "Fechamento", href: "/fechamento", icon: FileText, roles: ["admin", "supervisor", "fechamento"] },
-  { label: "Financeiro", href: "/financeiro", icon: Banknote, roles: ["admin", "supervisor", "financeiro"] },
-  { label: "Clientes", href: "/clientes", icon: UserIcon, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
-  { label: "Auditoria", href: "/admin/auditoria/sla", icon: Shield, roles: ["admin", "supervisor"] },
-  { label: "Importação", href: "/importacao", icon: Upload, roles: ["admin"] },
-  { label: "Usuários", href: "/usuarios", icon: Users, roles: ["admin"] },
+  { label: "Atendimento", href: "/esteira", icon: Home, roles: ["super_admin", "admin", "supervisor", "atendente"] },
+  { label: "Dashboard", href: "/dashboard", icon: BarChart3, roles: ["super_admin", "admin", "supervisor"] },
+  { label: "Rankings", href: "/rankings", icon: Trophy, roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
+  { label: "Calculista", href: "/calculista", icon: Calculator, roles: ["super_admin", "admin", "supervisor", "calculista"] },
+  { label: "Fechamento", href: "/fechamento", icon: FileText, roles: ["super_admin", "admin", "supervisor", "fechamento"] },
+  { label: "Financeiro", href: "/financeiro", icon: Banknote, roles: ["super_admin", "admin", "supervisor", "financeiro"] },
+  { label: "Clientes", href: "/clientes", icon: UserIcon, roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
+  { label: "Auditoria", href: "/admin/auditoria/sla", icon: Shield, roles: ["super_admin", "admin", "supervisor"] },
+  { label: "Importação", href: "/importacao", icon: Upload, roles: ["super_admin", "admin"] },
+  { label: "Usuários", href: "/usuarios", icon: Users, roles: ["super_admin", "admin"] },
   {
     label: "Life Mobile",
     href: "/life-mobile",
     icon: Smartphone,
-    roles: ["admin", "supervisor", "atendente"],
+    roles: ["super_admin"],
     subItems: [
       { label: "Dashboard", href: "/life-mobile" },
       { label: "Clientes", href: "/life-mobile/clientes" },
       { label: "Simulações", href: "/life-mobile/simulacoes" }
     ]
   },
-  { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
+  { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
 ];
 
 export default function Sidebar() {
