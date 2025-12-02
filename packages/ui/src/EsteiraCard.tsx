@@ -3,7 +3,7 @@ import React from "react";
 import { StatusBadge, type Status } from "./StatusBadge";
 import { Button } from "./Button";
 import { AdvancedCard } from "./AdvancedCard";
-import { User, Calendar, Hash, Building2, MessageSquare, Phone, Briefcase, DollarSign } from "lucide-react";
+import { User, Calendar, Hash, Building2, MessageSquare, Phone, Briefcase, DollarSign, FileText } from "lucide-react";
 
 interface EsteiraCardProps {
   caso: {
@@ -14,6 +14,7 @@ interface EsteiraCardProps {
       cpf: string;
       matricula: string;
       cargo?: string;
+      num_financiamentos?: number;
     };
     assigned_to?: string;
     created_at: string;
@@ -62,14 +63,13 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
         </div>
       }
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Matrícula */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {/* Linha 1 */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Hash className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="truncate">Mat: {caso.client.matricula}</span>
         </div>
 
-        {/* Cargo */}
         {caso.client.cargo && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Briefcase className="h-3.5 w-3.5 flex-shrink-0" />
@@ -77,7 +77,6 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
           </div>
         )}
 
-        {/* Banco */}
         {caso.banco && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
@@ -85,7 +84,14 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
           </div>
         )}
 
-        {/* Valor da Mensalidade */}
+        {/* Linha 2 */}
+        {caso.client.num_financiamentos !== undefined && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{caso.client.num_financiamentos} contrato{caso.client.num_financiamentos !== 1 ? 's' : ''}</span>
+          </div>
+        )}
+
         {caso.valor_mensalidade && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <DollarSign className="h-3.5 w-3.5 flex-shrink-0" />
@@ -93,17 +99,16 @@ export function EsteiraCard({ caso, onAssign, onView }: EsteiraCardProps) {
           </div>
         )}
 
-        {/* Data */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
           <span>{new Date(caso.created_at).toLocaleDateString('pt-BR')}</span>
         </div>
 
-        {/* Atendente */}
+        {/* Linha 3 - Atendente se houver */}
         {caso.assigned_to && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground col-span-2 md:col-span-3">
             <User className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="truncate">{caso.assigned_to}</span>
+            <span className="truncate">Atendente: {caso.assigned_to}</span>
           </div>
         )}
       </div>

@@ -281,7 +281,7 @@ function EsteiraPageContent() {
 
     if (isLoading) {
       return (
-        <div className="grid gap-3 grid-cols-1">
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
           {Array.from({ length: 6 }, (_, i) => (
             <CaseSkeleton key={i} />
           ))}
@@ -306,7 +306,7 @@ function EsteiraPageContent() {
     }
 
     return (
-      <div className="grid gap-3 grid-cols-1">
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
         {Array.isArray(cases) && cases.map((caso) => (
           <EsteiraCard
             key={caso.id}
