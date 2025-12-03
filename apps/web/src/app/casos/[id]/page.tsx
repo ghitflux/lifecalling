@@ -146,9 +146,6 @@ export default function CaseDetailPage() {
   const { data: users } = useUsers();
 
   // Estados para navegação entre casos
-  const [navigationReason, setNavigationReason] = useState("");
-  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
-  const [navigationDirection, setNavigationDirection] = useState<'next' | 'prev' | null>(null);
   const [navigationFilters, setNavigationFilters] = useState<{
     tab: 'global' | 'mine';
     status?: string[];
@@ -586,7 +583,7 @@ export default function CaseDetailPage() {
   };
 
   // Função para navegar para próximo/anterior caso
-  const handleNavigate = useCallback(async (direction: 'next' | 'prev') => {
+  const handleNavigate = useCallback((direction: 'next' | 'prev') => {
     const targetCase = direction === 'next' ? navigationMeta.nextCase : navigationMeta.prevCase;
 
     if (!targetCase) {
@@ -594,30 +591,8 @@ export default function CaseDetailPage() {
       return;
     }
 
-    // Salvar observação no chat antes de navegar
-    if (navigationReason.trim()) {
-      try {
-        await addComment(caseId, 'ATENDIMENTO', `[Navegação] ${navigationReason}`);
-      } catch (error) {
-        console.error('Erro ao salvar observação:', error);
-        toast.error('Erro ao salvar observação');
-        return;
-      }
-    }
-
     router.push(`/casos/${targetCase.id}`);
-
-    // Limpar o estado
-    setNavigationReason("");
-    setShowNavigationDialog(false);
-    setNavigationDirection(null);
-  }, [navigationMeta, caseId, navigationReason, router]);
-
-  // Abrir dialog de navegação
-  const openNavigationDialog = (direction: 'next' | 'prev') => {
-    setNavigationDirection(direction);
-    setShowNavigationDialog(true);
-  };
+  }, [navigationMeta, router]);
 
 
   if (isLoading) {
@@ -750,10 +725,7 @@ export default function CaseDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                console.log('[Click] Anterior button clicked');
-                handleNavigate('prev');
-              }}
+              onClick={() => handleNavigate('prev')}
               disabled={loadingCasesList || !navigationMeta.prevCase}
               className="flex items-center gap-1"
             >
@@ -781,10 +753,7 @@ export default function CaseDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                console.log('[Click] Próximo button clicked');
-                openNavigationDialog('next');
-              }}
+              onClick={() => handleNavigate('next')}
               disabled={loadingCasesList || !navigationMeta.nextCase}
               className="flex items-center gap-1"
             >
@@ -1427,44 +1396,6 @@ export default function CaseDetailPage() {
         )}
       </Card>
 
-      {/* Dialog para solicitar observação antes de navegar */}
-      {showNavigationDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">
-              Motivo da navegação
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Por favor, informe o motivo de estar indo para o {navigationDirection === 'next' ? 'próximo' : 'anterior'} caso:
-            </p>
-            <textarea
-              value={navigationReason}
-              onChange={(e) => setNavigationReason(e.target.value)}
-              placeholder="Ex: Cliente não atendeu, necessário verificar outros casos..."
-              className="w-full min-h-[100px] p-3 rounded-lg border border-border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-4 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowNavigationDialog(false);
-                  setNavigationReason("");
-                  setNavigationDirection(null);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={() => handleNavigate(navigationDirection!)}
-                disabled={navigationDirection === 'next' && !navigationReason.trim()}
-              >
-                Continuar
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

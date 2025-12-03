@@ -6,6 +6,8 @@ export type Filters = {
   q?: string;
   status?: string[];          // multi-seleção
   entidade?: string;          // filtro por entidade
+  banco?: string;             // filtro por banco (alias para entidade)
+  cargo?: string;             // filtro por cargo
   mine?: boolean;             // esteira individual
   assigned?: '0' | '1';       // '0' = não atribuídos, '1' = atribuídos
 };
@@ -34,8 +36,12 @@ export function buildCasesQuery(
     set('status', f.status.join(','));
   }
 
-  // entidade
+  // entidade ou banco (banco é um alias para entidade)
   if (f.entidade) set('entidade', f.entidade);
+  if (f.banco) set('entidade', f.banco);
+
+  // cargo
+  if (f.cargo) set('cargo', f.cargo);
 
   // mine/assigned conforme necessidade
   if (f.mine) set('mine', 'true');

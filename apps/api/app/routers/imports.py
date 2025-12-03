@@ -205,7 +205,7 @@ def upsert_client(db: Session, cpf: str, matricula: str, nome: str, orgao: str =
 
 def cleanup_old_references(db: Session) -> int:
     """
-    Remove referências antigas de PayrollLine, mantendo apenas os 2 meses mais recentes
+    Remove referências antigas de PayrollLine, mantendo apenas o mês mais recente
     para cada combinação única de (cpf, matricula, financiamento_code).
 
     Args:
@@ -214,7 +214,7 @@ def cleanup_old_references(db: Session) -> int:
     Returns:
         Número de linhas deletadas
     """
-    # SQL para deletar referências antigas, mantendo apenas as 2 mais recentes
+    # SQL para deletar referências antigas, mantendo apenas a mais recente
     # PostgreSQL: usa CTE (WITH) ao invés de subquery no DELETE
     delete_query = text("""
         WITH ranked AS (
@@ -227,7 +227,7 @@ def cleanup_old_references(db: Session) -> int:
             FROM payroll_lines
         )
         DELETE FROM payroll_lines
-        WHERE id IN (SELECT id FROM ranked WHERE rn > 2)
+        WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
     """)
 
     result = db.execute(delete_query)
@@ -656,7 +656,7 @@ async def import_payroll_file(
             logger.error(f"Erro no commit final: {e}")
             db.rollback()
 
-        # Limpar referências antigas - manter apenas os 2 meses mais recentes por FIN
+        # Limpar referências antigas - manter apenas o mês mais recente por FIN
         try:
             logger.info("Iniciando limpeza de referências antigas...")
             cleanup_old_references(db)

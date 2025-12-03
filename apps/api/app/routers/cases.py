@@ -758,6 +758,7 @@ def list_cases(
     status: str | None = None,
     entidade: str | None = None,  # Filtro por entidade/banco
     entity: str | None = None,  # Alias legado
+    cargo: str | None = None,  # Filtro por cargo
     assigned: str | None = None,  # '0' = não atribuídos, '1' = atribuídos
     mine: str | bool = Query(False),
     order: str = Query("id_desc"),
@@ -832,13 +833,37 @@ def list_cases(
             # Filtro por entidade (banco)
             if entity_filter:
                 from app.models import PayrollLine
+                from app.routers.clients import normalize_bank_name
+
                 if not client_joined:
                     qry = qry.join(Client, Client.id == Case.client_id)
                     client_joined = True
                 if not payroll_joined:
                     qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
                     payroll_joined = True
-                qry = qry.filter(PayrollLine.entity_name == entity_filter).distinct()
+
+                # Buscar todas as entidades que correspondem ao nome normalizado
+                all_entities = db.query(PayrollLine.entity_name).filter(
+                    PayrollLine.entity_name.isnot(None)
+                ).distinct().all()
+                matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == entity_filter]
+
+                if matching_entities:
+                    qry = qry.filter(PayrollLine.entity_name.in_(matching_entities)).distinct()
+                else:
+                    # Se não encontrou match normalizado, tentar match exato (fallback)
+                    qry = qry.filter(PayrollLine.entity_name == entity_filter).distinct()
+
+            # Filtro por cargo
+            if cargo:
+                from app.models import PayrollLine
+                if not client_joined:
+                    qry = qry.join(Client, Client.id == Case.client_id)
+                    client_joined = True
+                if not payroll_joined:
+                    qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                    payroll_joined = True
+                qry = qry.filter(PayrollLine.cargo == cargo).distinct()
 
             # Busca por nome, CPF OU entidade
             if q and q.strip():

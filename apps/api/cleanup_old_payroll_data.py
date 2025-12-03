@@ -1,12 +1,16 @@
 """
-Script para limpar referências antigas de PayrollLine.
-Mantém apenas o mês mais recente para cada combinação de (cpf, matricula, financiamento_code).
+Script de limpeza única para remover mensalidades antigas.
+Mantém apenas a mensalidade mais recente de cada contrato do cliente.
+
+IMPORTANTE: Este script deve ser executado UMA VEZ para limpar dados históricos.
+Após a execução, o sistema manterá automaticamente apenas a mensalidade mais recente
+através da função cleanup_old_references() em imports.py.
 
 Uso:
-    python cleanup_payroll_references.py [--dry-run]
+    python cleanup_old_payroll_data.py [--dry-run]
 
 Opções:
-    --dry-run    Mostra o que seria deletado sem executar a operação
+    --dry-run    Simula a operação sem executar a exclusão
 """
 
 import sys
@@ -14,6 +18,7 @@ import argparse
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import logging
+from datetime import datetime
 
 # Configurar logging
 logging.basicConfig(
@@ -63,7 +68,7 @@ def get_statistics(session):
     total_query = text("SELECT COUNT(*) FROM payroll_lines")
     total = session.execute(total_query).scalar()
 
-    # Linhas a serem deletadas (rn > 1)
+    # Linhas a serem deletadas (rn > 1 - mantém apenas a mais recente)
     to_delete_query = text("""
         SELECT COUNT(*) FROM (
             SELECT
@@ -90,15 +95,23 @@ def get_statistics(session):
     """)
     distribution = session.execute(distribution_query).fetchall()
 
+    # Total de contratos únicos
+    unique_contracts_query = text("""
+        SELECT COUNT(DISTINCT (cpf, matricula, financiamento_code))
+        FROM payroll_lines
+    """)
+    unique_contracts = session.execute(unique_contracts_query).scalar()
+
     return {
         "total": total,
         "to_delete": to_delete,
         "to_keep": total - to_delete,
-        "distribution": distribution
+        "distribution": distribution,
+        "unique_contracts": unique_contracts
     }
 
 
-def show_sample_deletions(session, limit=10):
+def show_sample_deletions(session, limit=20):
     """Mostra exemplos de linhas que serão deletadas."""
     sample_query = text("""
         SELECT
@@ -122,6 +135,7 @@ def show_sample_deletions(session, limit=10):
             FROM payroll_lines
         ) ranked
         WHERE rn > 1
+        ORDER BY cpf, matricula, financiamento_code, rn
         LIMIT :limit
     """)
     samples = session.execute(sample_query, {"limit": limit}).fetchall()
@@ -139,9 +153,9 @@ def show_sample_deletions(session, limit=10):
         logger.info(f"{'='*80}\n")
 
 
-def cleanup_old_references(session, dry_run=False):
+def cleanup_old_payroll_data(session, dry_run=False):
     """
-    Remove referências antigas de PayrollLine, mantendo apenas o mês mais recente.
+    Remove mensalidades antigas, mantendo apenas a mais recente de cada contrato.
 
     Args:
         session: Sessão do banco
@@ -150,6 +164,8 @@ def cleanup_old_references(session, dry_run=False):
     Returns:
         Número de linhas que seriam/foram deletadas
     """
+    start_time = datetime.now()
+
     # Obter estatísticas antes
     logger.info("Analisando dados antes da limpeza...")
     stats_before = get_statistics(session)
@@ -157,12 +173,13 @@ def cleanup_old_references(session, dry_run=False):
     logger.info(f"\n{'='*80}")
     logger.info("ESTATÍSTICAS ANTES DA LIMPEZA")
     logger.info(f"{'='*80}")
-    logger.info(f"Total de linhas no banco: {stats_before['total']}")
-    logger.info(f"Linhas a deletar (antigas): {stats_before['to_delete']}")
-    logger.info(f"Linhas a manter (mês mais recente): {stats_before['to_keep']}")
+    logger.info(f"Total de linhas no banco: {stats_before['total']:,}")
+    logger.info(f"Total de contratos únicos: {stats_before['unique_contracts']:,}")
+    logger.info(f"Linhas a deletar (antigas): {stats_before['to_delete']:,}")
+    logger.info(f"Linhas a manter (mês mais recente): {stats_before['to_keep']:,}")
     logger.info(f"\nDistribuição por mês/ano:")
     for year, month, count in stats_before['distribution']:
-        logger.info(f"  {month:02d}/{year}: {count} linhas")
+        logger.info(f"  {month:02d}/{year}: {count:,} linhas")
     logger.info(f"{'='*80}\n")
 
     if stats_before['to_delete'] == 0:
@@ -175,12 +192,16 @@ def cleanup_old_references(session, dry_run=False):
     if dry_run:
         logger.info(f"{'='*80}")
         logger.info("DRY RUN: Nenhuma operação foi executada")
-        logger.info(f"Total de linhas que SERIAM deletadas: {stats_before['to_delete']}")
+        logger.info(f"Total de linhas que SERIAM deletadas: {stats_before['to_delete']:,}")
+        logger.info(f"Total de linhas que SERIAM mantidas: {stats_before['to_keep']:,}")
+        logger.info(f"Economia de espaço estimada: ~{stats_before['to_delete'] * 0.5:.1f} KB")
         logger.info(f"{'='*80}")
         return stats_before['to_delete']
 
     # Executar deleção
     logger.info("Executando limpeza...")
+    logger.info("⚠️  ATENÇÃO: Esta operação é IRREVERSÍVEL!")
+
     delete_query = text("""
         WITH ranked AS (
             SELECT
@@ -202,14 +223,19 @@ def cleanup_old_references(session, dry_run=False):
     # Obter estatísticas depois
     stats_after = get_statistics(session)
 
+    end_time = datetime.now()
+    duration = (end_time - start_time).total_seconds()
+
     logger.info(f"\n{'='*80}")
     logger.info("ESTATÍSTICAS APÓS A LIMPEZA")
     logger.info(f"{'='*80}")
-    logger.info(f"Total de linhas deletadas: {deleted_count}")
-    logger.info(f"Total de linhas no banco: {stats_after['total']}")
+    logger.info(f"Total de linhas deletadas: {deleted_count:,}")
+    logger.info(f"Total de linhas no banco: {stats_after['total']:,}")
+    logger.info(f"Total de contratos únicos: {stats_after['unique_contracts']:,}")
+    logger.info(f"Tempo de execução: {duration:.2f} segundos")
     logger.info(f"\nDistribuição por mês/ano (após limpeza):")
     for year, month, count in stats_after['distribution']:
-        logger.info(f"  {month:02d}/{year}: {count} linhas")
+        logger.info(f"  {month:02d}/{year}: {count:,} linhas")
     logger.info(f"{'='*80}\n")
 
     return deleted_count
@@ -218,7 +244,7 @@ def cleanup_old_references(session, dry_run=False):
 def main():
     """Função principal."""
     parser = argparse.ArgumentParser(
-        description="Limpa referências antigas de PayrollLine, mantendo apenas o mês mais recente."
+        description="Limpa mensalidades antigas, mantendo apenas o mês mais recente de cada contrato."
     )
     parser.add_argument(
         "--dry-run",
@@ -234,19 +260,35 @@ def main():
 
     try:
         logger.info("="*80)
-        logger.info("SCRIPT DE LIMPEZA DE REFERÊNCIAS ANTIGAS")
+        logger.info("SCRIPT DE LIMPEZA DE MENSALIDADES ANTIGAS")
         logger.info("="*80)
         logger.info(f"Modo: {'DRY RUN (simulação)' if args.dry_run else 'EXECUÇÃO REAL'}")
+        logger.info(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
         logger.info("="*80 + "\n")
 
-        deleted_count = cleanup_old_references(session, dry_run=args.dry_run)
+        if not args.dry_run:
+            logger.warning("⚠️  ATENÇÃO: Você está prestes a executar uma limpeza REAL!")
+            logger.warning("⚠️  Esta operação é IRREVERSÍVEL!")
+            logger.warning("⚠️  Recomenda-se executar primeiro com --dry-run para verificar o que será deletado.\n")
+
+            response = input("Digite 'CONFIRMO' para continuar: ")
+            if response != "CONFIRMO":
+                logger.info("Operação cancelada pelo usuário.")
+                return 0
+
+        deleted_count = cleanup_old_payroll_data(session, dry_run=args.dry_run)
 
         if args.dry_run:
-            logger.info(f"\n✓ DRY RUN concluído: {deleted_count} linhas seriam deletadas")
-            logger.info("  Execute sem --dry-run para executar a limpeza")
+            logger.info(f"\n✓ DRY RUN concluído: {deleted_count:,} linhas seriam deletadas")
+            logger.info("  Execute sem --dry-run para executar a limpeza real")
         else:
-            logger.info(f"\n✓ Limpeza concluída com sucesso: {deleted_count} linhas antigas removidas")
+            logger.info(f"\n✓ Limpeza concluída com sucesso: {deleted_count:,} linhas antigas removidas")
+            logger.info("  O sistema agora manterá automaticamente apenas a mensalidade mais recente")
 
+    except KeyboardInterrupt:
+        logger.warning("\n\n⚠️  Operação interrompida pelo usuário")
+        session.rollback()
+        return 1
     except Exception as e:
         logger.error(f"\n✗ Erro durante a limpeza: {e}")
         session.rollback()
