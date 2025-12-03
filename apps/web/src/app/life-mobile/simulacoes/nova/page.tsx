@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ArrowLeft, User, CheckCircle, Send, Phone } from "lucide-react";
@@ -18,7 +18,7 @@ const copyIcon = (
     </svg>
 );
 
-export default function NewSimulationPage() {
+function NewSimulationPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [selectedClient, setSelectedClient] = useState("");
@@ -338,5 +338,23 @@ export default function NewSimulationPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function NewSimulationPage() {
+    return (
+        <Suspense fallback={
+            <div className="p-6 space-y-6 bg-slate-950 min-h-screen text-slate-100">
+                <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-slate-800 animate-pulse rounded" />
+                    <div className="space-y-2">
+                        <div className="h-8 w-48 bg-slate-800 animate-pulse rounded" />
+                        <div className="h-4 w-64 bg-slate-800 animate-pulse rounded" />
+                    </div>
+                </div>
+            </div>
+        }>
+            <NewSimulationPageContent />
+        </Suspense>
     );
 }
