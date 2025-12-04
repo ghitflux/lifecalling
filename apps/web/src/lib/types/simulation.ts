@@ -1,5 +1,6 @@
 export interface SimulationBankInput {
   bank: string;
+  product?: string;
   parcela: number;        // R$
   saldoDevedor: number;   // R$
   valorLiberado: number;  // R$

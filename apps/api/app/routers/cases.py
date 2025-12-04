@@ -16,7 +16,7 @@ from ..security import get_current_user, verify_csrf
 from ..db import SessionLocal, get_db
 from ..models import (
     Case, Client, CaseEvent, Contract, ContractAttachment, Attachment,
-    ClientPhone, Comment, now_brt
+    ClientPhone, Comment, now_brt, ClientSiapeInfo, SiapeLine
 )
 from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
@@ -198,6 +198,43 @@ def get_case(
                 ],
             },
         }
+
+        # Incluir informações SIAPE (se existirem) e financiamentos SIAPE
+        siape_info = db.query(ClientSiapeInfo).filter(ClientSiapeInfo.client_id == c.client_id).first()
+        if siape_info:
+            result["siape_info"] = {
+                "nascimento": siape_info.nascimento,
+                "idade": siape_info.idade,
+                "banco_emprestimo": siape_info.banco_emprestimo,
+                "prazo_restante": siape_info.prazo_restante,
+                "prazo_total": siape_info.prazo_total,
+                "parcelas_pagas": siape_info.parcelas_pagas,
+                "valor_parcela": float(siape_info.valor_parcela or 0),
+                "saldo_devedor": float(siape_info.saldo_devedor or 0),
+                "endereco_completo": siape_info.endereco_completo,
+                "cidade": siape_info.cidade,
+                "bairro": siape_info.bairro,
+                "cep": siape_info.cep,
+                "email": siape_info.email,
+            }
+
+        siape_lines = db.query(SiapeLine).filter(SiapeLine.cpf == c.client.cpf).all()
+        if siape_lines:
+            result["siape_financiamentos"] = [
+                {
+                    "id": line.id,
+                    "banco_emprestimo": line.banco_emprestimo,
+                    "valor_parcela": float(line.valor_parcela or 0),
+                    "saldo_devedor": float(line.saldo_devedor or 0),
+                    "prazo_total": line.prazo_total,
+                    "parcelas_pagas": line.parcelas_pagas,
+                    "ref_month": line.ref_month,
+                    "ref_year": line.ref_year,
+                    "status_code": line.status_code,
+                    "status_description": line.status_description,
+                }
+                for line in siape_lines
+            ]
 
         if simulation:
             result["simulation"] = {

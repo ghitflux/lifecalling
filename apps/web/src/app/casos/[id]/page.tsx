@@ -948,6 +948,56 @@ export default function CaseDetailPage() {
               </div>
             )}
 
+            {/* Dados SIAPE */}
+            {caseDetail.siape_info && (
+              <div className="border-t pt-3 space-y-2">
+                <h3 className="font-medium">Dados SIAPE</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-muted-foreground text-xs">Banco Empréstimo</div>
+                    <div className="font-medium">{caseDetail.siape_info.banco_emprestimo || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground text-xs">E-mail</div>
+                    <div className="font-medium break-all">{caseDetail.siape_info.email || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground text-xs">Nascimento</div>
+                    <div className="font-medium">
+                      {caseDetail.siape_info.nascimento || "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <div className="text-muted-foreground text-xs">Saldo Devedor</div>
+                    <div className="font-medium">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(caseDetail.siape_info.saldo_devedor || 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground text-xs">Valor Parcela</div>
+                    <div className="font-medium">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(caseDetail.siape_info.valor_parcela || 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground text-xs">Parcelas Pagas</div>
+                    <div className="font-medium">{caseDetail.siape_info.parcelas_pagas ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground text-xs">Parcelas Restantes</div>
+                    <div className="font-medium">
+                      {caseDetail.siape_info.prazo_total != null && caseDetail.siape_info.parcelas_pagas != null
+                        ? Math.max((caseDetail.siape_info.prazo_total || 0) - (caseDetail.siape_info.parcelas_pagas || 0), 0)
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+                {/* Endereço fica na seção própria abaixo */}
+              </div>
+            )}
+
             {/* Informações Financeiras do Cliente */}
             {caseDetail.client.financiamentos && caseDetail.client.financiamentos.length > 0 && (
               <div className="border-t pt-4">
@@ -997,6 +1047,24 @@ export default function CaseDetailPage() {
                     );
                   })}
                 </div>
+
+                {caseDetail.siape_financiamentos && caseDetail.siape_financiamentos.length > 0 && (
+                  <div className="mt-4 pt-3 border-t">
+                    <h3 className="font-medium mb-3 text-sm">Financiamentos SIAPE</h3>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                      {caseDetail.siape_financiamentos.map((fin: any) => (
+                        <div key={fin.id} className="rounded-lg border border-info/30 bg-info/5 p-3 grid grid-cols-2 gap-3 text-sm">
+                          <div><div className="text-xs text-muted-foreground">Banco</div><div className="font-medium">{fin.banco_emprestimo || "—"}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Referência</div><div className="font-medium">{`${String(fin.ref_month).padStart(2, '0')}/${fin.ref_year}`}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Parcela</div><div className="font-medium">{new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(fin.valor_parcela || 0)}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Saldo</div><div className="font-medium">{new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(fin.saldo_devedor || 0)}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Parcelas</div><div className="font-medium">{fin.parcelas_pagas ?? 0} / {fin.prazo_total ?? 0}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Status</div><div className="font-medium">{fin.status_description || fin.status_code || "—"}</div></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Informações adicionais da simulação */}
                 {caseDetail.simulation && caseDetail.simulation.totals && (
@@ -1055,18 +1123,16 @@ export default function CaseDetailPage() {
                 </h3>
                 {clientAddresses.slice(0, 1).map((address: any) => (
                   <div key={address.id} className="space-y-2 text-sm">
-                    {address.cidade && address.estado && (
-                      <div className="flex gap-2">
-                        <span className="text-muted-foreground">Cidade/Estado:</span>
-                        <span className="font-medium">{address.cidade}, {address.estado}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground text-xs">Cidade</span>
+                        <div className="font-medium">{address.cidade || '—'}</div>
                       </div>
-                    )}
-                    {address.cep && (
-                      <div className="flex gap-2">
-                        <span className="text-muted-foreground">CEP:</span>
-                        <span className="font-medium">{address.cep}</span>
+                      <div>
+                        <span className="text-muted-foreground text-xs">CEP</span>
+                        <div className="font-medium">{address.cep || '—'}</div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>

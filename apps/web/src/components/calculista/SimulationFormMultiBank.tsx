@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button, Card, Input, Badge, SimpleSelect } from "@lifecalling/ui";
 import { Calculator, Plus, Trash2, AlertCircle } from "lucide-react";
-import type { SimulationBankInput, SimulationInput, AVAILABLE_BANKS } from "@/lib/types/simulation";
+import type { SimulationBankInput, SimulationInput } from "@/lib/types/simulation";
 import { formatCurrency, parseCurrency, formatCurrencyInput, calculateValorLiberado, validateCoeficiente } from "@/lib/utils/currency";
 
 const BANKS = [
@@ -37,6 +37,15 @@ const BANKS = [
   "Margem Positiva"
 ];
 
+const PRODUCTS = [
+  { value: "emprestimo_consignado", label: "Empréstimo Consignado" },
+  { value: "cartao_beneficio", label: "Cartão Benefício" },
+  { value: "cartao_consignado", label: "Cartão Consignado" },
+  { value: "abase_auxilio", label: "Abase Auxílio" },
+  { value: "nenhum", label: "Nenhum" },
+  { value: "outro", label: "Outro" }
+];
+
 interface SimulationFormMultiBankProps {
   onCalculate?: (data: SimulationInput) => void;
   loading?: boolean;
@@ -51,7 +60,7 @@ export function SimulationFormMultiBank({
   initialData
 }: SimulationFormMultiBankProps) {
   const [banks, setBanks] = useState<SimulationBankInput[]>([
-    { bank: "SANTANDER", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
+    { bank: "SANTANDER", product: "emprestimo_consignado", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
   ]);
 
   const [formData, setFormData] = useState({
@@ -80,7 +89,12 @@ export function SimulationFormMultiBank({
   useEffect(() => {
     if (initialData) {
       // Atualizar bancos
-      setBanks(initialData.banks);
+      setBanks(
+        initialData.banks.map((b) => ({
+          ...b,
+          product: b.product || "emprestimo_consignado"
+        }))
+      );
 
       // Atualizar formData global
       setFormData({
@@ -112,7 +126,7 @@ export function SimulationFormMultiBank({
     if (banks.length < 6) {
       setBanks([
         ...banks,
-        { bank: "SANTANDER", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
+        { bank: "SANTANDER", product: "emprestimo_consignado", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
       ]);
     }
   };
@@ -251,6 +265,9 @@ export function SimulationFormMultiBank({
 
     // Validar cada banco
     banks.forEach((bank, index) => {
+      if (!bank.product) {
+        errors.push(`Banco ${index + 1}: Selecione um produto`);
+      }
       if (!bank.bank) {
         errors.push(`Banco ${index + 1}: Selecione um banco`);
       }
@@ -311,7 +328,10 @@ export function SimulationFormMultiBank({
 
     if (validationErrors.length === 0) {
       const simulationData: SimulationInput = {
-        banks,
+        banks: banks.map((b) => ({
+          ...b,
+          product: b.product || "emprestimo_consignado"
+        })),
         prazo: formData.prazo,
         coeficiente: formData.coeficiente,
         seguro: formData.seguro,
@@ -437,7 +457,23 @@ export function SimulationFormMultiBank({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Produto *</label>
+                      <SimpleSelect
+                        value={bank.product || "emprestimo_consignado"}
+                        onValueChange={(value) => updateBank(index, "product", value)}
+                        data-testid={`bank-${index}-product`}
+                        required
+                      >
+                        {PRODUCTS.map((prod) => (
+                          <option key={prod.value} value={prod.value}>
+                            {prod.label}
+                          </option>
+                        ))}
+                      </SimpleSelect>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium mb-1">Banco *</label>
                       <SimpleSelect

@@ -51,6 +51,9 @@ class Client(Base):
     status_legenda = Column(String(120), nullable=True)       # Descrição do status
     cpf_matricula = Column(String(60), nullable=True, index=True)  # Chave normalizada: cpf|matricula
 
+    # Origem dos dados (INET, SIAPE, manual, etc)
+    source_tags = Column(JSON, default=list, nullable=True)  # Lista de tags de origem: ["INET", "SIAPE"]
+
     # Auditoria
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=now_brt, nullable=True)
@@ -721,3 +724,133 @@ class MobileNotification(Base):
     created_at = Column(DateTime, default=now_brt)
 
     user = relationship("User")
+
+
+# Modelos para importação SIAPE
+
+class SiapeBatch(Base):
+    """
+    Lote de importação de arquivos SIAPE (.xlsx).
+    Registra metadados de cada arquivo importado.
+    """
+    __tablename__ = "siape_batches"
+
+    id = Column(Integer, primary_key=True)
+    entity_code = Column(String(16), default="SIAPE", nullable=False)
+    entity_name = Column(String(255), default="Sistema Integrado de Administração de RH", nullable=False)
+    ref_month = Column(Integer, nullable=False)
+    ref_year = Column(Integer, nullable=False)
+    generated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=now_brt)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    filename = Column(String(255), nullable=True)
+    file_path = Column(String(512), nullable=True)
+    total_lines = Column(Integer, default=0)
+    processed_lines = Column(Integer, default=0)
+    error_lines = Column(Integer, default=0)
+
+    # Relacionamentos
+    lines = relationship("SiapeLine", back_populates="batch", cascade="all, delete-orphan")
+    created_by_user = relationship("User")
+
+
+class SiapeLine(Base):
+    """
+    Linha individual de importação SIAPE.
+    Armazena dados de empréstimos consignados de funcionários públicos federais.
+    """
+    __tablename__ = "siape_lines"
+
+    id = Column(Integer, primary_key=True)
+    batch_id = Column(Integer, ForeignKey("siape_batches.id", ondelete="CASCADE"), nullable=False)
+
+    # Dados básicos do funcionário
+    cpf = Column(String(14), index=True, nullable=False)
+    nome = Column(String(255), nullable=False)
+    matricula = Column(String(32), index=True, nullable=False)
+    nascimento = Column(String(20), nullable=True)  # DD/MM/YYYY
+    idade = Column(Integer, nullable=True)
+
+    # Dados do empréstimo
+    banco_emprestimo = Column(String(255), nullable=False)
+    prazo_restante = Column(Integer, nullable=True)  # Parcelas restantes
+    prazo_total = Column(Integer, nullable=True)  # Total de parcelas
+    parcelas_pagas = Column(Integer, nullable=True)
+    valor_parcela = Column(Numeric(12, 2), nullable=True)
+    saldo_devedor = Column(Numeric(14, 2), nullable=True)
+
+    # Status SIAPE
+    status_code = Column(String(1), default="A", nullable=False)  # A = Ativo
+    status_description = Column(String(255), nullable=False)
+
+    # Dados de contato
+    telefone = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+
+    # Dados de endereço
+    cidade = Column(String(100), nullable=True)
+    bairro = Column(String(100), nullable=True)
+    cep = Column(String(8), nullable=True)
+    endereco = Column(String(255), nullable=True)
+
+    # Metadados (para compatibilidade com o sistema)
+    entity_code = Column(String(16), default="SIAPE", nullable=False)
+    entity_name = Column(String(255), default="SIAPE", nullable=False)
+    ref_month = Column(Integer, nullable=False)
+    ref_year = Column(Integer, nullable=False)
+    financiamento_code = Column(String(16), nullable=True)  # Código gerado
+    orgao_pagamento = Column(String(16), default="SIAPE", nullable=True)
+    orgao_pagamento_nome = Column(String(255), default="Sistema Integrado de Administração de RH", nullable=True)
+
+    # Controle
+    created_at = Column(DateTime, default=now_brt)
+    line_number = Column(Integer, nullable=True)
+
+    # Relacionamentos
+    batch = relationship("SiapeBatch", back_populates="lines")
+
+    __table_args__ = (
+        UniqueConstraint('cpf', 'matricula', 'banco_emprestimo', 'ref_month', 'ref_year',
+                        name='uix_siape_unique_ref'),
+    )
+
+
+class ClientSiapeInfo(Base):
+    """
+    Informações SIAPE específicas de um cliente.
+    Permite manter histórico de dados SIAPE separado das informações gerais do cliente.
+    """
+    __tablename__ = "client_siape_info"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+
+    # Dados da última importação SIAPE
+    ultimo_batch_id = Column(Integer, ForeignKey("siape_batches.id", ondelete="SET NULL"), nullable=True)
+    nascimento = Column(String(20), nullable=True)
+    idade = Column(Integer, nullable=True)
+    banco_emprestimo = Column(String(255), nullable=True)
+    prazo_restante = Column(Integer, nullable=True)
+    prazo_total = Column(Integer, nullable=True)
+    parcelas_pagas = Column(Integer, nullable=True)
+    valor_parcela = Column(Numeric(12, 2), nullable=True)
+    saldo_devedor = Column(Numeric(14, 2), nullable=True)
+
+    # Dados de endereço SIAPE
+    endereco_completo = Column(String(500), nullable=True)
+    cidade = Column(String(100), nullable=True)
+    bairro = Column(String(100), nullable=True)
+    cep = Column(String(8), nullable=True)
+    email = Column(String(255), nullable=True)
+
+    # Controle
+    created_at = Column(DateTime, default=now_brt)
+    updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
+
+    # Relacionamentos
+    client = relationship("Client")
+    ultimo_batch = relationship("SiapeBatch")
+
+    __table_args__ = (
+        Index('ix_client_siape_client_id', 'client_id'),
+    )

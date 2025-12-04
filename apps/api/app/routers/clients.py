@@ -7,7 +7,8 @@ import io
 from ..db import SessionLocal
 from ..rbac import require_roles
 from ..models import (
-    Client, Case, CaseEvent, PayrollClient, PayrollContract, PayrollLine, ClientPhone, ClientAddress
+    Client, Case, CaseEvent, PayrollClient, PayrollContract, PayrollLine,
+    ClientPhone, ClientAddress, SiapeLine, ClientSiapeInfo
 )
 from ..schemas import (
     ClientAddressCreate, ClientAddressUpdate, ClientAddressResponse,
@@ -125,19 +126,53 @@ def list_clients(
             )
         )
 
-    # Filtrar por banco (entidade importada de PayrollLine)
+    # Filtrar por banco (entidade importada de PayrollLine ou SIAPE)
     if banco:
-        # Buscar todas as entidades que correspondem ao nome normalizado
-        all_entities = db.query(PayrollLine.entity_name).filter(
-            PayrollLine.entity_name.isnot(None)
-        ).distinct().all()
-        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == banco]
+        normalized_bank = normalize_bank_name(banco)
 
-        if matching_entities:
-            clients_query = clients_query.join(
-                PayrollLine,
-                PayrollLine.cpf == Client.cpf
-            ).filter(PayrollLine.entity_name.in_(matching_entities))
+        if normalized_bank == "SIAPE":
+            # Clientes com casos/importações SIAPE (source = siape)
+            clients_query = clients_query.filter(Case.source == "siape")
+        else:
+            # Entidades de contracheque
+            all_entities = db.query(PayrollLine.entity_name).filter(
+                PayrollLine.entity_name.isnot(None)
+            ).distinct().all()
+            matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == normalized_bank]
+
+            # Bancos importados via SIAPE (banco_emprestimo)
+            siape_entities = db.query(SiapeLine.banco_emprestimo).filter(
+                SiapeLine.banco_emprestimo.isnot(None)
+            ).distinct().all()
+            matching_siape_entities = [e[0] for e in siape_entities if normalize_bank_name(e[0]) == normalized_bank]
+
+            conditions = []
+            if matching_entities:
+                conditions.append(
+                    db.query(PayrollLine.id).filter(
+                        PayrollLine.cpf == Client.cpf,
+                        PayrollLine.entity_name.in_(matching_entities)
+                    ).exists()
+                )
+            if matching_siape_entities:
+                # via linhas SIAPE
+                conditions.append(
+                    db.query(SiapeLine.id).filter(
+                        SiapeLine.cpf == Client.cpf,
+                        SiapeLine.banco_emprestimo.in_(matching_siape_entities)
+                    ).exists()
+                )
+                # via casos SIAPE com entidade preenchida
+                conditions.append(
+                    db.query(Case.id).filter(
+                        Case.client_id == Client.id,
+                        Case.source == "siape",
+                        Case.entidade.in_(matching_siape_entities)
+                    ).exists()
+                )
+
+            if conditions:
+                clients_query = clients_query.filter(or_(*conditions))
 
     # Filtrar por cargo
     if cargo:
@@ -218,6 +253,12 @@ def get_available_filters(
     ).distinct().all()
     entidades_list = sorted([e[0] for e in entidades if e[0]])
 
+    # Listar bancos da importação SIAPE (banco_emprestimo)
+    siape_bancos = db.query(SiapeLine.banco_emprestimo).filter(
+        SiapeLine.banco_emprestimo.isnot(None)
+    ).distinct().all()
+    siape_bancos_list = [e[0] for e in siape_bancos if e[0]]
+
     # Listar status de casos únicos do banco de dados
     db_status_list = db.query(Case.status).distinct().all()
     db_status_set = set(s[0] for s in db_status_list if s[0])
@@ -244,6 +285,44 @@ def get_available_filters(
             "value": normalized_name,
             "label": normalized_name,
             "count": count
+        })
+
+    # Agregar bancos SIAPE ao mesmo dicionário (somando se já existir)
+    siape_grouped = {}
+    for b in siape_bancos_list:
+        norm = normalize_bank_name(b)
+        siape_grouped.setdefault(norm, []).append(b)
+
+    for normalized_name, entidades_grupo in siape_grouped.items():
+        count = (
+            db.query(func.count(distinct(Client.id)))
+            .join(SiapeLine, SiapeLine.cpf == Client.cpf)
+            .filter(SiapeLine.banco_emprestimo.in_(entidades_grupo))
+            .scalar()
+        )
+        # Ver se já existe entrada (de contracheque) e somar
+        existing = next((x for x in bancos_with_count if x["value"] == normalized_name), None)
+        if existing:
+            existing["count"] = (existing.get("count") or 0) + count
+        else:
+            bancos_with_count.append({
+                "value": normalized_name,
+                "label": normalized_name,
+                "count": count
+            })
+
+    # Incluir SIAPE como banco quando houver linhas SIAPE
+    siape_clientes = (
+        db.query(func.count(distinct(Client.id)))
+        .join(Case, Case.client_id == Client.id)
+        .filter(Case.source == "siape")
+        .scalar()
+    ) or 0
+    if siape_clientes > 0:
+        bancos_with_count.append({
+            "value": "SIAPE",
+            "label": "SIAPE",
+            "count": siape_clientes
         })
 
     # Status padrão que devem SEMPRE aparecer nos filtros
@@ -561,6 +640,11 @@ def export_clients_csv(
     for client_data in clients_data:
         # Buscar contadores dos dicionários pré-calculados
         contratos_count = contratos_by_cpf.get(client_data.cpf, 0)
+        # Somar financiamentos SIAPE (siape_lines) para o mesmo CPF
+        siape_count = db.query(func.count(SiapeLine.id)).filter(
+            SiapeLine.cpf == client_data.cpf
+        ).scalar() or 0
+        contratos_count += siape_count
         casos_ativos = casos_ativos_by_id.get(client_data.id, 0)
         casos_finalizados = casos_finalizados_by_id.get(client_data.id, 0)
         
@@ -732,7 +816,40 @@ def get_client(
         "nome": c.name,
         "orgao": c.orgao,
         "cargo": c.cargo,
+        "telefone_preferencial": c.telefone_preferencial or "",
+        "observacoes": c.observacoes or "",
         "created_at": None,  # Placeholder
+        "siape_info": (
+            {
+                "nascimento": siape_info.nascimento,
+                "idade": siape_info.idade,
+                "banco_emprestimo": siape_info.banco_emprestimo,
+                "prazo_restante": siape_info.prazo_restante,
+                "prazo_total": siape_info.prazo_total,
+                "parcelas_pagas": siape_info.parcelas_pagas,
+                "valor_parcela": float(siape_info.valor_parcela or 0),
+                "saldo_devedor": float(siape_info.saldo_devedor or 0),
+                "endereco_completo": siape_info.endereco_completo,
+                "cidade": siape_info.cidade,
+                "bairro": siape_info.bairro,
+                "cep": siape_info.cep,
+                "email": siape_info.email,
+            }
+        ) if (siape_info := db.query(ClientSiapeInfo).filter(ClientSiapeInfo.client_id == c.id).first()) else None,
+        "siape_financiamentos": [
+            {
+                "id": line.id,
+                "banco_emprestimo": line.banco_emprestimo,
+                "valor_parcela": float(line.valor_parcela or 0),
+                "saldo_devedor": float(line.saldo_devedor or 0),
+                "prazo_total": line.prazo_total,
+                "parcelas_pagas": line.parcelas_pagas,
+                "ref_month": line.ref_month,
+                "ref_year": line.ref_year,
+                "status_code": line.status_code,
+                "status_description": line.status_description,
+            } for line in db.query(SiapeLine).filter(SiapeLine.cpf == c.cpf).all()
+        ],
         "contracts": contracts,
         "cases": [
             {
@@ -909,8 +1026,7 @@ def get_client_financiamentos(
         PayrollLine.matricula.asc(),
         PayrollLine.entity_code.asc()
     ).all()
-
-    return [
+    financ_response = [
         {
             "id": line.id,
             "matricula": line.matricula,
@@ -938,6 +1054,43 @@ def get_client_financiamentos(
             )
         } for line in financiamentos
     ]
+
+    # Incluir financiamentos importados via SIAPE (siape_lines)
+    siape_lines = db.query(SiapeLine).filter(
+        SiapeLine.cpf == client.cpf
+    ).order_by(
+        SiapeLine.ref_year.desc(),
+        SiapeLine.ref_month.desc(),
+        SiapeLine.matricula.asc(),
+        SiapeLine.id.desc()
+    ).all()
+
+    for line in siape_lines:
+        financ_response.append({
+            "id": line.id * -1,  # evitar conflito de ID com PayrollLine
+            "matricula": line.matricula,
+            "financiamento_code": line.financiamento_code or f"SIAPE_{line.id}",
+            "total_parcelas": line.prazo_total,
+            "parcelas_pagas": line.parcelas_pagas,
+            "valor_parcela_ref": str(line.valor_parcela or "0.00"),
+            "orgao_pagamento": line.orgao_pagamento or "SIAPE",
+            "orgao_pagamento_nome": line.orgao_pagamento_nome or "SIAPE",
+            "ref_month": line.ref_month,
+            "ref_year": line.ref_year,
+            "referencia": f"{line.ref_month:02d}/{line.ref_year}",
+            "entity_code": line.entity_code or "SIAPE",
+            "entity_name": line.entity_name or "SIAPE",
+            "status_code": line.status_code or "",
+            "status_description": line.status_description or "",
+            "cargo": None,
+            "orgao": None,
+            "lanc": None,
+            "created_at": (
+                line.created_at.isoformat() if line.created_at else None
+            )
+        })
+
+    return financ_response
 
 
 @r.get("/{client_id}/contratos-efetivados")

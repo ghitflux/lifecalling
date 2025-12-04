@@ -999,6 +999,12 @@ async def disburse_simple(
             if not c.client:
                 raise HTTPException(400, "Caso não possui cliente associado")
 
+            # Usuário balcão (fallback: atendente do caso ou usuário atual)
+            balcao_user_id = _get_balcao_user_id(
+                db,
+                c.assigned_user_id or user.id
+            )
+
             # 2. Busca a simulação mais recente aprovada
             from ..models import Simulation
             simulation = db.query(Simulation).filter(
@@ -1208,13 +1214,13 @@ async def disburse_simple(
                     c.client.name if c.client else f"Cliente {c.id}"
                 )
 
-                # Buscar usuário balcão por email exato (mais rápido e preciso)
-                balcao_user = db.query(User).filter(
-                    User.email == 'balcao@lifecalling.com',
-                    User.active == True
-                ).first()
-
-                balcao_user_id = balcao_user.id if balcao_user else None
+                # Buscar usuário balcão apenas uma vez
+                balcao_user = None
+                if balcao_user_id:
+                    balcao_user = db.query(User).filter(
+                        User.id == balcao_user_id,
+                        User.active == True
+                    ).first()
 
                 if balcao_user:
                     print(f"[INFO] Usuário balcão encontrado: {balcao_user.name} (ID: {balcao_user.id})")
@@ -1224,13 +1230,6 @@ async def disburse_simple(
                 # Distribuição de receitas (suporte para até 2 agentes)
                 # Nova lógica: atendente1_user_id, percentual_atendente1, atendente2_user_id, percentual_atendente2
                 # Compatibilidade: atendente_user_id, percentual_atendente
-                
-                # Buscar usuário balcão
-                balcao_user = db.query(User).filter(
-                    User.email == 'balcao@lifecalling.com',
-                    User.active == True
-                ).first()
-                balcao_user_id = balcao_user.id if balcao_user else None
 
                 # Deduzir comissão do corretor
                 consultoria_para_distribuir = consultoria_liquida

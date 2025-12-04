@@ -18,7 +18,7 @@ import {
 import { ArrowLeft, Calculator, CheckCircle, XCircle, History, Download, FileText, Paperclip, Printer, RefreshCw, DollarSign } from "lucide-react";
 import { SimulationFormMultiBank } from "@/components/calculista/SimulationFormMultiBank";
 import { SimulationResultCard } from "@lifecalling/ui";
-import type { SimulationInput, SimulationTotals } from "@/lib/types/simulation";
+import type { SimulationBankInput, SimulationInput, SimulationTotals } from "@/lib/types/simulation";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 import { FinancialInfoModal } from "@/components/calculista/FinancialInfoModal";
@@ -36,6 +36,8 @@ export default function CalculistaSimulationPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showFinancialModal, setShowFinancialModal] = useState(false);
   const [editingSimulation, setEditingSimulation] = useState<SimulationInput | null>(null);
+  const formatBRL = (value?: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
 
   // Helper para extrair mensagem de erro
   const getErrorMessage = (error: any): string => {
@@ -58,6 +60,15 @@ export default function CalculistaSimulationPage() {
     }
     return "Erro desconhecido";
   };
+
+  const normalizeBanks = (banksData: any[]): SimulationBankInput[] =>
+    banksData.map((b: any) => ({
+      bank: b.banco || b.bank,
+      product: b.product || "emprestimo_consignado",
+      parcela: b.parcela,
+      saldoDevedor: b.saldoDevedor,
+      valorLiberado: b.valorLiberado
+    }));
 
   // Verificar permissões
   useEffect(() => {
@@ -108,7 +119,7 @@ export default function CalculistaSimulationPage() {
       // Reconstruir currentSimulation a partir dos dados salvos
       if (caseDetail.simulation.banks && caseDetail.simulation.prazo) {
         setCurrentSimulation({
-          banks: caseDetail.simulation.banks,
+          banks: normalizeBanks(caseDetail.simulation.banks),
           prazo: caseDetail.simulation.prazo,
           coeficiente: "",
           seguro: caseDetail.simulation.totals.seguroObrigatorio || 0,
@@ -135,12 +146,7 @@ export default function CalculistaSimulationPage() {
             // Reconstruir dados do formulário
             if (lastSim.banks && lastSim.prazo) {
               setCurrentSimulation({
-                banks: lastSim.banks.map((b: any) => ({
-                  bank: b.banco || b.bank,
-                  parcela: b.parcela,
-                  saldoDevedor: b.saldoDevedor,
-                  valorLiberado: b.valorLiberado
-                })),
+                banks: normalizeBanks(lastSim.banks),
                 prazo: lastSim.prazo,
                 coeficiente: lastSim.coeficiente || "",
                 seguro: lastSim.totals.seguroObrigatorio || 0,
@@ -390,7 +396,7 @@ export default function CalculistaSimulationPage() {
         {/* Coluna 1: Informações do Cliente */}
         <Card className="p-4 card">
           <h3 className="font-medium mb-4">Informações do Cliente</h3>
-          <div className="grid grid-cols-1 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium">Cliente:</span>
               <p>{caseDetail.client?.name}</p>
@@ -408,6 +414,21 @@ export default function CalculistaSimulationPage() {
               <p>{caseDetail.client?.orgao || 'Não informado'}</p>
             </div>
           </div>
+          {(caseDetail.client?.orgao?.toUpperCase() === "SIAPE" || caseDetail.siape_info) && caseDetail.siape_info && (
+            <div className="mt-4 pt-4 border-t space-y-2">
+              <div className="text-sm font-medium">Dados SIAPE</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground">Valor Parcela</div>
+                  <div className="font-semibold">{formatBRL(caseDetail.siape_info.valor_parcela)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Saldo Devedor</div>
+                  <div className="font-semibold">{formatBRL(caseDetail.siape_info.saldo_devedor)}</div>
+                </div>
+              </div>
+            </div>
+          )}
           {caseDetail.client?.observacoes && (
             <div className="mt-3 pt-3 border-t">
               <span className="font-medium text-sm">Observações:</span>
@@ -608,12 +629,7 @@ export default function CalculistaSimulationPage() {
         onEditSimulation={(entry) => {
           // Carregar simulação para edição
           // Converter estrutura do backend para o formato esperado
-          const banksConverted = entry.banks.map((b: any) => ({
-            bank: b.banco || b.bank,
-            parcela: b.parcela,
-            saldoDevedor: b.saldoDevedor,
-            valorLiberado: b.valorLiberado
-          }));
+          const banksConverted = normalizeBanks(entry.banks);
 
           const simulationData = {
             banks: banksConverted,

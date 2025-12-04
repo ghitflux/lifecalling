@@ -19,9 +19,17 @@ export default function ImportacaoPage() {
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "processing" | "completed" | "error">("idle");
   const [importStats, setImportStats] = useState<any>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Estados para SIAPE
+  const [selectedFileSiape, setSelectedFileSiape] = useState<File | null>(null);
+  const [uploadProgressSiape, setUploadProgressSiape] = useState(0);
+  const [uploadStatusSiape, setUploadStatusSiape] = useState<"idle" | "uploading" | "processing" | "completed" | "error">("idle");
+  const [importStatsSiape, setImportStatsSiape] = useState<any>(null);
+  const progressIntervalSiape = useRef<NodeJS.Timeout | null>(null);
+
   const queryClient = useQueryClient();
 
-  // Query para listar importações
+  // Query para listar importações INET
   const { data: imports = [] } = useQuery({
     queryKey: ["imports"],
     queryFn: async () => {
@@ -31,11 +39,24 @@ export default function ImportacaoPage() {
     refetchInterval: 5000 // Refetch a cada 5 segundos
   });
 
+  // Query para listar importações SIAPE
+  const { data: siapeImports = [] } = useQuery({
+    queryKey: ["siapeImports"],
+    queryFn: async () => {
+      const response = await api.get("/imports/siape/batches");
+      return response.data.batches || [];
+    },
+    refetchInterval: 5000
+  });
+
   // Cleanup do intervalo ao desmontar
   useEffect(() => {
     return () => {
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
+      }
+      if (progressIntervalSiape.current) {
+        clearInterval(progressIntervalSiape.current);
       }
     };
   }, []);
@@ -224,6 +245,149 @@ export default function ImportacaoPage() {
     }
   };
 
+  // ========== FUNÇÕES SIAPE ==========
+
+  const startProgressSimulationSiape = (totalDuration: number) => {
+    setUploadProgressSiape(0);
+    setUploadStatusSiape("uploading");
+
+    let progress = 0;
+    const uploadDuration = totalDuration * 0.2;
+    const processingDuration = totalDuration * 0.8;
+
+    const uploadInterval = setInterval(() => {
+      progress += 2;
+      setUploadProgressSiape(Math.min(progress, 20));
+
+      if (progress >= 20) {
+        clearInterval(uploadInterval);
+        setUploadStatusSiape("processing");
+
+        const processingInterval = setInterval(() => {
+          progress += 1;
+          setUploadProgressSiape(Math.min(progress, 95));
+
+          if (progress >= 95) {
+            clearInterval(processingInterval);
+          }
+        }, processingDuration / 75);
+
+        progressIntervalSiape.current = processingInterval;
+      }
+    }, uploadDuration / 10);
+  };
+
+  const uploadMutationSiape = useMutation({
+    mutationFn: async (file: File) => {
+      const fileSizeMB = file.size / (1024 * 1024);
+      const estimatedDuration = Math.max(3000, fileSizeMB * 1000);
+
+      startProgressSimulationSiape(estimatedDuration);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post("/imports/siape", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const stats = data.statistics || {};
+
+      setUploadProgressSiape(100);
+      setUploadStatusSiape("completed");
+
+      setImportStatsSiape({
+        clients_created: stats.clients_created || 0,
+        clients_updated: stats.clients_updated || 0,
+        cases_created: stats.cases_created || 0,
+        lines_processed: stats.total_lines || 0,
+      });
+
+      if (progressIntervalSiape.current) {
+        clearInterval(progressIntervalSiape.current);
+      }
+
+      toast.success(
+        `✓ Importação SIAPE concluída com sucesso!\n` +
+        `• ${stats.clients_created || 0} clientes criados\n` +
+        `• ${stats.clients_updated || 0} clientes atualizados\n` +
+        `• ${stats.cases_created || 0} casos na esteira\n` +
+        `• ${stats.total_lines || 0} linhas processadas`,
+        { duration: 6000 }
+      );
+
+      if (stats.errors && stats.errors > 0) {
+        toast.warning(
+          `⚠ Atenção: ${stats.errors} linhas com erro foram ignoradas.`,
+          { duration: 7000 }
+        );
+      }
+
+      setTimeout(() => {
+        setSelectedFileSiape(null);
+        setUploadStatusSiape("idle");
+        setUploadProgressSiape(0);
+        setImportStatsSiape(null);
+      }, 5000);
+
+      queryClient.invalidateQueries({ queryKey: ["siapeImports"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+    },
+    onError: (error: any) => {
+      setUploadStatusSiape("error");
+      setUploadProgressSiape(0);
+
+      if (progressIntervalSiape.current) {
+        clearInterval(progressIntervalSiape.current);
+      }
+
+      toast.error(error.response?.data?.detail || "Erro ao enviar arquivo SIAPE");
+
+      setTimeout(() => {
+        setUploadStatusSiape("idle");
+      }, 3000);
+    },
+  });
+
+  const handleFileSelectSiape = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFileSiape(file);
+    }
+  };
+
+  const handleUploadSiape = () => {
+    if (selectedFileSiape) {
+      uploadMutationSiape.mutate(selectedFileSiape);
+    }
+  };
+
+  const handleDownloadSiape = async (batchId: number, filename: string) => {
+    try {
+      const response = await api.get(`/imports/siape/batches/${batchId}/download`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Download SIAPE iniciado com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao fazer download SIAPE:', error);
+      toast.error(error.response?.data?.detail || 'Erro ao fazer download do arquivo SIAPE');
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -238,8 +402,9 @@ export default function ImportacaoPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="contracheques" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="contracheques">Importação de Contracheques</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="contracheques">INET Contracheques</TabsTrigger>
+          <TabsTrigger value="siape">SIAPE</TabsTrigger>
           <TabsTrigger value="cadastro">Atualização Cadastral</TabsTrigger>
         </TabsList>
 
@@ -377,6 +542,141 @@ export default function ImportacaoPage() {
           <p>• Importações criam casos automaticamente na esteira com status &quot;novo&quot;</p>
         </div>
       </Card>
+        </TabsContent>
+
+        {/* TAB SIAPE */}
+        <TabsContent value="siape" className="space-y-6">
+          {/* Upload Section SIAPE */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload de Arquivo SIAPE
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="file-upload-siape">Selecionar Arquivo SIAPE</Label>
+                <Input
+                  id="file-upload-siape"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileSelectSiape}
+                  className="mt-1"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Formato aceito: Planilha Excel (.xlsx ou .xls) - Dados SIAPE
+                </p>
+              </div>
+
+              {selectedFileSiape && uploadStatusSiape === "idle" && (
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-8 w-8 text-green-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">{selectedFileSiape.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatFileSize(selectedFileSiape.size)}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleUploadSiape}
+                      disabled={uploadMutationSiape.isPending}
+                      className="ml-auto bg-green-600 hover:bg-green-700"
+                    >
+                      {uploadMutationSiape.isPending ? "Enviando..." : "Enviar"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Barra de Progresso SIAPE */}
+              {(uploadStatusSiape === "uploading" || uploadStatusSiape === "processing" || uploadStatusSiape === "completed") && (
+                <ProgressBar
+                  progress={uploadProgressSiape}
+                  status={uploadStatusSiape}
+                  stats={importStatsSiape}
+                />
+              )}
+            </div>
+          </Card>
+
+          {/* Histórico SIAPE */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Histórico de Importações SIAPE</h2>
+
+            {siapeImports.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Upload className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Nenhuma importação SIAPE encontrada</p>
+                <p className="text-sm">Envie um arquivo para começar</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {siapeImports.map((importItem: any) => (
+                  <div
+                    key={importItem.id}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-green-50/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="font-medium">{importItem.filename}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {importItem.entity_name} • Ref: {importItem.reference}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(importItem.created_at).toLocaleString()} por {importItem.created_by}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Status */}
+                      <Badge className="bg-green-100 text-green-800 flex items-center gap-1.5">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Processado</span>
+                        <span className="ml-1 font-semibold">
+                          {importItem.processed_lines?.toLocaleString() || 0}
+                        </span>
+                      </Badge>
+
+                      {/* Tag SIAPE */}
+                      <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                        SIAPE
+                      </Badge>
+
+                      {/* Download button */}
+                      {importItem.has_file !== false && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadSiape(importItem.id, importItem.filename)}
+                          title="Fazer download do arquivo SIAPE original"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Instruções SIAPE */}
+          <Card className="p-6 bg-green-50 border-green-200">
+            <h3 className="text-lg font-semibold mb-3 text-green-900">
+              Instruções para Importação SIAPE
+            </h3>
+            <div className="text-sm text-green-800 space-y-2">
+              <p>• Arquivo deve estar no formato Excel (.xlsx ou .xls)</p>
+              <p>• Colunas obrigatórias: CPF, Nome, Matrícula, Banco Empréstimo</p>
+              <p>• Colunas opcionais: Nascimento, Idade, Prazo, Valor Parcela, Saldo Devedor, Telefone, E-mail, Endereço</p>
+              <p>• Chave primária: CPF + Matrícula (clientes duplicados serão atualizados)</p>
+              <p>• Cada linha gera um caso na esteira com status &quot;novo&quot;</p>
+              <p>• Clientes SIAPE são marcados com tag especial para identificação</p>
+            </div>
+          </Card>
         </TabsContent>
 
         <TabsContent value="cadastro" className="space-y-6">

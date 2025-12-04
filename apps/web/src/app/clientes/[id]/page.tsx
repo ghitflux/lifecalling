@@ -299,6 +299,38 @@ export default function ClienteDetalhe() {
           </div>
         </div>
 
+        {client.siape_info && (
+          <Card className="p-4 mt-4 border border-dashed">
+            <h3 className="font-semibold mb-3">Dados SIAPE</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Banco Empréstimo</p>
+                <p className="font-medium">{client.siape_info.banco_emprestimo || "—"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">E-mail</p>
+                <p className="font-medium break-all">{client.siape_info.email || "—"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Nascimento</p>
+                <p className="font-medium">{client.siape_info.nascimento || "—"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Idade</p>
+                <p className="font-medium">{client.siape_info.idade ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Valor Parcela</p>
+                <p className="font-medium">{formatCurrency(String(client.siape_info.valor_parcela || 0))}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Saldo Devedor</p>
+                <p className="font-medium">{formatCurrency(String(client.siape_info.saldo_devedor || 0))}</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {client.created_at && (
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -322,44 +354,24 @@ export default function ClienteDetalhe() {
               <div key={address.id} className="p-4 border rounded-lg bg-muted/30">
                 <div className="flex items-start justify-between">
                   <div className="space-y-2 flex-1">
-                    {address.logradouro && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div>
-                        <span className="text-sm text-muted-foreground">Logradouro:</span>
+                        <span className="text-sm text-muted-foreground">Logradouro</span>
                         <p>{address.logradouro}{address.numero && `, ${address.numero}`}</p>
                       </div>
-                    )}
-                    {address.complemento && (
                       <div>
-                        <span className="text-sm text-muted-foreground">Complemento:</span>
-                        <p>{address.complemento}</p>
+                        <span className="text-sm text-muted-foreground">Bairro</span>
+                        <p>{address.bairro || "—"}</p>
                       </div>
-                    )}
-                    {address.bairro && (
                       <div>
-                        <span className="text-sm text-muted-foreground">Bairro:</span>
-                        <p>{address.bairro}</p>
+                        <span className="text-sm text-muted-foreground">CEP</span>
+                        <p>{address.cep || "—"}</p>
                       </div>
-                    )}
-                    <div className="flex gap-4">
-                      {address.cidade && (
-                        <div>
-                          <span className="text-sm text-muted-foreground">Cidade:</span>
-                          <p className="font-medium">{address.cidade}</p>
-                        </div>
-                      )}
-                      {address.estado && (
-                        <div>
-                          <span className="text-sm text-muted-foreground">Estado:</span>
-                          <p className="font-medium">{address.estado}</p>
-                        </div>
-                      )}
+                      <div>
+                        <span className="text-sm text-muted-foreground">Cidade</span>
+                        <p className="font-medium">{address.cidade || "—"}</p>
+                      </div>
                     </div>
-                    {address.cep && (
-                      <div>
-                        <span className="text-sm text-muted-foreground">CEP:</span>
-                        <p>{address.cep}</p>
-                      </div>
-                    )}
                   </div>
                   {address.is_primary && (
                     <Badge className="bg-blue-100 text-blue-800">Principal</Badge>

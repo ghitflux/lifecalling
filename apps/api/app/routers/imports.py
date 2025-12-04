@@ -11,11 +11,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from ..rbac import require_roles
 from ..db import SessionLocal
-from ..models import ImportBatch, PayrollLine, Client, Case, User
+from ..models import ImportBatch, PayrollLine, Client, Case, User, SiapeBatch, SiapeLine, ClientSiapeInfo, ClientPhone, ClientAddress
 from ..services.payroll_inetconsig_parser import (
     parse_inetconsig_file,
     validate_inetconsig_content,
     get_file_preview
+)
+from ..services.payroll_siape_parser import (
+    parse_siape_file as parse_siape_xlsx,
+    validate_siape_content,
+    get_file_preview as get_siape_file_preview
 )
 from datetime import datetime
 from collections import defaultdict
@@ -31,6 +36,10 @@ r = APIRouter(prefix="/imports", tags=["imports"])
 # Diretório para armazenar arquivos importados
 IMPORTS_DIR = Path("uploads/imports")
 IMPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Diretório para arquivos SIAPE
+SIAPE_IMPORTS_DIR = Path("uploads/imports/siape")
+SIAPE_IMPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_db():
@@ -892,6 +901,623 @@ async def download_import_file(
     return FileResponse(
         path=batch.file_path,
         media_type="text/plain",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+# ===========================
+# ENDPOINTS SIAPE
+# ===========================
+
+def upsert_client_siape(db: Session, cpf: str, matricula: str, nome: str,
+                       line_data: dict, batch_id: int) -> tuple[Client, ClientSiapeInfo]:
+    """
+    Cria ou atualiza um cliente e suas informações SIAPE.
+
+    Args:
+        db: Sessão do banco
+        cpf: CPF normalizado (11 dígitos)
+        matricula: Matrícula SIAPE
+        nome: Nome completo
+        line_data: Dados da linha SIAPE
+        batch_id: ID do lote de importação
+
+    Returns:
+        Tuple com (Client, ClientSiapeInfo)
+    """
+    # Buscar ou criar cliente (por CPF + Matrícula)
+    client = db.query(Client).filter(
+        Client.cpf == cpf,
+        Client.matricula == matricula
+    ).first()
+
+    if not client:
+        # Criar novo cliente
+        client = Client(
+            cpf=cpf,
+            matricula=matricula,
+            name=nome,
+            orgao="SIAPE",
+            cpf_matricula=f"{cpf}|{matricula}",
+            source_tags=["SIAPE"],
+            telefone_preferencial=line_data.get("telefone", "")
+        )
+        db.add(client)
+        db.flush()
+        logger.info(f"Cliente SIAPE criado: {client.id} - {nome}")
+    else:
+        # Atualizar cliente existente
+        client.name = nome
+        if line_data.get("telefone"):
+            client.telefone_preferencial = line_data["telefone"]
+        if line_data.get("cidade"):
+            client.orgao = "SIAPE"  # garantir orgão padrão
+        if line_data.get("cargo"):
+            client.cargo = line_data["cargo"]
+
+        # Adicionar tag SIAPE se não existir
+        if not client.source_tags:
+            client.source_tags = ["SIAPE"]
+        elif "SIAPE" not in client.source_tags:
+            client.source_tags.append("SIAPE")
+
+        logger.info(f"Cliente SIAPE atualizado: {client.id} - {nome}")
+
+    # Registrar telefone na tabela de históricos se houver
+    if line_data.get("telefone"):
+        phone_exists = db.query(ClientPhone).filter(
+            ClientPhone.client_id == client.id,
+            ClientPhone.phone == line_data["telefone"]
+        ).first()
+        if not phone_exists:
+            db.add(ClientPhone(
+                client_id=client.id,
+                phone=line_data["telefone"],
+                is_primary=True
+            ))
+
+    # Buscar ou criar ClientSiapeInfo
+    siape_info = db.query(ClientSiapeInfo).filter(
+        ClientSiapeInfo.client_id == client.id
+    ).first()
+
+    if not siape_info:
+        siape_info = ClientSiapeInfo(client_id=client.id)
+        db.add(siape_info)
+
+    # Atualizar informações SIAPE
+    siape_info.ultimo_batch_id = batch_id
+    siape_info.nascimento = line_data.get("nascimento", "")
+    siape_info.idade = line_data.get("idade")
+    siape_info.banco_emprestimo = line_data.get("banco_emprestimo", "")
+    siape_info.prazo_restante = line_data.get("prazo_restante")
+    siape_info.prazo_total = line_data.get("prazo_total")
+    siape_info.parcelas_pagas = line_data.get("parcelas_pagas", 0)
+    siape_info.valor_parcela = line_data.get("valor_parcela", 0)
+    siape_info.saldo_devedor = line_data.get("saldo_devedor", 0)
+
+    # Endereço
+    endereco_parts = []
+    if line_data.get("endereco"):
+        endereco_parts.append(line_data["endereco"])
+    if line_data.get("bairro"):
+        endereco_parts.append(line_data["bairro"])
+    if line_data.get("cidade"):
+        endereco_parts.append(line_data["cidade"])
+
+    siape_info.endereco_completo = ", ".join(endereco_parts) if endereco_parts else ""
+    siape_info.cidade = line_data.get("cidade", "")
+    siape_info.bairro = line_data.get("bairro", "")
+    siape_info.cep = line_data.get("cep", "")
+    siape_info.email = line_data.get("email", "")
+
+    # Persistir banco/entidade no cadastro principal do cliente
+    if line_data.get("banco_emprestimo"):
+        client.banco = line_data["banco_emprestimo"]
+        client.orgao = "SIAPE"
+
+    # Criar/atualizar endereço principal no cadastro padrão
+    if line_data.get("endereco") or line_data.get("cidade") or line_data.get("cep"):
+        addr = db.query(ClientAddress).filter(
+            ClientAddress.client_id == client.id,
+            ClientAddress.is_primary.is_(True)
+        ).first()
+        if not addr:
+            addr = ClientAddress(client_id=client.id, is_primary=True)
+            db.add(addr)
+        addr.logradouro = line_data.get("endereco", addr.logradouro)
+        addr.bairro = line_data.get("bairro", addr.bairro)
+        addr.cidade = line_data.get("cidade", addr.cidade)
+        addr.cep = line_data.get("cep", addr.cep)
+
+    db.flush()
+
+    return client, siape_info
+
+
+def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
+                                 status_summary: dict, banco_entidade: str | None = None) -> Case:
+    """
+    Cria ou atualiza caso para cliente SIAPE.
+    Segue a mesma lógica do INET: 1 caso ativo por CPF.
+    """
+    from ..models import CaseEvent, now_brt
+
+    # Status considerados "abertos"
+    OPEN_STATUSES = ["novo", "disponivel", "em_atendimento", "calculista",
+                     "calculista_pendente", "financeiro", "fechamento_pendente",
+                     "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"]
+
+    CLOSED_STATUSES = ["encerrado", "sem_contato", "arquivado"]
+    CANCELED_STATUSES = ["caso_cancelado", "contrato_cancelado"]
+
+    # Verificar se caso aberto já existe
+    existing_case = db.query(Case).filter(
+        Case.client_id == client.id,
+        Case.status.in_(OPEN_STATUSES)
+    ).order_by(Case.id.desc()).first()
+
+    if existing_case:
+        # Atualizar caso existente
+        existing_case.payroll_status_summary = status_summary
+        existing_case.ref_month = batch.ref_month
+        existing_case.ref_year = batch.ref_year
+        existing_case.last_update_at = datetime.utcnow()
+        existing_case.source = "siape"
+        if banco_entidade:
+            existing_case.entidade = banco_entidade
+        logger.info(f"Caso SIAPE {existing_case.id} atualizado para cliente {client.id}")
+        return existing_case
+    else:
+        # Verificar caso encerrado para reabrir
+        closed_case = db.query(Case).filter(
+            Case.client_id == client.id,
+            Case.status.in_(CLOSED_STATUSES)
+        ).order_by(Case.id.desc()).first()
+
+        if closed_case:
+            # Reabrir caso
+            old_status = closed_case.status
+            closed_case.status = "novo"
+            closed_case.payroll_status_summary = status_summary
+            closed_case.ref_month = batch.ref_month
+            closed_case.ref_year = batch.ref_year
+            closed_case.last_update_at = datetime.utcnow()
+            closed_case.source = "siape"
+            if banco_entidade:
+                closed_case.entidade = banco_entidade
+            closed_case.assigned_user_id = None
+            closed_case.assigned_at = None
+            closed_case.assignment_expires_at = None
+
+            # Evento de reabertura
+            reopen_event = CaseEvent(
+                case_id=closed_case.id,
+                type="case.reopened",
+                payload={
+                    "previous_status": old_status,
+                    "new_status": "novo",
+                    "reason": "Nova importação SIAPE",
+                    "batch_id": batch.id,
+                    "ref_month": batch.ref_month,
+                    "ref_year": batch.ref_year
+                },
+                created_at=now_brt()
+            )
+            db.add(reopen_event)
+
+            logger.info(f"Caso SIAPE {closed_case.id} reaberto para cliente {client.id}")
+            return closed_case
+        else:
+            # Verificar caso cancelado
+            canceled_case = db.query(Case).filter(
+                Case.client_id == client.id,
+                Case.status.in_(CANCELED_STATUSES)
+            ).order_by(Case.id.desc()).first()
+
+            if canceled_case:
+                # Apenas atualizar dados, não reabrir
+                canceled_case.payroll_status_summary = status_summary
+                canceled_case.ref_month = batch.ref_month
+                canceled_case.ref_year = batch.ref_year
+                canceled_case.last_update_at = datetime.utcnow()
+                if banco_entidade:
+                    canceled_case.entidade = banco_entidade
+                logger.info(f"Caso SIAPE cancelado {canceled_case.id} atualizado (sem reabrir)")
+                return canceled_case
+            else:
+                # Criar novo caso
+                new_case = Case(
+                    client_id=client.id,
+                    status="novo",
+                    source="siape",
+                    ref_month=batch.ref_month,
+                    ref_year=batch.ref_year,
+                    entidade=banco_entidade or None,
+                    payroll_status_summary=status_summary,
+                    created_at=now_brt(),
+                    last_update_at=now_brt()
+                )
+                db.add(new_case)
+                db.flush()
+
+                logger.info(f"Novo caso SIAPE {new_case.id} criado para cliente {client.id}")
+                return new_case
+
+
+@r.post("/siape")
+async def import_siape_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "financeiro"))
+):
+    """
+    Importa arquivo SIAPE (.xlsx) com dados de empréstimos consignados.
+
+    Fluxo:
+    1. Valida arquivo Excel
+    2. Parse das linhas
+    3. Cria/atualiza clientes
+    4. Cria/atualiza informações SIAPE
+    5. Gera casos para esteira de atendimento
+    """
+    # Validar extensão do arquivo
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(400, "Formato inválido. Apenas arquivos .xlsx ou .xls são aceitos")
+
+    try:
+        # Ler arquivo
+        raw_content = await file.read()
+
+        if not raw_content:
+            raise HTTPException(400, "Arquivo vazio")
+
+        # Salvar temporariamente para parsing
+        temp_file_path = SIAPE_IMPORTS_DIR / f"temp_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+        with open(temp_file_path, "wb") as f:
+            f.write(raw_content)
+
+        # Validar arquivo
+        validation_errors = validate_siape_content(str(temp_file_path))
+        if validation_errors:
+            os.remove(temp_file_path)
+            raise HTTPException(400, f"Formato inválido: {'; '.join(validation_errors)}")
+
+        # Parse do arquivo
+        meta, lines, parse_stats = parse_siape_xlsx(str(temp_file_path))
+
+        if not lines:
+            os.remove(temp_file_path)
+            raise HTTPException(400, "Nenhuma linha válida encontrada no arquivo")
+
+        logger.info(f"Parse SIAPE concluído: {len(lines)} linhas, {parse_stats['unique_cpfs']} CPFs únicos")
+
+        # Criar lote de importação SIAPE
+        batch = SiapeBatch(
+            entity_code=meta["entity_code"],
+            entity_name=meta["entity_name"],
+            ref_month=meta["ref_month"],
+            ref_year=meta["ref_year"],
+            generated_at=meta.get("generated_at", datetime.utcnow()),
+            created_by=user.id,
+            filename=file.filename,
+            total_lines=len(lines),
+            processed_lines=0,
+            error_lines=0
+        )
+        db.add(batch)
+        db.flush()
+
+        # Renomear arquivo com batch_id
+        final_file_path = SIAPE_IMPORTS_DIR / f"batch_{batch.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+        os.rename(temp_file_path, final_file_path)
+        batch.file_path = str(final_file_path)
+        db.flush()
+
+        logger.info(f"Arquivo SIAPE salvo em: {final_file_path}")
+
+        # Contadores
+        counters = {
+            "clients_created": 0,
+            "clients_updated": 0,
+            "siape_info_created": 0,
+            "siape_info_updated": 0,
+            "lines_created": 0,
+            "lines_updated": 0,
+            "cases_created": 0,
+            "cases_updated": 0,
+            "cases_reopened": 0,
+            "errors": 0
+        }
+
+        # Processar todas as linhas
+        processed_count = 0
+        BATCH_SIZE = 500
+
+        for line_data in lines:
+            processed_count += 1
+
+            try:
+                cpf = line_data["cpf"]
+                matricula = line_data["matricula"]
+                nome = line_data["nome"]
+
+                # Verificar se cliente existe
+                client_exists = db.query(Client).filter(
+                    Client.cpf == cpf,
+                    Client.matricula == matricula
+                ).first() is not None
+
+                siape_info_exists = client_exists and db.query(ClientSiapeInfo).join(Client).filter(
+                    Client.cpf == cpf,
+                    Client.matricula == matricula
+                ).first() is not None
+
+                # Criar/atualizar cliente e informações SIAPE
+                client, siape_info = upsert_client_siape(
+                    db, cpf, matricula, nome, line_data, batch.id
+                )
+
+                if client_exists:
+                    counters["clients_updated"] += 1
+                else:
+                    counters["clients_created"] += 1
+
+                if siape_info_exists:
+                    counters["siape_info_updated"] += 1
+                else:
+                    counters["siape_info_created"] += 1
+
+                # Criar ou atualizar registro de linha SIAPE (evitar violação de unique)
+                existing_line = db.query(SiapeLine).filter(
+                    SiapeLine.cpf == line_data["cpf"],
+                    SiapeLine.matricula == line_data["matricula"],
+                    SiapeLine.banco_emprestimo == line_data.get("banco_emprestimo", ""),
+                    SiapeLine.ref_month == line_data["ref_month"],
+                    SiapeLine.ref_year == line_data["ref_year"],
+                ).first()
+
+                if existing_line:
+                    # Atualizar dados mantendo constraint
+                    existing_line.batch_id = batch.id
+                    existing_line.nome = line_data["nome"]
+                    existing_line.nascimento = line_data.get("nascimento", "")
+                    existing_line.idade = line_data.get("idade")
+                    existing_line.prazo_restante = line_data.get("prazo_restante")
+                    existing_line.prazo_total = line_data.get("prazo_total")
+                    existing_line.parcelas_pagas = line_data.get("parcelas_pagas", 0)
+                    existing_line.valor_parcela = line_data.get("valor_parcela", 0)
+                    existing_line.saldo_devedor = line_data.get("saldo_devedor", 0)
+                    existing_line.status_code = line_data.get("status_code", "A")
+                    existing_line.status_description = line_data.get("status_description", "")
+                    existing_line.telefone = line_data.get("telefone", "")
+                    existing_line.email = line_data.get("email", "")
+                    existing_line.cidade = line_data.get("cidade", "")
+                    existing_line.bairro = line_data.get("bairro", "")
+                    existing_line.cep = line_data.get("cep", "")
+                    existing_line.endereco = line_data.get("endereco", "")
+                    existing_line.entity_code = line_data["entity_code"]
+                    existing_line.entity_name = line_data["entity_name"]
+                    existing_line.financiamento_code = line_data.get("financiamento_code", "")
+                    existing_line.orgao_pagamento = line_data.get("orgao_pagamento", "")
+                    existing_line.orgao_pagamento_nome = line_data.get("orgao_pagamento_nome", "")
+                    existing_line.line_number = line_data["line_number"]
+                    counters["lines_updated"] += 1
+                else:
+                    siape_line = SiapeLine(
+                        batch_id=batch.id,
+                        cpf=line_data["cpf"],
+                        nome=line_data["nome"],
+                        matricula=line_data["matricula"],
+                        nascimento=line_data.get("nascimento", ""),
+                        idade=line_data.get("idade"),
+                        banco_emprestimo=line_data.get("banco_emprestimo", ""),
+                        prazo_restante=line_data.get("prazo_restante"),
+                        prazo_total=line_data.get("prazo_total"),
+                        parcelas_pagas=line_data.get("parcelas_pagas", 0),
+                        valor_parcela=line_data.get("valor_parcela", 0),
+                        saldo_devedor=line_data.get("saldo_devedor", 0),
+                        status_code=line_data.get("status_code", "A"),
+                        status_description=line_data.get("status_description", ""),
+                        telefone=line_data.get("telefone", ""),
+                        email=line_data.get("email", ""),
+                        cidade=line_data.get("cidade", ""),
+                        bairro=line_data.get("bairro", ""),
+                        cep=line_data.get("cep", ""),
+                        endereco=line_data.get("endereco", ""),
+                        entity_code=line_data["entity_code"],
+                        entity_name=line_data["entity_name"],
+                        ref_month=line_data["ref_month"],
+                        ref_year=line_data["ref_year"],
+                        financiamento_code=line_data.get("financiamento_code", ""),
+                        orgao_pagamento=line_data.get("orgao_pagamento", ""),
+                        orgao_pagamento_nome=line_data.get("orgao_pagamento_nome", ""),
+                        line_number=line_data["line_number"]
+                    )
+                    db.add(siape_line)
+                    counters["lines_created"] += 1
+
+                # Criar resumo de status para o caso
+                status_summary = {
+                    "total_lines": 1,
+                    "financiamentos": {
+                        line_data.get("financiamento_code", "SIAPE"): {
+                            f"{line_data['ref_month']:02d}/{line_data['ref_year']}": {
+                                "valor_parcela": float(line_data.get("valor_parcela", 0)),
+                                "saldo_devedor": float(line_data.get("saldo_devedor", 0)),
+                                "status": line_data.get("status_code", "A"),
+                                "status_description": line_data.get("status_description", ""),
+                                "parcelas_pagas": line_data.get("parcelas_pagas", 0),
+                                "total_parcelas": line_data.get("prazo_total", 0),
+                                "banco": line_data.get("banco_emprestimo", "")
+                            }
+                        }
+                    },
+                    "has_problems": False,
+                    "has_success": True,
+                    "priority_score": 5
+                }
+
+                # Criar/atualizar caso
+                case_exists = db.query(Case).filter(
+                    Case.client_id == client.id,
+                    Case.status.in_(["novo", "disponivel", "em_atendimento", "calculista",
+                                    "calculista_pendente", "financeiro", "fechamento_pendente",
+                                    "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"])
+                ).first() is not None
+
+                case = create_case_for_siape_client(db, client, batch, status_summary, line_data.get("banco_emprestimo"))
+
+                if case_exists:
+                    counters["cases_updated"] += 1
+                else:
+                    counters["cases_created"] += 1
+
+                # Commit incremental a cada BATCH_SIZE registros
+                if processed_count % BATCH_SIZE == 0:
+                    db.commit()
+                    logger.info(f"SIAPE: Processados {processed_count}/{len(lines)} registros")
+
+            except Exception as e:
+                counters["errors"] += 1
+                logger.error(f"Erro ao processar linha SIAPE {processed_count}: {str(e)}")
+                # Continuar processamento
+
+        # Commit final
+        batch.processed_lines = counters["lines_created"]
+        batch.error_lines = counters["errors"]
+        db.commit()
+
+        logger.info(f"Importação SIAPE concluída: {counters}")
+
+        return {
+            "success": True,
+            "message": f"Importação SIAPE concluída com sucesso",
+            "batch_id": batch.id,
+            "statistics": {
+                "total_lines": len(lines),
+                "clients_created": counters["clients_created"],
+                "clients_updated": counters["clients_updated"],
+                "cases_created": counters["cases_created"],
+                "cases_updated": counters["cases_updated"],
+                "cases_reopened": counters["cases_reopened"],
+                "errors": counters["errors"]
+            },
+            "batch": {
+                "id": batch.id,
+                "filename": batch.filename,
+                "ref_month": batch.ref_month,
+                "ref_year": batch.ref_year,
+                "created_at": batch.created_at.isoformat()
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro na importação SIAPE: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(500, f"Erro ao processar arquivo SIAPE: {str(e)}")
+
+
+@r.get("/siape/batches")
+async def list_siape_batches(
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista"))
+):
+    """
+    Lista últimos lotes de importação SIAPE.
+    """
+    batches = db.query(SiapeBatch).order_by(SiapeBatch.created_at.desc()).limit(20).all()
+
+    result = []
+    for batch in batches:
+        creator = db.query(User).filter(User.id == batch.created_by).first()
+
+        result.append({
+            "id": batch.id,
+            "entity_code": batch.entity_code,
+            "entity_name": batch.entity_name,
+            "reference": f"{batch.ref_month:02d}/{batch.ref_year}",
+            "filename": batch.filename,
+            "total_lines": batch.total_lines,
+            "processed_lines": batch.processed_lines,
+            "error_lines": batch.error_lines,
+            "created_at": batch.created_at.isoformat(),
+            "created_by": creator.name if creator else "Sistema"
+        })
+
+    return {"batches": result}
+
+
+@r.get("/siape/batches/{batch_id}")
+async def get_siape_batch_details(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista"))
+):
+    """
+    Retorna detalhes de um lote SIAPE específico.
+    """
+    batch = db.query(SiapeBatch).filter(SiapeBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(404, "Lote SIAPE não encontrado")
+
+    creator = db.query(User).filter(User.id == batch.created_by).first()
+
+    # Contar casos gerados
+    cases_count = db.query(func.count(Case.id)).filter(
+        Case.source == "siape",
+        Case.ref_month == batch.ref_month,
+        Case.ref_year == batch.ref_year
+    ).scalar()
+
+    return {
+        "batch": {
+            "id": batch.id,
+            "entity_code": batch.entity_code,
+            "entity_name": batch.entity_name,
+            "reference": f"{batch.ref_month:02d}/{batch.ref_year}",
+            "filename": batch.filename,
+            "file_path": batch.file_path,
+            "has_file": batch.file_path is not None and os.path.exists(batch.file_path) if batch.file_path else False,
+            "total_lines": batch.total_lines,
+            "processed_lines": batch.processed_lines,
+            "error_lines": batch.error_lines,
+            "created_at": batch.created_at.isoformat(),
+            "created_by": creator.name if creator else "Sistema",
+            "generated_at": batch.generated_at.isoformat()
+        },
+        "statistics": {
+            "cases_created": cases_count
+        }
+    }
+
+
+@r.get("/siape/batches/{batch_id}/download")
+async def download_siape_file(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles("admin", "supervisor", "financeiro", "calculista"))
+):
+    """
+    Faz o download do arquivo SIAPE original.
+    """
+    from fastapi.responses import FileResponse
+
+    batch = db.query(SiapeBatch).filter(SiapeBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(404, "Lote SIAPE não encontrado")
+
+    if not batch.file_path or not os.path.exists(batch.file_path):
+        raise HTTPException(404, "Arquivo não encontrado no sistema")
+
+    filename = batch.filename or f"siape_import_{batch_id}.xlsx"
+    return FileResponse(
+        path=batch.file_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"'
         }

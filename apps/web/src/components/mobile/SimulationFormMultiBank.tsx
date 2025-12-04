@@ -40,7 +40,9 @@ const PRODUCTS = [
     { value: "emprestimo_consignado", label: "Empréstimo Consignado" },
     { value: "cartao_beneficio", label: "Cartão Benefício" },
     { value: "cartao_consignado", label: "Cartão Consignado" },
-    { value: "abase_auxilio", label: "Abase Auxílio" }
+    { value: "abase_auxilio", label: "Abase Auxílio" },
+    { value: "nenhum", label: "Nenhum" },
+    { value: "outro", label: "Outro" }
 ];
 
 interface SimulationBankInput {
