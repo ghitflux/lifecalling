@@ -872,24 +872,44 @@ def list_cases(
                 from app.models import PayrollLine
                 from app.routers.clients import normalize_bank_name
 
-                if not client_joined:
-                    qry = qry.join(Client, Client.id == Case.client_id)
-                    client_joined = True
-                if not payroll_joined:
-                    qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
-                    payroll_joined = True
-
-                # Buscar todas as entidades que correspondem ao nome normalizado
-                all_entities = db.query(PayrollLine.entity_name).filter(
-                    PayrollLine.entity_name.isnot(None)
-                ).distinct().all()
-                matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == entity_filter]
-
-                if matching_entities:
-                    qry = qry.filter(PayrollLine.entity_name.in_(matching_entities)).distinct()
+                # Caso especial: SIAPE filtra por source ao invés de PayrollLine
+                if entity_filter.upper() == 'SIAPE':
+                    qry = qry.filter(Case.source == 'siape')
                 else:
-                    # Se não encontrou match normalizado, tentar match exato (fallback)
-                    qry = qry.filter(PayrollLine.entity_name == entity_filter).distinct()
+                    # Verificar se é um banco do SIAPE (existe em SiapeLine.banco_emprestimo)
+                    siape_bancos = db.query(SiapeLine.banco_emprestimo).filter(
+                        SiapeLine.banco_emprestimo.isnot(None)
+                    ).distinct().all()
+                    siape_bancos_normalized = {normalize_bank_name(b[0]): b[0] for b in siape_bancos if b[0]}
+                    
+                    if entity_filter in siape_bancos_normalized:
+                        # Banco do SIAPE: filtrar por source e fazer join com SiapeLine
+                        if not client_joined:
+                            qry = qry.join(Client, Client.id == Case.client_id)
+                            client_joined = True
+                        qry = qry.join(SiapeLine, SiapeLine.cpf == Client.cpf)
+                        qry = qry.filter(Case.source == 'siape')
+                        qry = qry.filter(SiapeLine.banco_emprestimo == siape_bancos_normalized[entity_filter]).distinct()
+                    else:
+                        # Para outros bancos, usar lógica de PayrollLine
+                        if not client_joined:
+                            qry = qry.join(Client, Client.id == Case.client_id)
+                            client_joined = True
+                        if not payroll_joined:
+                            qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
+                            payroll_joined = True
+
+                        # Buscar todas as entidades que correspondem ao nome normalizado
+                        all_entities = db.query(PayrollLine.entity_name).filter(
+                            PayrollLine.entity_name.isnot(None)
+                        ).distinct().all()
+                        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == entity_filter]
+
+                        if matching_entities:
+                            qry = qry.filter(PayrollLine.entity_name.in_(matching_entities)).distinct()
+                        else:
+                            # Se não encontrou match normalizado, tentar match exato (fallback)
+                            qry = qry.filter(PayrollLine.entity_name == entity_filter).distinct()
 
             # Filtro por cargo
             if cargo:
