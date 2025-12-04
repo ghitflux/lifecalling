@@ -241,7 +241,8 @@ def ranking_agents(
             # TEM DISTRIBUIÇÃO: contar proporcionalmente
             for agent in agents:
                 user_id = agent.user_id
-                percentual_frac = float(agent.percentual) / 100.0  # 30% = 0.3 contratos
+                # AJUSTE: Contar cada contrato como 1 inteiro (não proporcional)
+                percentual_frac = 1.0  # Sempre 1 contrato inteiro
 
                 if user_id not in contracts_map:
                     contracts_map[user_id] = {"qtd": 0.0}
@@ -1037,6 +1038,8 @@ def get_user_contracts(
             ContractAgent.user_id == user_id
         ).first()
 
+        # AJUSTE: Contar cada contrato como 1 inteiro, não proporcional
+        # A consultoria já é calculada proporcionalmente via FinanceIncome
         if agent_record:
             # Contrato compartilhado - contar proporcionalmente
             percentual_frac = float(agent_record.percentual) / 100.0
