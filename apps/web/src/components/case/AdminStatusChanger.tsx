@@ -120,8 +120,9 @@ export default function AdminStatusChanger({ caseId, currentStatus }: AdminStatu
     setShowConfirmDialog(false);
   };
 
-  // Apenas admin pode ver e usar este componente
-  if (!user || user.role !== 'admin') {
+  // Apenas perfis administrativos podem ver e usar este componente
+  const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+  if (!isAdmin) {
     return null;
   }
 
@@ -131,7 +132,7 @@ export default function AdminStatusChanger({ caseId, currentStatus }: AdminStatu
         <Shield className="h-5 w-5 text-orange-400" />
         <div className="flex-1">
           <h4 className="text-sm font-semibold text-foreground">Controle Administrativo</h4>
-          <p className="text-xs text-muted-foreground">Alterar status manualmente (apenas admin)</p>
+          <p className="text-xs text-muted-foreground">Alterar status manualmente (admin e super admin)</p>
         </div>
         
         {/* Status Atual */}

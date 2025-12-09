@@ -17,11 +17,15 @@ import {
 import { mobileApi, AdminSimulation } from "@/services/mobileApi";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils/currency";
+import { useSimulationsForAnalysis } from "@/hooks/useMobileAnalysis";
+import { AnalysisModal } from "@/components/mobile/AnalysisModal";
 
 export default function LifeMobileSimulationsPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("todas");
     const [searchTerm, setSearchTerm] = useState("");
+    const [selectedSimulation, setSelectedSimulation] = useState<AdminSimulation | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
 
     const { data: simulations, isLoading } = useQuery({
         queryKey: ["adminSimulations"],
@@ -30,6 +34,8 @@ export default function LifeMobileSimulationsPage() {
         gcTime: 10 * 60 * 1000, // 10 minutos de cache
         refetchOnWindowFocus: false,
     });
+
+    const { data: analysisSimulations, isLoading: isLoadingAnalysis } = useSimulationsForAnalysis();
 
     const defaultBadgeTone = "bg-slate-800 text-slate-200 border border-slate-700";
 
@@ -43,7 +49,12 @@ export default function LifeMobileSimulationsPage() {
         financeiro_pendente: "bg-blue-500/15 text-blue-200 border border-blue-500/30",
         contrato_efetivado: "bg-emerald-600/20 text-emerald-200 border border-emerald-500/40",
         financeiro_cancelado: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
-        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/40"
+        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/40",
+        // Analysis status
+        pending_analysis: "bg-purple-500/15 text-purple-200 border border-purple-500/40",
+        pending_docs: "bg-orange-500/15 text-orange-200 border border-orange-500/40",
+        approved_for_calculation: "bg-cyan-500/15 text-cyan-200 border border-cyan-500/40",
+        reproved: "bg-red-500/15 text-red-200 border border-red-500/40"
     };
 
     const statusLabel: Record<string, string> = {
@@ -56,7 +67,23 @@ export default function LifeMobileSimulationsPage() {
         financeiro_pendente: "No Financeiro",
         contrato_efetivado: "Contrato Efetivado",
         rejected: "Reprovada",
-        financeiro_cancelado: "Cancelada pelo Financeiro"
+        financeiro_cancelado: "Cancelada pelo Financeiro",
+        // Analysis status
+        pending_analysis: "Aguardando Análise",
+        pending_docs: "Documentos Pendentes",
+        approved_for_calculation: "Aprovada para Cálculo",
+        reproved: "Reprovada na Análise"
+    };
+
+    // Client type labels and colors
+    const clientTypeTone: Record<string, string> = {
+        new_client: "bg-blue-500/20 text-blue-200 border border-blue-500/50",
+        existing_client: "bg-green-500/20 text-green-200 border border-green-500/50"
+    };
+
+    const clientTypeLabel: Record<string, string> = {
+        new_client: "Cliente Novo",
+        existing_client: "Cliente Existente"
     };
 
     const getStatusTone = (status?: string) =>
@@ -101,8 +128,18 @@ export default function LifeMobileSimulationsPage() {
         return filtered;
     };
 
-    const renderSimulationCard = (sim: AdminSimulation) => {
+    const renderSimulationCard = (sim: AdminSimulation, openModal = false) => {
         const statusKey = (sim.status || "").toLowerCase();
+        const analysisStatusKey = (sim.analysis_status || "").toLowerCase();
+
+        const handleClick = () => {
+            if (openModal) {
+                setSelectedSimulation(sim);
+                setModalOpen(true);
+            } else {
+                router.push(`/life-mobile/simulacoes/${sim.id}`);
+            }
+        };
 
         return (
             <Card
@@ -116,20 +153,31 @@ export default function LifeMobileSimulationsPage() {
                         "#f59e0b",
                     borderLeftWidth: 4
                 }}
-                onClick={() => router.push(`/life-mobile/simulacoes/${sim.id}`)}
+                onClick={handleClick}
             >
                 <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-3">
-                        <div>
+                        <div className="flex-1">
                             <h3 className="font-semibold text-slate-100">{sim.user_name || "Usuário Desconhecido"}</h3>
                             <p className="text-sm text-slate-400">{sim.user_email}</p>
                         </div>
-                        <Badge
-                            variant="outline"
-                            className={getStatusTone(statusKey)}
-                        >
-                            {getStatusLabel(statusKey)}
-                        </Badge>
+                        <div className="flex flex-col gap-2 items-end">
+                            <Badge
+                                variant="outline"
+                                className={getStatusTone(analysisStatusKey || statusKey)}
+                            >
+                                {statusLabel[analysisStatusKey] || getStatusLabel(statusKey)}
+                            </Badge>
+                            {sim.client_type && (
+                                <Badge
+                                    variant="outline"
+                                    className={clientTypeTone[sim.client_type]}
+                                >
+                                    {clientTypeLabel[sim.client_type]}
+                                    {sim.has_active_contract && " ✓"}
+                                </Badge>
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm mb-3 text-slate-300">
@@ -187,12 +235,25 @@ export default function LifeMobileSimulationsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-6 bg-slate-900/70 border border-slate-800">
+                <TabsList className="grid w-full grid-cols-5 mb-6 bg-slate-900/70 border border-slate-800">
+                    <TabsTrigger value="analise">Análise</TabsTrigger>
                     <TabsTrigger value="todas">Todas</TabsTrigger>
                     <TabsTrigger value="pending">Pendentes</TabsTrigger>
                     <TabsTrigger value="approved">Aprovadas</TabsTrigger>
                     <TabsTrigger value="rejected">Reprovadas</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="analise">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {isLoadingAnalysis ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
+                        ) : !analysisSimulations || analysisSimulations.length === 0 ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação pendente de análise.</p>
+                        ) : (
+                            analysisSimulations.map(sim => renderSimulationCard(sim, true))
+                        )}
+                    </div>
+                </TabsContent>
 
                 <TabsContent value="todas">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -242,6 +303,15 @@ export default function LifeMobileSimulationsPage() {
                     </div>
                 </TabsContent>
             </Tabs>
+
+            <AnalysisModal
+                simulation={selectedSimulation}
+                open={modalOpen}
+                onClose={() => {
+                    setModalOpen(false);
+                    setSelectedSimulation(null);
+                }}
+            />
         </div>
     );
 }

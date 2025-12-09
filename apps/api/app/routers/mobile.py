@@ -8,11 +8,14 @@ import os
 import shutil
 from pathlib import Path
 from ..db import SessionLocal
-from ..models import User, MobileSimulation, MobileNotification, now_brt
+from ..models import User, MobileSimulation, MobileNotification, Contract, now_brt
 from ..security import get_current_user, hash_password
 from decimal import Decimal
 
 router = APIRouter(prefix="/mobile", tags=["mobile"])
+
+# Roles autorizadas para área administrativa do Life Mobile
+ADMIN_ROLES = {"admin", "supervisor", "atendente", "calculista", "super_admin"}
 
 # Criar diretório para uploads se não existir
 UPLOAD_DIR = Path("uploads/mobile_documents")
@@ -125,6 +128,15 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
         "document_url": sim.document_url,
         "document_type": sim.document_type,
         "document_filename": sim.document_filename,
+        # Campos de análise
+        "analysis_status": sim.analysis_status,
+        "analyst_id": sim.analyst_id,
+        "analyst_name": sim.analyst.name if sim.analyst else None,
+        "analyst_notes": sim.analyst_notes,
+        "pending_documents": sim.pending_documents or [],
+        "analyzed_at": sim.analyzed_at,
+        "client_type": sim.client_type,
+        "has_active_contract": sim.has_active_contract,
     }
 
 # Dependency
@@ -464,13 +476,28 @@ class MobileSimulationUpdateAdmin(BaseModel):
     seguro: Optional[float] = None
     percentual_consultoria: Optional[float] = None
 
+# Schemas para análise de simulações
+class PendingDocumentRequest(BaseModel):
+    type: str  # Ex: "rg", "cpf", "comprovante_renda"
+    description: str  # Ex: "Enviar RG frente e verso"
+
+class PendSimulationRequest(BaseModel):
+    analyst_notes: str
+    pending_documents: List[PendingDocumentRequest]
+
+class ReproveSimulationRequest(BaseModel):
+    analyst_notes: str
+
+class ApproveForCalculationRequest(BaseModel):
+    analyst_notes: Optional[str] = None
+
 @router.get("/admin/clients", response_model=List[AdminClientResponse])
 async def get_admin_clients(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Verify admin access
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # CORRIGIDO: Retornar APENAS clientes mobile (role = 'mobile_client')
@@ -498,14 +525,14 @@ async def get_admin_simulations(
     db: Session = Depends(get_db)
 ):
     # Verify admin access
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # Join with User to get client details
     simulations = (
         db.query(MobileSimulation)
         .options(selectinload(MobileSimulation.user))
-        .join(User)
+        .join(User, MobileSimulation.user_id == User.id)
         .order_by(MobileSimulation.created_at.desc())
         .all()
     )
@@ -530,7 +557,7 @@ def create_admin_simulation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Verify target user exists
@@ -566,7 +593,7 @@ def update_admin_simulation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     sim = db.query(MobileSimulation).options(selectinload(MobileSimulation.user)).filter(MobileSimulation.id == simulation_id).first()
@@ -591,7 +618,7 @@ async def get_admin_simulation_by_id(
     db: Session = Depends(get_db)
 ):
     # Verify admin access
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     # Join with User to get client details
@@ -615,7 +642,7 @@ async def approve_simulation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
         
     sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
@@ -657,7 +684,7 @@ async def reject_simulation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
         
     sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
@@ -685,7 +712,7 @@ async def get_simulation_document(
     db: Session = Depends(get_db)
 ):
     """Retorna o documento anexado a uma simulação"""
-    if current_user.role not in ["admin", "supervisor", "atendente", "calculista"]:
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     simulation = db.query(MobileSimulation).filter(
@@ -762,3 +789,181 @@ async def mark_notification_as_read(
     db.commit()
 
     return {"message": "Notificação marcada como lida"}
+
+# ======================
+# ENDPOINTS DE ANÁLISE DE SIMULAÇÕES
+# ======================
+
+def check_client_status(db: Session, user_id: int) -> dict:
+    """
+    Verifica se o cliente é novo ou tem contrato ativo/efetivado.
+    Retorna dict com client_type e has_active_contract.
+    """
+    # Buscar contratos do usuário através da relação User -> Case -> Contract
+    from ..models import Case
+
+    # Buscar cases do cliente
+    user_cases = db.query(Case).filter(Case.client_id == user_id).all()
+
+    if not user_cases:
+        return {"client_type": "new_client", "has_active_contract": False}
+
+    # Verificar se tem contrato ativo ou efetivado
+    case_ids = [case.id for case in user_cases]
+    active_contract = db.query(Contract).filter(
+        Contract.case_id.in_(case_ids),
+        Contract.status.in_(["ativo", "efetivado"])
+    ).first()
+
+    has_active = active_contract is not None
+
+    return {
+        "client_type": "existing_client" if user_cases else "new_client",
+        "has_active_contract": has_active
+    }
+
+@router.get("/admin/simulations/analysis")
+async def get_simulations_for_analysis(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna simulações pendentes de análise.
+    Automaticamente verifica o tipo de cliente (novo ou com contrato ativo).
+    """
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Buscar simulações com status de análise pendente
+    simulations = (
+        db.query(MobileSimulation)
+        .options(selectinload(MobileSimulation.user), selectinload(MobileSimulation.analyst))
+        .filter(MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]))
+        .order_by(MobileSimulation.created_at.desc())
+        .all()
+    )
+
+    # Atualizar informações de tipo de cliente automaticamente
+    for sim in simulations:
+        if not sim.client_type:
+            client_status = check_client_status(db, sim.user_id)
+            sim.client_type = client_status["client_type"]
+            sim.has_active_contract = client_status["has_active_contract"]
+
+    db.commit()
+
+    return [serialize_admin_simulation(sim) for sim in simulations]
+
+@router.post("/admin/simulations/{simulation_id}/pend")
+async def pend_simulation(
+    simulation_id: str,
+    request_data: PendSimulationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Pendencia uma simulação solicitando documentos adicionais do cliente.
+    """
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    # Atualizar status e informações
+    sim.analysis_status = "pending_docs"
+    sim.analyst_id = current_user.id
+    sim.analyst_notes = request_data.analyst_notes
+    sim.pending_documents = [doc.model_dump() for doc in request_data.pending_documents]
+    sim.analyzed_at = now_brt()
+
+    # Criar notificação para o cliente
+    doc_list = "\n".join([f"- {doc.type}: {doc.description}" for doc in request_data.pending_documents])
+    create_notification(
+        db,
+        sim.user_id,
+        "Documentos Pendentes",
+        f"Sua simulação precisa de documentos adicionais:\n{doc_list}\n\nObservações: {request_data.analyst_notes}",
+        "warning"
+    )
+
+    db.commit()
+
+    return {"message": "Simulação pendenciada com sucesso", "pending_documents": sim.pending_documents}
+
+@router.post("/admin/simulations/{simulation_id}/reprove")
+async def reprove_simulation_for_analysis(
+    simulation_id: str,
+    request_data: ReproveSimulationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Reprova uma simulação na fase de análise.
+    """
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    # Atualizar status
+    sim.analysis_status = "reproved"
+    sim.status = "rejected"
+    sim.analyst_id = current_user.id
+    sim.analyst_notes = request_data.analyst_notes
+    sim.analyzed_at = now_brt()
+
+    # Criar notificação para o cliente
+    create_notification(
+        db,
+        sim.user_id,
+        "Simulação Reprovada",
+        f"Sua simulação foi reprovada.\n\nMotivo: {request_data.analyst_notes}",
+        "error"
+    )
+
+    db.commit()
+
+    return {"message": "Simulação reprovada com sucesso"}
+
+@router.post("/admin/simulations/{simulation_id}/approve-for-calculation")
+async def approve_simulation_for_calculation(
+    simulation_id: str,
+    request_data: ApproveForCalculationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Aprova uma simulação e envia para a fase de Simulação com o Calculista (Multi Bancos).
+    A simulação fica disponível para o calculista processar.
+    """
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    sim = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    # Atualizar status
+    sim.analysis_status = "approved_for_calculation"
+    sim.status = "approved"
+    sim.analyst_id = current_user.id
+    if request_data.analyst_notes:
+        sim.analyst_notes = request_data.analyst_notes
+    sim.analyzed_at = now_brt()
+
+    # Criar notificação para o cliente
+    create_notification(
+        db,
+        sim.user_id,
+        "Análise Aprovada",
+        f"Sua simulação foi aprovada e está sendo processada pelo nosso calculista!{f' Observações: {request_data.analyst_notes}' if request_data.analyst_notes else ''}",
+        "success"
+    )
+
+    db.commit()
+
+    return {"message": "Simulação aprovada e enviada para o calculista com sucesso"}

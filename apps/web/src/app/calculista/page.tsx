@@ -316,7 +316,7 @@ function CalculistaPageContent() {
 
   // Permissões
   useEffect(() => {
-    if (user && !["calculista", "supervisor", "admin"].includes(user.role)) {
+    if (user && !["calculista", "supervisor", "admin", "super_admin"].includes(user.role)) {
       router.push("/esteira");
       toast.error("Acesso negado");
     }

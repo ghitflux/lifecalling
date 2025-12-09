@@ -62,6 +62,33 @@ export interface AdminSimulation extends Simulation {
   document_url?: string;
   document_type?: string;
   document_filename?: string;
+  // Analysis fields
+  analysis_status?: 'pending_analysis' | 'pending_docs' | 'approved_for_calculation' | 'reproved';
+  analyst_id?: number;
+  analyst_name?: string;
+  analyst_notes?: string;
+  pending_documents?: PendingDocument[];
+  analyzed_at?: string;
+  client_type?: 'new_client' | 'existing_client';
+  has_active_contract?: boolean;
+}
+
+export interface PendingDocument {
+  type: string;
+  description: string;
+}
+
+export interface PendSimulationRequest {
+  analyst_notes: string;
+  pending_documents: PendingDocument[];
+}
+
+export interface ReproveSimulationRequest {
+  analyst_notes: string;
+}
+
+export interface ApproveForCalculationRequest {
+  analyst_notes?: string;
 }
 
 export const mobileApi = {
@@ -117,6 +144,35 @@ export const mobileApi = {
 
   rejectSimulation: async (id: string) => {
     const response = await api.post(`${basePath}/admin/simulations/${id}/reject`);
+    return response.data;
+  },
+
+  // Analysis endpoints
+  getSimulationsForAnalysis: async () => {
+    const response = await api.get<AdminSimulation[]>(`${basePath}/admin/simulations/analysis`);
+    return response.data;
+  },
+
+  pendSimulation: async (id: string, data: PendSimulationRequest) => {
+    const response = await api.post(`${basePath}/admin/simulations/${id}/pend`, data);
+    return response.data;
+  },
+
+  reproveSimulation: async (id: string, data: ReproveSimulationRequest) => {
+    const response = await api.post(`${basePath}/admin/simulations/${id}/reprove`, data);
+    return response.data;
+  },
+
+  approveForCalculation: async (id: string, data: ApproveForCalculationRequest) => {
+    const response = await api.post(`${basePath}/admin/simulations/${id}/approve-for-calculation`, data);
+    return response.data;
+  },
+
+  // Document endpoints
+  getSimulationDocument: async (id: string) => {
+    const response = await api.get(`${basePath}/admin/documents/${id}`, {
+      responseType: 'blob'
+    });
     return response.data;
   }
 };

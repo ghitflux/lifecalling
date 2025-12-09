@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import os
 import jwt
 import bcrypt
 import secrets
@@ -24,16 +25,16 @@ def generate_csrf_token() -> str:
 
 def set_csrf_cookie(resp: Response, token: str):
     """Seta o cookie CSRF (não-HttpOnly para ser lido pelo JavaScript)"""
-    is_prod = settings.env == "production"
+    is_secure = should_use_secure_cookies()
     resp.set_cookie(
         "csrf_token",
         token,
         httponly=False,  # Deve ser False para ser lido pelo JS
-        secure=is_prod,
+        secure=is_secure,
         samesite="lax",
         domain=(
             settings.cookie_domain 
-            if is_prod and settings.cookie_domain 
+            if is_secure and settings.cookie_domain 
             else None
         ),
         path="/",
@@ -65,9 +66,38 @@ def make_token(sub: int, kind: str, ttl: int):
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
+
+def _env_flag(name: str) -> bool:
+    """Converte env var booleana em bool (TRUE/true/1)."""
+    return os.getenv(name, "").strip().lower() in {"true", "1", "yes"}
+
+
+def _frontend_uses_https() -> bool:
+    """Detecta se alguma FRONTEND_URL configurada usa HTTPS."""
+    return any(
+        url.strip().lower().startswith("https://")
+        for url in settings.frontend_url.split(",")
+        if url.strip()
+    )
+
+
+def should_use_secure_cookies() -> bool:
+    """
+    Decide se os cookies devem ser marcados como Secure.
+    - FORCE_INSECURE_COOKIES=true desliga Secure (útil para dev em HTTP).
+    - FORCE_SECURE_COOKIES=true liga Secure sempre (útil para prod).
+    - Caso contrário, liga Secure apenas quando o ambiente é production E o frontend usa HTTPS.
+    """
+    if _env_flag("FORCE_INSECURE_COOKIES"):
+        return False
+    if _env_flag("FORCE_SECURE_COOKIES"):
+        return True
+
+    return settings.env == "production" and _frontend_uses_https()
+
 def set_auth_cookies(resp: Response, uid: int, role: str):
     """Seta cookies de autenticação e CSRF"""
-    is_prod = settings.env == "production"
+    is_secure = should_use_secure_cookies()
     
     # Access token (HttpOnly)
     resp.set_cookie(
@@ -75,10 +105,10 @@ def set_auth_cookies(resp: Response, uid: int, role: str):
         make_token(uid, "access", settings.access_ttl),
         httponly=True,
         samesite="lax",
-        secure=is_prod,
+        secure=is_secure,
         domain=(
             settings.cookie_domain 
-            if is_prod and settings.cookie_domain 
+            if is_secure and settings.cookie_domain 
             else None
         ),
         path="/",
@@ -91,10 +121,10 @@ def set_auth_cookies(resp: Response, uid: int, role: str):
         make_token(uid, "refresh", settings.refresh_ttl),
         httponly=True,
         samesite="lax",
-        secure=is_prod,
+        secure=is_secure,
         domain=(
             settings.cookie_domain 
-            if is_prod and settings.cookie_domain 
+            if is_secure and settings.cookie_domain 
             else None
         ),
         path="/",
@@ -107,10 +137,10 @@ def set_auth_cookies(resp: Response, uid: int, role: str):
         role,
         httponly=False,
         samesite="lax",
-        secure=is_prod,
+        secure=is_secure,
         domain=(
             settings.cookie_domain 
-            if is_prod and settings.cookie_domain 
+            if is_secure and settings.cookie_domain 
             else None
         ),
         path="/",

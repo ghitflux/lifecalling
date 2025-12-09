@@ -704,10 +704,23 @@ class MobileSimulation(Base):
     document_filename = Column(Text, nullable=True)  # Nome original do arquivo
 
     status = Column(String(20), default="pending")  # pending, approved, rejected
+
+    # Campos para análise de simulações
+    analysis_status = Column(String(30), default="pending_analysis")
+    # pending_analysis | pending_docs | approved_for_calculation | reproved
+    analyst_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Analista responsável
+    analyst_notes = Column(Text, nullable=True)  # Observações do analista
+    pending_documents = Column(JSON, default=[])  # Lista de documentos pendentes
+    # Formato: [{"type": "rg", "description": "Enviar RG frente e verso"}]
+    analyzed_at = Column(DateTime, nullable=True)  # Data/hora da análise
+    client_type = Column(String(20), nullable=True)  # new_client | existing_client
+    has_active_contract = Column(Boolean, default=False)  # Se tem contrato ativo
+
     created_at = Column(DateTime, default=now_brt)
     updated_at = Column(DateTime, default=now_brt, onupdate=now_brt)
 
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    analyst = relationship("User", foreign_keys=[analyst_id])
 
 class MobileNotification(Base):
     """
