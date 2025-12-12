@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   KPICard,
@@ -18,7 +19,7 @@ import {
   FilterDropdown,
   DateRangeFilterWithCalendar,
 } from "@lifecalling/ui";
-import { useAnalyticsKpis, useAnalyticsSeries } from "@/lib/hooks";
+import { useAnalyticsKpis, useAnalyticsSeries, useAgentMetrics } from "@/lib/hooks";
 import { startOfDayBrasilia, endOfDayBrasilia, startOfMonthBrasilia, endOfMonthBrasilia, dateToISO, formatDateBrasilia } from "@/lib/timezone";
 import {
   convertFinanceToMiniChart,
@@ -47,11 +48,52 @@ import {
   Wallet,
   Receipt,
 } from "lucide-react";
+import { SLACards } from "@/components/dashboard/sla-cards";
+import { AgentPerformanceTable } from "@/components/dashboard/tables/agent-performance-table";
+import { AgentDetailsModal } from "@/components/dashboard/agent-details-modal";
+import { SLACasesModal } from "@/components/dashboard/sla-cases-modal";
 
 type AnalyticsBucket = "day" | "week" | "month";
 
 // Usar helper de timezone de Brasília
 const iso = dateToISO;
+
+// Helper para persistência de filtros com expiração de 24h
+const FILTER_STORAGE_KEY = "dashboard_filters";
+const FILTER_EXPIRATION_HOURS = 24;
+
+function saveFilters(filters: { startDate: string; endDate: string; bucket: AnalyticsBucket }) {
+  const data = {
+    filters,
+    timestamp: Date.now(),
+  };
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(data));
+  }
+}
+
+function loadFilters(): { startDate: string; endDate: string; bucket: AnalyticsBucket } | null {
+  if (typeof window === 'undefined') return null;
+
+  const stored = localStorage.getItem(FILTER_STORAGE_KEY);
+  if (!stored) return null;
+
+  try {
+    const data = JSON.parse(stored);
+    const now = Date.now();
+    const expirationTime = FILTER_EXPIRATION_HOURS * 60 * 60 * 1000; // 24h em ms
+
+    // Verificar se expirou
+    if (now - data.timestamp > expirationTime) {
+      localStorage.removeItem(FILTER_STORAGE_KEY);
+      return null;
+    }
+
+    return data.filters;
+  } catch {
+    return null;
+  }
+}
 
 // Funções para converter dados reais em formato de mini-chart
 const generateRealTrendData = (seriesData: any[], kpis: any, metrics?: any) => {
@@ -101,29 +143,55 @@ const generateRealTrendData = (seriesData: any[], kpis: any, metrics?: any) => {
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+
+  // Carregar filtros salvos ou usar padrão
+  const savedFilters = loadFilters();
 
   const [from, setFrom] = useState<string>(() => {
+    if (savedFilters?.startDate) {
+      const startDateObj = new Date(savedFilters.startDate + "T00:00:00");
+      return iso(startOfDayBrasilia(startDateObj));
+    }
+
     const now = new Date();
     return iso(startOfMonthBrasilia(now));
   });
   const [to, setTo] = useState<string>(() => {
+    if (savedFilters?.endDate) {
+      const endDateObj = new Date(savedFilters.endDate + "T23:59:59");
+      return iso(endOfDayBrasilia(endDateObj));
+    }
+
     const now = new Date();
     return iso(endOfMonthBrasilia(now));
   });
-  const [bucket, setBucket] = useState<AnalyticsBucket>("day");
+  const [bucket, setBucket] = useState<AnalyticsBucket>(() => {
+    return savedFilters?.bucket || "day";
+  });
 
   // Estado para o filtro unificado por mês
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    if (savedFilters?.startDate || savedFilters?.endDate) {
+      return '';
+    }
+
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Estados para DateRangeFilter - inicializam com o mês atual (mesma lógica do módulo financeiro)
+  // Estados para DateRangeFilter - inicializam com filtros salvos ou mês atual
   const [startDate, setStartDate] = useState<string>(() => {
+    if (savedFilters?.startDate) {
+      return savedFilters.startDate;
+    }
     const now = new Date();
     return formatDateBrasilia(startOfMonthBrasilia(now));
   });
   const [endDate, setEndDate] = useState<string>(() => {
+    if (savedFilters?.endDate) {
+      return savedFilters.endDate;
+    }
     const now = new Date();
     return formatDateBrasilia(endOfMonthBrasilia(now));
   });
@@ -184,13 +252,20 @@ export default function DashboardPage() {
   };
 
   // Função para lidar com mudanças no DateRangeFilter
-  const handleDateRangeChange = (startDate: string, endDate: string) => {
-    setStartDate(startDate);
-    setEndDate(endDate);
+  const handleDateRangeChange = (newStartDate: string, newEndDate: string) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+
+    // Salvar filtros no localStorage
+    saveFilters({
+      startDate: newStartDate,
+      endDate: newEndDate,
+      bucket,
+    });
 
     // Converter para Date objects e aplicar timezone de Brasília
-    const startDateObj = new Date(startDate + 'T00:00:00');
-    const endDateObj = new Date(endDate + 'T23:59:59');
+    const startDateObj = new Date(newStartDate + 'T00:00:00');
+    const endDateObj = new Date(newEndDate + 'T23:59:59');
 
     setFrom(iso(startOfDayBrasilia(startDateObj)));
     setTo(iso(endOfDayBrasilia(endDateObj)));
@@ -209,10 +284,27 @@ export default function DashboardPage() {
     setStartDate('');
     setEndDate('');
 
+    // Remover filtros salvos
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(FILTER_STORAGE_KEY);
+    }
+
     // Voltar para o mês atual
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     handleMonthChange(currentMonth);
+  };
+
+  // Função para mudar bucket e salvar
+  const handleBucketChange = (newBucket: AnalyticsBucket) => {
+    setBucket(newBucket);
+
+    // Salvar filtros no localStorage
+    saveFilters({
+      startDate,
+      endDate,
+      bucket: newBucket,
+    });
   };
 
   // Exportações
@@ -233,6 +325,37 @@ export default function DashboardPage() {
   });
 
   const metrics = metricsData || {};
+
+  // Métricas de agentes
+  const { data: agentMetricsData, isLoading: agentMetricsLoading } = useAgentMetrics(from, to);
+
+  // Estado para o modal de detalhes do agente
+  const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+  const [selectedAgentName, setSelectedAgentName] = useState<string>("");
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+
+  // Estado para o modal de casos por SLA
+  const [isSLACasesModalOpen, setIsSLACasesModalOpen] = useState(false);
+  const [slaFilterType, setSlaFilterType] = useState<'within' | 'outside' | 'total' | null>(null);
+
+  // Função para visualizar detalhes de um agente
+  const handleViewAgentDetails = (agentId: number) => {
+    console.log('handleViewAgentDetails chamado', { agentId, agentMetricsData });
+    const agent = agentMetricsData?.agents?.find((a: any) => a.agent_id === agentId);
+    console.log('Agente encontrado:', agent);
+    setSelectedAgentId(agentId);
+    setSelectedAgentName(agent?.agent_name || "");
+    setSlaFilterType(null);
+    setIsAgentModalOpen(true);
+    console.log('Modal deve abrir agora');
+  };
+
+  // Função para abrir modal via cards de SLA
+  const handleSLACardClick = (type: 'within' | 'outside' | 'total') => {
+    console.log("Card SLA clicado:", type);
+    setSlaFilterType(type);
+    setIsSLACasesModalOpen(true);
+  };
 
   // Gerar dados reais para mini-charts
   const realTrendData = useMemo(() => {
@@ -479,7 +602,7 @@ export default function DashboardPage() {
                   { value: "month", label: "Mensal" }
                 ]}
                 value={bucket}
-                onChange={(value) => setBucket(value as AnalyticsBucket)}
+                onChange={(value) => handleBucketChange(value as AnalyticsBucket)}
               />
             </div>
           </div>
@@ -659,7 +782,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 3. KPIs OPERACIONAIS */}
+      {/* 3. ACOMPANHAMENTO DE RESULTADOS POR AGENTE */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Acompanhamento de Resultados por Agente
+          </h2>
+          <p className="text-sm text-muted-foreground">Performance individual dos atendentes e métricas de SLA</p>
+        </div>
+
+        {/* Cards de SLA */}
+        <SLACards
+          withinSLA={agentMetricsData?.total_sla?.within_sla || 0}
+          outsideSLA={agentMetricsData?.total_sla?.outside_sla || 0}
+          totalCases={agentMetricsData?.total_sla?.total_cases || 0}
+          percentageWithinSLA={agentMetricsData?.total_sla?.percentage_within_sla || 0}
+          slaHours={agentMetricsData?.sla_hours || 48}
+          isLoading={agentMetricsLoading}
+          onCardClick={handleSLACardClick}
+        />
+
+        {/* Tabela de Performance por Agente */}
+        <AgentPerformanceTable
+          agents={agentMetricsData?.agents || []}
+          onViewDetails={handleViewAgentDetails}
+          isLoading={agentMetricsLoading}
+        />
+      </div>
+
+      {/* 4. KPIs OPERACIONAIS */}
       <div className="space-y-3">
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -983,6 +1135,25 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalhes do Agente */}
+      <AgentDetailsModal
+        isOpen={isAgentModalOpen}
+        onClose={() => setIsAgentModalOpen(false)}
+        agentId={selectedAgentId}
+        agentName={selectedAgentName}
+        from={from}
+        to={to}
+      />
+
+      {/* Modal de Casos por SLA */}
+      <SLACasesModal
+        isOpen={isSLACasesModalOpen}
+        onClose={() => setIsSLACasesModalOpen(false)}
+        filterType={slaFilterType}
+        from={from}
+        to={to}
+      />
     </div>
   );
 }

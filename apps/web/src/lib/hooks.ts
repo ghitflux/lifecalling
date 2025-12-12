@@ -1247,3 +1247,19 @@ export function useReopenCase() {
     },
   });
 }
+
+/** Métricas por Agente (Atendentes) */
+export function useAgentMetrics(from?: string, to?: string) {
+  return useQuery({
+    queryKey: ["analytics", "agent-metrics", from, to],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (from) params.append("from", from);
+      if (to) params.append("to", to);
+      const response = await api.get(`/analytics/agent-metrics?${params.toString()}`);
+      return response.data;
+    },
+    staleTime: 60_000,
+    enabled: true,
+  });
+}

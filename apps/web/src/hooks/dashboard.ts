@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AgentsAPI, MetricsAPI } from "@/lib/dashboard-api";
+import { api } from "@/lib/api";
 
 export const useKPIs = (range: string) =>
   useQuery({
@@ -43,4 +44,18 @@ export const useAgentRanking = (range: string, limit = 10) =>
     queryKey: ["dashboard", "ranking", range, limit],
     queryFn: () => AgentsAPI.ranking(range, limit),
     staleTime: 60_000,
+  });
+
+export const useAgentMetrics = (from?: string, to?: string) =>
+  useQuery({
+    queryKey: ["analytics", "agent-metrics", from, to],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (from) params.append("from", from);
+      if (to) params.append("to", to);
+      const response = await api.get(`/analytics/agent-metrics?${params.toString()}`);
+      return response.data;
+    },
+    staleTime: 60_000,
+    enabled: true,
   });

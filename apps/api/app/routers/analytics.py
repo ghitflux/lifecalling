@@ -10,7 +10,7 @@ from typing import Any, Dict, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import case, func
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
@@ -19,6 +19,7 @@ from ..models import (
     CaseEvent,
     Client,
     Contract,
+    ContractAgent,
     FinanceExpense,
     FinanceIncome,
     ImportBatch,
@@ -1418,6 +1419,244 @@ DatasetLiteral = Literal[
 ]
 
 
+@r.get("/agent-cases/{agent_id}")
+def get_agent_cases(
+    agent_id: int,
+    from_: Optional[str] = Query(None, alias="from"),
+    to_: Optional[str] = Query(None, alias="to"),
+    status: Optional[str] = Query(None, description="Filter by case status"),
+    user=Depends(require_roles(*ALLOWED_ROLES)),
+):
+    """
+    Retorna todos os casos atribuídos a um agente específico.
+    Permite filtrar por período e status.
+    """
+    start, end = _resolve_period(from_, to_)
+
+    with SessionLocal() as db:
+        # Verificar se o agente existe
+        agent = db.query(User).filter(User.id == agent_id).first()
+        if not agent:
+            raise HTTPException(404, detail="Agent not found")
+
+        # Query base de casos do agente
+        # Considerar casos criados ou atualizados dentro do período para não perder movimentações
+        time_filter = or_(
+            and_(Case.created_at >= start, Case.created_at < end),
+            and_(Case.last_update_at.isnot(None), Case.last_update_at >= start, Case.last_update_at < end),
+        )
+
+        query = (
+            db.query(
+                Case.id,
+                Case.status,
+                Case.created_at,
+                Case.last_update_at,
+                Client.name.label("client_name"),
+                Client.cpf,
+                Simulation.custo_consultoria_liquido,
+            )
+            .join(Client, Client.id == Case.client_id)
+            .outerjoin(Simulation, Simulation.id == Case.last_simulation_id)
+            .filter(
+                Case.assigned_user_id == agent_id,
+                time_filter,
+            )
+        )
+
+        # Filtrar por status se fornecido
+        if status:
+            query = query.filter(Case.status == status)
+
+        cases = query.order_by(Case.created_at.desc()).all()
+
+        # Formatar resposta
+        cases_data = [
+            {
+                "id": case.id,
+                "status": case.status,
+                "client_name": case.client_name,
+                "client_cpf": case.cpf,
+                "created_at": _serialize_dt(case.created_at),
+                "last_update_at": _serialize_dt(case.last_update_at),
+                "consultoria_liquida": float(case.custo_consultoria_liquido) if case.custo_consultoria_liquido else 0.0,
+                "duration_hours": (
+                    (case.last_update_at - case.created_at).total_seconds() / 3600
+                    if case.last_update_at
+                    else None
+                ),
+            }
+            for case in cases
+        ]
+
+        return {
+            "agent": {
+                "id": agent.id,
+                "name": agent.name,
+                "email": agent.email,
+            },
+            "period": {"from": _serialize_dt(start), "to": _serialize_dt(end)},
+            "total_cases": len(cases_data),
+            "cases": cases_data,
+        }
+
+
+@r.get("/agent-metrics")
+def get_agent_metrics(
+    from_: Optional[str] = Query(None, alias="from"),
+    to_: Optional[str] = Query(None, alias="to"),
+    user=Depends(require_roles(*ALLOWED_ROLES)),
+):
+    """
+    Retorna métricas detalhadas por agente (role=atendente).
+    Inclui: TMA, casos efetivados, em atendimento, cancelados,
+    consultoria líquida gerada e métricas de SLA (48h úteis).
+    """
+    start, end = _resolve_period(from_, to_)
+
+    with SessionLocal() as db:
+        # Buscar todos os atendentes
+        agents = db.query(User).filter(User.role == "atendente", User.active == True).all()
+
+        # SLA em horas úteis (48h = 2 dias úteis)
+        sla_hours = 48
+
+        agent_metrics_list = []
+        total_cases_within_sla = 0
+        total_cases_outside_sla = 0
+
+        for agent in agents:
+            # Casos atribuídos ao agente no período (considera criação OU última atualização no range)
+            time_filter = or_(
+                and_(Case.created_at >= start, Case.created_at < end),
+                and_(Case.last_update_at.isnot(None), Case.last_update_at >= start, Case.last_update_at < end),
+            )
+            agent_cases = db.query(Case).filter(
+                Case.assigned_user_id == agent.id,
+                time_filter,
+            )
+
+            # Casos efetivados
+            cases_efetivados = agent_cases.filter(
+                Case.status == "contrato_efetivado"
+            ).count()
+
+            # Casos em atendimento (PROCESSING_STATUSES)
+            cases_em_atendimento = agent_cases.filter(
+                Case.status.in_(PROCESSING_STATUSES)
+            ).count()
+
+            # Casos cancelados/encerrados
+            cases_cancelados = agent_cases.filter(
+                Case.status.in_(["cancelado", "encerrado", "rejeitado"])
+            ).count()
+
+            # TMA (Tempo Médio de Atendimento) em minutos
+            tma_result = agent_cases.filter(
+                Case.last_update_at.isnot(None),
+                Case.created_at.isnot(None),
+                Case.status.in_(COMPLETED_STATUSES),
+            ).with_entities(
+                func.avg(func.extract("epoch", Case.last_update_at - Case.created_at) / 60.0)
+            ).scalar()
+
+            tma_minutes = float(tma_result) if tma_result else 0.0
+
+            # Valor de consultoria líquida do agente (baseado no percentual do ContractAgent)
+            consultoria_agente_result = (
+                db.query(
+                    func.sum(
+                        Contract.consultoria_valor_liquido * ContractAgent.percentual / 100
+                    )
+                )
+                .join(ContractAgent, ContractAgent.contract_id == Contract.id)
+                .join(Case, Case.id == Contract.case_id)
+                .filter(
+                    ContractAgent.user_id == agent.id,
+                    Contract.status.in_(["ativo", "encerrado"]),
+                    Case.created_at >= start,
+                    Case.created_at < end,
+                )
+                .scalar()
+            )
+
+            consultoria_liquida_agente = float(consultoria_agente_result) if consultoria_agente_result else 0.0
+
+            # Percentual médio do agente nos contratos
+            percentual_medio_result = (
+                db.query(func.avg(ContractAgent.percentual))
+                .join(Contract, Contract.id == ContractAgent.contract_id)
+                .join(Case, Case.id == Contract.case_id)
+                .filter(
+                    ContractAgent.user_id == agent.id,
+                    Contract.status.in_(["ativo", "encerrado"]),
+                    Case.created_at >= start,
+                    Case.created_at < end,
+                )
+                .scalar()
+            )
+
+            percentual_medio = float(percentual_medio_result) if percentual_medio_result else 0.0
+
+            # Calcular SLA (48h úteis)
+            # Casos dentro do SLA
+            cases_within_sla = 0
+            cases_outside_sla = 0
+
+            all_agent_cases = agent_cases.all()
+            for case in all_agent_cases:
+                if case.created_at and case.last_update_at:
+                    # Calcular diferença em horas (simplificado - não conta fins de semana)
+                    delta_hours = (case.last_update_at - case.created_at).total_seconds() / 3600
+
+                    # Ajustar para horas úteis (aproximação: remover ~33% para fins de semana)
+                    business_hours = delta_hours * 0.67
+
+                    if business_hours <= sla_hours:
+                        cases_within_sla += 1
+                    else:
+                        cases_outside_sla += 1
+
+            total_cases_within_sla += cases_within_sla
+            total_cases_outside_sla += cases_outside_sla
+
+            # Total de casos do agente
+            total_cases = agent_cases.count()
+
+            agent_metrics_list.append({
+                "agent_id": agent.id,
+                "agent_name": agent.name,
+                "agent_email": agent.email,
+                "tma_minutes": round(tma_minutes, 2),
+                "cases_efetivados": cases_efetivados,
+                "cases_em_atendimento": cases_em_atendimento,
+                "cases_cancelados": cases_cancelados,
+                "consultoria_liquida": round(consultoria_liquida_agente, 2),
+                "percentual_medio": round(percentual_medio, 2),
+                "total_cases": total_cases,
+                "sla_within": cases_within_sla,
+                "sla_outside": cases_outside_sla,
+                "sla_percentage": round((cases_within_sla / total_cases * 100) if total_cases > 0 else 0, 2),
+            })
+
+        return {
+            "period": {"from": _serialize_dt(start), "to": _serialize_dt(end)},
+            "sla_hours": sla_hours,
+            "total_sla": {
+                "within_sla": total_cases_within_sla,
+                "outside_sla": total_cases_outside_sla,
+                "total_cases": total_cases_within_sla + total_cases_outside_sla,
+                "percentage_within_sla": round(
+                    (total_cases_within_sla / (total_cases_within_sla + total_cases_outside_sla) * 100)
+                    if (total_cases_within_sla + total_cases_outside_sla) > 0
+                    else 0,
+                    2
+                ),
+            },
+            "agents": agent_metrics_list,
+        }
+
+
 @r.get("/export.csv")
 def export_csv(
     dataset: DatasetLiteral,
@@ -1457,3 +1696,126 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@r.get("/sla-cases")
+def get_sla_cases(
+    from_: Optional[str] = Query(None, alias="from"),
+    to_: Optional[str] = Query(None, alias="to"),
+    sla_filter: Optional[str] = Query(None, description="Filter by SLA: within, outside"),
+    status: Optional[str] = Query(None, description="Filter by case status"),
+    user=Depends(require_roles(*ALLOWED_ROLES)),
+):
+    """
+    Retorna casos filtrados por SLA (dentro ou fora do SLA de 48h úteis).
+    Permite filtrar por período e status.
+    """
+    start, end = _resolve_period(from_, to_)
+    sla_hours = 48
+
+    print(f"\n=== DEBUG SLA CASES ===")
+    print(f"Period: {start} to {end}")
+    print(f"SLA Filter: {sla_filter}")
+    print(f"Status Filter: {status}")
+
+    with SessionLocal() as db:
+        # Query base de casos - NÃO filtrar por status na query
+        query = (
+            db.query(
+                Case.id,
+                Case.status,
+                Case.created_at,
+                Case.last_update_at,
+                Case.assigned_user_id,
+                Client.name.label("client_name"),
+                Client.cpf,
+                User.name.label("agent_name"),
+                Simulation.custo_consultoria_liquido,
+            )
+            .join(Client, Client.id == Case.client_id)
+            .outerjoin(User, User.id == Case.assigned_user_id)
+            .outerjoin(Simulation, Simulation.id == Case.last_simulation_id)
+            .filter(
+                Case.created_at >= start,
+                Case.created_at < end,
+            )
+        )
+
+        all_cases = query.order_by(Case.created_at.desc()).all()
+        print(f"Total cases from DB: {len(all_cases)}")
+
+        # Calcular SLA para cada caso e filtrar
+        def _is_within_sla(created_at, last_update_at):
+            """Calcula se o caso está dentro do SLA de 48h úteis"""
+            if not created_at:
+                return False
+
+            # Se não tem last_update_at, usar datetime atual (caso em andamento)
+            end_time = last_update_at if last_update_at else datetime.utcnow()
+
+            current = created_at
+            business_hours = 0
+
+            # Calcular horas úteis entre created_at e end_time
+            while current < end_time:
+                # Pular fins de semana (sábado=5, domingo=6)
+                if current.weekday() < 5:  # Segunda a Sexta
+                    business_hours += 1
+                current += timedelta(hours=1)
+
+                # Parar se já ultrapassou o SLA
+                if business_hours > sla_hours:
+                    break
+
+            return business_hours <= sla_hours
+
+        cases_data = []
+        within_count = 0
+        outside_count = 0
+
+        for case in all_cases:
+            within_sla = _is_within_sla(case.created_at, case.last_update_at)
+
+            if within_sla:
+                within_count += 1
+            else:
+                outside_count += 1
+
+            # Aplicar filtro de SLA se fornecido
+            if sla_filter == "within" and not within_sla:
+                continue
+            elif sla_filter == "outside" and within_sla:
+                continue
+
+            # Aplicar filtro de status DEPOIS do filtro de SLA
+            if status and case.status != status:
+                continue
+
+            cases_data.append({
+                "id": case.id,
+                "status": case.status,
+                "client_name": case.client_name,
+                "client_cpf": case.cpf,
+                "agent_name": case.agent_name,
+                "created_at": _serialize_dt(case.created_at),
+                "last_update_at": _serialize_dt(case.last_update_at),
+                "consultoria_liquida": float(case.custo_consultoria_liquido) if case.custo_consultoria_liquido else 0.0,
+                "duration_hours": (
+                    (case.last_update_at - case.created_at).total_seconds() / 3600
+                    if case.last_update_at
+                    else None
+                ),
+                "within_sla": within_sla,
+            })
+
+        print(f"Cases within SLA: {within_count}")
+        print(f"Cases outside SLA: {outside_count}")
+        print(f"Cases returned after filters: {len(cases_data)}")
+        print(f"=== END DEBUG ===\n")
+
+        return {
+            "period": {"from": _serialize_dt(start), "to": _serialize_dt(end)},
+            "total_cases": len(cases_data),
+            "sla_filter": sla_filter,
+            "cases": cases_data,
+        }
