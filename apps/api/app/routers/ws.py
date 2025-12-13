@@ -8,22 +8,29 @@ import json
 ws_router = APIRouter()
 
 async def authenticate_websocket(websocket: WebSocket):
-    """Autentica usuário via cookie access no header"""
+    """Autentica usuário via cookie ou query param"""
+    token = None
+
     try:
-        # Extrai cookies do header
-        cookie_header = websocket.headers.get("cookie", "")
-        cookies = {}
+        # Tenta pegar token da query string primeiro
+        query_params = dict(websocket.query_params)
+        token = query_params.get("token")
 
-        if cookie_header:
-            for cookie in cookie_header.split(";"):
-                if "=" in cookie:
-                    key, value = cookie.strip().split("=", 1)
-                    cookies[key] = value
-
-        # Busca token access no cookie
-        token = cookies.get("access")
+        # Se não houver na query, tenta pegar do cookie
         if not token:
-            await websocket.close(code=1008, reason="Access token required")
+            cookie_header = websocket.headers.get("cookie", "")
+            cookies = {}
+
+            if cookie_header:
+                for cookie in cookie_header.split(";"):
+                    if "=" in cookie:
+                        key, value = cookie.strip().split("=", 1)
+                        cookies[key] = value
+
+            token = cookies.get("access")
+
+        # Se ainda não houver token, retorna None (sem fechar conexão)
+        if not token:
             return None
 
         # Decodifica e valida o token
@@ -36,21 +43,27 @@ async def authenticate_websocket(websocket: WebSocket):
         with SessionLocal() as db:
             user = db.get(User, user_id)
             if not user or not user.active:
-                await websocket.close(code=1008, reason="Invalid user")
                 return None
+
         return user
-    except Exception:
-        await websocket.close(code=1008, reason="Invalid token")
+    except Exception as e:
+        print(f"❌ WebSocket auth error: {e}")
         return None
 
 @ws_router.websocket("/ws/events")
 async def ws_events(ws: WebSocket):
-    # Autentica usuário antes de aceitar conexão
+    # Aceita conexão primeiro para poder enviar erros
+    await ws.accept()
+
+    # Autentica usuário após aceitar conexão
     user = await authenticate_websocket(ws)
     if not user:
+        await ws.send_json({
+            "type": "error",
+            "data": {"message": "Authentication required"}
+        })
+        await ws.close(code=1008, reason="Authentication required")
         return
-
-    await ws.accept()
 
     await eventbus.connect(ws)
     try:

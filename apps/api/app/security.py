@@ -100,9 +100,10 @@ def set_auth_cookies(resp: Response, uid: int, role: str):
     is_secure = should_use_secure_cookies()
     
     # Access token (HttpOnly)
+    access_token = make_token(uid, "access", settings.access_ttl)
     resp.set_cookie(
         "access",
-        make_token(uid, "access", settings.access_ttl),
+        access_token,
         httponly=True,
         samesite="lax",
         secure=is_secure,
@@ -150,6 +151,7 @@ def set_auth_cookies(resp: Response, uid: int, role: str):
     # CSRF token (não-HttpOnly para ser lido pelo JavaScript)
     csrf_token = generate_csrf_token()
     set_csrf_cookie(resp, csrf_token)
+    return access_token
 
 def get_current_user(
     access: str | None = Cookie(default=None),

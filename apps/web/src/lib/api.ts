@@ -6,19 +6,20 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosEr
 // Em desenvolvimento, usar URL local
 // Em produção, usar NEXT_PUBLIC_API_BASE_URL (https://api.lifeservicos.com)
 const getBaseURL = () => {
-  const isDev = process.env.NODE_ENV === 'development';
-  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL
+    || process.env.NEXT_PUBLIC_API_URL;
 
-  if (isDev) {
-    return 'http://localhost:8000';
-  }
-
-  // Produção: usar NEXT_PUBLIC_API_BASE_URL
   if (apiUrl) {
     return apiUrl;
   }
 
-  // Fallback
+  // Fallback: se estamos no browser, usar a origem atual
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  // Fallback (dev)
   return 'http://localhost:8000';
 };
 

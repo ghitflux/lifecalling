@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import or_, and_
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -99,6 +100,11 @@ def generate_fake_phone(user_id: int) -> str:
 
 def serialize_admin_simulation(sim: MobileSimulation) -> dict:
     """Serializa uma MobileSimulation para o formato esperado pelo frontend admin."""
+    # Normaliza status de análise ausente para itens com documento enviado
+    if not sim.analysis_status and sim.document_url:
+        sim.analysis_status = "pending_analysis"
+    if not sim.status and sim.document_url:
+        sim.status = "pending"
     fake_cpf = generate_fake_cpf(sim.user_id)
     fake_phone = generate_fake_phone(sim.user_id)
     return {
@@ -239,6 +245,9 @@ async def create_simulation_with_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {str(e)}")
     
+    # Descobrir tipo de cliente (novo ou recontratação) para sinalizar SLA correto
+    client_status = check_client_status(db, current_user.id)
+
     # Criar simulação com documento anexado
     new_simulation = MobileSimulation(
         user_id=current_user.id,
@@ -249,9 +258,12 @@ async def create_simulation_with_document(
         installment_value=0,
         total_amount=0,
         status="pending",
+        analysis_status="pending_analysis",
         document_url=str(file_path),
         document_type=file_ext.lstrip('.'),
-        document_filename=document.filename
+        document_filename=document.filename,
+        client_type=client_status["client_type"],
+        has_active_contract=client_status["has_active_contract"]
     )
     
     db.add(new_simulation)
@@ -261,6 +273,9 @@ async def create_simulation_with_document(
     return {
         "simulation_id": new_simulation.id,
         "status": "pending",
+        "analysis_status": new_simulation.analysis_status,
+        "client_type": new_simulation.client_type,
+        "has_active_contract": new_simulation.has_active_contract,
         "message": "Documento enviado com sucesso! Sua simulação está em análise.",
         "document_filename": document.filename
     }
@@ -621,18 +636,19 @@ async def get_admin_simulation_by_id(
     if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
-    # Join with User to get client details
+    # Eager load user and analyst details
     sim = (
         db.query(MobileSimulation)
-        .options(selectinload(MobileSimulation.user))
-        .join(User)
+        .options(
+            selectinload(MobileSimulation.user),
+            selectinload(MobileSimulation.analyst)
+        )
         .filter(MobileSimulation.id == simulation_id)
         .first()
     )
     
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
-        
     
     return serialize_admin_simulation(sim)
 
@@ -838,13 +854,29 @@ async def get_simulations_for_analysis(
     simulations = (
         db.query(MobileSimulation)
         .options(selectinload(MobileSimulation.user), selectinload(MobileSimulation.analyst))
-        .filter(MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]))
+        .filter(
+            or_(
+                MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]),
+                and_(
+                    MobileSimulation.analysis_status.is_(None),
+                    MobileSimulation.status.in_(["pending", "simulation_requested", "approved"])
+                )
+            )
+        )
         .order_by(MobileSimulation.created_at.desc())
         .all()
     )
 
     # Atualizar informações de tipo de cliente automaticamente
     for sim in simulations:
+        # Normaliza análise para registros antigos sem analysis_status
+        if not sim.analysis_status and sim.document_url:
+            sim.analysis_status = "pending_analysis"
+            if not sim.status:
+                sim.status = "pending"
+        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested/approved, force pending_analysis para análise
+        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested", "approved"}:
+            sim.analysis_status = "pending_analysis"
         if not sim.client_type:
             client_status = check_client_status(db, sim.user_id)
             sim.client_type = client_status["client_type"]

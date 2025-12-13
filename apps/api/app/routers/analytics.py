@@ -1704,6 +1704,7 @@ def get_sla_cases(
     to_: Optional[str] = Query(None, alias="to"),
     sla_filter: Optional[str] = Query(None, description="Filter by SLA: within, outside"),
     status: Optional[str] = Query(None, description="Filter by case status"),
+    limit: Optional[int] = Query(200, ge=1, le=500, description="Limit returned cases to avoid heavy payloads"),
     user=Depends(require_roles(*ALLOWED_ROLES)),
 ):
     """
@@ -1717,9 +1718,16 @@ def get_sla_cases(
     print(f"Period: {start} to {end}")
     print(f"SLA Filter: {sla_filter}")
     print(f"Status Filter: {status}")
+    print(f"Limit: {limit}")
 
+    applied_limit = min(limit or 200, 500)
     with SessionLocal() as db:
-        # Query base de casos - NÃO filtrar por status na query
+        # Query base de casos - inclui criação OU última atualização dentro do período
+        time_filter = or_(
+            and_(Case.created_at >= start, Case.created_at < end),
+            and_(Case.last_update_at.isnot(None), Case.last_update_at >= start, Case.last_update_at < end),
+        )
+
         query = (
             db.query(
                 Case.id,
@@ -1735,14 +1743,14 @@ def get_sla_cases(
             .join(Client, Client.id == Case.client_id)
             .outerjoin(User, User.id == Case.assigned_user_id)
             .outerjoin(Simulation, Simulation.id == Case.last_simulation_id)
-            .filter(
-                Case.created_at >= start,
-                Case.created_at < end,
-            )
+            .filter(time_filter)
         )
 
-        all_cases = query.order_by(Case.created_at.desc()).all()
-        print(f"Total cases from DB: {len(all_cases)}")
+        ordered_query = query.order_by(
+            func.coalesce(Case.last_update_at, Case.created_at).desc()
+        )
+        total_time_filtered = ordered_query.count()
+        print(f"Total cases from DB (after time filter): {total_time_filtered}")
 
         # Calcular SLA para cada caso e filtrar
         def _is_within_sla(created_at, last_update_at):
@@ -1772,8 +1780,9 @@ def get_sla_cases(
         cases_data = []
         within_count = 0
         outside_count = 0
+        total_filtered_cases = 0
 
-        for case in all_cases:
+        for case in ordered_query.yield_per(200):
             within_sla = _is_within_sla(case.created_at, case.last_update_at)
 
             if within_sla:
@@ -1789,6 +1798,12 @@ def get_sla_cases(
 
             # Aplicar filtro de status DEPOIS do filtro de SLA
             if status and case.status != status:
+                continue
+
+            total_filtered_cases += 1
+
+            # Respeitar limite de carga útil, mas continuar contando totais
+            if len(cases_data) >= applied_limit:
                 continue
 
             cases_data.append({
@@ -1810,12 +1825,14 @@ def get_sla_cases(
 
         print(f"Cases within SLA: {within_count}")
         print(f"Cases outside SLA: {outside_count}")
-        print(f"Cases returned after filters: {len(cases_data)}")
+        print(f"Cases returned after filters (capped to {applied_limit}): {len(cases_data)}")
         print(f"=== END DEBUG ===\n")
 
         return {
             "period": {"from": _serialize_dt(start), "to": _serialize_dt(end)},
-            "total_cases": len(cases_data),
+            "total_cases": total_filtered_cases,
             "sla_filter": sla_filter,
             "cases": cases_data,
+            "limit": applied_limit,
+            "returned_cases": len(cases_data),
         }

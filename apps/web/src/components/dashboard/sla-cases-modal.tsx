@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,8 @@ interface SLACasesModalProps {
   from?: string;
   to?: string;
 }
+
+const DEFAULT_LIMIT = 200;
 
 const STATUS_LABELS: Record<string, string> = {
   novo: "Novo",
@@ -80,13 +82,19 @@ export function SLACasesModal({
       if (filterType !== 'total') {
         params.append("sla_filter", filterType);
       }
+      params.append("limit", String(DEFAULT_LIMIT));
       const response = await api.get(`/analytics/sla-cases?${params.toString()}`);
       return response.data;
     },
     enabled: isOpen && !!filterType,
+    staleTime: 30_000,
+    keepPreviousData: true,
   });
 
   const allCases = data?.cases || [];
+  const loadedCount = data?.returned_cases ?? allCases.length;
+  const totalCases = data?.total_cases ?? allCases.length;
+  const appliedLimit = data?.limit ?? DEFAULT_LIMIT;
 
   // Filtrar casos por CPF
   const cases = useMemo(() => {
@@ -98,11 +106,21 @@ export function SLACasesModal({
     );
   }, [allCases, searchCpf]);
 
+  // Resetar filtros ao abrir ou trocar o tipo de SLA para evitar "falsos vazios"
+  useEffect(() => {
+    if (isOpen) {
+      setStatusFilter(null);
+      setSearchCpf("");
+    }
+  }, [isOpen, filterType]);
+
   // Contar casos por status (considerando o filtro de CPF)
-  const statusCounts = cases.reduce((acc: Record<string, number>, case_: any) => {
-    acc[case_.status] = (acc[case_.status] || 0) + 1;
-    return acc;
-  }, {});
+  const statusCounts = useMemo(() => {
+    return cases.reduce((acc: Record<string, number>, case_: any) => {
+      acc[case_.status] = (acc[case_.status] || 0) + 1;
+      return acc;
+    }, {});
+  }, [cases]);
 
   const formatDuration = (hours: number | null) => {
     if (!hours) return "-";
@@ -111,8 +129,10 @@ export function SLACasesModal({
     return `${Math.round(hours / 24)}d`;
   };
 
+  const showLimitedInfo = totalCases > loadedCount;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -121,7 +141,8 @@ export function SLACasesModal({
                 {filterType ? FILTER_TITLES[filterType] : "Casos"}
               </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Total: {data?.total_cases || 0} casos
+                Total: {totalCases} casos
+                {showLimitedInfo && ` (exibindo até ${appliedLimit} por vez)`}
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>
@@ -286,7 +307,10 @@ export function SLACasesModal({
           <div className="border-t pt-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               Exibindo {cases.length} {cases.length === 1 ? "caso" : "casos"}
-              {statusFilter && ` com status "${STATUS_LABELS[statusFilter]}"`}
+              {statusFilter && ` com status "${STATUS_LABELS[statusFilter]}"`}.{" "}
+              {showLimitedInfo
+                ? `Carregados ${loadedCount}/${totalCases} (limite ${appliedLimit}).`
+                : `De ${totalCases} no período.`}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">

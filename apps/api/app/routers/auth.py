@@ -49,12 +49,18 @@ def login(payload: LoginIn, resp: Response):
         print(f"[LOGIN] ✓ Usuario ativo")
         print(f"[LOGIN] Setando cookies...")
 
-        set_auth_cookies(resp, user.id, user.role)
+        access_token = set_auth_cookies(resp, user.id, user.role)
 
         print(f"[LOGIN] ✅ Login bem-sucedido!")
         print(f"{'='*60}\n")
 
-        return {"id": user.id, "name": user.name, "role": user.role, "email": user.email}
+        return {
+            "id": user.id,
+            "name": user.name,
+            "role": user.role,
+            "email": user.email,
+            "access_token": access_token,
+        }
 
 @r.get("/me")
 def me(user: User = Depends(get_current_user)):

@@ -16,7 +16,7 @@ import {
     Card,
     CardContent,
 } from "@lifecalling/ui";
-import { AdminSimulation, PendingDocument } from "@/services/mobileApi";
+import { AdminSimulation, PendingDocument, mobileApi } from "@/services/mobileApi";
 import {
     usePendSimulation,
     useReproveSimulation,
@@ -24,7 +24,8 @@ import {
     useDownloadSimulationDocument,
 } from "@/hooks/useMobileAnalysis";
 import { formatCurrency } from "@/lib/utils/currency";
-import { FileText, Download, Plus, X, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
+import { FileText, Download, Plus, X, CheckCircle, XCircle, AlertCircle, Eye } from "lucide-react";
 
 interface AnalysisModalProps {
     simulation: AdminSimulation | null;
@@ -64,7 +65,7 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
         try {
             if (action === "pend") {
                 if (!notes || pendingDocs.length === 0) {
-                    alert("Preencha as observações e adicione pelo menos um documento pendente");
+                    toast.error("Preencha as observações e adicione pelo menos um documento pendente");
                     return;
                 }
                 await pendMutation.mutateAsync({
@@ -73,7 +74,7 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                 });
             } else if (action === "reprove") {
                 if (!notes) {
-                    alert("Preencha o motivo da reprovação");
+                    toast.error("Preencha o motivo da reprovação");
                     return;
                 }
                 await reproveMutation.mutateAsync({
@@ -87,6 +88,9 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                 });
             }
 
+            // Aguardar um pouco para garantir que as queries foram invalidadas
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // Reset state and close
             setAction(null);
             setNotes("");
@@ -99,7 +103,31 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
 
     const handleDownloadDocument = async () => {
         if (simulation.document_url) {
-            await downloadMutation.mutateAsync(simulation.id);
+            await downloadMutation.mutateAsync({
+                simulationId: simulation.id,
+                documentType: simulation.document_type,
+                filename: simulation.document_filename
+            });
+        }
+    };
+
+    const handleViewDocument = async () => {
+        if (simulation.document_url) {
+            try {
+                const blob = await mobileApi.getSimulationDocument(simulation.id);
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+
+                // Limpar URL após algum tempo
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                }, 60000); // 1 minuto
+
+                toast.success('Visualização aberta em nova aba!');
+            } catch (error) {
+                toast.error('Erro ao visualizar documento');
+                console.error('Error viewing document:', error);
+            }
         }
     };
 
@@ -205,15 +233,26 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                                             </p>
                                         </div>
                                     </div>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={handleDownloadDocument}
-                                        disabled={downloadMutation.isPending}
-                                    >
-                                        <Download className="h-4 w-4 mr-1" />
-                                        {downloadMutation.isPending ? "Baixando..." : "Baixar"}
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleViewDocument}
+                                            className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                                        >
+                                            <Eye className="h-4 w-4 mr-1" />
+                                            Visualizar
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleDownloadDocument}
+                                            disabled={downloadMutation.isPending}
+                                        >
+                                            <Download className="h-4 w-4 mr-1" />
+                                            {downloadMutation.isPending ? "Baixando..." : "Baixar"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

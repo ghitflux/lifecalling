@@ -115,7 +115,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string, next?: string) => {
     setLoading(true);
     try {
-      await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
+      const loginResp = await api.post("/auth/login", { email, password }); // cookies HttpOnly são setados pela API
+
+      // Se a API retornar access_token, usar como fallback para /auth/me (além dos cookies)
+      const token = (loginResp.data as any)?.access_token;
+      if (token) {
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      }
 
       // Buscar CSRF token após login bem-sucedido
       try {

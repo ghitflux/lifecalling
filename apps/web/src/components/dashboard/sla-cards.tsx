@@ -23,6 +23,13 @@ export function SLACards({
   isLoading = false,
   onCardClick,
 }: SLACardsProps) {
+  const safeWithinPercentage = Number.isFinite(percentageWithinSLA)
+    ? Math.min(Math.max(percentageWithinSLA, 0), 100)
+    : 0;
+  const outsidePercentage = totalCases > 0
+    ? Math.min(Math.max((outsideSLA / totalCases) * 100, 0), 100)
+    : 0;
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -75,11 +82,11 @@ export function SLACards({
               <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
                 <div
                   className="h-full bg-green-500 transition-all duration-500 ease-out"
-                  style={{ width: `${percentageWithinSLA}%` }}
+                  style={{ width: `${safeWithinPercentage}%` }}
                 />
               </div>
               <span className="font-semibold text-green-600 dark:text-green-400 min-w-[48px] text-right">
-                {percentageWithinSLA.toFixed(1)}%
+                {safeWithinPercentage.toFixed(1)}%
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -122,12 +129,12 @@ export function SLACards({
                 <div
                   className="h-full bg-red-500 transition-all duration-500 ease-out"
                   style={{
-                    width: `${((outsideSLA / totalCases) * 100).toFixed(1)}%`,
+                    width: `${outsidePercentage}%`,
                   }}
                 />
               </div>
               <span className="font-semibold text-red-600 dark:text-red-400 min-w-[48px] text-right">
-                {((outsideSLA / totalCases) * 100).toFixed(1)}%
+                {outsidePercentage.toFixed(1)}%
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
