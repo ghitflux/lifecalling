@@ -80,6 +80,29 @@ describe('simulation-calculations', () => {
       expect(result.liberadoCliente).toBe(-2154.14);
     });
 
+    it('should not return negative "liberado" for real banks', () => {
+      const input: SimulationInput = {
+        banks: [
+          {
+            bank: 'SANTANDER',
+            parcela: 10.0,
+            saldoDevedor: 1000.0,
+            valorLiberado: 0
+          }
+        ],
+        prazo: 96,
+        coeficiente: '0,0193333',
+        seguro: 1000.0,
+        percentualConsultoria: 12.0
+      };
+
+      const result = computeTotals(input);
+
+      // financiado = 10 / 0,0193333 = 517,24... saldo = 1000 -> diferença negativa
+      // no frontend exibimos como valor absoluto
+      expect(result.liberadoTotal).toBe(482.76);
+    });
+
     it('should calculate correctly for multi-bank scenario (NOVA LÓGICA)', () => {
       const input: SimulationInput = {
         banks: [

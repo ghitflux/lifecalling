@@ -3,24 +3,34 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, isAxiosError } from 'axios';
 
 // --- instancia base ----------------------------------------------
-// Em desenvolvimento, usar URL local
-// Em produção, usar NEXT_PUBLIC_API_BASE_URL (https://api.lifeservicos.com)
+// Preferir usar o proxy do Next (`/api`) no browser para manter os cookies de auth
+// no MESMO host do frontend (evita ficar preso no /login quando API e Web usam hosts diferentes).
+// Em produção, ainda é possível usar a URL direta se o hostname bater com o do frontend.
 const getBaseURL = () => {
   const apiUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL
     || process.env.NEXT_PUBLIC_API_URL;
 
-  if (apiUrl) {
-    return apiUrl;
-  }
+  // No browser: se a API estiver em outro host (ex.: 192.168.x.x vs localhost),
+  // usar `/api` para que os Set-Cookie cheguem no host do frontend e o middleware veja os tokens.
+  if (typeof window !== 'undefined') {
+    if (apiUrl) {
+      // Se já for relativo, respeita (ex.: "/api")
+      if (apiUrl.startsWith('/')) return apiUrl;
 
-  // Fallback: se estamos no browser, usar a origem atual
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
+      // Se for absoluto e no mesmo hostname do frontend, pode usar direto
+      try {
+        const parsed = new URL(apiUrl);
+        if (parsed.hostname === window.location.hostname) return apiUrl;
+      } catch {
+        // ignora e cai no fallback
+      }
+    }
+    return '/api';
   }
 
   // Fallback (dev)
-  return 'http://localhost:8000';
+  return apiUrl || 'http://localhost:8000';
 };
 
 export const api: AxiosInstance = axios.create({

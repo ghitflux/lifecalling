@@ -26,9 +26,9 @@ import {
 import { mobileApi } from "@/services/mobileApi";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils/currency";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { SimulationFormMultiBank } from "@/components/mobile/SimulationFormMultiBank";
-import { computeTotals, type SimulationInput } from "@/lib/utils/simulation-calculations";
+import { computeTotals } from "@/lib/utils/simulation-calculations";
 
 type BankEntry = {
     bank?: string;
@@ -38,6 +38,8 @@ type BankEntry = {
     saldoDevedor?: number;
     valorLiberado?: number;
 };
+
+type SimulationFormInitialData = ComponentProps<typeof SimulationFormMultiBank>["initialData"];
 
 export default function SimulationDetailPage() {
     const params = useParams();
@@ -60,13 +62,15 @@ export default function SimulationDetailPage() {
         financeiro_pendente: "bg-blue-500/15 text-blue-200 border border-blue-500/30",
         contrato_efetivado: "bg-emerald-600/20 text-emerald-200 border border-emerald-500/40",
         financeiro_cancelado: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
-        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30"
+        rejected: "bg-rose-500/15 text-rose-200 border border-rose-500/30",
+        approved_for_calculation: "bg-cyan-500/15 text-cyan-200 border-cyan-500/30"
     };
 
     const statusLabel: Record<string, string> = {
         pending: "Em análise",
         simulation_requested: "Em análise",
         approved: "Aguardando cliente",
+        approved_for_calculation: "Em simulação",
         rejected: "Reprovada",
         approved_by_client: "Aprovada pelo Cliente",
         cliente_aprovada: "Aprovada pelo Cliente",
@@ -81,7 +85,7 @@ export default function SimulationDetailPage() {
 
     const getStatusLabel = (status?: string) =>
         statusLabel[(status || "").toLowerCase()] || status || "Status";
-    const productInfo: Record<string, { label: string; icon: JSX.Element }> = {
+    const productInfo: Record<string, { label: string; icon: ReactNode }> = {
         emprestimo_consignado: { label: "Empréstimo Consignado", icon: <FileText className="h-4 w-4" /> },
         cartao_beneficio: { label: "Cartão Benefício", icon: <CreditCard className="h-4 w-4" /> },
         cartao_consignado: { label: "Cartão Consignado", icon: <CreditCard className="h-4 w-4" /> },
@@ -98,6 +102,12 @@ export default function SimulationDetailPage() {
     const { data: simulation, isLoading } = useQuery({
         queryKey: ["adminSimulation", id],
         queryFn: () => mobileApi.getAdminSimulationById(id),
+        enabled: Boolean(id)
+    });
+
+    const { data: simulationDocuments } = useQuery({
+        queryKey: ["adminSimulationDocuments", id],
+        queryFn: () => mobileApi.getAdminSimulationDocuments(id),
         enabled: Boolean(id)
     });
 
@@ -140,7 +150,7 @@ export default function SimulationDetailPage() {
         onSuccess: (updated) => {
             setCalculatedSimulation(updated);
             setForceShowForm(false);
-            toast.success("Simulação atualizada e enviada ao cliente para aprovação.");
+            toast.success("Simulação salva. Use “Enviar/Aprovar no App” para enviar ao cliente.");
             queryClient.invalidateQueries({ queryKey: ["adminSimulation", id] });
             queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
         },
@@ -153,6 +163,30 @@ export default function SimulationDetailPage() {
     const banks: BankEntry[] = (simulation?.banks_json as BankEntry[] | undefined) || [];
     const currentSimulation = calculatedSimulation || simulation;
     const currentBanks: BankEntry[] = (currentSimulation?.banks_json as BankEntry[] | undefined) || [];
+    const statusLower = (currentSimulation?.status || "").toLowerCase();
+    const hasCalculation = Boolean(currentBanks && currentBanks.length > 0);
+    const canSendToApp = hasCalculation && !forceShowForm && statusLower === "approved_for_calculation";
+    const canRefazerSimulacao = hasCalculation && !forceShowForm && statusLower !== "contrato_efetivado";
+
+    const formInitialData = useMemo((): SimulationFormInitialData => {
+        if (!forceShowForm) return undefined;
+        if (!currentSimulation) return undefined;
+        if (!currentBanks || currentBanks.length === 0) return undefined;
+
+        return {
+            banks: currentBanks.map((bank, index) => ({
+                bank: (bank.bank || bank.banco || `Banco ${index + 1}`) as string,
+                product: bank.product || "nenhum",
+                parcela: Number(bank.parcela) || 0,
+                saldoDevedor: Number(bank.saldoDevedor) || 0,
+                valorLiberado: Number(bank.valorLiberado) || 0,
+            })),
+            coeficiente: String(currentSimulation.coeficiente || ""),
+            seguro: Number(currentSimulation.seguro) || 0,
+            percentualConsultoria: Number(currentSimulation.percentual_consultoria) || 0,
+            prazo: Number(currentSimulation.prazo || currentSimulation.installments || simulation?.installments || 0),
+        };
+    }, [currentBanks, currentSimulation, forceShowForm, simulation?.installments]);
     const showMultiBankForm = forceShowForm || (
         (!currentBanks || currentBanks.length === 0) &&
         (
@@ -182,7 +216,7 @@ export default function SimulationDetailPage() {
 
         if (hasBanks && hasCoeficiente) {
             try {
-                const input: SimulationInput = {
+                const input = {
                     banks: currentBanks.map((bank, index) => ({
                         bank: bank.bank || bank.banco || `Banco ${index + 1}`,
                         parcela: Number(bank.parcela) || 0,
@@ -237,8 +271,14 @@ export default function SimulationDetailPage() {
         if (!allSimulations || !simulation?.user_email) return [];
         return allSimulations
             .filter((sim) => sim.user_email === simulation.user_email)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            .sort(
+                (a, b) =>
+                    new Date(b.updated_at || b.created_at).getTime() -
+                    new Date(a.updated_at || a.created_at).getTime()
+            );
     }, [allSimulations, simulation?.user_email]);
+
+    const mostRecentSimulationId = history[0]?.id;
 
     const approveMutation = useMutation({
         mutationFn: () => mobileApi.approveSimulation(id),
@@ -246,6 +286,7 @@ export default function SimulationDetailPage() {
             toast.success("Simulação aprovada com sucesso!");
             queryClient.invalidateQueries({ queryKey: ["adminSimulation", id] });
             queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
+            queryClient.invalidateQueries({ queryKey: ['mobile-simulations', 'analysis'] });
         },
         onError: () => {
             toast.error("Erro ao aprovar simulação");
@@ -266,11 +307,13 @@ export default function SimulationDetailPage() {
 
     const approveCalculatedMutation = useMutation({
         mutationFn: async () => {
-            if (!calculatedSimulation?.id) throw new Error("Nenhuma simulação calculada");
-            await mobileApi.approveSimulation(calculatedSimulation.id as unknown as string);
+            if (!simulation?.id) throw new Error("Simulação não encontrada");
+            await mobileApi.approveSimulation(simulation.id as unknown as string);
         },
         onSuccess: () => {
             toast.success("Simulação enviada/aprovada para o app.");
+            queryClient.invalidateQueries({ queryKey: ["adminSimulation", id] });
+            queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
             router.push("/life-mobile/simulacoes");
         },
         onError: (error: any) => {
@@ -279,16 +322,31 @@ export default function SimulationDetailPage() {
         }
     });
 
-    const handleDownloadDocument = async () => {
-        if (!simulation?.document_url) return;
-
+    const handleDownloadDocument = (docId: string) => {
         try {
-            window.open(`${apiBaseUrl}/mobile/admin/documents/${id}`, "_blank");
+            window.open(`${apiBaseUrl}/mobile/admin/documents/${docId}`, "_blank");
             toast.success("Download iniciado");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Erro ao fazer download");
         }
     };
+
+    const setMostRecentMutation = useMutation({
+        mutationFn: async (simulationId: string) => {
+            return mobileApi.setAdminSimulationAsLatest(simulationId);
+        },
+        onSuccess: async (updated) => {
+            toast.success("Simulação definida como mais recente.");
+            await queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
+            await queryClient.invalidateQueries({ queryKey: ["adminSimulation", id] });
+            await queryClient.invalidateQueries({ queryKey: ["adminSimulation", updated.id] });
+            router.push(`/life-mobile/simulacoes/${updated.id}`);
+        },
+        onError: (error: any) => {
+            console.error(error);
+            toast.error(error?.message || "Erro ao definir simulação como mais recente");
+        }
+    });
 
     if (isLoading) {
         return <div className="p-6 text-center">Carregando detalhes...</div>;
@@ -499,6 +557,7 @@ export default function SimulationDetailPage() {
                         <SimulationFormMultiBank
                             onCalculate={updateSimulationMutation.mutate}
                             loading={updateSimulationMutation.isPending}
+                            initialData={formInitialData}
                         />
                     )}
                 </div>
@@ -579,7 +638,7 @@ export default function SimulationDetailPage() {
                                         <span className="font-semibold text-emerald-300">{formatCurrency(totals.liberadoTotal)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Seguro Obrigatório</span>
+                                        <span className="text-sm text-slate-400">Seguro Obrigatório Banco</span>
                                         <span className="font-semibold">{formatCurrency(totals.seguroObrigatorio)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
@@ -594,7 +653,7 @@ export default function SimulationDetailPage() {
                                         <span className="text-sm text-emerald-300 font-semibold">Liberado para o Cliente</span>
                                         <span className="text-2xl font-bold text-emerald-300">{formatCurrency(totals.liberadoCliente)}</span>
                                     </div>
-                                    {!calculatedSimulation && (
+                                    {!calculatedSimulation && !hasCalculation && (
                                         <>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-sm text-slate-400">Valor Parcela (registro)</span>
@@ -606,31 +665,35 @@ export default function SimulationDetailPage() {
                                             </div>
                                         </>
                                     )}
-                                    {calculatedSimulation && (
+                                    {(canSendToApp || canRefazerSimulacao) && (
                                         <div className="space-y-2 pt-3 border-t border-slate-800">
-                                            <Button
-                                                className="w-full bg-emerald-600 hover:bg-emerald-700"
-                                                onClick={() => approveCalculatedMutation.mutate()}
-                                                disabled={approveCalculatedMutation.isPending}
-                                            >
-                                                {approveCalculatedMutation.isPending ? "Enviando..." : (
-                                                    <>
-                                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                                        Enviar/Aprovar no App
-                                                    </>
-                                                )}
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                className="w-full border-slate-700 text-slate-100 hover:bg-slate-800"
-                                                onClick={() => {
-                                                    setCalculatedSimulation(null);
-                                                    setForceShowForm(true);
-                                                }}
-                                            >
-                                                <Calculator className="h-4 w-4 mr-2" />
-                                                Nova Simulação
-                                            </Button>
+                                            {canSendToApp && (
+                                                <Button
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                                    onClick={() => approveCalculatedMutation.mutate()}
+                                                    disabled={approveCalculatedMutation.isPending}
+                                                >
+                                                    {approveCalculatedMutation.isPending ? "Enviando..." : (
+                                                        <>
+                                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                                            Enviar/Aprovar no App
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
+                                            {canRefazerSimulacao && (
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full border-slate-700 text-slate-100 hover:bg-slate-800"
+                                                    onClick={() => {
+                                                        setCalculatedSimulation(null);
+                                                        setForceShowForm(true);
+                                                    }}
+                                                >
+                                                    <Calculator className="h-4 w-4 mr-2" />
+                                                    Nova Simulação
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </>
@@ -646,7 +709,37 @@ export default function SimulationDetailPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {simulation.document_url ? (
+                            {(simulationDocuments || []).length > 0 ? (
+                                <div className="space-y-3">
+                                    {(simulationDocuments || []).map((doc) => (
+                                        <div
+                                            key={doc.id}
+                                            className="flex items-center justify-between p-4 bg-slate-950/60 rounded-lg border border-slate-800"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <FileText className="h-10 w-10 text-indigo-300" />
+                                                <div>
+                                                    <p className="font-medium text-slate-100">
+                                                        {doc.document_filename || 'Documento anexado'}
+                                                    </p>
+                                                    <p className="text-sm text-slate-400">
+                                                        {(doc.document_type || '').toUpperCase()} • {new Date(doc.created_at).toLocaleString('pt-BR')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-slate-700 text-slate-100 hover:bg-slate-800"
+                                                onClick={() => handleDownloadDocument(doc.id)}
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Download
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : simulation.document_url ? (
                                 <div className="flex items-center justify-between p-4 bg-slate-950/60 rounded-lg border border-slate-800">
                                     <div className="flex items-center gap-3">
                                         <FileText className="h-10 w-10 text-indigo-300" />
@@ -663,7 +756,7 @@ export default function SimulationDetailPage() {
                                         variant="outline"
                                         size="sm"
                                         className="border-slate-700 text-slate-100 hover:bg-slate-800"
-                                        onClick={handleDownloadDocument}
+                                        onClick={() => handleDownloadDocument(simulation.id)}
                                     >
                                         <Download className="h-4 w-4 mr-2" />
                                         Download
@@ -691,7 +784,7 @@ export default function SimulationDetailPage() {
                                 <div>
                                     <p className="font-semibold text-slate-100">#{sim.id} · {sim.user_name || "Cliente"}</p>
                                     <p className="text-xs text-slate-400">
-                                        {new Date(sim.created_at).toLocaleDateString("pt-BR")} · {sim.type?.replace(/_/g, " ")}
+                                        {new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")} · {sim.type?.replace(/_/g, " ")}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -701,13 +794,32 @@ export default function SimulationDetailPage() {
                                     >
                                         {getStatusLabel(sim.status)}
                                     </Badge>
+                                    {sim.id === mostRecentSimulationId && (
+                                        <Badge
+                                            variant="outline"
+                                            className="bg-emerald-500/15 text-emerald-200 border border-emerald-500/40"
+                                        >
+                                            Mais recente
+                                        </Badge>
+                                    )}
                                     {sim.id !== simulation.id && (
                                         <Button variant="ghost" className="text-indigo-300 hover:text-indigo-200" onClick={() => router.push(`/life-mobile/simulacoes/${sim.id}`)}>
                                             Ver
                                         </Button>
                                     )}
+                                    {sim.id !== mostRecentSimulationId && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="border-slate-700 text-slate-100 hover:bg-slate-800"
+                                            disabled={setMostRecentMutation.isPending}
+                                            onClick={() => setMostRecentMutation.mutate(sim.id)}
+                                        >
+                                            {setMostRecentMutation.isPending ? "Salvando..." : "Definir como mais recente"}
+                                        </Button>
+                                    )}
                                     {sim.id === simulation.id && (
-                                        <span className="text-xs text-indigo-200">Atual</span>
+                                        <span className="text-xs text-indigo-200">Visualizando</span>
                                     )}
                                 </div>
                             </div>

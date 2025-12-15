@@ -1,15 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, text, func
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from uuid import UUID
 import os
+import re
 import shutil
+import uuid
 from pathlib import Path
-from ..db import SessionLocal
-from ..models import User, MobileSimulation, MobileNotification, Contract, now_brt
+from ..db import SessionLocal, engine, sync_users_id_sequence
+from ..models import User, MobileSimulation, MobileSimulationDocument, MobileNotification, Contract, now_brt
 from ..security import get_current_user, hash_password
 from decimal import Decimal
 
@@ -38,6 +42,7 @@ class SimulationResponse(BaseModel):
     total_amount: float
     status: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
     # New fields
     banks_json: Optional[List[dict]] = None
     prazo: Optional[int] = None
@@ -71,6 +76,15 @@ class AdminSimulationResponse(SimulationResponse):
     document_url: Optional[str] = None
     document_type: Optional[str] = None
     document_filename: Optional[str] = None
+    # Campos de análise (necessários para transição de tabs no frontend)
+    analysis_status: Optional[str] = None
+    analyst_id: Optional[int] = None
+    analyst_name: Optional[str] = None
+    analyst_notes: Optional[str] = None
+    pending_documents: Optional[List[dict]] = None
+    analyzed_at: Optional[datetime] = None
+    client_type: Optional[str] = None
+    has_active_contract: Optional[bool] = None
 class DocumentResponse(BaseModel):
     id: str
     document_type: Optional[str] = None
@@ -81,6 +95,42 @@ class DocumentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class AdminDocumentItem(BaseModel):
+    id: str
+    document_type: Optional[str] = None
+    document_filename: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ContractBank(BaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+class ContractProduct(BaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+class ContractResponse(BaseModel):
+    id: str
+    status: str
+    requested_amount: float
+    total_amount: float
+    installments: int
+    installment_value: float
+    interest_rate: float
+    created_at: datetime
+    disbursed_at: Optional[datetime] = None
+    product: Optional[ContractProduct] = None
+    bank: Optional[ContractBank] = None
+
+class PushTokenRequest(BaseModel):
+    token: str
+    platform: Optional[str] = None
+    device_id: Optional[str] = None
+
 class MarginResponse(BaseModel):
     available_margin: float
     used_margin: float
@@ -89,6 +139,42 @@ class MarginResponse(BaseModel):
 # Helpers
 def decimal_to_float(value):
     return float(value) if value is not None else None
+
+
+def guess_media_type(file_ext: str | None) -> str:
+    ext = (file_ext or "").lower().lstrip(".")
+    if ext == "pdf":
+        return "application/pdf"
+    if ext in {"jpg", "jpeg"}:
+        return "image/jpeg"
+    if ext == "png":
+        return "image/png"
+    return "application/octet-stream"
+
+_PUSH_TOKEN_TABLE_READY = False
+def ensure_push_token_table():
+    """
+    Garante que a tabela de push tokens exista, sem depender de migração.
+    """
+    global _PUSH_TOKEN_TABLE_READY
+    if _PUSH_TOKEN_TABLE_READY:
+        return
+    ddl = """
+    CREATE TABLE IF NOT EXISTS mobile_push_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token VARCHAR(255) NOT NULL UNIQUE,
+        platform VARCHAR(30),
+        device_id VARCHAR(120),
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now(),
+        last_used_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_mobile_push_tokens_user_id ON mobile_push_tokens(user_id);
+    """
+    with engine.begin() as conn:
+        conn.execute(text(ddl))
+    _PUSH_TOKEN_TABLE_READY = True
 
 def generate_fake_cpf(user_id: int) -> str:
     """Gera um CPF fictício determinístico a partir do ID do usuário (11 dígitos)."""
@@ -120,6 +206,7 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
         "total_amount": decimal_to_float(sim.total_amount),
         "status": sim.status,
         "created_at": sim.created_at,
+        "updated_at": getattr(sim, "updated_at", None),
         "banks_json": sim.banks_json or [],
         "prazo": sim.prazo,
         "coeficiente": sim.coeficiente,
@@ -153,6 +240,38 @@ def get_db():
     finally:
         db.close()
 
+@router.get("/push-token")
+async def debug_push_tokens(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna tokens do usuário (útil para debug/teste).
+    """
+    ensure_push_token_table()
+    rows = db.execute(
+        text(
+            """
+            SELECT token, platform, device_id, created_at, updated_at, last_used_at
+            FROM mobile_push_tokens
+            WHERE user_id = :user_id
+            ORDER BY updated_at DESC
+            """
+        ),
+        {"user_id": current_user.id}
+    ).fetchall()
+    return [
+        {
+            "token": r.token,
+            "platform": r.platform,
+            "device_id": r.device_id,
+            "created_at": r.created_at,
+            "updated_at": r.updated_at,
+            "last_used_at": r.last_used_at,
+        }
+        for r in rows
+    ]
+
 # ======================
 # PUBLIC ENDPOINTS (sem autenticação - para cadastro inicial no app)
 # ======================
@@ -180,24 +299,61 @@ async def register_mobile_client(
     Este endpoint NÃO requer autenticação pois é usado no cadastro inicial do app.
     O cliente é criado no sistema web automaticamente.
     """
-    # Verificar se email já existe
-    existing_user = db.query(User).filter(User.email == client_data.email).first()
+    name = (client_data.name or "").strip()
+    email = (client_data.email or "").strip().lower()
+    cpf = (client_data.cpf or "").strip() or None
+    phone = (client_data.phone or "").strip() or None
+
+    if not name or not email:
+        raise HTTPException(status_code=400, detail="Nome e email são obrigatórios")
+
+    if cpf and len(cpf) > 14:
+        raise HTTPException(status_code=400, detail="CPF inválido")
+
+    if phone and len(phone) > 20:
+        raise HTTPException(status_code=400, detail="Telefone inválido")
+
+    # Verificar se email já existe (case-insensitive)
+    existing_user = db.query(User).filter(func.lower(User.email) == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email já cadastrado")
-    
+
+    def build_user() -> User:
+        return User(
+            name=name,
+            email=email,
+            password_hash=hash_password(client_data.password),
+            cpf=cpf,
+            phone=phone,
+            role="mobile_client",  # Role específica para clientes mobile
+            active=True,
+        )
+
     # Criar novo usuário com role 'mobile_client'
-    new_user = User(
-        name=client_data.name,
-        email=client_data.email,
-        password_hash=hash_password(client_data.password),
-        cpf=(client_data.cpf or "").strip() or None,
-        phone=(client_data.phone or "").strip() or None,
-        role="mobile_client",  # Role específica para clientes mobile
-        active=True
-    )
-    
-    db.add(new_user)
-    db.commit()
+    new_user = build_user()
+    try:
+        db.add(new_user)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+
+        constraint_name = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if constraint_name == "users_email_key":
+            raise HTTPException(status_code=400, detail="Email já cadastrado")
+
+        # Se a sequence estiver fora de sincronia (pós-restore/seed), corrigir e tentar 1 vez.
+        if constraint_name == "users_pkey":
+            sync_users_id_sequence()
+            new_user = build_user()
+            try:
+                db.add(new_user)
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                raise HTTPException(status_code=500, detail="Erro ao criar conta. Tente novamente.")
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao criar conta. Tente novamente.")
+
     db.refresh(new_user)
     
     return {
@@ -215,6 +371,7 @@ async def register_mobile_client(
 async def create_simulation_with_document(
     document: UploadFile = File(...),
     simulation_type: str = Form("document_upload"),
+    document_type: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -232,10 +389,12 @@ async def create_simulation_with_document(
             status_code=400, 
             detail=f"Tipo de arquivo não permitido. Use: {', '.join(allowed_extensions)}"
         )
+
+    label = (document_type or "").strip() or file_ext.lstrip(".")
     
     # Gerar nome único para o arquivo
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_filename = f"{current_user.id}_{timestamp}{file_ext}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    safe_filename = f"{current_user.id}_{timestamp}_{uuid.uuid4().hex}{file_ext}"
     file_path = UPLOAD_DIR / safe_filename
     
     # Salvar arquivo
@@ -246,9 +405,81 @@ async def create_simulation_with_document(
         raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {str(e)}")
     
     # Descobrir tipo de cliente (novo ou recontratação) para sinalizar SLA correto
-    client_status = check_client_status(db, current_user.id)
+    client_status = check_client_status(db, current_user.id, getattr(current_user, "cpf", None))
 
     # Criar simulação com documento anexado
+    # Reaproveitar simulação aberta (evitar múltiplos cards)
+    open_sim = (
+        db.query(MobileSimulation)
+        .filter(
+            MobileSimulation.user_id == current_user.id,
+            MobileSimulation.status.notin_(["rejected", "financeiro_cancelado", "contrato_efetivado"]),
+        )
+        .order_by(MobileSimulation.created_at.desc())
+        .first()
+    )
+
+    if open_sim:
+        # Preserva documento atual (histórico) antes de atualizar o "último documento"
+        if open_sim.document_url:
+            existing_doc = (
+                db.query(MobileSimulationDocument)
+                .filter(
+                    MobileSimulationDocument.simulation_id == open_sim.id,
+                    MobileSimulationDocument.file_path == open_sim.document_url,
+                )
+                .first()
+            )
+            if not existing_doc:
+                legacy_created_at = getattr(open_sim, "updated_at", None) or getattr(open_sim, "created_at", None) or now_brt()
+                db.add(
+                    MobileSimulationDocument(
+                        simulation_id=open_sim.id,
+                        user_id=current_user.id,
+                        document_label=(open_sim.document_type or "").strip() or None,
+                        file_path=open_sim.document_url,
+                        file_ext=(open_sim.document_type or "").strip().lower() or None,
+                        original_filename=open_sim.document_filename,
+                        created_at=legacy_created_at,
+                    )
+                )
+
+        # Adiciona novo anexo (não substitui)
+        db.add(
+            MobileSimulationDocument(
+                simulation_id=open_sim.id,
+                user_id=current_user.id,
+                document_label=label,
+                file_path=str(file_path),
+                file_ext=file_ext.lstrip("."),
+                original_filename=document.filename,
+            )
+        )
+
+        # Mantém compatibilidade: campos no MobileSimulation apontam para o último documento
+        open_sim.document_url = str(file_path)
+        open_sim.document_type = file_ext.lstrip(".")
+        open_sim.document_filename = document.filename
+        open_sim.analysis_status = "pending_analysis"
+        open_sim.simulation_type = open_sim.simulation_type or simulation_type
+        if open_sim.status == "pending_docs" or open_sim.analysis_status == "pending_docs":
+            open_sim.status = "retorno_pendencia"
+        elif not open_sim.status:
+            open_sim.status = "pending"
+        db.commit()
+        db.refresh(open_sim)
+
+        return {
+            "simulation_id": open_sim.id,
+            "status": open_sim.status,
+            "analysis_status": open_sim.analysis_status,
+            "client_type": open_sim.client_type,
+            "has_active_contract": open_sim.has_active_contract,
+            "message": "Documento atualizado! Sua solicitação segue em análise.",
+            "document_filename": document.filename
+        }
+
+    # Caso não exista simulação aberta, cria uma nova
     new_simulation = MobileSimulation(
         user_id=current_user.id,
         simulation_type=simulation_type,
@@ -260,13 +491,24 @@ async def create_simulation_with_document(
         status="pending",
         analysis_status="pending_analysis",
         document_url=str(file_path),
-        document_type=file_ext.lstrip('.'),
+        document_type=file_ext.lstrip("."),
         document_filename=document.filename,
         client_type=client_status["client_type"],
         has_active_contract=client_status["has_active_contract"]
     )
     
     db.add(new_simulation)
+    db.flush()
+    db.add(
+        MobileSimulationDocument(
+            simulation_id=new_simulation.id,
+            user_id=current_user.id,
+            document_label=label,
+            file_path=str(file_path),
+            file_ext=file_ext.lstrip("."),
+            original_filename=document.filename,
+        )
+    )
     db.commit()
     db.refresh(new_simulation)
     
@@ -327,6 +569,127 @@ async def get_simulations(
         MobileSimulation.user_id == current_user.id
     ).order_by(MobileSimulation.created_at.desc()).all()
 
+@router.get("/contracts", response_model=List[ContractResponse])
+async def get_contracts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Lista contratos mobile do usuário (baseado nas simulações mobile já aprovadas ou efetivadas).
+    """
+    sims = (
+        db.query(MobileSimulation)
+        .filter(MobileSimulation.user_id == current_user.id)
+        .order_by(MobileSimulation.created_at.desc())
+        .all()
+    )
+
+    contracts = []
+    for sim in sims:
+        banks = sim.banks_json if isinstance(sim.banks_json, list) else []
+        first_bank = banks[0] if banks else {}
+
+        bank_name = None
+        if isinstance(first_bank, dict):
+            bank_name = first_bank.get("bank") or first_bank.get("banco") or first_bank.get("entidade") or first_bank.get("entidade_nome")
+            product_name = first_bank.get("product") or first_bank.get("produto") or first_bank.get("name")
+            bank_id = first_bank.get("bank_id") or first_bank.get("id")
+            product_id = first_bank.get("product_id")
+        else:
+            product_name = None
+            bank_id = None
+            product_id = None
+
+        contracts.append({
+            "id": sim.id,
+            "status": sim.status,
+            "requested_amount": decimal_to_float(sim.requested_amount) or 0.0,
+            "total_amount": decimal_to_float(sim.total_amount) or 0.0,
+            "installments": sim.installments or 0,
+            "installment_value": decimal_to_float(sim.installment_value) or 0.0,
+            "interest_rate": decimal_to_float(sim.interest_rate) or 0.0,
+            "created_at": sim.created_at,
+            "disbursed_at": sim.analyzed_at if sim.status == "contrato_efetivado" else None,
+            "product": {"id": str(product_id)} if product_id else ({"name": product_name} if product_name else None),
+            "bank": {"id": str(bank_id)} if bank_id else ({"name": bank_name} if bank_name else None),
+        })
+
+    return contracts
+
+@router.post("/push-token")
+async def save_push_token(
+    payload: PushTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Salva ou atualiza o push token do usuário (Expo).
+    """
+    ensure_push_token_table()
+
+    token = (payload.token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token inválido")
+
+    now_ts = now_brt()
+
+    existing = db.execute(
+        text("SELECT id FROM mobile_push_tokens WHERE token = :token"),
+        {"token": token}
+    ).first()
+
+    if existing:
+        db.execute(
+            text(
+                """
+                UPDATE mobile_push_tokens
+                SET user_id = :user_id,
+                    platform = :platform,
+                    device_id = :device_id,
+                    updated_at = :updated_at,
+                    last_used_at = :last_used_at
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": existing.id,
+                "user_id": current_user.id,
+                "platform": payload.platform,
+                "device_id": payload.device_id,
+                "updated_at": now_ts,
+                "last_used_at": now_ts,
+            }
+        )
+    else:
+        db.execute(
+            text(
+                """
+                INSERT INTO mobile_push_tokens
+                    (user_id, token, platform, device_id, created_at, updated_at, last_used_at)
+                VALUES
+                    (:user_id, :token, :platform, :device_id, :created_at, :updated_at, :last_used_at)
+                """
+            ),
+            {
+                "user_id": current_user.id,
+                "token": token,
+                "platform": payload.platform,
+                "device_id": payload.device_id,
+                "created_at": now_ts,
+                "updated_at": now_ts,
+                "last_used_at": now_ts,
+            }
+        )
+
+    db.commit()
+
+    return {
+        "ok": True,
+        "token": token,
+        "platform": payload.platform,
+        "device_id": payload.device_id,
+    }
+
 @router.post("/simulations/{simulation_id}/approve-by-client", response_model=SimulationResponse)
 async def approve_simulation_by_client(
     simulation_id: str,
@@ -340,6 +703,12 @@ async def approve_simulation_by_client(
 
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    # O cliente só pode aprovar quando a proposta estiver disponível no app
+    # (após o calculista gerar a simulação e o admin enviá-la para o cliente).
+    allowed_statuses = {"approved", "simulacao_aprovada"}
+    if (sim.status or "").lower() not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Proposta ainda não disponível para aprovação")
 
     sim.status = "approved_by_client"
     db.commit()
@@ -367,6 +736,10 @@ async def reject_simulation_by_client(
     if not sim:
         raise HTTPException(status_code=404, detail="Simulação não encontrada")
 
+    allowed_statuses = {"approved", "simulacao_aprovada"}
+    if (sim.status or "").lower() not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Proposta ainda não disponível para reprovação")
+
     sim.status = "rejected"
     db.commit()
     db.refresh(sim)
@@ -384,37 +757,82 @@ async def list_documents(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Lista documentos enviados pelo cliente (simulações com anexo)."""
-    sims = db.query(MobileSimulation).filter(
-        MobileSimulation.user_id == current_user.id,
-        MobileSimulation.document_url.isnot(None)
-    ).order_by(MobileSimulation.created_at.desc()).all()
+    """Lista documentos enviados pelo cliente (mantém histórico de anexos)."""
 
-    return [
+    rows = (
+        db.query(MobileSimulationDocument, MobileSimulation.status)
+        .join(MobileSimulation, MobileSimulation.id == MobileSimulationDocument.simulation_id)
+        .filter(MobileSimulationDocument.user_id == current_user.id)
+        .order_by(MobileSimulationDocument.created_at.desc())
+        .all()
+    )
+
+    items = [
         {
-            "id": sim.id,
-            "document_type": sim.document_type,
-            "document_filename": sim.document_filename,
-            "status": sim.status,
-            "created_at": sim.created_at,
+            "id": doc.id,
+            "document_type": doc.document_label or doc.file_ext,
+            "document_filename": doc.original_filename,
+            "status": sim_status,
+            "created_at": doc.created_at,
         }
-        for sim in sims
+        for doc, sim_status in rows
     ]
 
-@router.get("/documents/{simulation_id}")
+    # Compatibilidade: simulações antigas com documento, mas sem histórico registrado
+    sim_ids_with_docs = {doc.simulation_id for doc, _ in rows}
+    legacy_query = db.query(MobileSimulation).filter(
+        MobileSimulation.user_id == current_user.id,
+        MobileSimulation.document_url.isnot(None),
+    )
+    if sim_ids_with_docs:
+        legacy_query = legacy_query.filter(~MobileSimulation.id.in_(sim_ids_with_docs))
+
+    legacy_sims = legacy_query.order_by(MobileSimulation.created_at.desc()).all()
+    for sim in legacy_sims:
+        items.append(
+            {
+                "id": sim.id,
+                "document_type": sim.document_type,
+                "document_filename": sim.document_filename,
+                "status": sim.status,
+                "created_at": sim.created_at,
+            }
+        )
+
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items
+
+@router.get("/documents/{doc_id}")
 async def download_document(
-    simulation_id: str,
+    doc_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Download de documento do próprio cliente."""
+    """Download de documento do próprio cliente (suporta histórico)."""
+
+    doc = (
+        db.query(MobileSimulationDocument)
+        .filter(
+            MobileSimulationDocument.id == doc_id,
+            MobileSimulationDocument.user_id == current_user.id,
+        )
+        .first()
+    )
+    if doc:
+        return FileResponse(
+            path=doc.file_path,
+            filename=doc.original_filename,
+            media_type=guess_media_type(doc.file_ext),
+        )
+
+    # Compatibilidade com registros antigos: doc_id = simulation_id
     simulation = db.query(MobileSimulation).filter(
-        MobileSimulation.id == simulation_id,
-        MobileSimulation.user_id == current_user.id
+        MobileSimulation.id == doc_id,
+        MobileSimulation.user_id == current_user.id,
     ).first()
 
     if not simulation:
-        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
 
     if not simulation.document_url:
         raise HTTPException(status_code=404, detail="Nenhum documento anexado a esta simulação")
@@ -422,7 +840,7 @@ async def download_document(
     return FileResponse(
         path=simulation.document_url,
         filename=simulation.document_filename,
-        media_type=f"{'application/pdf' if simulation.document_type == 'pdf' else 'image/' + simulation.document_type}"
+        media_type=guess_media_type(simulation.document_type),
     )
 
 @router.get("/margins/current", response_model=MarginResponse)
@@ -548,7 +966,7 @@ async def get_admin_simulations(
         db.query(MobileSimulation)
         .options(selectinload(MobileSimulation.user))
         .join(User, MobileSimulation.user_id == User.id)
-        .order_by(MobileSimulation.created_at.desc())
+        .order_by(MobileSimulation.updated_at.desc(), MobileSimulation.created_at.desc())
         .all()
     )
     return [serialize_admin_simulation(sim) for sim in simulations]
@@ -626,6 +1044,85 @@ def update_admin_simulation(
     db.refresh(sim)
     return serialize_admin_simulation(sim)
 
+
+@router.post("/admin/simulations/{simulation_id}/set-latest", response_model=AdminSimulationResponse)
+def set_admin_simulation_latest(
+    simulation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Marca a simulação como "mais recente" atualizando `updated_at`.
+
+    Útil para promover uma simulação antiga no histórico sem precisar recalcular.
+    """
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    sim = (
+        db.query(MobileSimulation)
+        .options(selectinload(MobileSimulation.user))
+        .filter(MobileSimulation.id == simulation_id)
+        .first()
+    )
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    sim.updated_at = now_brt()
+    db.commit()
+    db.refresh(sim)
+    return serialize_admin_simulation(sim)
+
+@router.get("/admin/simulations/analysis")
+async def get_simulations_for_analysis(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna simulações pendentes de análise.
+    Automaticamente verifica o tipo de cliente (novo ou com contrato ativo).
+    """
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Buscar simulações com status de análise pendente
+    simulations = (
+        db.query(MobileSimulation)
+        .options(selectinload(MobileSimulation.user), selectinload(MobileSimulation.analyst))
+        .filter(
+            or_(
+                MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]),
+                and_(
+                    MobileSimulation.analysis_status.is_(None),
+                    MobileSimulation.status.in_(["pending", "simulation_requested", "approved"])
+                )
+            )
+        )
+        .order_by(MobileSimulation.created_at.desc())
+        .all()
+    )
+
+    # Atualizar informações de tipo de cliente automaticamente
+    for sim in simulations:
+        # Normaliza análise para registros antigos sem analysis_status
+        if not sim.analysis_status and sim.document_url:
+            sim.analysis_status = "pending_analysis"
+            if not sim.status:
+                sim.status = "pending"
+
+        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested/approved, force pending_analysis para análise
+        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested", "approved"}:
+            sim.analysis_status = "pending_analysis"
+
+        if not sim.client_type:
+            client_status = check_client_status(db, sim.user_id, getattr(sim.user, "cpf", None))
+            sim.client_type = client_status["client_type"]
+            sim.has_active_contract = client_status["has_active_contract"]
+
+    db.commit()
+
+    return [serialize_admin_simulation(sim) for sim in simulations]
+
 @router.get("/admin/simulations/{simulation_id}", response_model=AdminSimulationResponse)
 async def get_admin_simulation_by_id(
     simulation_id: str,
@@ -667,8 +1164,15 @@ async def approve_simulation(
 
     # Verificar se o cliente já aprovou
     client_approved_statuses = ["approved_by_client", "cliente_aprovada", "simulacao_aprovada"]
+    status_lower = (sim.status or "").lower()
+    analysis_status_lower = (sim.analysis_status or "").lower()
+    banks_data = sim.banks_json
+    if isinstance(banks_data, list):
+        has_calculation = len(banks_data) > 0
+    else:
+        has_calculation = bool(banks_data)
 
-    if sim.status.lower() in client_approved_statuses:
+    if status_lower in client_approved_statuses:
         # Cliente já aprovou, enviar direto para o financeiro
         sim.status = "financeiro_pendente"
         create_notification(
@@ -679,6 +1183,48 @@ async def approve_simulation(
             "success"
         )
         message = "Simulação enviada ao financeiro com sucesso"
+    elif status_lower == "approved_for_calculation":
+        # Já passou pela análise, só pode seguir se a simulação estiver montada
+        if not has_calculation:
+            raise HTTPException(
+                status_code=400,
+                detail="Simulação ainda não calculada pelo time de cálculo."
+            )
+        sim.status = "approved"
+        create_notification(
+            db,
+            sim.user_id,
+            "Nova proposta disponível",
+            "Sua simulação foi aprovada e aguarda sua confirmação.",
+            "info"
+        )
+        message = "Simulação aprovada e enviada para o cliente"
+    elif status_lower in {"pending", "simulation_requested", ""} or analysis_status_lower in {"pending_analysis", "pending_docs"}:
+        # Aprovação inicial do analista: mandar para o calculista (Em simulação)
+        if has_calculation:
+            # Se já existir cálculo pronto, pode seguir para o cliente
+            sim.status = "approved"
+            create_notification(
+                db,
+                sim.user_id,
+                "Nova proposta disponível",
+                "Sua simulação foi aprovada e aguarda sua confirmação.",
+                "info"
+            )
+            message = "Simulação aprovada e enviada para o cliente"
+        else:
+            sim.analysis_status = "approved_for_calculation"
+            sim.status = "approved_for_calculation"
+            sim.analyst_id = current_user.id
+            sim.analyzed_at = now_brt()
+            create_notification(
+                db,
+                sim.user_id,
+                "Análise Aprovada",
+                "Sua simulação foi aprovada e está sendo processada pelo nosso calculista.",
+                "success"
+            )
+            message = "Simulação aprovada para cálculo"
     else:
         # Primeira aprovação do admin, aguardando aprovação do cliente no app
         sim.status = "approved"
@@ -721,32 +1267,83 @@ async def reject_simulation(
     db.commit()
     return {"message": "Simulação reprovada com sucesso"}
 
-@router.get("/admin/documents/{simulation_id}")
-async def get_simulation_document(
+@router.get("/admin/simulations/{simulation_id}/documents", response_model=List[AdminDocumentItem])
+async def list_simulation_documents_admin(
     simulation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lista anexos enviados pelo cliente (histórico) para uma simulação."""
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    docs = (
+        db.query(MobileSimulationDocument)
+        .filter(MobileSimulationDocument.simulation_id == simulation_id)
+        .order_by(MobileSimulationDocument.created_at.desc())
+        .all()
+    )
+    if docs:
+        return [
+            {
+                "id": doc.id,
+                "document_type": doc.document_label or doc.file_ext,
+                "document_filename": doc.original_filename,
+                "created_at": doc.created_at,
+            }
+            for doc in docs
+        ]
+
+    # Compatibilidade: simulações antigas com um único documento no registro
+    simulation = db.query(MobileSimulation).filter(MobileSimulation.id == simulation_id).first()
+    if not simulation:
+        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+
+    if not simulation.document_url:
+        return []
+
+    return [
+        {
+            "id": simulation.id,
+            "document_type": simulation.document_type,
+            "document_filename": simulation.document_filename,
+            "created_at": simulation.created_at,
+        }
+    ]
+
+
+@router.get("/admin/documents/{doc_id}")
+async def get_simulation_document(
+    doc_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retorna o documento anexado a uma simulação"""
+    """Download de documento (suporta histórico)."""
     if current_user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acesso negado")
+
+    doc = db.query(MobileSimulationDocument).filter(MobileSimulationDocument.id == doc_id).first()
+    if doc:
+        return FileResponse(
+            path=doc.file_path,
+            filename=doc.original_filename,
+            media_type=guess_media_type(doc.file_ext),
+        )
     
     simulation = db.query(MobileSimulation).filter(
-        MobileSimulation.id == simulation_id
+        MobileSimulation.id == doc_id
     ).first()
     
     if not simulation:
-        raise HTTPException(status_code=404, detail="Simulação não encontrada")
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
     
     if not simulation.document_url:
         raise HTTPException(status_code=404, detail="Nenhum documento anexado a esta simulação")
-    
-    # Retornar arquivo
-    from fastapi.responses import FileResponse
+
     return FileResponse(
         path=simulation.document_url,
         filename=simulation.document_filename,
-        media_type=f"{'application/pdf' if simulation.document_type == 'pdf' else 'image/' + simulation.document_type}"
+        media_type=guess_media_type(simulation.document_type)
     )
 
 # ======================
@@ -788,7 +1385,7 @@ async def get_notifications(
 
 @router.put("/notifications/{notification_id}/read")
 async def mark_notification_as_read(
-    notification_id: int,
+    notification_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -810,22 +1407,31 @@ async def mark_notification_as_read(
 # ENDPOINTS DE ANÁLISE DE SIMULAÇÕES
 # ======================
 
-def check_client_status(db: Session, user_id: int) -> dict:
+def check_client_status(db: Session, user_id: int, cpf: str | None = None) -> dict:
     """
     Verifica se o cliente é novo ou tem contrato ativo/efetivado.
     Retorna dict com client_type e has_active_contract.
     """
-    # Buscar contratos do usuário através da relação User -> Case -> Contract
-    from ..models import Case
+    # Buscar contratos do cliente através do CPF (User.cpf -> Client.cpf -> Case -> Contract)
+    from ..models import Case, Client
 
-    # Buscar cases do cliente
-    user_cases = db.query(Case).filter(Case.client_id == user_id).all()
+    raw_cpf = cpf
+    if not raw_cpf:
+        user = db.query(User).filter(User.id == user_id).first()
+        raw_cpf = getattr(user, "cpf", None) if user else None
 
-    if not user_cases:
+    cpf_digits = re.sub(r"\\D", "", raw_cpf or "")
+    if len(cpf_digits) != 11:
         return {"client_type": "new_client", "has_active_contract": False}
 
-    # Verificar se tem contrato ativo ou efetivado
-    case_ids = [case.id for case in user_cases]
+    client_ids = [cid for (cid,) in db.query(Client.id).filter(Client.cpf == cpf_digits).all()]
+    if not client_ids:
+        return {"client_type": "new_client", "has_active_contract": False}
+
+    case_ids = [cid for (cid,) in db.query(Case.id).filter(Case.client_id.in_(client_ids)).all()]
+    if not case_ids:
+        return {"client_type": "new_client", "has_active_contract": False}
+
     active_contract = db.query(Contract).filter(
         Contract.case_id.in_(case_ids),
         Contract.status.in_(["ativo", "efetivado"])
@@ -834,57 +1440,9 @@ def check_client_status(db: Session, user_id: int) -> dict:
     has_active = active_contract is not None
 
     return {
-        "client_type": "existing_client" if user_cases else "new_client",
+        "client_type": "existing_client" if has_active else "new_client",
         "has_active_contract": has_active
     }
-
-@router.get("/admin/simulations/analysis")
-async def get_simulations_for_analysis(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Retorna simulações pendentes de análise.
-    Automaticamente verifica o tipo de cliente (novo ou com contrato ativo).
-    """
-    if current_user.role not in ADMIN_ROLES:
-        raise HTTPException(status_code=403, detail="Acesso negado")
-
-    # Buscar simulações com status de análise pendente
-    simulations = (
-        db.query(MobileSimulation)
-        .options(selectinload(MobileSimulation.user), selectinload(MobileSimulation.analyst))
-        .filter(
-            or_(
-                MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]),
-                and_(
-                    MobileSimulation.analysis_status.is_(None),
-                    MobileSimulation.status.in_(["pending", "simulation_requested", "approved"])
-                )
-            )
-        )
-        .order_by(MobileSimulation.created_at.desc())
-        .all()
-    )
-
-    # Atualizar informações de tipo de cliente automaticamente
-    for sim in simulations:
-        # Normaliza análise para registros antigos sem analysis_status
-        if not sim.analysis_status and sim.document_url:
-            sim.analysis_status = "pending_analysis"
-            if not sim.status:
-                sim.status = "pending"
-        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested/approved, force pending_analysis para análise
-        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested", "approved"}:
-            sim.analysis_status = "pending_analysis"
-        if not sim.client_type:
-            client_status = check_client_status(db, sim.user_id)
-            sim.client_type = client_status["client_type"]
-            sim.has_active_contract = client_status["has_active_contract"]
-
-    db.commit()
-
-    return [serialize_admin_simulation(sim) for sim in simulations]
 
 @router.post("/admin/simulations/{simulation_id}/pend")
 async def pend_simulation(
@@ -905,6 +1463,7 @@ async def pend_simulation(
 
     # Atualizar status e informações
     sim.analysis_status = "pending_docs"
+    sim.status = "pending_docs"
     sim.analyst_id = current_user.id
     sim.analyst_notes = request_data.analyst_notes
     sim.pending_documents = [doc.model_dump() for doc in request_data.pending_documents]
@@ -981,7 +1540,9 @@ async def approve_simulation_for_calculation(
 
     # Atualizar status
     sim.analysis_status = "approved_for_calculation"
-    sim.status = "approved"
+    # Importante: NÃO enviar para aprovação do cliente ainda.
+    # Nesta etapa, a simulação vai para o calculista montar a proposta multi-banco.
+    sim.status = "approved_for_calculation"
     sim.analyst_id = current_user.id
     if request_data.analyst_notes:
         sim.analyst_notes = request_data.analyst_notes

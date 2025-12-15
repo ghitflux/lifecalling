@@ -31,17 +31,22 @@ export function usePendSimulation() {
 
       toast.success('Simulação pendenciada com sucesso! Notificação enviada ao cliente.');
 
-      // Invalidar todas as queries relacionadas
-      console.log('🔄 Invalidando queries...');
-      await queryClient.invalidateQueries({ queryKey: ['mobile-simulations'], refetchType: 'all' });
-      await queryClient.invalidateQueries({ queryKey: ['adminSimulations'] });
-      await queryClient.invalidateQueries({ queryKey: ['adminSimulation'] });
+      try {
+        // Invalidar todas as queries relacionadas
+        console.log('🔄 Invalidando queries...');
+        await queryClient.invalidateQueries({ queryKey: ['mobile-simulations'], refetchType: 'all' });
+        await queryClient.invalidateQueries({ queryKey: ['adminSimulations'] });
+        await queryClient.invalidateQueries({ queryKey: ['adminSimulation'] });
 
-      // Forçar refetch imediato das queries de análise
-      console.log('🔄 Forçando refetch...');
-      await queryClient.refetchQueries({ queryKey: ['mobile-simulations', 'analysis'] });
+        // Forçar refetch imediato das queries de análise
+        console.log('🔄 Forçando refetch...');
+        await queryClient.refetchQueries({ queryKey: ['mobile-simulations', 'analysis'] });
 
-      console.log('✅ Queries atualizadas!');
+        console.log('✅ Queries atualizadas!');
+      } catch (err) {
+        // Não bloquear fechamento do modal caso a lista falhe ao atualizar (ex.: erro temporário de rede)
+        console.warn('⚠️ Falha ao atualizar queries após pendência:', err);
+      }
     },
     onError: (error: any) => {
       console.error('❌ Erro ao pendenciar:', error);
@@ -63,13 +68,17 @@ export function useReproveSimulation() {
       mobileApi.reproveSimulation(id, data),
     onSuccess: async () => {
       toast.success('Simulação reprovada com sucesso! Card movido para tab Reprovadas.');
-      // Invalidar todas as queries relacionadas
-      await queryClient.invalidateQueries({ queryKey: ['mobile-simulations'], refetchType: 'all' });
-      await queryClient.invalidateQueries({ queryKey: ['adminSimulations'] });
-      await queryClient.invalidateQueries({ queryKey: ['adminSimulation'] });
+      try {
+        // Invalidar todas as queries relacionadas
+        await queryClient.invalidateQueries({ queryKey: ['mobile-simulations'], refetchType: 'all' });
+        await queryClient.invalidateQueries({ queryKey: ['adminSimulations'] });
+        await queryClient.invalidateQueries({ queryKey: ['adminSimulation'] });
 
-      // Forçar refetch imediato das queries de análise
-      await queryClient.refetchQueries({ queryKey: ['mobile-simulations', 'analysis'] });
+        // Forçar refetch imediato das queries de análise
+        await queryClient.refetchQueries({ queryKey: ['mobile-simulations', 'analysis'] });
+      } catch (err) {
+        console.warn('⚠️ Falha ao atualizar queries após reprovação:', err);
+      }
     },
     onError: (error: any) => {
       const message = error?.response?.data?.detail || 'Erro ao reprovar simulação';
@@ -95,17 +104,21 @@ export function useApproveForCalculation() {
 
       toast.success('Simulação aprovada! Card movido para tab Aprovadas com status "Simulação Pendente".');
 
-      // Invalidar todas as queries relacionadas
-      console.log('🔄 Invalidando queries...');
-      await queryClient.invalidateQueries({ queryKey: ['mobile-simulations'], refetchType: 'all' });
-      await queryClient.invalidateQueries({ queryKey: ['adminSimulations'] });
-      await queryClient.invalidateQueries({ queryKey: ['adminSimulation'] });
+      try {
+        // Invalidar todas as queries relacionadas
+        console.log('🔄 Invalidando queries...');
+        await queryClient.invalidateQueries({ queryKey: ['mobile-simulations'], refetchType: 'all' });
+        await queryClient.invalidateQueries({ queryKey: ['adminSimulations'] });
+        await queryClient.invalidateQueries({ queryKey: ['adminSimulation'] });
 
-      // Forçar refetch imediato das queries de análise
-      console.log('🔄 Forçando refetch...');
-      await queryClient.refetchQueries({ queryKey: ['mobile-simulations', 'analysis'] });
+        // Forçar refetch imediato das queries de análise
+        console.log('🔄 Forçando refetch...');
+        await queryClient.refetchQueries({ queryKey: ['mobile-simulations', 'analysis'] });
 
-      console.log('✅ Queries atualizadas!');
+        console.log('✅ Queries atualizadas!');
+      } catch (err) {
+        console.warn('⚠️ Falha ao atualizar queries após aprovação:', err);
+      }
     },
     onError: (error: any) => {
       console.error('❌ Erro ao aprovar:', error);

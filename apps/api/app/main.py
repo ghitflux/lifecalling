@@ -5,7 +5,7 @@ import json
 from .routers import auth, cases, imports, ws as wsmod, clients, users, comments, admin, sla_audit, mobile
 
 from .routers import closing, finance, dashboard, contract_attachments, analytics, rankings, campanhas, campaigns
-from .db import Base, engine
+from .db import Base, engine, sync_users_id_sequence
 from .routers import simulations
 from .routers.simulations import calculation_router
 from .config import settings
@@ -53,6 +53,7 @@ from .scheduler_config import init_scheduler, shutdown_scheduler
 @app.on_event("startup")
 async def startup_event():
     """Inicializa o scheduler de SLA no startup da aplicação"""
+    sync_users_id_sequence()
     init_scheduler()
 
 @app.on_event("shutdown")

@@ -23,7 +23,7 @@ function isMarginBank(bankName: string): boolean {
  * - Bancos "Margem*" não entram nos totais de financiado/saldo/liberado
  * - Bancos "Margem*" geram um "Valor a Subtrair" = |parcela| / coeficiente
  * - Para bancos reais: financiado = parcela / coeficiente
- * - Para bancos reais: liberado = financiado - saldoDevedor
+ * - Para bancos reais: liberado = |financiado - saldoDevedor| (não exibe negativo no frontend)
  */
 export function computeTotals(input: SimulationInput): SimulationTotals {
   // Normalizar coeficiente (aceitar vírgula ou ponto)
@@ -48,7 +48,7 @@ export function computeTotals(input: SimulationInput): SimulationTotals {
     const saldoDevedor = bank.saldoDevedor || 0;
 
     const financiado = parcela / coeficiente;
-    const liberado = financiado - saldoDevedor;
+    const liberado = Math.abs(financiado - saldoDevedor);
 
     totalFinanciado += financiado;
     saldoTotal += saldoDevedor;

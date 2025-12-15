@@ -703,10 +703,12 @@ class MobileSimulation(Base):
     document_type = Column(String(50), nullable=True)  # image, pdf, etc
     document_filename = Column(Text, nullable=True)  # Nome original do arquivo
 
-    status = Column(String(20), default="pending")  # pending, approved, rejected
+    # Aumentado para comportar status mais longos, ex: approved_for_calculation
+    status = Column(String(50), default="pending")  # pending, approved_for_calculation, approved, rejected
 
     # Campos para análise de simulações
-    analysis_status = Column(String(30), default="pending_analysis")
+    # idem para status de análise
+    analysis_status = Column(String(50), default="pending_analysis")
     # pending_analysis | pending_docs | approved_for_calculation | reproved
     analyst_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Analista responsável
     analyst_notes = Column(Text, nullable=True)  # Observações do analista
@@ -721,6 +723,38 @@ class MobileSimulation(Base):
 
     user = relationship("User", foreign_keys=[user_id])
     analyst = relationship("User", foreign_keys=[analyst_id])
+
+
+class MobileSimulationDocument(Base):
+    """
+    Histórico de documentos anexados a uma simulação mobile.
+
+    Observação: o `MobileSimulation` mantém `document_url/document_type/document_filename`
+    como "último documento" para compatibilidade, mas este model guarda TODOS os envios.
+    """
+
+    __tablename__ = "mobile_simulation_documents"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    simulation_id = Column(String(36), ForeignKey("mobile_simulations.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # Label opcional vindo do app (ex: Contracheque, RG, CPF...)
+    document_label = Column(String(80), nullable=True)
+
+    file_path = Column(Text, nullable=False)
+    file_ext = Column(String(10), nullable=True)
+    original_filename = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=now_brt)
+
+    simulation = relationship("MobileSimulation", foreign_keys=[simulation_id])
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        UniqueConstraint("simulation_id", "file_path", name="uq_mobile_simulation_documents_simulation_id_file_path"),
+        Index("ix_mobile_simulation_documents_user_created_at", "user_id", "created_at"),
+        Index("ix_mobile_simulation_documents_simulation_id_created_at", "simulation_id", "created_at"),
+    )
 
 class MobileNotification(Base):
     """

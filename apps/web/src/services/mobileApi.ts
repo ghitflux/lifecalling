@@ -12,6 +12,7 @@ export interface Simulation {
   total_amount: number;
   status: string;
   created_at: string;
+  updated_at?: string;
   // New fields
   banks_json?: any[];
   prazo?: number;
@@ -91,6 +92,13 @@ export interface ApproveForCalculationRequest {
   analyst_notes?: string;
 }
 
+export interface AdminDocumentItem {
+  id: string;
+  document_type?: string;
+  document_filename?: string;
+  created_at: string;
+}
+
 export const mobileApi = {
   getSimulations: async () => {
     const response = await api.get<Simulation[]>(`${basePath}/simulations`);
@@ -109,6 +117,11 @@ export const mobileApi = {
 
   updateAdminSimulation: async (id: string, data: Partial<CreateSimulationDTO>) => {
     const response = await api.put<AdminSimulation>(`${basePath}/admin/simulations/${id}`, data);
+    return response.data;
+  },
+
+  setAdminSimulationAsLatest: async (id: string) => {
+    const response = await api.post<AdminSimulation>(`${basePath}/admin/simulations/${id}/set-latest`);
     return response.data;
   },
 
@@ -165,6 +178,11 @@ export const mobileApi = {
 
   approveForCalculation: async (id: string, data: ApproveForCalculationRequest) => {
     const response = await api.post(`${basePath}/admin/simulations/${id}/approve-for-calculation`, data);
+    return response.data;
+  },
+
+  getAdminSimulationDocuments: async (id: string) => {
+    const response = await api.get<AdminDocumentItem[]>(`${basePath}/admin/simulations/${id}/documents`);
     return response.data;
   },
 

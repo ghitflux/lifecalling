@@ -40,15 +40,34 @@ export default function LifeMobileSimulationsPage() {
     const { data: analysisSimulations, isLoading: isLoadingAnalysis } = useSimulationsForAnalysis();
 
     const defaultBadgeTone = "bg-slate-800 text-slate-200 border border-slate-700";
+    const tabsTriggerClass =
+        "gap-2 rounded-lg text-slate-300 hover:bg-slate-800/60 hover:text-slate-100 data-[state=active]:bg-slate-800/90 data-[state=active]:text-slate-50 data-[state=active]:shadow-none";
+
+    const getSimulationSortTimestamp = (sim: AdminSimulation) => {
+        return new Date(sim.updated_at || sim.created_at).getTime();
+    };
 
     const normalizeSimulation = (sim: AdminSimulation) => {
         const normalizedAnalysis = sim.analysis_status || (sim.document_url ? "pending_analysis" : undefined);
         const normalizedStatus = sim.status || (sim.document_url ? "pending" : sim.status);
+        const normalizedType = sim.simulation_type === "document_upload"
+            ? "Solicitação de Simulação"
+            : (sim.simulation_type || "").replace(/_/g, " ");
         return {
             ...sim,
             analysis_status: normalizedAnalysis,
-            status: normalizedStatus
+            status: normalizedStatus,
+            simulation_type: normalizedType
         };
+    };
+
+    const matchesSearch = (sim: AdminSimulation, term: string) => {
+        const lowerTerm = term.toLowerCase();
+        return (
+            sim.user_name?.toLowerCase().includes(lowerTerm) ||
+            sim.user_email?.toLowerCase().includes(lowerTerm) ||
+            sim.type?.toLowerCase().includes(lowerTerm)
+        );
     };
 
     const analysisList = (() => {
@@ -56,16 +75,31 @@ export default function LifeMobileSimulationsPage() {
             ? analysisSimulations
             : simulations || [];
 
-        return source
+        const normalized = source
             .map(normalizeSimulation)
-            .filter((sim) => {
-                const analysisStatus = (sim.analysis_status || "").toLowerCase();
-                const status = (sim.status || "").toLowerCase();
-                return (
-                    analysisStatus === "pending_analysis"
-                    || (!analysisStatus && ["pending", "simulation_requested", "approved"].includes(status))
-                );
-            });
+            .sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
+
+        const uniqueByUser = new Map<number, AdminSimulation>();
+        normalized.forEach(sim => {
+            if (!uniqueByUser.has(sim.user_id)) {
+                uniqueByUser.set(sim.user_id, sim);
+            }
+        });
+
+        let filtered = Array.from(uniqueByUser.values()).filter((sim) => {
+            const analysisStatus = (sim.analysis_status || "").toLowerCase();
+            const status = (sim.status || "").toLowerCase();
+            return (
+                analysisStatus === "pending_analysis"
+                || (!analysisStatus && ["pending", "simulation_requested", "approved"].includes(status))
+            );
+        });
+
+        if (searchTerm) {
+            filtered = filtered.filter((sim) => matchesSearch(sim, searchTerm));
+        }
+
+        return filtered;
     })();
 
     const pendingDocsList = (() => {
@@ -73,34 +107,29 @@ export default function LifeMobileSimulationsPage() {
             ? analysisSimulations
             : simulations || [];
 
-        const normalized = source.map(normalizeSimulation);
+        const normalized = source
+            .map(normalizeSimulation)
+            .sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
 
-        // DEBUG: Log todas as simulações e seus status
-        console.log('🔍 DEBUG - Todas simulações:', normalized.map(s => ({
-            id: s.id,
-            user: s.user_name,
-            status: s.status,
-            analysis_status: s.analysis_status
-        })));
+        const uniqueByUser = new Map<number, AdminSimulation>();
+        normalized.forEach(sim => {
+            if (!uniqueByUser.has(sim.user_id)) {
+                uniqueByUser.set(sim.user_id, sim);
+            }
+        });
 
-        const filtered = normalized.filter((sim) => {
+        let filtered = Array.from(uniqueByUser.values()).filter((sim) => {
             const analysisStatus = (sim.analysis_status || "").toLowerCase();
             const isPending = analysisStatus === "pending_docs";
-
-            if (isPending) {
-                console.log('✅ Simulação PENDENTE encontrada:', {
-                    id: sim.id,
-                    user: sim.user_name,
-                    analysis_status: sim.analysis_status
-                });
-            }
 
             return isPending;
         });
 
-        console.log('📊 Total de simulações pendentes:', filtered.length);
+        if (searchTerm) {
+            filtered = filtered.filter((sim) => matchesSearch(sim, searchTerm));
+        }
 
-        return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return filtered.sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
     })();
 
     const statusTone: Record<string, string> = {
@@ -118,6 +147,7 @@ export default function LifeMobileSimulationsPage() {
         pending_analysis: "bg-purple-500/15 text-purple-200 border border-purple-500/40",
         pending_docs: "bg-orange-500/15 text-orange-200 border border-orange-500/40",
         approved_for_calculation: "bg-cyan-500/15 text-cyan-200 border border-cyan-500/40",
+        retorno_pendencia: "bg-orange-500/15 text-orange-200 border border-orange-500/40",
         reproved: "bg-red-500/15 text-red-200 border border-red-500/40"
     };
 
@@ -135,7 +165,8 @@ export default function LifeMobileSimulationsPage() {
         // Analysis status
         pending_analysis: "Pendente de Análise",
         pending_docs: "Documentos Pendentes",
-        approved_for_calculation: "Simulação Pendente",
+        approved_for_calculation: "Em simulação",
+        retorno_pendencia: "Retorno de Pendência",
         reproved: "Reprovada na Análise"
     };
 
@@ -166,9 +197,19 @@ export default function LifeMobileSimulationsPage() {
 
     const filterSimulations = (status: string) => {
         if (!simulations) return [];
-        let filtered = simulations.map(normalizeSimulation).sort(
-            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+        const sorted = simulations
+            .map(normalizeSimulation)
+            .sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
+
+        // Dedup por usuário, mantendo o registro mais recente
+        const uniqueByUser = new Map<number, AdminSimulation>();
+        sorted.forEach((sim) => {
+            if (!uniqueByUser.has(sim.user_id)) {
+                uniqueByUser.set(sim.user_id, sim);
+            }
+        });
+
+        let filtered = Array.from(uniqueByUser.values());
 
         // Remover itens que ainda estão em análise/pendentes quando não estamos nas abas específicas
         filtered = filtered.filter(sim => {
@@ -190,14 +231,10 @@ export default function LifeMobileSimulationsPage() {
             const analysisStatus = (sim.analysis_status || "").toLowerCase();
 
             if (status === "pending") {
+                if (analysisStatus === "approved_for_calculation") return true;
                 return st === "pending" || st === "simulation_requested" || st === "approved";
             }
             if (status === "approved") {
-                // Incluir simulações aprovadas pelo analista (approved_for_calculation) = "Simulação Pendente"
-                if (analysisStatus === "approved_for_calculation") {
-                    return true;
-                }
-                // Incluir simulações aprovadas pelo cliente
                 return ["approved_by_client", "cliente_aprovada", "simulacao_aprovada", "financeiro_pendente", "contrato_efetivado"].includes(st);
             }
             if (status === "rejected") {
@@ -223,6 +260,10 @@ export default function LifeMobileSimulationsPage() {
 
         return filtered;
     };
+
+    const pendingSimulations = filterSimulations("pending");
+    const approvedSimulations = filterSimulations("approved");
+    const rejectedSimulations = filterSimulations("rejected");
 
     const renderSimulationCard = (sim: AdminSimulation, openModal = false) => {
         const normalized = normalizeSimulation(sim);
@@ -292,7 +333,7 @@ export default function LifeMobileSimulationsPage() {
                         </div>
                         <div>
                             <p className="text-slate-400">Data</p>
-                            <p className="font-medium text-slate-100">{new Date(sim.created_at).toLocaleDateString("pt-BR")}</p>
+                            <p className="font-medium text-slate-100">{new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")}</p>
                         </div>
                     </div>
 
@@ -327,20 +368,6 @@ export default function LifeMobileSimulationsPage() {
                 </div>
             </div>
 
-            {/* DEBUG PANEL */}
-            <Card className="bg-blue-500/10 border-blue-500/30">
-                <CardContent className="p-4">
-                    <h3 className="font-semibold text-blue-200 mb-2">🔍 Painel de Debug</h3>
-                    <div className="text-xs space-y-1 text-slate-300">
-                        <p>📊 Total de simulações: {simulations?.length || 0}</p>
-                        <p>🔄 Total de análises: {analysisSimulations?.length || 0}</p>
-                        <p>📋 Tab Análise: {analysisList.length} cards</p>
-                        <p>⏳ Tab Pendentes: {pendingDocsList.length} cards</p>
-                        <p className="text-blue-200 mt-2">💡 Abra o Console (F12) para ver logs detalhados</p>
-                    </div>
-                </CardContent>
-            </Card>
-
             <div className="flex items-center gap-4 bg-slate-900/70 p-4 rounded-lg border border-slate-800 shadow-lg shadow-black/30">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -357,19 +384,37 @@ export default function LifeMobileSimulationsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-5 mb-6 bg-slate-900/70 border border-slate-800">
-                    <TabsTrigger value="analise">Análise</TabsTrigger>
-                    <TabsTrigger value="pendentes">
-                        Pendentes
-                        {pendingDocsList.length > 0 && (
-                            <span className="ml-2 px-2 py-0.5 text-xs bg-orange-500/20 text-orange-300 rounded-full">
-                                {pendingDocsList.length}
-                            </span>
-                        )}
+                <TabsList className="grid w-full grid-cols-5 mb-6 bg-slate-900/70 border border-slate-800 rounded-xl">
+                    <TabsTrigger value="analise" className={tabsTriggerClass}>
+                        Análise
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
+                            {analysisList.length}
+                        </span>
                     </TabsTrigger>
-                    <TabsTrigger value="pending">Simulações</TabsTrigger>
-                    <TabsTrigger value="approved">Aprovadas</TabsTrigger>
-                    <TabsTrigger value="rejected">Reprovadas</TabsTrigger>
+                    <TabsTrigger value="pendentes" className={tabsTriggerClass}>
+                        Pendências
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-200">
+                            {pendingDocsList.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="pending" className={tabsTriggerClass}>
+                        Simulações
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
+                            {pendingSimulations.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="approved" className={tabsTriggerClass}>
+                        Aprovadas
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200">
+                            {approvedSimulations.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="rejected" className={tabsTriggerClass}>
+                        Reprovadas
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-xs text-rose-200">
+                            {rejectedSimulations.length}
+                        </span>
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="analise">
@@ -419,10 +464,10 @@ export default function LifeMobileSimulationsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {isLoading ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
-                        ) : filterSimulations("pending").length === 0 ? (
+                        ) : pendingSimulations.length === 0 ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação pendente.</p>
                         ) : (
-                            filterSimulations("pending").map(renderSimulationCard)
+                            pendingSimulations.map((sim) => renderSimulationCard(sim))
                         )}
                     </div>
                 </TabsContent>
@@ -431,10 +476,10 @@ export default function LifeMobileSimulationsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {isLoading ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
-                        ) : filterSimulations("approved").length === 0 ? (
+                        ) : approvedSimulations.length === 0 ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação aprovada.</p>
                         ) : (
-                            filterSimulations("approved").map(renderSimulationCard)
+                            approvedSimulations.map((sim) => renderSimulationCard(sim))
                         )}
                     </div>
                 </TabsContent>
@@ -443,10 +488,10 @@ export default function LifeMobileSimulationsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {isLoading ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
-                        ) : filterSimulations("rejected").length === 0 ? (
+                        ) : rejectedSimulations.length === 0 ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação reprovada.</p>
                         ) : (
-                            filterSimulations("rejected").map(renderSimulationCard)
+                            rejectedSimulations.map((sim) => renderSimulationCard(sim))
                         )}
                     </div>
                 </TabsContent>

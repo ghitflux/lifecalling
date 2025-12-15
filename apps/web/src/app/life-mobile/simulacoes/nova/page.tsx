@@ -133,7 +133,7 @@ function NewSimulationPageContent() {
         if (!simulations || !selectedClientData) return null;
         const sims = simulations
             .filter((sim) => sim.user_email === selectedClientData.email)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
         return sims.find((sim) => sim.document_url);
     }, [simulations, selectedClientData]);
 
@@ -240,7 +240,7 @@ function NewSimulationPageContent() {
                                             {latestSimulationWithDoc.document_filename || 'Documento anexado'}
                                         </p>
                                         <p className="text-sm text-slate-400">
-                                            {latestSimulationWithDoc.document_type?.toUpperCase()} • {new Date(latestSimulationWithDoc.created_at).toLocaleString('pt-BR')}
+                                            {latestSimulationWithDoc.document_type?.toUpperCase()} • {new Date(latestSimulationWithDoc.updated_at || latestSimulationWithDoc.created_at).toLocaleString('pt-BR')}
                                         </p>
                                     </div>
                                 </div>
@@ -296,7 +296,7 @@ function NewSimulationPageContent() {
                                         <span className="font-semibold text-emerald-300">{formatCurrency(totals.liberadoTotal)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Seguro Obrigatório</span>
+                                        <span className="text-sm text-slate-400">Seguro Obrigatório Banco</span>
                                         <span className="font-semibold">{formatCurrency(totals.seguroObrigatorio)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">

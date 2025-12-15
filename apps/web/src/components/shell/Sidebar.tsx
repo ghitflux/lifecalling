@@ -22,6 +22,17 @@ type Item = {
 
 const NAV: Item[] = [
   { label: "Atendimento", href: "/esteira", icon: Home, roles: ["super_admin", "admin", "supervisor", "atendente"] },
+  {
+    label: "Life Mobile",
+    href: "/life-mobile",
+    icon: Smartphone,
+    roles: ["super_admin", "admin", "supervisor", "atendente"],
+    subItems: [
+      { label: "Dashboard", href: "/life-mobile" },
+      { label: "Clientes", href: "/life-mobile/clientes" },
+      { label: "Simulações", href: "/life-mobile/simulacoes" }
+    ]
+  },
   { label: "Dashboard", href: "/dashboard", icon: BarChart3, roles: ["super_admin", "admin", "supervisor"] },
   { label: "Rankings", href: "/rankings", icon: Trophy, roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
   { label: "Calculista", href: "/calculista", icon: Calculator, roles: ["super_admin", "admin", "supervisor", "calculista"] },
@@ -31,17 +42,6 @@ const NAV: Item[] = [
   { label: "Auditoria", href: "/admin/auditoria/sla", icon: Shield, roles: ["super_admin", "admin", "supervisor"] },
   { label: "Importação", href: "/importacao", icon: Upload, roles: ["super_admin", "admin"] },
   { label: "Usuários", href: "/usuarios", icon: Users, roles: ["super_admin", "admin"] },
-  {
-    label: "Life Mobile",
-    href: "/life-mobile",
-    icon: Smartphone,
-    roles: ["super_admin"],
-    subItems: [
-      { label: "Dashboard", href: "/life-mobile" },
-      { label: "Clientes", href: "/life-mobile/clientes" },
-      { label: "Simulações", href: "/life-mobile/simulacoes" }
-    ]
-  },
   { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["super_admin", "admin", "supervisor", "financeiro", "calculista", "atendente", "fechamento"] },
 ];
 
