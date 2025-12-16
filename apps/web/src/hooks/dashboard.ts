@@ -56,6 +56,10 @@ export const useAgentMetrics = (from?: string, to?: string) =>
       const response = await api.get(`/analytics/agent-metrics?${params.toString()}`);
       return response.data;
     },
-    staleTime: 60_000,
-    enabled: true,
+    staleTime: 300_000, // 5 minutos ao invés de 1
+    gcTime: 600_000, // 10 minutos de cache
+    refetchOnWindowFocus: false, // Não refazer query ao focar janela
+    refetchInterval: false, // Desabilitar refresh automático
+    refetchOnMount: false, // Não refazer query ao montar (usar cache se válido)
+    enabled: !!(from && to), // Só executar se tiver ambos parâmetros
   });
