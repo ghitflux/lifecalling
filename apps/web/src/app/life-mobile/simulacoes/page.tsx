@@ -99,7 +99,7 @@ export default function LifeMobileSimulationsPage() {
             if (isRejected) return false;
             return (
                 analysisStatus === "pending_analysis"
-                || (!analysisStatus && ["pending", "simulation_requested", "approved"].includes(status))
+                || (!analysisStatus && ["pending", "simulation_requested"].includes(status))
             );
         });
 
@@ -190,9 +190,9 @@ export default function LifeMobileSimulationsPage() {
         pending: "Em análise",
         simulation_requested: "Em análise",
         approved: "Aguardando cliente",
-        approved_by_client: "Aprovado pelo Cliente",
-        cliente_aprovada: "Aprovado pelo Cliente",
-        simulacao_aprovada: "Aprovado pelo Cliente",
+        approved_by_client: "Aprovado",
+        cliente_aprovada: "Aprovado",
+        simulacao_aprovada: "Aprovado",
         financeiro_pendente: "No Financeiro",
         contrato_efetivado: "Contrato Efetivado",
         rejected: "Reprovada",
@@ -268,6 +268,10 @@ export default function LifeMobileSimulationsPage() {
                     return false;
                 }
             }
+            // Simulação enviada (aguardando cliente) só aparece na aba específica
+            if (st === "approved" && status !== "enviada") {
+                return false;
+            }
             // Financeiro só aparece na aba específica
             if (["financeiro_pendente", "contrato_efetivado"].includes(st) && status !== "financeiro") {
                 return false;
@@ -282,7 +286,10 @@ export default function LifeMobileSimulationsPage() {
 
             if (status === "pending") {
                 if (analysisStatus === "approved_for_calculation") return true;
-                return st === "pending" || st === "simulation_requested" || st === "approved";
+                return st === "approved_for_calculation";
+            }
+            if (status === "enviada") {
+                return st === "approved";
             }
             if (status === "approved") {
                 return ["approved_by_client", "cliente_aprovada", "simulacao_aprovada"].includes(st);
@@ -315,6 +322,7 @@ export default function LifeMobileSimulationsPage() {
     };
 
     const pendingSimulations = filterSimulations("pending");
+    const sentSimulations = filterSimulations("enviada");
     const approvedSimulations = filterSimulations("approved");
     const financeSimulations = filterSimulations("financeiro");
     const rejectedSimulations = filterSimulations("rejected");
@@ -436,7 +444,7 @@ export default function LifeMobileSimulationsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-7 mb-6 bg-slate-900/70 border border-slate-800 rounded-xl">
+                <TabsList className="grid w-full grid-cols-8 mb-6 bg-slate-900/70 border border-slate-800 rounded-xl">
                     <TabsTrigger value="analise" className={tabsTriggerClass}>
                         Análise
                         <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
@@ -459,6 +467,12 @@ export default function LifeMobileSimulationsPage() {
                         Simulações
                         <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
                             {pendingSimulations.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="enviada" className={tabsTriggerClass}>
+                        Simulação Enviada
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
+                            {sentSimulations.length}
                         </span>
                     </TabsTrigger>
                     <TabsTrigger value="approved" className={tabsTriggerClass}>
@@ -562,6 +576,18 @@ export default function LifeMobileSimulationsPage() {
                             <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação pendente.</p>
                         ) : (
                             pendingSimulations.map((sim) => renderSimulationCard(sim))
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="enviada">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {isLoading ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
+                        ) : sentSimulations.length === 0 ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação enviada ao app.</p>
+                        ) : (
+                            sentSimulations.map((sim) => renderSimulationCard(sim))
                         )}
                     </div>
                 </TabsContent>

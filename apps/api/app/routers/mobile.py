@@ -191,11 +191,13 @@ def generate_fake_phone(user_id: int) -> str:
 
 def serialize_admin_simulation(sim: MobileSimulation) -> dict:
     """Serializa uma MobileSimulation para o formato esperado pelo frontend admin."""
-    # Normaliza status de análise ausente para itens com documento enviado
-    if not sim.analysis_status and sim.document_url:
-        sim.analysis_status = "pending_analysis"
-    if not sim.status and sim.document_url:
-        sim.status = "pending"
+    status_value = sim.status or ("pending" if sim.document_url else sim.status)
+    status_lower = (status_value or "").lower()
+
+    # Normaliza status de análise ausente APENAS para itens realmente em análise
+    analysis_value = sim.analysis_status
+    if not analysis_value and sim.document_url and (not status_lower or status_lower in {"pending", "simulation_requested"}):
+        analysis_value = "pending_analysis"
     fake_cpf = generate_fake_cpf(sim.user_id)
     fake_phone = generate_fake_phone(sim.user_id)
     return {
@@ -209,7 +211,7 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
         "interest_rate": decimal_to_float(sim.interest_rate),
         "installment_value": decimal_to_float(sim.installment_value),
         "total_amount": decimal_to_float(sim.total_amount),
-        "status": sim.status,
+        "status": status_value,
         "created_at": sim.created_at,
         "updated_at": getattr(sim, "updated_at", None),
         "banks_json": sim.banks_json or [],
@@ -227,7 +229,7 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
         "document_type": sim.document_type,
         "document_filename": sim.document_filename,
         # Campos de análise
-        "analysis_status": sim.analysis_status,
+        "analysis_status": analysis_value,
         "analyst_id": sim.analyst_id,
         "analyst_name": sim.analyst.name if sim.analyst else None,
         "analyst_notes": sim.analyst_notes,
@@ -730,13 +732,14 @@ async def approve_simulation_by_client(
 
     sim.status = "approved_by_client"
     sim.analysis_status = None
+    sim.updated_at = now_brt()
     db.commit()
     db.refresh(sim)
     create_notification(
         db,
         current_user.id,
         "Simulação aprovada",
-        "Você aprovou a simulação. Vamos iniciar o financeiro.",
+        "Você aprovou a simulação. O agente responsável entrará em contato para finalizar o contrato.",
         "success"
     )
     return sim
@@ -1113,7 +1116,7 @@ async def get_simulations_for_analysis(
                 MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]),
                 and_(
                     MobileSimulation.analysis_status.is_(None),
-                    MobileSimulation.status.in_(["pending", "simulation_requested", "approved"])
+                    MobileSimulation.status.in_(["pending", "simulation_requested"])
                 )
             )
         )
@@ -1129,8 +1132,8 @@ async def get_simulations_for_analysis(
             if not sim.status:
                 sim.status = "pending"
 
-        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested/approved, force pending_analysis para análise
-        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested", "approved"}:
+        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested, force pending_analysis para análise
+        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested"}:
             sim.analysis_status = "pending_analysis"
 
         if not sim.client_type:

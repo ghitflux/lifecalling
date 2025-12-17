@@ -194,7 +194,8 @@ def serialize_mobile_simulation(sim: MobileSimulation):
         "user": {
             "id": sim.user.id,
             "name": sim.user.name,
-            "email": sim.user.email
+            "email": sim.user.email,
+            "cpf": getattr(sim.user, "cpf", None)
         },
         "requested_amount": to_float(sim.requested_amount),
         "total_amount": to_float(sim.total_amount),
