@@ -455,9 +455,17 @@ export default function SimulationDetailPage() {
                                     Dados da Simulação
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="grid grid-cols-2 gap-4 text-slate-200">
+                            <CardContent className="space-y-4 text-slate-200">
                                 <div>
-                                    <p className="text-sm text-slate-400">Produto</p>
+                                    <p className="text-sm text-slate-400 mb-1">Valor Liberado</p>
+                                    <p className="font-medium text-xl text-indigo-400">
+                                        {formatCurrency(simulation.total_amount || simulation.requested_amount || 0)}
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-sm text-slate-400">Produto</p>
                                         <p className="font-medium capitalize">
                                             {simulation.type?.replace(/_/g, ' ') || simulation.simulation_type?.replace(/_/g, ' ') || 'N/A'}
                                         </p>
@@ -470,24 +478,17 @@ export default function SimulationDetailPage() {
                                             </div>
                                         )}
                                     </div>
-                                <div>
-                                    <p className="text-sm text-slate-400">Valor Solicitado</p>
-                                    <p className="font-medium">{formatCurrency(simulation.amount || simulation.requested_amount || 0)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-slate-400">Parcelas</p>
-                                    <p className="font-medium">{simulation.installments}x</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-slate-400">Taxa de Juros</p>
-                                    <p className="font-medium">{simulation.interest_rate}%</p>
-                                </div>
-                                {simulation.prazo && (
                                     <div>
-                                        <p className="text-sm text-slate-400">Prazo</p>
-                                        <p className="font-medium">{simulation.prazo} meses</p>
+                                        <p className="text-sm text-slate-400">Taxa de Juros</p>
+                                        <p className="font-medium">{simulation.interest_rate}%</p>
                                     </div>
-                                )}
+                                    {simulation.prazo && (
+                                        <div>
+                                            <p className="text-sm text-slate-400">Prazo</p>
+                                            <p className="font-medium">{simulation.prazo} meses</p>
+                                        </div>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     )}

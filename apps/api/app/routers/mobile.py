@@ -43,6 +43,11 @@ class SimulationResponse(BaseModel):
     status: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    # Campos de análise (para exibir pendências no app do cliente)
+    analysis_status: Optional[str] = None
+    analyst_notes: Optional[str] = None
+    pending_documents: Optional[List[dict]] = None
+    analyzed_at: Optional[datetime] = None
     # New fields
     banks_json: Optional[List[dict]] = None
     prazo: Optional[int] = None
@@ -282,6 +287,7 @@ class ClientRegisterRequest(BaseModel):
     password: str
     cpf: Optional[str] = None
     phone: Optional[str] = None
+    consent_credit_simulation: bool
 
 class ClientRegisterResponse(BaseModel):
     id: int
@@ -312,6 +318,12 @@ async def register_mobile_client(
 
     if phone and len(phone) > 20:
         raise HTTPException(status_code=400, detail="Telefone inválido")
+
+    if not client_data.consent_credit_simulation:
+        raise HTTPException(
+            status_code=400,
+            detail="Consentimento obrigatório para simulação de crédito",
+        )
 
     # Verificar se email já existe (case-insensitive)
     existing_user = db.query(User).filter(func.lower(User.email) == email).first()
@@ -711,6 +723,7 @@ async def approve_simulation_by_client(
         raise HTTPException(status_code=400, detail="Proposta ainda não disponível para aprovação")
 
     sim.status = "approved_by_client"
+    sim.analysis_status = None
     db.commit()
     db.refresh(sim)
     create_notification(
@@ -1175,6 +1188,7 @@ async def approve_simulation(
     if status_lower in client_approved_statuses:
         # Cliente já aprovou, enviar direto para o financeiro
         sim.status = "financeiro_pendente"
+        sim.analysis_status = None
         create_notification(
             db,
             sim.user_id,
@@ -1191,6 +1205,7 @@ async def approve_simulation(
                 detail="Simulação ainda não calculada pelo time de cálculo."
             )
         sim.status = "approved"
+        sim.analysis_status = None
         create_notification(
             db,
             sim.user_id,
@@ -1204,6 +1219,7 @@ async def approve_simulation(
         if has_calculation:
             # Se já existir cálculo pronto, pode seguir para o cliente
             sim.status = "approved"
+            sim.analysis_status = None
             create_notification(
                 db,
                 sim.user_id,
@@ -1228,6 +1244,7 @@ async def approve_simulation(
     else:
         # Primeira aprovação do admin, aguardando aprovação do cliente no app
         sim.status = "approved"
+        sim.analysis_status = None
         create_notification(
             db,
             sim.user_id,

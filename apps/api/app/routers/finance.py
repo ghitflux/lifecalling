@@ -227,15 +227,11 @@ class MobileDisburseIn(BaseModel):
 
 @r.get("/mobile/queue")
 def finance_mobile_queue(user=Depends(require_roles("admin", "supervisor", "financeiro"))):
-    """Fila de simulações mobile aprovadas pelo cliente para ação financeira."""
+    """Fila de simulações mobile enviadas ao financeiro para ação financeira."""
     with SessionLocal() as db:
         sims = (
             db.query(MobileSimulation)
-            .filter(MobileSimulation.status.in_([
-                "approved_by_client",
-                "aprovada_pelo_cliente",
-                "cliente_aprovada"
-            ]))
+            .filter(MobileSimulation.status.in_(["financeiro_pendente"]))
             .options(joinedload(MobileSimulation.user))
             .order_by(MobileSimulation.created_at.desc())
             .all()

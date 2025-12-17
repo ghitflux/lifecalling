@@ -110,7 +110,7 @@ export default function Page() {
     queryFn: mobileApi.getAdminSimulations,
     staleTime: 60_000
   });
-  const [mobileStatusFilter, setMobileStatusFilter] = useState<"approved_by_client" | "financeiro_pendente" | "contrato_efetivado" | "financeiro_cancelado">("approved_by_client");
+  const [mobileStatusFilter, setMobileStatusFilter] = useState<"financeiro_pendente" | "contrato_efetivado" | "financeiro_cancelado">("financeiro_pendente");
   const mobileCancel = useFinanceMobileCancel();
   const [mobileDisburseModal, setMobileDisburseModal] = useState<{open:boolean; sim:any | null; form:{consultoria_bruta:number; imposto_percentual:number; tem_corretor:boolean; corretor_nome:string; corretor_comissao_valor:number | null; atendente1_user_id:number | null; percentual_atendente1:number; atendente2_user_id:number | null; percentual_atendente2:number}}>({
     open: false,
@@ -986,7 +986,7 @@ export default function Page() {
       </div>
 
 
-      {/* Contratos Mobile (Aprovados pelo Cliente) */}
+      {/* Contratos Mobile */}
       <div className="space-y-4 mt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Contratos Mobile</h2>
@@ -1003,7 +1003,7 @@ export default function Page() {
         <div className="flex items-center gap-2 text-sm text-slate-300">
           <span>Filtro:</span>
           {([
-            { value: "approved_by_client", label: "Aguardando Financeiro" },
+            { value: "financeiro_pendente", label: "Aguardando Financeiro" },
             { value: "contrato_efetivado", label: "Efetivados" },
             { value: "financeiro_cancelado", label: "Cancelados" }
           ] as const).map(f => (
@@ -1021,7 +1021,7 @@ export default function Page() {
           <div className="text-center py-6 text-muted-foreground">Carregando contratos mobile...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(mobileStatusFilter === "approved_by_client"
+            {(mobileStatusFilter === "financeiro_pendente"
               ? mobileItems
               : adminSimulations.filter((sim: any) => (sim.status || "").toLowerCase() === mobileStatusFilter)
             ).map((sim: any) => (
@@ -1057,7 +1057,7 @@ export default function Page() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {mobileStatusFilter === "approved_by_client" && (
+                  {mobileStatusFilter === "financeiro_pendente" && (
                     <>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 flex-1"
@@ -1091,7 +1091,7 @@ export default function Page() {
                       </Button>
                     </>
                   )}
-                  {mobileStatusFilter !== "approved_by_client" && (
+                  {mobileStatusFilter !== "financeiro_pendente" && (
                     <Button
                       variant="secondary"
                       className="flex-1"

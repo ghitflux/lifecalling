@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from ..security import (
     set_auth_cookies, 
     verify_password, 
+    hash_password,
     get_current_user, 
     generate_csrf_token, 
     set_csrf_cookie
@@ -15,6 +16,10 @@ r = APIRouter(prefix="/auth", tags=["auth"])
 class LoginIn(BaseModel):
     email: str
     password: str
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str
 
 @r.post("/login")
 def login(payload: LoginIn, resp: Response):
@@ -64,7 +69,35 @@ def login(payload: LoginIn, resp: Response):
 
 @r.get("/me")
 def me(user: User = Depends(get_current_user)):
-    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "cpf": user.cpf,
+        "phone": user.phone,
+    }
+
+@r.post("/change-password")
+def change_password(payload: ChangePasswordIn, current_user: User = Depends(get_current_user)):
+    if not payload.current_password or not payload.new_password:
+        raise HTTPException(400, "missing fields")
+
+    if len(payload.new_password) < 6:
+        raise HTTPException(400, "password too short")
+
+    with SessionLocal() as db:
+        user = db.get(User, current_user.id)
+        if not user:
+            raise HTTPException(404, "user not found")
+
+        if not verify_password(payload.current_password, user.password_hash):
+            raise HTTPException(400, "current password invalid")
+
+        user.password_hash = hash_password(payload.new_password)
+        db.commit()
+
+    return {"ok": True}
 
 @r.post("/refresh")
 def refresh(resp: Response, refresh_token: str | None = Cookie(alias="refresh", default=None)):

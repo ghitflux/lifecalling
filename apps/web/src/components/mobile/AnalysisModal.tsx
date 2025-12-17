@@ -193,21 +193,53 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                     <Card className="bg-slate-800/50 border-slate-700">
                         <CardContent className="p-4">
                             <h4 className="font-semibold mb-3">Dados da Simulação</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <div className="space-y-4 text-sm">
                                 <div>
-                                    <p className="text-slate-400">Valor Solicitado</p>
-                                    <p className="font-medium text-lg">
-                                        {formatCurrency(simulation.requested_amount || 0)}
+                                    <p className="text-slate-400">Valor Liberado</p>
+                                    <p className="font-medium text-lg text-indigo-400">
+                                        {formatCurrency(simulation.total_amount || simulation.requested_amount || 0)}
                                     </p>
                                 </div>
-                                <div>
-                                    <p className="text-slate-400">Parcelas</p>
-                                    <p className="font-medium">{simulation.installments}x</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400">Tipo</p>
-                                    <p className="font-medium capitalize">{simulation.simulation_type}</p>
-                                </div>
+
+                                {simulation.banks_json && simulation.banks_json.length > 0 && (
+                                    <>
+                                        <div>
+                                            <p className="text-slate-400 mb-2">Produtos</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {simulation.banks_json
+                                                    .filter((bank: any) => bank.product)
+                                                    .map((bank: any, index: number) => (
+                                                        <Badge
+                                                            key={`product-${index}`}
+                                                            variant="outline"
+                                                            className="bg-indigo-500/15 text-indigo-200 border border-indigo-500/40"
+                                                        >
+                                                            {bank.product}
+                                                        </Badge>
+                                                    ))}
+                                                {simulation.banks_json.filter((bank: any) => bank.product).length === 0 && (
+                                                    <span className="text-slate-500 text-sm italic">Nenhum produto especificado</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-slate-400 mb-2">Bancos</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {simulation.banks_json.map((bank: any, index: number) => (
+                                                    <Badge
+                                                        key={`bank-${index}`}
+                                                        variant="outline"
+                                                        className="bg-slate-700/50 text-slate-100 border border-slate-600"
+                                                    >
+                                                        {(bank.bank || bank.banco || 'Banco').toString().toUpperCase()}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
                                 <div>
                                     <p className="text-slate-400">Data de Criação</p>
                                     <p className="font-medium">
