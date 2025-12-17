@@ -472,12 +472,18 @@ async def create_simulation_with_document(
         open_sim.document_url = str(file_path)
         open_sim.document_type = file_ext.lstrip(".")
         open_sim.document_filename = document.filename
-        open_sim.analysis_status = "pending_analysis"
+        is_pendency_return = (open_sim.status or "").lower() in {"pending_docs", "retorno_pendencia"} or (
+            (open_sim.analysis_status or "").lower() in {"pending_docs", "retorno_pendencia"}
+        )
         open_sim.simulation_type = open_sim.simulation_type or simulation_type
-        if open_sim.status == "pending_docs" or open_sim.analysis_status == "pending_docs":
+
+        if is_pendency_return:
             open_sim.status = "retorno_pendencia"
-        elif not open_sim.status:
-            open_sim.status = "pending"
+            open_sim.analysis_status = "retorno_pendencia"
+        else:
+            open_sim.analysis_status = "pending_analysis"
+            if not open_sim.status:
+                open_sim.status = "pending"
         db.commit()
         db.refresh(open_sim)
 
@@ -1520,6 +1526,7 @@ async def reprove_simulation_for_analysis(
     # Atualizar status
     sim.analysis_status = "reproved"
     sim.status = "rejected"
+    sim.updated_at = now_brt()
     sim.analyst_id = current_user.id
     sim.analyst_notes = request_data.analyst_notes
     sim.analyzed_at = now_brt()
