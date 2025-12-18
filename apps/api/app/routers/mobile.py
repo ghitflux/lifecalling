@@ -181,6 +181,84 @@ def ensure_push_token_table():
         conn.execute(text(ddl))
     _PUSH_TOKEN_TABLE_READY = True
 
+_MOBILE_SCHEMA_READY = False
+def ensure_mobile_schema():
+    """
+    Garante que as tabelas/colunas do Life Mobile existam no banco (produção),
+    evitando 500 por schema desatualizado (create_all não faz ALTER TABLE).
+    """
+    global _MOBILE_SCHEMA_READY
+    if _MOBILE_SCHEMA_READY:
+        return
+
+    statements = [
+        # Base tables (mínimo para funcionar mesmo sem migrations)
+        """
+        CREATE TABLE IF NOT EXISTS mobile_simulations (
+            id VARCHAR(36) PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            simulation_type VARCHAR(50) NOT NULL,
+            requested_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+            installments INTEGER NOT NULL DEFAULT 0,
+            interest_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+            installment_value NUMERIC(14,2) NOT NULL DEFAULT 0,
+            total_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+            status VARCHAR(50) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now()
+        )
+        """,
+        # Campos adicionados ao longo do tempo (migrations podem não ter rodado)
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS banks_json JSON",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS prazo INTEGER",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS coeficiente TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS seguro NUMERIC(14,2)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS percentual_consultoria NUMERIC(5,2)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS document_url TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS document_type VARCHAR(50)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS document_filename TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analysis_status VARCHAR(50) DEFAULT 'pending_analysis'",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analyst_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analyst_notes TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS pending_documents JSON DEFAULT '[]'::json",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analyzed_at TIMESTAMP",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS client_type VARCHAR(20)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS has_active_contract BOOLEAN DEFAULT FALSE",
+
+        """
+        CREATE TABLE IF NOT EXISTS mobile_simulation_documents (
+            id VARCHAR(36) PRIMARY KEY,
+            simulation_id VARCHAR(36) NOT NULL REFERENCES mobile_simulations(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            file_path TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT now()
+        )
+        """,
+        "ALTER TABLE mobile_simulation_documents ADD COLUMN IF NOT EXISTS document_label VARCHAR(80)",
+        "ALTER TABLE mobile_simulation_documents ADD COLUMN IF NOT EXISTS file_ext VARCHAR(10)",
+        "ALTER TABLE mobile_simulation_documents ADD COLUMN IF NOT EXISTS original_filename TEXT",
+
+        # Índices (performance)
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulations_user_id ON mobile_simulations(user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulations_status ON mobile_simulations(status)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulations_created_at ON mobile_simulations(created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulation_documents_user_created_at ON mobile_simulation_documents(user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulation_documents_simulation_id_created_at ON mobile_simulation_documents(simulation_id, created_at)",
+    ]
+
+    ok = True
+    with engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+            except Exception as exc:
+                ok = False
+                preview = " ".join(str(stmt).split())[:140]
+                print(f"[WARN] ensure_mobile_schema failed: {preview} ... ({exc})")
+
+    if ok:
+        _MOBILE_SCHEMA_READY = True
+
 def generate_fake_cpf(user_id: int) -> str:
     """Gera um CPF fictício determinístico a partir do ID do usuário (11 dígitos)."""
     return str(10000000000 + user_id)[-11:]
