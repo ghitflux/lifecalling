@@ -957,7 +957,8 @@ async def get_admin_clients(
     
     # CORRIGIDO: Retornar APENAS clientes mobile (role = 'mobile_client')
     mobile_clients = db.query(User).filter(
-        User.role == "mobile_client"
+        User.role == "mobile_client",
+        User.active == True
     ).order_by(User.created_at.desc()).all()
 
     # Serializar dados extras esperados pelo frontend (cpf/phone são opcionais)
@@ -973,6 +974,55 @@ async def get_admin_clients(
         }
         for client in mobile_clients
     ]
+
+
+@router.delete("/admin/clients/{client_id}")
+async def delete_admin_client(
+    client_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Exclusão administrativa de clientes mobile.
+
+    Regra: remove o acesso (inativa/anônima) sem apagar dados do sistema web.
+    """
+    # Apenas admin/super_admin podem excluir
+    if current_user.role not in {"admin", "super_admin"}:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    client = (
+        db.query(User)
+        .filter(User.id == client_id, User.role == "mobile_client")
+        .first()
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente mobile não encontrado")
+
+    # Anonimiza e inativa para:
+    # - impedir login
+    # - permitir que o usuário se recadastre com o mesmo email futuramente
+    now_ts = now_brt()
+    client.active = False
+    client.name = f"Cliente Excluído ({client.id})"
+    client.email = f"deleted+{client.id}+{int(now_ts.timestamp())}@example.invalid"
+    client.cpf = None
+    client.phone = None
+    client.password_hash = hash_password(str(uuid.uuid4()))
+
+    # Remover push tokens do cliente excluído
+    try:
+        ensure_push_token_table()
+        db.execute(
+            text("DELETE FROM mobile_push_tokens WHERE user_id = :user_id"),
+            {"user_id": client.id},
+        )
+    except Exception:
+        pass
+
+    db.commit()
+
+    return {"ok": True, "id": client_id}
 
 @router.get("/admin/simulations", response_model=List[AdminSimulationResponse])
 async def get_admin_simulations(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Snippet } from "@nextui-org/snippet";
 import {
@@ -10,7 +10,8 @@ import {
     FileText,
     Eye,
     Paperclip,
-    Search
+    Search,
+    Trash2
 } from "lucide-react";
 import {
     Card,
@@ -27,6 +28,8 @@ import {
     Input
 } from "@lifecalling/ui";
 import { mobileApi, type AdminClient, type AdminSimulation } from "@/services/mobileApi";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 const copyIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -244,6 +247,26 @@ function ClientDetailsModal({ client }: { client: AdminClient }) {
 export default function LifeMobileClientsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const router = useRouter();
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [clientToDelete, setClientToDelete] = useState<AdminClient | null>(null);
+
+    const deleteClientMutation = useMutation({
+        mutationFn: async (clientId: number) => mobileApi.deleteAdminClient(clientId),
+        onSuccess: () => {
+            toast.success("Cliente mobile excluído");
+            queryClient.invalidateQueries({ queryKey: ["adminClients"] });
+            queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
+            setDeleteModalOpen(false);
+            setClientToDelete(null);
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || "Erro ao excluir cliente mobile");
+        }
+    });
 
     const { data: clients, isLoading } = useQuery({
         queryKey: ["adminClients"],
@@ -424,6 +447,20 @@ export default function LifeMobileClientsPage() {
                                                         Simular
                                                     </Button>
                                                 )}
+                                                {isAdmin && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        className="ml-2"
+                                                        onClick={() => {
+                                                            setClientToDelete(client);
+                                                            setDeleteModalOpen(true);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-1" />
+                                                        Excluir
+                                                    </Button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -433,6 +470,51 @@ export default function LifeMobileClientsPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog
+                open={deleteModalOpen}
+                onOpenChange={(open) => {
+                    setDeleteModalOpen(open);
+                    if (!open) setClientToDelete(null);
+                }}
+            >
+                <DialogContent className="bg-slate-900 text-slate-100 border border-slate-800 max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Excluir cliente mobile</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-3 text-sm">
+                        <p className="text-slate-300">
+                            Esta ação <span className="font-semibold">remove o acesso</span> do cliente ao app. Dados do sistema web não serão removidos.
+                        </p>
+                        <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+                            <p className="font-semibold text-slate-100">{clientToDelete?.name || "-"}</p>
+                            <p className="text-slate-400 break-all">{clientToDelete?.email || "-"}</p>
+                            <p className="text-slate-400">{clientToDelete?.cpf || "-"}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button
+                            variant="outline"
+                            className="border-slate-700 text-slate-100 hover:bg-slate-800"
+                            onClick={() => setDeleteModalOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={!clientToDelete || deleteClientMutation.isPending}
+                            onClick={() => {
+                                if (!clientToDelete) return;
+                                deleteClientMutation.mutate(clientToDelete.id);
+                            }}
+                        >
+                            {deleteClientMutation.isPending ? "Excluindo..." : "Confirmar exclusão"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

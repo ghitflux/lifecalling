@@ -140,6 +140,11 @@ export const mobileApi = {
     return response.data;
   },
 
+  deleteAdminClient: async (id: number) => {
+    const response = await api.delete(`${basePath}/admin/clients/${id}`);
+    return response.data;
+  },
+
   getAdminSimulations: async () => {
     const response = await api.get<AdminSimulation[]>(`${basePath}/admin/simulations`);
     return response.data;
