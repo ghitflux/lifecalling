@@ -29,6 +29,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { SimulationFormMultiBank } from "@/components/mobile/SimulationFormMultiBank";
 import { computeTotals } from "@/lib/utils/simulation-calculations";
+import { formatDateBR, formatDateTimeBR } from "@/lib/timezone";
 
 type BankEntry = {
     bank?: string;
@@ -440,7 +441,7 @@ export default function SimulationDetailPage() {
                                 <p className="text-sm text-slate-400">Data da Solicitação</p>
                                 <p className="font-medium flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-slate-500" />
-                                    {new Date(simulation.created_at).toLocaleString('pt-BR')}
+                                    {formatDateTimeBR(simulation.created_at)}
                                 </p>
                             </div>
                         </CardContent>
@@ -724,7 +725,7 @@ export default function SimulationDetailPage() {
                                                         {doc.document_filename || 'Documento anexado'}
                                                     </p>
                                                     <p className="text-sm text-slate-400">
-                                                        {(doc.document_type || '').toUpperCase()} • {new Date(doc.created_at).toLocaleString('pt-BR')}
+                                                        {(doc.document_type || '').toUpperCase()} • {formatDateTimeBR(doc.created_at)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -749,7 +750,7 @@ export default function SimulationDetailPage() {
                                                 {simulation.document_filename || 'Documento anexado'}
                                             </p>
                                             <p className="text-sm text-slate-400">
-                                                {simulation.document_type?.toUpperCase()} • {new Date(simulation.created_at).toLocaleString('pt-BR')}
+                                                {simulation.document_type?.toUpperCase()} • {formatDateTimeBR(simulation.created_at)}
                                             </p>
                                         </div>
                                     </div>
@@ -785,7 +786,7 @@ export default function SimulationDetailPage() {
                                 <div>
                                     <p className="font-semibold text-slate-100">#{sim.id} · {sim.user_name || "Cliente"}</p>
                                     <p className="text-xs text-slate-400">
-                                        {new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")} · {sim.type?.replace(/_/g, " ")}
+                                        {formatDateBR(sim.updated_at || sim.created_at)} · {sim.type?.replace(/_/g, " ")}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">

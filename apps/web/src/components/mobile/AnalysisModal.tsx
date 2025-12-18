@@ -26,6 +26,7 @@ import {
 import { formatCurrency } from "@/lib/utils/currency";
 import { toast } from "sonner";
 import { FileText, Download, Plus, X, CheckCircle, XCircle, AlertCircle, Eye } from "lucide-react";
+import { formatDateBR, formatDateTimeBR } from "@/lib/timezone";
 
 interface AnalysisModalProps {
     simulation: AdminSimulation | null;
@@ -256,7 +257,7 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                                 <div>
                                     <p className="text-slate-400">Data de Criação</p>
                                     <p className="font-medium">
-                                        {new Date(simulation.created_at).toLocaleDateString("pt-BR")}
+                                        {formatDateBR(simulation.created_at)}
                                     </p>
                                 </div>
                             </div>
@@ -284,7 +285,7 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                                                         <p className="font-medium">{doc.document_filename || "Documento"}</p>
                                                         <p className="text-sm text-slate-400">
                                                             Tipo: {(doc.document_type || "").toUpperCase() || "N/A"}
-                                                            {doc.created_at ? ` • ${new Date(doc.created_at).toLocaleString("pt-BR")}` : ""}
+                                                            {doc.created_at ? ` • ${formatDateTimeBR(doc.created_at)}` : ""}
                                                         </p>
                                                     </div>
                                                 </div>

@@ -14,6 +14,7 @@ import Financiamentos from "@/components/clients/Financiamentos";
 import { Snippet } from "@nextui-org/snippet";
 import CaseChat from "@/components/case/CaseChat";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BRASILIA_TIMEZONE, formatDateBR, parseApiDate } from "@/lib/timezone";
 
 export default function ClienteDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -331,14 +332,28 @@ export default function ClienteDetalhe() {
           </Card>
         )}
 
-        {client.created_at && (
-          <div className="mt-4 pt-4 border-t">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              Importado em {new Date(client.created_at).toLocaleDateString('pt-BR')} às {new Date(client.created_at).toLocaleTimeString('pt-BR')}
-            </div>
-          </div>
-        )}
+	        {client.created_at && (
+	          <div className="mt-4 pt-4 border-t">
+	            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+	              <Calendar className="h-4 w-4" />
+	              {(() => {
+	                const createdAt = parseApiDate(client.created_at);
+	                if (!createdAt) return <>Importado em {formatDateBR(client.created_at)}</>;
+	                return (
+	                  <>
+	                    Importado em{" "}
+	                    {createdAt.toLocaleDateString("pt-BR", { timeZone: BRASILIA_TIMEZONE })} às{" "}
+	                    {createdAt.toLocaleTimeString("pt-BR", {
+	                      timeZone: BRASILIA_TIMEZONE,
+	                      hour: "2-digit",
+	                      minute: "2-digit",
+	                    })}
+	                  </>
+	                );
+	              })()}
+	            </div>
+	          </div>
+	        )}
       </Card>
 
       {/* Endereço */}
@@ -447,11 +462,11 @@ export default function ClienteDetalhe() {
                       }
                     </td>
                     <td className="py-3 px-4 text-sm">
-                      {caso.created_at ? new Date(caso.created_at).toLocaleDateString('pt-BR') : '—'}
-                    </td>
-                    <td className="py-3 px-4 text-sm">
-                      {caso.last_update_at ? new Date(caso.last_update_at).toLocaleDateString('pt-BR') : '—'}
-                    </td>
+	                      {caso.created_at ? formatDateBR(caso.created_at) : '—'}
+	                    </td>
+	                    <td className="py-3 px-4 text-sm">
+	                      {caso.last_update_at ? formatDateBR(caso.last_update_at) : '—'}
+	                    </td>
                     <td className="py-3 px-4 text-sm">
                       {caso.assigned_to || <span className="text-muted-foreground italic">Não atribuído</span>}
                     </td>
@@ -516,9 +531,9 @@ export default function ClienteDetalhe() {
                     <div>
                       <p className="text-muted-foreground">Data Efetivação</p>
                       <p className="font-semibold">
-                        {contrato.disbursed_at ? new Date(contrato.disbursed_at).toLocaleDateString('pt-BR') : '-'}
-                      </p>
-                    </div>
+	                        {contrato.disbursed_at ? formatDateBR(contrato.disbursed_at) : '-'}
+	                      </p>
+	                    </div>
                   </div>
 
                   {contrato.attachments && contrato.attachments.length > 0 && (

@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, User, Calendar, DollarSign, Building, X, CheckCircle, Clock, TrendingUp, TrendingDown, Target, FileCheck, Eye, Search } from "lucide-react";
+import { BRASILIA_TIMEZONE, formatDateBR } from "@/lib/timezone";
 
 function FechamentoContent() {
   useLiveCaseEvents();
@@ -112,7 +113,7 @@ function FechamentoContent() {
     for (let month = 0; month < 12; month++) {
       const date = new Date(currentYear, month, 1);
       const value = `${currentYear}-${String(month + 1).padStart(2, '0')}`;
-      const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: BRASILIA_TIMEZONE });
       months.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
     }
 
@@ -594,7 +595,7 @@ function FechamentoContent() {
                     )}
 
                     <div className="text-xs text-muted-foreground">
-                      Efetivado em: {new Date(caso.updated_at || caso.created_at).toLocaleDateString("pt-BR")}
+                      Efetivado em: {formatDateBR(caso.updated_at || caso.created_at)}
                     </div>
 
                     <div className="flex gap-2">

@@ -30,6 +30,7 @@ import {
 import { mobileApi, type AdminClient, type AdminSimulation } from "@/services/mobileApi";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { formatDateBR, formatDateTimeBR, parseApiDate } from "@/lib/timezone";
 
 const copyIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -108,11 +109,11 @@ function ClientSimulationsModal({ client }: { client: AdminClient }) {
                                         <p className="text-slate-400">Parcelas</p>
                                         <p className="font-medium text-slate-100">{sim.installments}x</p>
                                     </div>
-                                    <div>
-                                        <p className="text-slate-400">Data</p>
-                                        <p className="font-medium text-slate-100">{new Date(sim.created_at).toLocaleDateString('pt-BR')}</p>
-                                    </div>
-                                </div>
+	                                    <div>
+	                                        <p className="text-slate-400">Data</p>
+	                                        <p className="font-medium text-slate-100">{formatDateBR(sim.created_at)}</p>
+	                                    </div>
+	                                </div>
                                 {sim.document_filename && (
                                     <div className="mt-2 flex items-center gap-2 text-sm text-indigo-200">
                                         <Paperclip size={14} />
@@ -143,11 +144,11 @@ function ClientDetailsModal({ client }: { client: AdminClient }) {
     const cachedSimulations = queryClient.getQueryData<AdminSimulation[]>(["adminSimulations"]);
     const simulations: AdminSimulation[] = (cachedSimulations || []).filter(sim => sim.user_email === client.email);
     const simulationsSorted = [...simulations].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) => (parseApiDate(b.created_at)?.getTime() ?? 0) - (parseApiDate(a.created_at)?.getTime() ?? 0)
     );
     const contratosEfetivados = simulationsSorted.filter(sim => (sim.status || "").toLowerCase() === "contrato_efetivado");
 
-    const formattedCreatedAt = client.created_at ? new Date(client.created_at).toLocaleDateString("pt-BR") : "-";
+    const formattedCreatedAt = client.created_at ? formatDateBR(client.created_at) : "-";
 
     return (
         <DialogContent className="max-w-xl bg-slate-900 text-slate-100 border border-slate-800">
@@ -209,7 +210,7 @@ function ClientDetailsModal({ client }: { client: AdminClient }) {
                                 <div>
                                     <p className="font-semibold text-slate-100">{(sim.type || sim.simulation_type || '').replace(/_/g, ' ') || 'Simulação'}</p>
                                     <p className="text-xs text-slate-400">
-                                        {new Date(sim.created_at).toLocaleString('pt-BR')} • {sim.status}
+                                        {formatDateTimeBR(sim.created_at)} • {sim.status}
                                     </p>
                                 </div>
                                 <p className="font-semibold text-emerald-200">{sim.amount ? `R$ ${sim.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}</p>
@@ -231,7 +232,7 @@ function ClientDetailsModal({ client }: { client: AdminClient }) {
                                 <div>
                                     <p className="font-semibold text-slate-100">{(sim.type || sim.simulation_type || '').replace(/_/g, ' ') || 'Contrato Mobile'}</p>
                                     <p className="text-xs text-slate-400">
-                                        {new Date(sim.created_at).toLocaleString('pt-BR')}
+                                        {formatDateTimeBR(sim.created_at)}
                                     </p>
                                 </div>
                                 <p className="font-semibold text-emerald-200">{sim.amount ? `R$ ${sim.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}</p>
@@ -412,7 +413,7 @@ export default function LifeMobileClientsPage() {
                                                 </Snippet>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-                                                {new Date(client.created_at).toLocaleDateString('pt-BR')}
+                                                {formatDateBR(client.created_at)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <Dialog>

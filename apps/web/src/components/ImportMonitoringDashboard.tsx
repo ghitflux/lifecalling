@@ -6,6 +6,7 @@ import { Card } from '@lifecalling/ui';
 import { Button } from '@lifecalling/ui';
 import { StatusBadge } from '@lifecalling/ui';
 import { AlertTriangle, CheckCircle, XCircle, RefreshCw, FileText, Database, Users } from 'lucide-react';
+import { formatDateTimeBR } from "@/lib/timezone";
 
 interface ImportHealthData {
   health_status: string;
@@ -389,7 +390,7 @@ export function ImportMonitoringDashboard() {
 
       {/* Footer */}
       <div className="text-center text-sm text-gray-500">
-        Última atualização: {new Date(healthData.timestamp).toLocaleString('pt-BR')}
+        Última atualização: {formatDateTimeBR(healthData.timestamp)}
       </div>
     </div>
   );

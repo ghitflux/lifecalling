@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Search, User, FileText, Users, X, Building2, Activity, Target, CheckCircle, TrendingUp, Download } from "lucide-react";
 import { KPICard } from "@lifecalling/ui";
 import { ExportClientsDialog } from "@/components/ExportClientsDialog";
+import { formatDateBR } from "@/lib/timezone";
 
 export default function Clientes() {
   const [page, setPage] = useState(1);
@@ -316,11 +317,11 @@ export default function Clientes() {
                       </div>
                     </div>
 
-                    {client.created_at && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Importado em {new Date(client.created_at).toLocaleDateString('pt-BR')}
-                      </div>
-                    )}
+	                    {client.created_at && (
+	                      <div className="mt-2 text-xs text-muted-foreground">
+	                        Importado em {formatDateBR(client.created_at)}
+	                      </div>
+	                    )}
                   </div>
 
                   <div className="ml-4">

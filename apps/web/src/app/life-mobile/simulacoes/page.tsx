@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils/currency";
 import { useSimulationsForAnalysis } from "@/hooks/useMobileAnalysis";
 import { AnalysisModal } from "@/components/mobile/AnalysisModal";
+import { formatDateBR, parseApiDate } from "@/lib/timezone";
 
 export default function LifeMobileSimulationsPage() {
     const router = useRouter();
@@ -44,7 +45,7 @@ export default function LifeMobileSimulationsPage() {
         "gap-2 rounded-lg text-slate-300 hover:bg-slate-800/60 hover:text-slate-100 data-[state=active]:bg-slate-800/90 data-[state=active]:text-slate-50 data-[state=active]:shadow-none";
 
     const getSimulationSortTimestamp = (sim: AdminSimulation) => {
-        return new Date(sim.updated_at || sim.created_at).getTime();
+        return parseApiDate(sim.updated_at || sim.created_at)?.getTime() ?? 0;
     };
 
     const normalizeSimulation = (sim: AdminSimulation) => {
@@ -391,7 +392,7 @@ export default function LifeMobileSimulationsPage() {
                         </div>
                         <div className="col-span-2">
                             <p className="text-slate-400">Data</p>
-                            <p className="font-medium text-slate-100">{new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")}</p>
+                            <p className="font-medium text-slate-100">{formatDateBR(sim.updated_at || sim.created_at)}</p>
                         </div>
                     </div>
 

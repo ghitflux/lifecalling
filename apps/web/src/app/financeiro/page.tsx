@@ -73,7 +73,9 @@ import { useRouter } from "next/navigation";
 import {
   startOfMonthBrasilia,
   endOfMonthBrasilia,
-  formatDateBrasilia
+  formatDateBR,
+  formatDateBrasilia,
+  parseApiDate
 } from "@/lib/timezone";
 
 export default function Page() {
@@ -245,7 +247,7 @@ export default function Page() {
     // ✅ ATUALIZADO: Incluir coluna "Nome (Despesa/Receita)" e manter ordem da tabela
     const headers = ["Data", "Tipo", "Nome (Despesa/Receita)", "Cliente", "CPF", "Atendente", "Categoria", "Valor"];
     const rows = transactions.map((t: any) => [
-      new Date(t.date).toLocaleDateString("pt-BR"),
+      formatDateBR(t.date),
       t.type === "receita" ? "Receita" : "Despesa",
       t.name || "-", // ✅ NOVO: Nome da Despesa/Receita
       t.client_name || "-",
@@ -1043,9 +1045,8 @@ export default function Page() {
                   const totalFinanciado = Number(sim.total_amount ?? sim.requested_amount ?? liberadoTotal ?? 0);
                   const custoConsultoria = ((Number(sim.percentual_consultoria ?? 0)) / 100) * totalFinanciado;
 
-                  const createdAt = sim.created_at ? new Date(sim.created_at) : null;
-                  const createdAtLabel =
-                    createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString("pt-BR") : "-";
+                  const createdAt = parseApiDate(sim.created_at);
+                  const createdAtLabel = createdAt ? formatDateBR(createdAt) : "-";
 
                   return (
                     <>
@@ -1761,7 +1762,7 @@ export default function Page() {
                           <td className="p-4 text-sm whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              {new Date(transaction.date).toLocaleDateString("pt-BR")}
+                              {formatDateBR(transaction.date)}
                             </div>
                           </td>
                           <td className="p-4">
