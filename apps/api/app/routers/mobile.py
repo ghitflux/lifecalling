@@ -1157,12 +1157,29 @@ async def delete_admin_client(
         .all()
     ]
     if simulation_ids:
+        documents = (
+            db.query(MobileSimulationDocument)
+            .filter(MobileSimulationDocument.simulation_id.in_(simulation_ids))
+            .all()
+        )
+        for doc in documents:
+            if doc.file_path:
+                try:
+                    if os.path.exists(doc.file_path):
+                        os.remove(doc.file_path)
+                except Exception:
+                    pass
+
         db.query(MobileSimulationDocument).filter(
             MobileSimulationDocument.simulation_id.in_(simulation_ids)
         ).delete(synchronize_session=False)
         db.query(MobileSimulation).filter(
             MobileSimulation.id.in_(simulation_ids)
         ).delete(synchronize_session=False)
+
+    db.query(MobileNotification).filter(
+        MobileNotification.user_id == client.id
+    ).delete(synchronize_session=False)
 
     # Anonimiza e inativa para:
     # - impedir login
@@ -1346,7 +1363,7 @@ async def get_simulations_for_analysis(
         .options(selectinload(MobileSimulation.user), selectinload(MobileSimulation.analyst))
         .filter(
             or_(
-                MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]),
+                MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs", "retorno_pendencia"]),
                 and_(
                     MobileSimulation.analysis_status.is_(None),
                     MobileSimulation.status.in_(["pending", "simulation_requested"])

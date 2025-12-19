@@ -102,7 +102,7 @@ export function useApproveForCalculation() {
       console.log('✅ Aprovação confirmada pelo backend:', responseData);
       console.log('📝 Dados enviados:', variables);
 
-      toast.success('Simulação aprovada! Card movido para tab Aprovadas com status "Simulação Pendente".');
+      toast.success('Simulação aprovada! Card movido para a tab Em Simulação.');
 
       try {
         // Invalidar todas as queries relacionadas

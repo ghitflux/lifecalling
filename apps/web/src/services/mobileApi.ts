@@ -64,7 +64,7 @@ export interface AdminSimulation extends Simulation {
   document_type?: string;
   document_filename?: string;
   // Analysis fields
-  analysis_status?: 'pending_analysis' | 'pending_docs' | 'approved_for_calculation' | 'reproved';
+  analysis_status?: 'pending_analysis' | 'pending_docs' | 'retorno_pendencia' | 'approved_for_calculation' | 'reproved';
   analyst_id?: number;
   analyst_name?: string;
   analyst_notes?: string;
@@ -183,6 +183,11 @@ export const mobileApi = {
 
   getAdminSimulationDocuments: async (id: string) => {
     const response = await api.get<AdminDocumentItem[]>(`${basePath}/admin/simulations/${id}/documents`);
+    return response.data;
+  },
+
+  deleteAdminClient: async (clientId: number) => {
+    const response = await api.delete(`${basePath}/admin/clients/${clientId}`);
     return response.data;
   },
 

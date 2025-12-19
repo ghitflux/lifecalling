@@ -1,16 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Snippet } from "@nextui-org/snippet";
 import {
     User,
-    Phone,
     FileText,
     Eye,
     Paperclip,
-    Search
+    Search,
+    Trash2
 } from "lucide-react";
 import {
     Card,
@@ -22,11 +22,15 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
+    DialogFooter,
     DialogTrigger,
     Badge,
     Input
 } from "@lifecalling/ui";
+import { toast } from "sonner";
 import { mobileApi, type AdminClient, type AdminSimulation } from "@/services/mobileApi";
+import { useAuth } from "@/lib/auth";
 
 const copyIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -243,7 +247,11 @@ function ClientDetailsModal({ client }: { client: AdminClient }) {
 
 export default function LifeMobileClientsPage() {
     const [searchTerm, setSearchTerm] = useState("");
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [clientToDelete, setClientToDelete] = useState<AdminClient | null>(null);
     const router = useRouter();
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
 
     const { data: clients, isLoading } = useQuery({
         queryKey: ["adminClients"],
@@ -263,6 +271,21 @@ export default function LifeMobileClientsPage() {
         refetchOnReconnect: true,
         refetchOnMount: "always",
         refetchInterval: 15000
+    });
+
+    const deleteClientMutation = useMutation({
+        mutationFn: (clientId: number) => mobileApi.deleteAdminClient(clientId),
+        onSuccess: () => {
+            toast.success("Cliente mobile excluído com sucesso.");
+            queryClient.invalidateQueries({ queryKey: ["adminClients"] });
+            queryClient.invalidateQueries({ queryKey: ["adminSimulations"] });
+            setDeleteOpen(false);
+            setClientToDelete(null);
+        },
+        onError: (error: any) => {
+            const message = error?.response?.data?.detail || "Erro ao excluir cliente mobile";
+            toast.error(message);
+        },
     });
 
     const filteredClients = clients?.filter((client) =>
@@ -297,6 +320,13 @@ export default function LifeMobileClientsPage() {
             const status = (sim.status || "").toLowerCase();
             return status === "simulacao_solicitada" || status === "simulation_requested" || status === "pending";
         });
+    };
+
+    const canDeleteClient = user?.role === "admin" || user?.role === "super_admin";
+
+    const handleDeleteClient = (client: AdminClient) => {
+        setClientToDelete(client);
+        setDeleteOpen(true);
     };
 
     return (
@@ -424,6 +454,18 @@ export default function LifeMobileClientsPage() {
                                                         Simular
                                                     </Button>
                                                 )}
+                                                {canDeleteClient && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="ml-2 border-rose-500/50 text-rose-200 hover:bg-rose-500/10"
+                                                        onClick={() => handleDeleteClient(client)}
+                                                        disabled={deleteClientMutation.isPending}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-1" />
+                                                        Excluir
+                                                    </Button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -433,6 +475,57 @@ export default function LifeMobileClientsPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog
+                open={deleteOpen}
+                onOpenChange={(open) => {
+                    setDeleteOpen(open);
+                    if (!open) {
+                        setClientToDelete(null);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-md bg-slate-900 text-slate-100 border border-slate-800">
+                    <DialogHeader>
+                        <DialogTitle>Excluir cliente mobile</DialogTitle>
+                        <DialogDescription className="text-slate-400">
+                            Esta ação desativa o acesso do cliente e remove as simulações vinculadas no Life Mobile.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="text-sm text-slate-300">
+                        {clientToDelete ? (
+                            <>
+                                Confirma a exclusão de <span className="font-semibold text-slate-100">{clientToDelete.name}</span>?
+                            </>
+                        ) : (
+                            "Selecione um cliente para excluir."
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setDeleteOpen(false);
+                                setClientToDelete(null);
+                            }}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            className="bg-rose-600 hover:bg-rose-700"
+                            disabled={!clientToDelete || deleteClientMutation.isPending}
+                            onClick={() => {
+                                if (!clientToDelete) return;
+                                deleteClientMutation.mutate(clientToDelete.id);
+                            }}
+                        >
+                            {deleteClientMutation.isPending ? "Excluindo..." : "Confirmar exclusão"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

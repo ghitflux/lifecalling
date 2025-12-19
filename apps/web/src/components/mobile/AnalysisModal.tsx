@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
     Dialog,
     DialogContent,
@@ -16,7 +17,7 @@ import {
     Card,
     CardContent,
 } from "@lifecalling/ui";
-import { AdminSimulation, PendingDocument, mobileApi } from "@/services/mobileApi";
+import { AdminDocumentItem, AdminSimulation, PendingDocument, mobileApi } from "@/services/mobileApi";
 import {
     usePendSimulation,
     useReproveSimulation,
@@ -44,6 +45,12 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
     const reproveMutation = useReproveSimulation();
     const approveMutation = useApproveForCalculation();
     const downloadMutation = useDownloadSimulationDocument();
+    const { data: documents = [], isLoading: isLoadingDocuments } = useQuery({
+        queryKey: ["adminSimulationDocuments", simulation?.id],
+        queryFn: () => mobileApi.getAdminSimulationDocuments(simulation!.id),
+        enabled: open && !!simulation?.id,
+        staleTime: 0,
+    });
 
     if (!simulation) return null;
 
@@ -101,33 +108,28 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
         }
     };
 
-    const handleDownloadDocument = async () => {
-        if (simulation.document_url) {
-            await downloadMutation.mutateAsync({
-                simulationId: simulation.id,
-                documentType: simulation.document_type,
-                filename: simulation.document_filename
-            });
-        }
+    const handleDownloadDocument = async (doc: AdminDocumentItem) => {
+        await downloadMutation.mutateAsync({
+            simulationId: doc.id,
+            documentType: doc.document_type,
+            filename: doc.document_filename
+        });
     };
 
-    const handleViewDocument = async () => {
-        if (simulation.document_url) {
-            try {
-                const blob = await mobileApi.getSimulationDocument(simulation.id);
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
+    const handleViewDocument = async (doc: AdminDocumentItem) => {
+        try {
+            const blob = await mobileApi.getSimulationDocument(doc.id);
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
 
-                // Limpar URL após algum tempo
-                setTimeout(() => {
-                    window.URL.revokeObjectURL(url);
-                }, 60000); // 1 minuto
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+            }, 60000); // 1 minuto
 
-                toast.success('Visualização aberta em nova aba!');
-            } catch (error) {
-                toast.error('Erro ao visualizar documento');
-                console.error('Error viewing document:', error);
-            }
+            toast.success('Visualização aberta em nova aba!');
+        } catch (error) {
+            toast.error('Erro ao visualizar documento');
+            console.error('Error viewing document:', error);
         }
     };
 
@@ -251,44 +253,58 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                     </Card>
 
                     {/* Documentos */}
-                    {simulation.document_url && (
-                        <Card className="bg-slate-800/50 border-slate-700">
-                            <CardContent className="p-4">
-                                <h4 className="font-semibold mb-3">Documentos Anexados</h4>
-                                <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="h-5 w-5 text-blue-400" />
-                                        <div>
-                                            <p className="font-medium">{simulation.document_filename}</p>
-                                            <p className="text-sm text-slate-400">
-                                                Tipo: {simulation.document_type?.toUpperCase()}
-                                            </p>
+                    <Card className="bg-slate-800/50 border-slate-700">
+                        <CardContent className="p-4">
+                            <h4 className="font-semibold mb-3">Documentos Anexados</h4>
+                            {isLoadingDocuments ? (
+                                <p className="text-sm text-slate-400">Carregando documentos...</p>
+                            ) : documents.length === 0 ? (
+                                <p className="text-sm text-slate-500">Nenhum documento anexado.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {documents.map((doc) => (
+                                        <div
+                                            key={doc.id}
+                                            className="flex items-center justify-between bg-slate-900/50 p-3 rounded"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <FileText className="h-5 w-5 text-blue-400" />
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {doc.document_filename || "Documento enviado"}
+                                                    </p>
+                                                    <p className="text-sm text-slate-400">
+                                                        Tipo: {(doc.document_type || "").toUpperCase()} •{" "}
+                                                        {new Date(doc.created_at).toLocaleDateString("pt-BR")}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleViewDocument(doc)}
+                                                    className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                                                >
+                                                    <Eye className="h-4 w-4 mr-1" />
+                                                    Visualizar
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleDownloadDocument(doc)}
+                                                    disabled={downloadMutation.isPending}
+                                                >
+                                                    <Download className="h-4 w-4 mr-1" />
+                                                    {downloadMutation.isPending ? "Baixando..." : "Baixar"}
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={handleViewDocument}
-                                            className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
-                                        >
-                                            <Eye className="h-4 w-4 mr-1" />
-                                            Visualizar
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={handleDownloadDocument}
-                                            disabled={downloadMutation.isPending}
-                                        >
-                                            <Download className="h-4 w-4 mr-1" />
-                                            {downloadMutation.isPending ? "Baixando..." : "Baixar"}
-                                        </Button>
-                                    </div>
+                                    ))}
                                 </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            )}
+                        </CardContent>
+                    </Card>
 
                     {/* Action Form */}
                     {!action && (

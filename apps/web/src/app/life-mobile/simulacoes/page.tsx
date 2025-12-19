@@ -48,7 +48,11 @@ export default function LifeMobileSimulationsPage() {
     };
 
     const normalizeSimulation = (sim: AdminSimulation) => {
-        const normalizedAnalysis = sim.analysis_status || (sim.document_url ? "pending_analysis" : undefined);
+        const statusLower = (sim.status || "").toLowerCase();
+        const normalizedAnalysis = sim.analysis_status
+            || ((sim.document_url && ["pending", "simulation_requested"].includes(statusLower))
+                ? "pending_analysis"
+                : undefined);
         const normalizedStatus = sim.status || (sim.document_url ? "pending" : sim.status);
         const normalizedType = sim.simulation_type === "document_upload"
             ? "Solicitação de Simulação"
@@ -91,7 +95,7 @@ export default function LifeMobileSimulationsPage() {
             const status = (sim.status || "").toLowerCase();
             return (
                 analysisStatus === "pending_analysis"
-                || (!analysisStatus && ["pending", "simulation_requested", "approved"].includes(status))
+                || (!analysisStatus && ["pending", "simulation_requested"].includes(status))
             );
         });
 
@@ -132,6 +136,34 @@ export default function LifeMobileSimulationsPage() {
         return filtered.sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
     })();
 
+    const retornoDocsList = (() => {
+        const source = (analysisSimulations && analysisSimulations.length > 0)
+            ? analysisSimulations
+            : simulations || [];
+
+        const normalized = source
+            .map(normalizeSimulation)
+            .sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
+
+        const uniqueByUser = new Map<number, AdminSimulation>();
+        normalized.forEach(sim => {
+            if (!uniqueByUser.has(sim.user_id)) {
+                uniqueByUser.set(sim.user_id, sim);
+            }
+        });
+
+        let filtered = Array.from(uniqueByUser.values()).filter((sim) => {
+            const analysisStatus = (sim.analysis_status || "").toLowerCase();
+            return analysisStatus === "retorno_pendencia";
+        });
+
+        if (searchTerm) {
+            filtered = filtered.filter((sim) => matchesSearch(sim, searchTerm));
+        }
+
+        return filtered.sort((a, b) => getSimulationSortTimestamp(b) - getSimulationSortTimestamp(a));
+    })();
+
     const statusTone: Record<string, string> = {
         pending: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
         simulation_requested: "bg-amber-500/15 text-amber-200 border border-amber-500/40",
@@ -154,11 +186,11 @@ export default function LifeMobileSimulationsPage() {
     const statusLabel: Record<string, string> = {
         pending: "Em análise",
         simulation_requested: "Em análise",
-        approved: "Aguardando cliente",
+        approved: "Simulação enviada",
         approved_by_client: "Aprovada pelo cliente",
         cliente_aprovada: "Aprovada pelo cliente",
         simulacao_aprovada: "Aprovada pelo cliente",
-        financeiro_pendente: "No Financeiro",
+        financeiro_pendente: "Enviado ao Financeiro",
         contrato_efetivado: "Contrato Efetivado",
         rejected: "Reprovada",
         financeiro_cancelado: "Cancelada pelo Financeiro",
@@ -222,6 +254,9 @@ export default function LifeMobileSimulationsPage() {
             if (analysisStatus === "pending_docs" && status !== "pendentes") {
                 return false;
             }
+            if (analysisStatus === "retorno_pendencia" && status !== "retorno") {
+                return false;
+            }
             return true;
         });
 
@@ -230,12 +265,17 @@ export default function LifeMobileSimulationsPage() {
             const st = (sim.status || "").toLowerCase();
             const analysisStatus = (sim.analysis_status || "").toLowerCase();
 
-            if (status === "pending") {
-                if (analysisStatus === "approved_for_calculation") return true;
-                return st === "pending" || st === "simulation_requested" || st === "approved";
+            if (status === "simulacoes") {
+                return analysisStatus === "approved_for_calculation" || st === "approved_for_calculation";
             }
-            if (status === "approved") {
-                return ["approved_by_client", "cliente_aprovada", "simulacao_aprovada", "financeiro_pendente", "contrato_efetivado"].includes(st);
+            if (status === "enviadas") {
+                return st === "approved";
+            }
+            if (status === "aprovadas") {
+                return ["approved_by_client", "cliente_aprovada", "simulacao_aprovada"].includes(st);
+            }
+            if (status === "financeiro") {
+                return ["financeiro_pendente", "contrato_efetivado"].includes(st);
             }
             if (status === "rejected") {
                 // Incluir simulações reprovadas pelo analista
@@ -261,8 +301,10 @@ export default function LifeMobileSimulationsPage() {
         return filtered;
     };
 
-    const pendingSimulations = filterSimulations("pending");
-    const approvedSimulations = filterSimulations("approved");
+    const calculationSimulations = filterSimulations("simulacoes");
+    const sentSimulations = filterSimulations("enviadas");
+    const approvedByClientSimulations = filterSimulations("aprovadas");
+    const financeSimulations = filterSimulations("financeiro");
     const rejectedSimulations = filterSimulations("rejected");
 
     const renderSimulationCard = (sim: AdminSimulation, openModal = false) => {
@@ -382,7 +424,7 @@ export default function LifeMobileSimulationsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-5 mb-6 bg-slate-900/70 border border-slate-800 rounded-xl">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 mb-6 bg-slate-900/70 border border-slate-800 rounded-xl">
                     <TabsTrigger value="analise" className={tabsTriggerClass}>
                         Análise
                         <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
@@ -395,16 +437,34 @@ export default function LifeMobileSimulationsPage() {
                             {pendingDocsList.length}
                         </span>
                     </TabsTrigger>
-                    <TabsTrigger value="pending" className={tabsTriggerClass}>
-                        Simulações
-                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
-                            {pendingSimulations.length}
+                    <TabsTrigger value="retorno" className={tabsTriggerClass}>
+                        Retorno
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-orange-500/40 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-200">
+                            {retornoDocsList.length}
                         </span>
                     </TabsTrigger>
-                    <TabsTrigger value="approved" className={tabsTriggerClass}>
-                        Aprovadas
+                    <TabsTrigger value="simulacoes" className={tabsTriggerClass}>
+                        Em Simulação
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-slate-700 bg-slate-950/40 px-2 py-0.5 text-xs text-slate-200">
+                            {calculationSimulations.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="enviadas" className={tabsTriggerClass}>
+                        Simulação Enviada
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-200">
+                            {sentSimulations.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="aprovadas" className={tabsTriggerClass}>
+                        Aprovada pelo Cliente
                         <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200">
-                            {approvedSimulations.length}
+                            {approvedByClientSimulations.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="financeiro" className={tabsTriggerClass}>
+                        Enviado ao Financeiro
+                        <span className="ml-1 inline-flex min-w-6 items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-200">
+                            {financeSimulations.length}
                         </span>
                     </TabsTrigger>
                     <TabsTrigger value="rejected" className={tabsTriggerClass}>
@@ -458,26 +518,80 @@ export default function LifeMobileSimulationsPage() {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="pending">
+                <TabsContent value="retorno">
+                    <div className="space-y-4">
+                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-orange-500/20 rounded-lg">
+                                    <AlertCircle className="h-5 w-5 text-orange-300" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-orange-200">Retorno de Pendência</h3>
+                                    <p className="text-sm text-slate-400 mt-1">
+                                        Documentos reenviados pelos clientes aguardando nova análise.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {isLoadingAnalysis ? (
+                                <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
+                            ) : retornoDocsList.length === 0 ? (
+                                <p className="text-slate-500 col-span-full text-center py-8">
+                                    Nenhum retorno de pendência pendente.
+                                </p>
+                            ) : (
+                                retornoDocsList.map(sim => renderSimulationCard(sim, true))
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="simulacoes">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {isLoading ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
-                        ) : pendingSimulations.length === 0 ? (
-                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação pendente.</p>
+                        ) : calculationSimulations.length === 0 ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação em cálculo.</p>
                         ) : (
-                            pendingSimulations.map((sim) => renderSimulationCard(sim))
+                            calculationSimulations.map((sim) => renderSimulationCard(sim))
                         )}
                     </div>
                 </TabsContent>
 
-                <TabsContent value="approved">
+                <TabsContent value="enviadas">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {isLoading ? (
                             <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
-                        ) : approvedSimulations.length === 0 ? (
-                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação aprovada.</p>
+                        ) : sentSimulations.length === 0 ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação enviada ao cliente.</p>
                         ) : (
-                            approvedSimulations.map((sim) => renderSimulationCard(sim))
+                            sentSimulations.map((sim) => renderSimulationCard(sim))
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="aprovadas">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {isLoading ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
+                        ) : approvedByClientSimulations.length === 0 ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação aprovada pelo cliente.</p>
+                        ) : (
+                            approvedByClientSimulations.map((sim) => renderSimulationCard(sim))
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="financeiro">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {isLoading ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Carregando...</p>
+                        ) : financeSimulations.length === 0 ? (
+                            <p className="text-slate-500 col-span-full text-center py-8">Nenhuma simulação enviada ao financeiro.</p>
+                        ) : (
+                            financeSimulations.map((sim) => renderSimulationCard(sim))
                         )}
                     </div>
                 </TabsContent>
