@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
+import requests
 import os
 import re
 import shutil
@@ -181,6 +182,153 @@ def ensure_push_token_table():
         conn.execute(text(ddl))
     _PUSH_TOKEN_TABLE_READY = True
 
+
+def send_push_to_user(db: Session, user_id: int, title: str, body: str, data: dict | None = None) -> None:
+    """
+    Envia push notification via Expo para todos os tokens associados ao usuário.
+
+    Importante: falhas de push não devem bloquear o fluxo do Life Mobile.
+    """
+    ensure_push_token_table()
+
+    rows = db.execute(
+        text("SELECT token FROM mobile_push_tokens WHERE user_id = :user_id ORDER BY last_used_at DESC"),
+        {"user_id": user_id},
+    ).all()
+
+    tokens = [r[0] for r in rows if r and r[0]]
+    if not tokens:
+        return
+
+    messages = [
+        {
+            "to": t,
+            "sound": "default",
+            "priority": "high",
+            "channelId": "default",
+            "title": title,
+            "body": body,
+            "data": data or {},
+        }
+        for t in tokens
+    ]
+
+    try:
+        resp = requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            timeout=10,
+        )
+        payload = resp.json() if resp.content else {}
+
+        results = payload.get("data")
+        if isinstance(results, dict):
+            results = [results]
+
+        if isinstance(results, list):
+            tokens_to_delete: list[str] = []
+            for token, result in zip(tokens, results):
+                if not isinstance(result, dict):
+                    continue
+                if (result.get("status") or "").lower() != "error":
+                    continue
+
+                details = result.get("details") or {}
+                error_code = details.get("error") or result.get("message")
+                if error_code == "DeviceNotRegistered":
+                    tokens_to_delete.append(token)
+                else:
+                    print(f"[WARN] Expo push error user_id={user_id}: {error_code}")
+
+            if tokens_to_delete:
+                for token in tokens_to_delete:
+                    db.execute(text("DELETE FROM mobile_push_tokens WHERE token = :token"), {"token": token})
+                db.commit()
+    except Exception as exc:
+        print(f"[WARN] Could not send Expo push: {exc}")
+
+_MOBILE_SCHEMA_READY = False
+def ensure_mobile_schema():
+    """
+    Garante que as tabelas/colunas do Life Mobile existam no banco (produção),
+    evitando 500 por schema desatualizado (create_all não faz ALTER TABLE).
+    """
+    global _MOBILE_SCHEMA_READY
+    if _MOBILE_SCHEMA_READY:
+        return
+
+    statements = [
+        # Base tables (mínimo para funcionar mesmo sem migrations)
+        """
+        CREATE TABLE IF NOT EXISTS mobile_simulations (
+            id VARCHAR(36) PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            simulation_type VARCHAR(50) NOT NULL,
+            requested_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+            installments INTEGER NOT NULL DEFAULT 0,
+            interest_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+            installment_value NUMERIC(14,2) NOT NULL DEFAULT 0,
+            total_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+            status VARCHAR(50) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now()
+        )
+        """,
+        # Campos adicionados ao longo do tempo (migrations podem não ter rodado)
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS banks_json JSON",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS prazo INTEGER",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS coeficiente TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS seguro NUMERIC(14,2)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS percentual_consultoria NUMERIC(5,2)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS document_url TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS document_type VARCHAR(50)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS document_filename TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analysis_status VARCHAR(50) DEFAULT 'pending_analysis'",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analyst_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analyst_notes TEXT",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS pending_documents JSON DEFAULT '[]'::json",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS analyzed_at TIMESTAMP",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS client_type VARCHAR(20)",
+        "ALTER TABLE mobile_simulations ADD COLUMN IF NOT EXISTS has_active_contract BOOLEAN DEFAULT FALSE",
+
+        """
+        CREATE TABLE IF NOT EXISTS mobile_simulation_documents (
+            id VARCHAR(36) PRIMARY KEY,
+            simulation_id VARCHAR(36) NOT NULL REFERENCES mobile_simulations(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            file_path TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT now()
+        )
+        """,
+        "ALTER TABLE mobile_simulation_documents ADD COLUMN IF NOT EXISTS document_label VARCHAR(80)",
+        "ALTER TABLE mobile_simulation_documents ADD COLUMN IF NOT EXISTS file_ext VARCHAR(10)",
+        "ALTER TABLE mobile_simulation_documents ADD COLUMN IF NOT EXISTS original_filename TEXT",
+
+        # Índices (performance)
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulations_user_id ON mobile_simulations(user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulations_status ON mobile_simulations(status)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulations_created_at ON mobile_simulations(created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulation_documents_user_created_at ON mobile_simulation_documents(user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_mobile_simulation_documents_simulation_id_created_at ON mobile_simulation_documents(simulation_id, created_at)",
+    ]
+
+    ok = True
+    with engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+            except Exception as exc:
+                ok = False
+                preview = " ".join(str(stmt).split())[:140]
+                print(f"[WARN] ensure_mobile_schema failed: {preview} ... ({exc})")
+
+    if ok:
+        _MOBILE_SCHEMA_READY = True
+
 def generate_fake_cpf(user_id: int) -> str:
     """Gera um CPF fictício determinístico a partir do ID do usuário (11 dígitos)."""
     return str(10000000000 + user_id)[-11:]
@@ -191,11 +339,13 @@ def generate_fake_phone(user_id: int) -> str:
 
 def serialize_admin_simulation(sim: MobileSimulation) -> dict:
     """Serializa uma MobileSimulation para o formato esperado pelo frontend admin."""
-    # Normaliza status de análise ausente para itens com documento enviado
-    if not sim.analysis_status and sim.document_url:
-        sim.analysis_status = "pending_analysis"
-    if not sim.status and sim.document_url:
-        sim.status = "pending"
+    status_value = sim.status or ("pending" if sim.document_url else sim.status)
+    status_lower = (status_value or "").lower()
+
+    # Normaliza status de análise ausente APENAS para itens realmente em análise
+    analysis_value = sim.analysis_status
+    if not analysis_value and sim.document_url and (not status_lower or status_lower in {"pending", "simulation_requested"}):
+        analysis_value = "pending_analysis"
     fake_cpf = generate_fake_cpf(sim.user_id)
     fake_phone = generate_fake_phone(sim.user_id)
     return {
@@ -209,7 +359,7 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
         "interest_rate": decimal_to_float(sim.interest_rate),
         "installment_value": decimal_to_float(sim.installment_value),
         "total_amount": decimal_to_float(sim.total_amount),
-        "status": sim.status,
+        "status": status_value,
         "created_at": sim.created_at,
         "updated_at": getattr(sim, "updated_at", None),
         "banks_json": sim.banks_json or [],
@@ -227,7 +377,7 @@ def serialize_admin_simulation(sim: MobileSimulation) -> dict:
         "document_type": sim.document_type,
         "document_filename": sim.document_filename,
         # Campos de análise
-        "analysis_status": sim.analysis_status,
+        "analysis_status": analysis_value,
         "analyst_id": sim.analyst_id,
         "analyst_name": sim.analyst.name if sim.analyst else None,
         "analyst_notes": sim.analyst_notes,
@@ -472,12 +622,18 @@ async def create_simulation_with_document(
         open_sim.document_url = str(file_path)
         open_sim.document_type = file_ext.lstrip(".")
         open_sim.document_filename = document.filename
-        open_sim.analysis_status = "pending_analysis"
+        is_pendency_return = (open_sim.status or "").lower() in {"pending_docs", "retorno_pendencia"} or (
+            (open_sim.analysis_status or "").lower() in {"pending_docs", "retorno_pendencia"}
+        )
         open_sim.simulation_type = open_sim.simulation_type or simulation_type
-        if open_sim.status == "pending_docs" or open_sim.analysis_status == "pending_docs":
+
+        if is_pendency_return:
             open_sim.status = "retorno_pendencia"
-        elif not open_sim.status:
-            open_sim.status = "pending"
+            open_sim.analysis_status = "retorno_pendencia"
+        else:
+            open_sim.analysis_status = "pending_analysis"
+            if not open_sim.status:
+                open_sim.status = "pending"
         db.commit()
         db.refresh(open_sim)
 
@@ -724,14 +880,16 @@ async def approve_simulation_by_client(
 
     sim.status = "approved_by_client"
     sim.analysis_status = None
+    sim.updated_at = now_brt()
     db.commit()
     db.refresh(sim)
     create_notification(
         db,
         current_user.id,
         "Simulação aprovada",
-        "Você aprovou a simulação. Vamos iniciar o financeiro.",
-        "success"
+        "Você aprovou a simulação. O agente responsável entrará em contato para finalizar o contrato.",
+        "success",
+        push=False,
     )
     return sim
 
@@ -761,7 +919,8 @@ async def reject_simulation_by_client(
         current_user.id,
         "Simulação rejeitada",
         "Você rejeitou esta simulação.",
-        "warning"
+        "warning",
+        push=False,
     )
     return sim
 
@@ -948,7 +1107,8 @@ async def get_admin_clients(
     
     # CORRIGIDO: Retornar APENAS clientes mobile (role = 'mobile_client')
     mobile_clients = db.query(User).filter(
-        User.role == "mobile_client"
+        User.role == "mobile_client",
+        User.active == True
     ).order_by(User.created_at.desc()).all()
 
     # Serializar dados extras esperados pelo frontend (cpf/phone são opcionais)
@@ -964,6 +1124,70 @@ async def get_admin_clients(
         }
         for client in mobile_clients
     ]
+
+
+@router.delete("/admin/clients/{client_id}")
+async def delete_admin_client(
+    client_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Exclusão administrativa de clientes mobile.
+
+    Regra: remove o acesso (inativa/anônima) sem apagar dados do sistema web.
+    """
+    # Apenas admin/super_admin podem excluir
+    if current_user.role not in {"admin", "super_admin"}:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    client = (
+        db.query(User)
+        .filter(User.id == client_id, User.role == "mobile_client")
+        .first()
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente mobile não encontrado")
+
+    # Remover simulações e documentos vinculados ao cliente
+    simulation_ids = [
+        row[0]
+        for row in db.query(MobileSimulation.id)
+        .filter(MobileSimulation.user_id == client.id)
+        .all()
+    ]
+    if simulation_ids:
+        db.query(MobileSimulationDocument).filter(
+            MobileSimulationDocument.simulation_id.in_(simulation_ids)
+        ).delete(synchronize_session=False)
+        db.query(MobileSimulation).filter(
+            MobileSimulation.id.in_(simulation_ids)
+        ).delete(synchronize_session=False)
+
+    # Anonimiza e inativa para:
+    # - impedir login
+    # - permitir que o usuário se recadastre com o mesmo email futuramente
+    now_ts = now_brt()
+    client.active = False
+    client.name = f"Cliente Excluído ({client.id})"
+    client.email = f"deleted+{client.id}+{int(now_ts.timestamp())}@example.invalid"
+    client.cpf = None
+    client.phone = None
+    client.password_hash = hash_password(str(uuid.uuid4()))
+
+    # Remover push tokens do cliente excluído
+    try:
+        ensure_push_token_table()
+        db.execute(
+            text("DELETE FROM mobile_push_tokens WHERE user_id = :user_id"),
+            {"user_id": client.id},
+        )
+    except Exception:
+        pass
+
+    db.commit()
+
+    return {"ok": True, "id": client_id}
 
 @router.get("/admin/simulations", response_model=List[AdminSimulationResponse])
 async def get_admin_simulations(
@@ -984,7 +1208,16 @@ async def get_admin_simulations(
     )
     return [serialize_admin_simulation(sim) for sim in simulations]
 
-def create_notification(db: Session, user_id: int, title: str, message: str, type: str = "info"):
+def create_notification(
+    db: Session,
+    user_id: int,
+    title: str,
+    message: str,
+    type: str = "info",
+    *,
+    push: bool = True,
+    push_data: dict | None = None,
+):
     notif = MobileNotification(
         user_id=user_id,
         title=title,
@@ -995,6 +1228,15 @@ def create_notification(db: Session, user_id: int, title: str, message: str, typ
     db.add(notif)
     db.commit()
     db.refresh(notif)
+
+    if push:
+        try:
+            data = dict(push_data or {})
+            data.setdefault("notificationId", str(notif.id))
+            send_push_to_user(db, user_id, title, message, data=data)
+        except Exception as exc:
+            print(f"[WARN] Could not send mobile push: {exc}")
+
     return notif
 
 @router.post("/admin/simulations", response_model=AdminSimulationResponse)
@@ -1107,7 +1349,7 @@ async def get_simulations_for_analysis(
                 MobileSimulation.analysis_status.in_(["pending_analysis", "pending_docs"]),
                 and_(
                     MobileSimulation.analysis_status.is_(None),
-                    MobileSimulation.status.in_(["pending", "simulation_requested", "approved"])
+                    MobileSimulation.status.in_(["pending", "simulation_requested"])
                 )
             )
         )
@@ -1123,8 +1365,8 @@ async def get_simulations_for_analysis(
             if not sim.status:
                 sim.status = "pending"
 
-        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested/approved, force pending_analysis para análise
-        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested", "approved"}:
+        # Se ainda não tiver analysis_status, mas estiver em pending/simulation_requested, force pending_analysis para análise
+        if not sim.analysis_status and sim.status and sim.status.lower() in {"pending", "simulation_requested"}:
             sim.analysis_status = "pending_analysis"
 
         if not sim.client_type:
@@ -1194,7 +1436,8 @@ async def approve_simulation(
             sim.user_id,
             "Proposta enviada ao financeiro",
             "Sua simulação foi aprovada e enviada ao setor financeiro para processamento.",
-            "success"
+            "success",
+            push_data={"type": "simulation", "simulationId": sim.id},
         )
         message = "Simulação enviada ao financeiro com sucesso"
     elif status_lower == "approved_for_calculation":
@@ -1211,7 +1454,8 @@ async def approve_simulation(
             sim.user_id,
             "Nova proposta disponível",
             "Sua simulação foi aprovada e aguarda sua confirmação.",
-            "info"
+            "info",
+            push_data={"type": "simulation", "simulationId": sim.id},
         )
         message = "Simulação aprovada e enviada para o cliente"
     elif status_lower in {"pending", "simulation_requested", ""} or analysis_status_lower in {"pending_analysis", "pending_docs"}:
@@ -1225,7 +1469,8 @@ async def approve_simulation(
                 sim.user_id,
                 "Nova proposta disponível",
                 "Sua simulação foi aprovada e aguarda sua confirmação.",
-                "info"
+                "info",
+                push_data={"type": "simulation", "simulationId": sim.id},
             )
             message = "Simulação aprovada e enviada para o cliente"
         else:
@@ -1238,7 +1483,8 @@ async def approve_simulation(
                 sim.user_id,
                 "Análise Aprovada",
                 "Sua simulação foi aprovada e está sendo processada pelo nosso calculista.",
-                "success"
+                "success",
+                push_data={"type": "simulation", "simulationId": sim.id},
             )
             message = "Simulação aprovada para cálculo"
     else:
@@ -1250,7 +1496,8 @@ async def approve_simulation(
             sim.user_id,
             "Nova proposta disponível",
             "Sua simulação foi aprovada e aguarda sua confirmação.",
-            "info"
+            "info",
+            push_data={"type": "simulation", "simulationId": sim.id},
         )
         message = "Simulação aprovada e enviada para o cliente"
 
@@ -1278,7 +1525,8 @@ async def reject_simulation(
         sim.user_id,
         "Proposta reprovada",
         "Sua simulação foi reprovada. Entre em contato para mais informações.",
-        "error"
+        "error",
+        push_data={"type": "simulation", "simulationId": sim.id},
     )
 
     db.commit()
@@ -1493,7 +1741,8 @@ async def pend_simulation(
         sim.user_id,
         "Documentos Pendentes",
         f"Sua simulação precisa de documentos adicionais:\n{doc_list}\n\nObservações: {request_data.analyst_notes}",
-        "warning"
+        "warning",
+        push_data={"type": "simulation", "simulationId": sim.id},
     )
 
     db.commit()
@@ -1520,6 +1769,7 @@ async def reprove_simulation_for_analysis(
     # Atualizar status
     sim.analysis_status = "reproved"
     sim.status = "rejected"
+    sim.updated_at = now_brt()
     sim.analyst_id = current_user.id
     sim.analyst_notes = request_data.analyst_notes
     sim.analyzed_at = now_brt()
@@ -1530,7 +1780,8 @@ async def reprove_simulation_for_analysis(
         sim.user_id,
         "Simulação Reprovada",
         f"Sua simulação foi reprovada.\n\nMotivo: {request_data.analyst_notes}",
-        "error"
+        "error",
+        push_data={"type": "simulation", "simulationId": sim.id},
     )
 
     db.commit()
@@ -1571,7 +1822,8 @@ async def approve_simulation_for_calculation(
         sim.user_id,
         "Análise Aprovada",
         f"Sua simulação foi aprovada e está sendo processada pelo nosso calculista!{f' Observações: {request_data.analyst_notes}' if request_data.analyst_notes else ''}",
-        "success"
+        "success",
+        push_data={"type": "simulation", "simulationId": sim.id},
     )
 
     db.commit()

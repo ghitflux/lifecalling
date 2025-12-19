@@ -22,6 +22,7 @@ from ..services.payroll_siape_parser import (
     validate_siape_content,
     get_file_preview as get_siape_file_preview
 )
+from ..services.case_activity import get_latest_handled_case_for_clients
 from datetime import datetime
 from collections import defaultdict
 import logging
@@ -246,7 +247,7 @@ def cleanup_old_references(db: Session) -> int:
 
 
 def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
-                          status_summary: dict) -> Case:
+                          status_summary: dict) -> tuple[Case, bool]:
     """
     Cria um novo caso na esteira para o cliente.
     IMPORTANTE: Garante apenas 1 caso ativo por CPF (não por client_id).
@@ -258,7 +259,7 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
         status_summary: Resumo dos status do cliente
 
     Returns:
-        Caso criado ou atualizado
+        (case, created) onde created indica se um novo caso foi criado
     """
     # Buscar TODOS os client_ids com o mesmo CPF
     client_ids_with_same_cpf = db.query(Client.id).filter(
@@ -281,7 +282,7 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
         existing_case.import_batch_id_new = batch.id
         existing_case.last_update_at = datetime.utcnow()
         logger.info(f"Caso #{existing_case.id} atualizado (CPF {client.cpf} já tinha caso ativo)")
-        return existing_case
+        return existing_case, False
 
     # Verificação adicional: garantir que NÃO exista NENHUM caso ativo do CPF
     any_active_case = db.query(Case).filter(
@@ -295,7 +296,18 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
         any_active_case.payroll_status_summary = status_summary
         any_active_case.import_batch_id_new = batch.id
         any_active_case.last_update_at = datetime.utcnow()
-        return any_active_case
+        return any_active_case, False
+
+    handled_case = get_latest_handled_case_for_clients(db, client_ids_list)
+    if handled_case:
+        handled_case.payroll_status_summary = status_summary
+        handled_case.import_batch_id_new = batch.id
+        handled_case.last_update_at = datetime.utcnow()
+        logger.info(
+            f"CPF {client.cpf} já possui caso atendido #{handled_case.id} - "
+            "não será criado novo caso"
+        )
+        return handled_case, False
 
     # Criar novo caso apenas se NÃO existir nenhum caso ativo do CPF
     new_case = Case(
@@ -316,7 +328,7 @@ def create_case_for_client(db: Session, client: Client, batch: ImportBatch,
     db.add(new_case)
     db.flush()  # Garantir que o ID seja gerado
     logger.info(f"Novo caso criado: {new_case.id} para cliente {client.id}")
-    return new_case
+    return new_case, True
 
 
 @r.post("")
@@ -469,6 +481,11 @@ async def import_payroll_file(
                 # Calcular resumo de status para este cliente
                 status_summary = calculate_status_summary(client_line_group)
 
+                client_ids_with_same_cpf = db.query(Client.id).filter(
+                    Client.cpf == cpf
+                ).all()
+                client_ids_list = [c_id[0] for c_id in client_ids_with_same_cpf]
+
                 # Criar/atualizar caso na esteira (1 caso por CPF - REGRA ABSOLUTA)
                 try:
                     from ..models import CaseEvent, now_brt
@@ -488,7 +505,7 @@ async def import_payroll_file(
 
                     # Verificar se caso aberto já existe para este cliente
                     existing_case = db.query(Case).filter(
-                        Case.client_id == client.id,
+                        Case.client_id.in_(client_ids_list),
                         Case.status.in_(OPEN_STATUSES)
                     ).order_by(Case.id.desc()).first()
 
@@ -505,7 +522,7 @@ async def import_payroll_file(
                     else:
                         # Verificar se existe caso encerrado/sem_contato para REABRIR
                         closed_case = db.query(Case).filter(
-                            Case.client_id == client.id,
+                            Case.client_id.in_(client_ids_list),
                             Case.status.in_(CLOSED_STATUSES)
                         ).order_by(Case.id.desc()).first()
 
@@ -545,7 +562,7 @@ async def import_payroll_file(
                         else:
                             # ANTES de criar novo caso, verificar se existe caso CANCELADO
                             canceled_case = db.query(Case).filter(
-                                Case.client_id == client.id,
+                                Case.client_id.in_(client_ids_list),
                                 Case.status.in_(CANCELED_STATUSES)
                             ).order_by(Case.id.desc()).first()
 
@@ -578,9 +595,13 @@ async def import_payroll_file(
                                 logger.info(f"Caso cancelado {case.id} atualizado (mantém status {canceled_case.status})")
                             else:
                                 # Criar novo caso (nenhum caso existe para este cliente)
-                                case = create_case_for_client(db, client, batch, status_summary)
-                                counters["cases_created"] += 1
-                                logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
+                                case, created = create_case_for_client(db, client, batch, status_summary)
+                                if created:
+                                    counters["cases_created"] += 1
+                                    logger.info(f"Novo caso {case.id} criado para cliente {client.id}")
+                                else:
+                                    counters["cases_updated"] += 1
+                                    logger.info(f"Caso {case.id} atualizado para cliente {client.id}")
 
                 except Exception as case_error:
                     logger.error(f"Erro ao criar/atualizar caso para cliente {client.id}: {case_error}")
@@ -1038,12 +1059,17 @@ def upsert_client_siape(db: Session, cpf: str, matricula: str, nome: str,
 
 
 def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
-                                 status_summary: dict, banco_entidade: str | None = None) -> Case:
+                                 status_summary: dict, banco_entidade: str | None = None) -> tuple[Case, str]:
     """
     Cria ou atualiza caso para cliente SIAPE.
     Segue a mesma lógica do INET: 1 caso ativo por CPF.
     """
     from ..models import CaseEvent, now_brt
+
+    client_ids_with_same_cpf = db.query(Client.id).filter(
+        Client.cpf == client.cpf
+    ).all()
+    client_ids_list = [c_id[0] for c_id in client_ids_with_same_cpf]
 
     # Status considerados "abertos"
     OPEN_STATUSES = ["novo", "disponivel", "em_atendimento", "calculista",
@@ -1055,7 +1081,7 @@ def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
 
     # Verificar se caso aberto já existe
     existing_case = db.query(Case).filter(
-        Case.client_id == client.id,
+        Case.client_id.in_(client_ids_list),
         Case.status.in_(OPEN_STATUSES)
     ).order_by(Case.id.desc()).first()
 
@@ -1069,11 +1095,11 @@ def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
         if banco_entidade:
             existing_case.entidade = banco_entidade
         logger.info(f"Caso SIAPE {existing_case.id} atualizado para cliente {client.id}")
-        return existing_case
+        return existing_case, "updated"
     else:
         # Verificar caso encerrado para reabrir
         closed_case = db.query(Case).filter(
-            Case.client_id == client.id,
+            Case.client_id.in_(client_ids_list),
             Case.status.in_(CLOSED_STATUSES)
         ).order_by(Case.id.desc()).first()
 
@@ -1109,11 +1135,11 @@ def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
             db.add(reopen_event)
 
             logger.info(f"Caso SIAPE {closed_case.id} reaberto para cliente {client.id}")
-            return closed_case
+            return closed_case, "reopened"
         else:
             # Verificar caso cancelado
             canceled_case = db.query(Case).filter(
-                Case.client_id == client.id,
+                Case.client_id.in_(client_ids_list),
                 Case.status.in_(CANCELED_STATUSES)
             ).order_by(Case.id.desc()).first()
 
@@ -1126,8 +1152,26 @@ def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
                 if banco_entidade:
                     canceled_case.entidade = banco_entidade
                 logger.info(f"Caso SIAPE cancelado {canceled_case.id} atualizado (sem reabrir)")
-                return canceled_case
+                return canceled_case, "updated"
             else:
+                handled_case = get_latest_handled_case_for_clients(
+                    db,
+                    client_ids_list,
+                )
+                if handled_case:
+                    handled_case.payroll_status_summary = status_summary
+                    handled_case.ref_month = batch.ref_month
+                    handled_case.ref_year = batch.ref_year
+                    handled_case.last_update_at = datetime.utcnow()
+                    handled_case.source = "siape"
+                    if banco_entidade:
+                        handled_case.entidade = banco_entidade
+                    logger.info(
+                        f"CPF {client.cpf} já possui caso atendido #{handled_case.id} - "
+                        "não será criado novo caso"
+                    )
+                    return handled_case, "updated"
+
                 # Criar novo caso
                 new_case = Case(
                     client_id=client.id,
@@ -1144,7 +1188,7 @@ def create_case_for_siape_client(db: Session, client: Client, batch: SiapeBatch,
                 db.flush()
 
                 logger.info(f"Novo caso SIAPE {new_case.id} criado para cliente {client.id}")
-                return new_case
+                return new_case, "created"
 
 
 @r.post("/siape")
@@ -1361,19 +1405,20 @@ async def import_siape_file(
                 }
 
                 # Criar/atualizar caso
-                case_exists = db.query(Case).filter(
-                    Case.client_id == client.id,
-                    Case.status.in_(["novo", "disponivel", "em_atendimento", "calculista",
-                                    "calculista_pendente", "financeiro", "fechamento_pendente",
-                                    "calculo_aprovado", "fechamento_aprovado", "contrato_efetivado"])
-                ).first() is not None
+                case, action = create_case_for_siape_client(
+                    db,
+                    client,
+                    batch,
+                    status_summary,
+                    line_data.get("banco_emprestimo"),
+                )
 
-                case = create_case_for_siape_client(db, client, batch, status_summary, line_data.get("banco_emprestimo"))
-
-                if case_exists:
-                    counters["cases_updated"] += 1
-                else:
+                if action == "created":
                     counters["cases_created"] += 1
+                elif action == "reopened":
+                    counters["cases_reopened"] += 1
+                else:
+                    counters["cases_updated"] += 1
 
                 # Commit incremental a cada BATCH_SIZE registros
                 if processed_count % BATCH_SIZE == 0:

@@ -9,7 +9,7 @@ import os
 import shutil
 from decimal import Decimal
 
-from sqlalchemy import or_, func  # pyright: ignore[reportMissingImports]
+from sqlalchemy import or_, func, not_  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 from ..rbac import require_roles
 from ..security import get_current_user, verify_csrf
@@ -22,6 +22,7 @@ from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
 from ..config import settings
 from ..events import eventbus  # uso consistente do eventbus
+from ..services.case_activity import build_handled_case_expression
 
 r = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -798,6 +799,7 @@ def list_cases(
     cargo: str | None = None,  # Filtro por cargo
     assigned: str | None = None,  # '0' = não atribuídos, '1' = atribuídos
     mine: str | bool = Query(False),
+    already_attended: str | bool | None = None,
     order: str = Query("id_desc"),
     created_after: str | None = None,
     created_before: str | None = None,
@@ -812,6 +814,13 @@ def list_cases(
         try:
             # Normalizar mine para boolean
             mine_bool = mine if isinstance(mine, bool) else str(mine).lower() in ('true', '1', 'yes')
+            already_attended_bool = None
+            if already_attended is not None:
+                already_attended_bool = (
+                    already_attended
+                    if isinstance(already_attended, bool)
+                    else str(already_attended).lower() in ('true', '1', 'yes')
+                )
 
             # Usar entidade ou entity (alias legado)
             entity_filter = entidade or entity
@@ -866,6 +875,16 @@ def list_cases(
                     qry = qry.filter(Case.status == status_list[0])
                 elif len(status_list) > 1:
                     qry = qry.filter(Case.status.in_(status_list))
+
+            if already_attended_bool is not None:
+                handled_expr = build_handled_case_expression(db)
+                if already_attended_bool:
+                    qry = qry.filter(handled_expr)
+                else:
+                    qry = qry.filter(not_(handled_expr))
+                    qry = qry.filter(
+                        func.coalesce(Case.status, "novo") == "novo"
+                    )
 
             # Filtro por entidade (banco)
             if entity_filter:
@@ -965,7 +984,6 @@ def list_cases(
             # Usar count com Case.id para evitar erro com campos JSON do PostgreSQL
             # quando há DISTINCT
             if payroll_joined or client_joined:
-                from sqlalchemy import func
                 # Contar apenas IDs distintos de Case
                 total = qry.with_entities(func.count(func.distinct(Case.id))).scalar() or 0
             else:

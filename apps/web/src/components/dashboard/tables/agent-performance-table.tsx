@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@lifecalling/ui";
-import { Eye, TrendingUp, TrendingDown, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Eye, TrendingUp, TrendingDown, Clock, CheckCircle } from "lucide-react";
 
 interface AgentMetrics {
   agent_id: number;
@@ -11,24 +11,22 @@ interface AgentMetrics {
   tma_minutes: number;
   cases_efetivados: number;
   cases_em_atendimento: number;
-  cases_cancelados: number;
+  cases_picked_today?: number;
   consultoria_liquida: number;
-  percentual_medio: number;
   total_cases: number;
-  sla_within: number;
-  sla_outside: number;
-  sla_percentage: number;
 }
 
 interface AgentPerformanceTableProps {
   agents: AgentMetrics[];
-  onViewDetails?: (agentId: number) => void;
+  onViewToday?: (agentId: number) => void;
+  onViewAllCases?: (agentId: number) => void;
   isLoading?: boolean;
 }
 
 export function AgentPerformanceTable({
   agents,
-  onViewDetails,
+  onViewToday,
+  onViewAllCases,
   isLoading = false,
 }: AgentPerformanceTableProps) {
   const [sortKey, setSortKey] = useState<keyof AgentMetrics | null>(null);
@@ -148,20 +146,6 @@ export function AgentPerformanceTable({
               </th>
               <th
                 className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => handleSort("cases_cancelados")}
-              >
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4" />
-                  Cancelados
-                  {sortKey === "cases_cancelados" && (
-                    <span className="text-xs">
-                      {sortOrder === "asc" ? "↑" : "↓"}
-                    </span>
-                  )}
-                </div>
-              </th>
-              <th
-                className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
                 onClick={() => handleSort("consultoria_liquida")}
               >
                 <div className="flex items-center gap-2">
@@ -173,33 +157,8 @@ export function AgentPerformanceTable({
                   )}
                 </div>
               </th>
-              <th
-                className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => handleSort("percentual_medio")}
-              >
-                <div className="flex items-center gap-2">
-                  % Médio
-                  {sortKey === "percentual_medio" && (
-                    <span className="text-xs">
-                      {sortOrder === "asc" ? "↑" : "↓"}
-                    </span>
-                  )}
-                </div>
-              </th>
-              <th
-                className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => handleSort("sla_percentage")}
-              >
-                <div className="flex items-center gap-2">
-                  SLA %
-                  {sortKey === "sla_percentage" && (
-                    <span className="text-xs">
-                      {sortOrder === "asc" ? "↑" : "↓"}
-                    </span>
-                  )}
-                </div>
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium">Ações</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Atend. Hoje</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Casos</th>
             </tr>
           </thead>
           <tbody>
@@ -233,14 +192,6 @@ export function AgentPerformanceTable({
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-red-600">
-                      {agent.cases_cancelados}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     {agent.consultoria_liquida > 0 ? (
                       <TrendingUp className="h-4 w-4 text-green-500" />
@@ -256,28 +207,24 @@ export function AgentPerformanceTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold text-blue-600">
-                      {agent.percentual_medio.toFixed(1)}%
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`font-semibold ${
-                        agent.sla_percentage >= 80
-                          ? "text-green-600"
-                          : agent.sla_percentage >= 60
-                          ? "text-amber-600"
-                          : "text-red-600"
-                      }`}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onViewToday) {
+                          onViewToday(agent.agent_id);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-primary/20 transition-colors relative z-10 h-8 w-8"
+                      aria-label="Ver atendimentos de hoje"
                     >
-                      {agent.sla_percentage.toFixed(1)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      ({agent.sla_within}/{agent.total_cases})
-                    </div>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                      {agent.cases_picked_today ?? 0}
+                    </span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -286,17 +233,12 @@ export function AgentPerformanceTable({
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log('Clicou em Ver Detalhes', { agentId: agent.agent_id, onViewDetails });
-                      if (onViewDetails) {
-                        onViewDetails(agent.agent_id);
-                      } else {
-                        console.error('onViewDetails não está definido');
+                      if (onViewAllCases) {
+                        onViewAllCases(agent.agent_id);
                       }
                     }}
-                    className="cursor-pointer hover:bg-primary/20 transition-colors relative z-10"
                   >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Ver Detalhes
+                    Ver casos
                   </Button>
                 </td>
               </tr>

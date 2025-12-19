@@ -10,6 +10,7 @@ export type Filters = {
   cargo?: string;             // filtro por cargo
   mine?: boolean;             // esteira individual
   assigned?: '0' | '1';       // '0' = não atribuídos, '1' = atribuídos
+  already_attended?: boolean; // casos já atendidos (true) ou novos (false)
 };
 
 export function buildCasesQuery(
@@ -46,6 +47,9 @@ export function buildCasesQuery(
   // mine/assigned conforme necessidade
   if (f.mine) set('mine', 'true');
   if (f.assigned) set('assigned', f.assigned);
+  if (f.already_attended !== undefined) {
+    set('already_attended', f.already_attended);
+  }
 
   return p;
 }

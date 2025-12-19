@@ -3,7 +3,7 @@ import { useLiveCaseEvents } from "@/lib/ws";
 import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Badge, EsteiraCard, Tabs, TabsContent, TabsList, TabsTrigger, CaseSkeleton, KPICard, CasesTable, Pagination } from "@lifecalling/ui";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useMyStats } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -50,6 +50,13 @@ function EsteiraPageContent() {
   const [globalSelectedCargo, setGlobalSelectedCargo] = useState<string | null>(null);
   const [globalSelectedStatus, setGlobalSelectedStatus] = useState<string | null>(null);
 
+  const [attendedPage, setAttendedPage] = useState(1);
+  const [attendedPageSize, setAttendedPageSize] = useState(20);
+  const [attendedSearchTerm, setAttendedSearchTerm] = useState("");
+  const [attendedSelectedBanco, setAttendedSelectedBanco] = useState<string | null>(null);
+  const [attendedSelectedCargo, setAttendedSelectedCargo] = useState<string | null>(null);
+  const [attendedSelectedStatus, setAttendedSelectedStatus] = useState<string | null>(null);
+
   const [myPage, setMyPage] = useState(1);
   const [myPageSize, setMyPageSize] = useState(20);
   const [mySearchTerm, setMySearchTerm] = useState("");
@@ -73,6 +80,9 @@ function EsteiraPageContent() {
     setGlobalPage(1);
   }, [globalSelectedBanco, globalSelectedCargo, globalSelectedStatus, globalSearchTerm]);
 
+  useEffect(() => {
+    setAttendedPage(1);
+  }, [attendedSelectedBanco, attendedSelectedCargo, attendedSelectedStatus, attendedSearchTerm]);
 
   useEffect(() => {
     setMyPage(1);
@@ -81,6 +91,10 @@ function EsteiraPageContent() {
   useEffect(() => {
     setGlobalPage(1);
   }, [globalPageSize]);
+
+  useEffect(() => {
+    setAttendedPage(1);
+  }, [attendedPageSize]);
 
   useEffect(() => {
     setMyPage(1);
@@ -96,7 +110,7 @@ function EsteiraPageContent() {
     console.log('Parâmetros da URL:', { savedPage, savedTab, savedStatus, savedSearch });
 
     // Só alterar a aba se houver parâmetro explícito na URL
-    if (savedTab && (savedTab === 'mine' || savedTab === 'global')) {
+    if (savedTab && (savedTab === 'mine' || savedTab === 'global' || savedTab === 'attended')) {
       setActiveTab(savedTab);
     }
     // Se não houver parâmetro de aba, manter o padrão (global)
@@ -108,6 +122,8 @@ function EsteiraPageContent() {
       
       if (tabToUse === 'mine') {
         setMyPage(pageNum);
+      } else if (tabToUse === 'attended') {
+        setAttendedPage(pageNum);
       } else {
         setGlobalPage(pageNum);
       }
@@ -117,6 +133,8 @@ function EsteiraPageContent() {
       const tabToUse = savedTab || 'global';
       if (tabToUse === 'mine') {
         setMySelectedStatus([savedStatus]);
+      } else if (tabToUse === 'attended') {
+        setAttendedSelectedStatus([savedStatus]);
       } else {
         setGlobalSelectedStatus([savedStatus]);
       }
@@ -126,6 +144,8 @@ function EsteiraPageContent() {
       const tabToUse = savedTab || 'global';
       if (tabToUse === 'mine') {
         setMySearchTerm(savedSearch);
+      } else if (tabToUse === 'attended') {
+        setAttendedSearchTerm(savedSearch);
       } else {
         setGlobalSearchTerm(savedSearch);
       }
@@ -163,6 +183,7 @@ function EsteiraPageContent() {
               banco: globalSelectedBanco || undefined,
               cargo: globalSelectedCargo || undefined,
               status: globalSelectedStatus ? [globalSelectedStatus] : undefined,
+              already_attended: false,
             }
           : {
               page: globalPage,
@@ -172,6 +193,7 @@ function EsteiraPageContent() {
               banco: globalSelectedBanco || undefined,
               cargo: globalSelectedCargo || undefined,
               status: ["novo"],     // atendente só vê novos
+              already_attended: false,
               // REMOVIDO assigned=0 para permitir ver casos expirados também
             }
       );
@@ -188,6 +210,46 @@ function EsteiraPageContent() {
   const globalCases = globalData?.items ?? [];
   const globalTotal = globalData?.total ?? 0;
   const globalTotalPages = Math.ceil(globalTotal / globalPageSize);
+
+  // Query para listar casos já atendidos
+  const { data: attendedData, isLoading: loadingAttended, error: errorAttended } = useQuery({
+    queryKey: [
+      "cases",
+      "attended",
+      attendedPage,
+      attendedPageSize,
+      attendedSelectedBanco,
+      attendedSelectedCargo,
+      attendedSelectedStatus,
+      attendedSearchTerm
+    ],
+    queryFn: async () => {
+      const orderBy = attendedSelectedBanco ? `financiamentos_banco_desc:${attendedSelectedBanco}` : "financiamentos_desc";
+
+      const params = buildCasesQuery({
+        page: attendedPage,
+        page_size: attendedPageSize,
+        order: orderBy,
+        q: attendedSearchTerm,
+        banco: attendedSelectedBanco || undefined,
+        cargo: attendedSelectedCargo || undefined,
+        status: attendedSelectedStatus ? [attendedSelectedStatus] : undefined,
+        already_attended: true,
+      });
+
+      const response = await api.get(`/cases?${params.toString()}`);
+      return response.data;
+    },
+    staleTime: 5000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
+    retry: 2,
+  });
+
+  const attendedCases = attendedData?.items ?? [];
+  const attendedTotal = attendedData?.total ?? 0;
+  const attendedTotalPages = Math.ceil(attendedTotal / attendedPageSize);
 
   // Query para listar meus atendimentos
   const { data: myData, isLoading: loadingMine, error: errorMine } = useQuery({
@@ -213,6 +275,7 @@ function EsteiraPageContent() {
     staleTime: 5000,
     refetchInterval: 10000,
     refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
     retry: 2,
   });
 
@@ -250,6 +313,7 @@ function EsteiraPageContent() {
     staleTime: 5000,
     refetchInterval: 10000,
     refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
     retry: 2,
   });
 
@@ -336,13 +400,23 @@ function EsteiraPageContent() {
 
   const handleViewCase = (caseId: number) => {
     // Salvar estado atual da esteira no sessionStorage
-    const currentPage = activeTab === 'mine' ? myPage : globalPage;
-    const currentStatusFilter = activeTab === 'mine' ? mySelectedStatus : globalSelectedStatus;
-    const currentSearchTerm = activeTab === 'mine' ? mySearchTerm : globalSearchTerm;
-    const currentList = activeTab === 'mine' ? myCases : globalCases;
+    const isMineTab = activeTab === 'mine';
+    const isAttendedTab = activeTab === 'attended';
+    const currentPage = isMineTab ? myPage : isAttendedTab ? attendedPage : globalPage;
+    const currentStatusFilter = isMineTab
+      ? mySelectedStatus
+      : isAttendedTab
+        ? attendedSelectedStatus
+        : globalSelectedStatus;
+    const currentSearchTerm = isMineTab
+      ? mySearchTerm
+      : isAttendedTab
+        ? attendedSearchTerm
+        : globalSearchTerm;
+    const currentList = isMineTab ? myCases : isAttendedTab ? attendedCases : globalCases;
 
     // Forçar aba global se não estiver explicitamente em 'mine'
-    const tabToSave = activeTab === 'mine' ? 'mine' : 'global';
+    const tabToSave = isMineTab || isAttendedTab ? activeTab : 'global';
 
     console.log('Salvando estado antes de navegar:', {
       currentPage,
@@ -434,6 +508,7 @@ function EsteiraPageContent() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="global">Global ({globalTotal})</TabsTrigger>
+          <TabsTrigger value="attended">Casos Já Atendidos ({attendedTotal})</TabsTrigger>
           <TabsTrigger value="mine">Meus Atendimentos ({myTotal})</TabsTrigger>
         </TabsList>
 
@@ -568,6 +643,144 @@ function EsteiraPageContent() {
                 onPageChange={setGlobalPage}
                 onItemsPerPageChange={(size) => {
                   setGlobalPageSize(size);
+                }}
+                itemsPerPageOptions={[20, 50, 100]}
+              />
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="attended" className="mt-6">
+          <div className="space-y-6">
+            {/* Filtros - Sistema Clientes */}
+            <Card className="p-4 space-y-4">
+              {/* Busca */}
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, CPF ou matrícula..."
+                    value={attendedSearchTerm}
+                    onChange={(e) => {
+                      setAttendedSearchTerm(e.target.value);
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {attendedTotal} {attendedTotal === 1 ? 'disponível' : 'disponíveis'}
+                </div>
+              </div>
+
+              {/* Filtros Rápidos - Dropdowns */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Dropdown Banco */}
+                  {filtersData?.bancos && filtersData.bancos.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Building2 className="h-3.5 w-3.5" />
+                        Banco
+                      </label>
+                      <select
+                        value={attendedSelectedBanco || ""}
+                        onChange={(e) => {
+                          setAttendedSelectedBanco(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os bancos</option>
+                        {filtersData.bancos.map((banco: any) => (
+                          <option key={banco.value} value={banco.value}>
+                            {banco.label} ({banco.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Dropdown Cargo */}
+                  {filtersData?.cargos && filtersData.cargos.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <User className="h-3.5 w-3.5" />
+                        Cargo
+                      </label>
+                      <select
+                        value={attendedSelectedCargo || ""}
+                        onChange={(e) => {
+                          setAttendedSelectedCargo(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os cargos</option>
+                        {filtersData.cargos.map((cargo: any) => (
+                          <option key={cargo.value} value={cargo.value}>
+                            {cargo.label} ({cargo.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Dropdown Status - APENAS ADMIN */}
+                  {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Activity className="h-3.5 w-3.5" />
+                        Status do Caso
+                      </label>
+                      <select
+                        value={attendedSelectedStatus || ""}
+                        onChange={(e) => {
+                          setAttendedSelectedStatus(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todos os status</option>
+                        {filtersData.status.map((status: any) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label} ({status.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Botão Limpar Filtros */}
+                {(attendedSelectedBanco || attendedSelectedCargo || attendedSelectedStatus) && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setAttendedSelectedBanco(null);
+                        setAttendedSelectedCargo(null);
+                        setAttendedSelectedStatus(null);
+                      }}
+                      className="h-9"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Limpar filtros
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {renderCaseList(attendedCases, true, loadingAttended, errorAttended)}
+
+            {/* Paginação */}
+            {attendedTotal > 0 && (
+              <Pagination
+                currentPage={attendedPage}
+                totalPages={attendedTotalPages}
+                totalItems={attendedTotal}
+                itemsPerPage={attendedPageSize}
+                onPageChange={setAttendedPage}
+                onItemsPerPageChange={(size) => {
+                  setAttendedPageSize(size);
                 }}
                 itemsPerPageOptions={[20, 50, 100]}
               />

@@ -247,69 +247,40 @@ def get_available_filters(
     Cargos = Cargos únicos dos clientes
     Órgãos = Órgãos pagadores dos clientes
     """
-    # Listar entidades únicas das linhas de folha importadas (entity_name)
-    entidades = db.query(PayrollLine.entity_name).filter(
-        PayrollLine.entity_name.isnot(None)
-    ).distinct().all()
-    entidades_list = sorted([e[0] for e in entidades if e[0]])
+    # Contar entidades únicas das linhas de folha importadas (entity_name)
+    entidade_counts = (
+        db.query(PayrollLine.entity_name, func.count(distinct(Client.id)))
+        .join(Client, Client.cpf == PayrollLine.cpf)
+        .filter(PayrollLine.entity_name.isnot(None))
+        .group_by(PayrollLine.entity_name)
+        .all()
+    )
 
-    # Listar bancos da importação SIAPE (banco_emprestimo)
-    siape_bancos = db.query(SiapeLine.banco_emprestimo).filter(
-        SiapeLine.banco_emprestimo.isnot(None)
-    ).distinct().all()
-    siape_bancos_list = [e[0] for e in siape_bancos if e[0]]
-
-    # Listar status de casos únicos do banco de dados
-    db_status_list = db.query(Case.status).distinct().all()
-    db_status_set = set(s[0] for s in db_status_list if s[0])
-
-    # Agrupar entidades por nome normalizado
-    bancos_agrupados = {}
-    for entidade in entidades_list:
+    bancos_counts: dict[str, int] = {}
+    for entidade, count in entidade_counts:
+        if not entidade:
+            continue
         normalized = normalize_bank_name(entidade)
-        if normalized not in bancos_agrupados:
-            bancos_agrupados[normalized] = []
-        bancos_agrupados[normalized].append(entidade)
+        bancos_counts[normalized] = bancos_counts.get(normalized, 0) + int(count or 0)
 
-    # Contar clientes por banco agrupado
-    bancos_with_count = []
-    for normalized_name, entidades_grupo in sorted(bancos_agrupados.items()):
-        # Contar clientes únicos com financiamentos deste grupo de entidades
-        count = (
-            db.query(func.count(distinct(Client.id)))
-            .join(PayrollLine, PayrollLine.cpf == Client.cpf)
-            .filter(PayrollLine.entity_name.in_(entidades_grupo))
-            .scalar()
-        )
-        bancos_with_count.append({
-            "value": normalized_name,
-            "label": normalized_name,
-            "count": count
-        })
+    # Agregar bancos da importação SIAPE (banco_emprestimo)
+    siape_counts = (
+        db.query(SiapeLine.banco_emprestimo, func.count(distinct(Client.id)))
+        .join(Client, Client.cpf == SiapeLine.cpf)
+        .filter(SiapeLine.banco_emprestimo.isnot(None))
+        .group_by(SiapeLine.banco_emprestimo)
+        .all()
+    )
+    for banco, count in siape_counts:
+        if not banco:
+            continue
+        normalized = normalize_bank_name(banco)
+        bancos_counts[normalized] = bancos_counts.get(normalized, 0) + int(count or 0)
 
-    # Agregar bancos SIAPE ao mesmo dicionário (somando se já existir)
-    siape_grouped = {}
-    for b in siape_bancos_list:
-        norm = normalize_bank_name(b)
-        siape_grouped.setdefault(norm, []).append(b)
-
-    for normalized_name, entidades_grupo in siape_grouped.items():
-        count = (
-            db.query(func.count(distinct(Client.id)))
-            .join(SiapeLine, SiapeLine.cpf == Client.cpf)
-            .filter(SiapeLine.banco_emprestimo.in_(entidades_grupo))
-            .scalar()
-        )
-        # Ver se já existe entrada (de contracheque) e somar
-        existing = next((x for x in bancos_with_count if x["value"] == normalized_name), None)
-        if existing:
-            existing["count"] = (existing.get("count") or 0) + count
-        else:
-            bancos_with_count.append({
-                "value": normalized_name,
-                "label": normalized_name,
-                "count": count
-            })
+    bancos_with_count = [
+        {"value": name, "label": name, "count": count}
+        for name, count in sorted(bancos_counts.items())
+    ]
 
     # Incluir SIAPE como banco quando houver linhas SIAPE
     siape_clientes = (
@@ -345,39 +316,35 @@ def get_available_filters(
     }
 
     # Mesclar status do banco com status padrão
-    all_statuses = set(default_statuses.keys()) | db_status_set
+    status_counts_rows = (
+        db.query(Case.status, func.count(distinct(Case.client_id)))
+        .group_by(Case.status)
+        .all()
+    )
+    status_counts = {row[0]: int(row[1] or 0) for row in status_counts_rows if row[0]}
+    all_statuses = set(default_statuses.keys()) | set(status_counts.keys())
 
-    status_with_count = []
-    for status in sorted(all_statuses):
-        count = db.query(func.count(distinct(Case.client_id))).filter(
-            Case.status == status
-        ).scalar() or 0
-
-        status_with_count.append({
+    status_with_count = [
+        {
             "value": status,
             "label": default_statuses.get(status, status.replace("_", " ").title()),
-            "count": count
-        })
-
+            "count": status_counts.get(status, 0),
+        }
+        for status in sorted(all_statuses)
+    ]
 
     # Buscar cargos únicos dos clientes
-    cargos = db.query(Client.cargo).filter(
-        Client.cargo.isnot(None),
-        Client.cargo != ''
-    ).distinct().all()
-    cargos_list = sorted([c[0] for c in cargos if c[0]])
-
-    # Contar clientes por cargo
-    cargos_with_count = []
-    for cargo in cargos_list:
-        count = db.query(func.count(Client.id)).filter(
-            Client.cargo == cargo
-        ).scalar() or 0
-        cargos_with_count.append({
-            "value": cargo,
-            "label": cargo,
-            "count": count
-        })
+    cargo_counts_rows = (
+        db.query(Client.cargo, func.count(Client.id))
+        .filter(Client.cargo.isnot(None), Client.cargo != "")
+        .group_by(Client.cargo)
+        .all()
+    )
+    cargos_with_count = [
+        {"value": cargo, "label": cargo, "count": int(count or 0)}
+        for cargo, count in sorted(cargo_counts_rows, key=lambda row: row[0] or "")
+        if cargo
+    ]
 
     # Contar clientes sem contratos (sem financiamentos)
     clientes_sem_contratos = (

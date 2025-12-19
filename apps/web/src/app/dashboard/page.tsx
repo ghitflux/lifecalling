@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { SLACards } from "@/components/dashboard/sla-cards";
 import { AgentPerformanceTable } from "@/components/dashboard/tables/agent-performance-table";
+import { AgentTodayAttendancesModal } from "@/components/dashboard/agent-today-attendances-modal";
 import { AgentDetailsModal } from "@/components/dashboard/agent-details-modal";
 import { SLACasesModal } from "@/components/dashboard/sla-cases-modal";
 
@@ -329,25 +330,30 @@ export default function DashboardPage() {
   // Métricas de agentes
   const { data: agentMetricsData, isLoading: agentMetricsLoading } = useAgentMetrics(from, to);
 
-  // Estado para o modal de detalhes do agente
+  // Estado para o modal de atendimentos do agente no dia
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [selectedAgentName, setSelectedAgentName] = useState<string>("");
-  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+  const [isAgentTodayModalOpen, setIsAgentTodayModalOpen] = useState(false);
+  const [isAgentDetailsModalOpen, setIsAgentDetailsModalOpen] = useState(false);
 
   // Estado para o modal de casos por SLA
   const [isSLACasesModalOpen, setIsSLACasesModalOpen] = useState(false);
   const [slaFilterType, setSlaFilterType] = useState<'within' | 'outside' | 'total' | null>(null);
 
-  // Função para visualizar detalhes de um agente
-  const handleViewAgentDetails = (agentId: number) => {
-    console.log('handleViewAgentDetails chamado', { agentId, agentMetricsData });
+  // Função para visualizar atendimentos de hoje do agente
+  const handleViewAgentToday = (agentId: number) => {
     const agent = agentMetricsData?.agents?.find((a: any) => a.agent_id === agentId);
-    console.log('Agente encontrado:', agent);
     setSelectedAgentId(agentId);
     setSelectedAgentName(agent?.agent_name || "");
     setSlaFilterType(null);
-    setIsAgentModalOpen(true);
-    console.log('Modal deve abrir agora');
+    setIsAgentTodayModalOpen(true);
+  };
+
+  const handleViewAgentCases = (agentId: number) => {
+    const agent = agentMetricsData?.agents?.find((a: any) => a.agent_id === agentId);
+    setSelectedAgentId(agentId);
+    setSelectedAgentName(agent?.agent_name || "");
+    setIsAgentDetailsModalOpen(true);
   };
 
   // Função para abrir modal via cards de SLA
@@ -806,7 +812,8 @@ export default function DashboardPage() {
         {/* Tabela de Performance por Agente */}
         <AgentPerformanceTable
           agents={agentMetricsData?.agents || []}
-          onViewDetails={handleViewAgentDetails}
+          onViewToday={handleViewAgentToday}
+          onViewAllCases={handleViewAgentCases}
           isLoading={agentMetricsLoading}
         />
       </div>
@@ -1136,10 +1143,17 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Modal de Detalhes do Agente */}
+      {/* Modal de Atendimentos de Hoje */}
+      <AgentTodayAttendancesModal
+        isOpen={isAgentTodayModalOpen}
+        onClose={() => setIsAgentTodayModalOpen(false)}
+        agentId={selectedAgentId}
+        agentName={selectedAgentName}
+      />
+
       <AgentDetailsModal
-        isOpen={isAgentModalOpen}
-        onClose={() => setIsAgentModalOpen(false)}
+        isOpen={isAgentDetailsModalOpen}
+        onClose={() => setIsAgentDetailsModalOpen(false)}
         agentId={selectedAgentId}
         agentName={selectedAgentName}
         from={from}

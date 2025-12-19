@@ -49,6 +49,19 @@ COMPLETED_STATUSES = {"fechamento_aprovado", "contrato_efetivado"}
 PROCESSING_STATUSES = {"em_atendimento", "calculista_pendente", "calculo_aprovado"}
 DEFAULT_LOOKBACK_DAYS = 30
 
+
+def _extract_assignment_target(payload: Any) -> Optional[int]:
+    if not isinstance(payload, dict):
+        return None
+    for key in ("to", "to_user_id", "assigned_user_id"):
+        if payload.get(key) is None:
+            continue
+        try:
+            return int(payload.get(key))
+        except (TypeError, ValueError):
+            return None
+    return None
+
 def ttl_cache(ttl_seconds: int):
     def decorator(func):
         cache: Dict[Any, Tuple[float, Any]] = {}
@@ -1521,6 +1534,28 @@ def get_agent_metrics(
         # SLA em horas úteis (48h = 2 dias úteis)
         sla_hours = 48
 
+        now = now_brt()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        assigned_events = (
+            db.query(CaseEvent.created_by, CaseEvent.case_id, CaseEvent.payload)
+            .filter(
+                CaseEvent.type.in_(("case.assigned", "case.reassigned")),
+                CaseEvent.created_at >= today_start,
+                CaseEvent.created_at < today_end,
+            )
+            .all()
+        )
+        picked_today_sets: Dict[int, set[int]] = {}
+        for created_by, case_id, payload in assigned_events:
+            target_id = _extract_assignment_target(payload)
+            if target_id is None:
+                target_id = created_by
+            if target_id is None:
+                continue
+            picked_today_sets.setdefault(target_id, set()).add(case_id)
+        picked_today_by_agent = {agent_id: len(case_ids) for agent_id, case_ids in picked_today_sets.items()}
+
         agent_metrics_list = []
         total_cases_within_sla = 0
         total_cases_outside_sla = 0
@@ -1630,6 +1665,7 @@ def get_agent_metrics(
                 "tma_minutes": round(tma_minutes, 2),
                 "cases_efetivados": cases_efetivados,
                 "cases_em_atendimento": cases_em_atendimento,
+                "cases_picked_today": picked_today_by_agent.get(agent.id, 0),
                 "cases_cancelados": cases_cancelados,
                 "consultoria_liquida": round(consultoria_liquida_agente, 2),
                 "percentual_medio": round(percentual_medio, 2),
@@ -1654,6 +1690,137 @@ def get_agent_metrics(
                 ),
             },
             "agents": agent_metrics_list,
+        }
+
+
+@r.get("/agent-today-attendances/{agent_id}")
+def get_agent_today_attendances(
+    agent_id: int,
+    user=Depends(require_roles(*ALLOWED_ROLES)),
+):
+    """
+    Retorna os casos do agente no dia de hoje (independente de filtros):
+    - casos que o agente pegou (case.assigned / case.reassigned)
+    - casos que tiveram avanço para calculista/fechamento no dia
+      (case.to_calculista, case.to_fechamento)
+    """
+    assigned_types = ("case.assigned", "case.reassigned")
+    advanced_types = ("case.to_calculista", "case.to_fechamento")
+
+    with SessionLocal() as db:
+        agent = db.get(User, agent_id)
+        if not agent or agent.role != "atendente":
+            raise HTTPException(404, "Agente não encontrado")
+
+        now = now_brt()
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+
+        assigned_events = (
+            db.query(
+                CaseEvent.case_id,
+                CaseEvent.type,
+                CaseEvent.created_at,
+                CaseEvent.payload,
+            )
+            .filter(
+                CaseEvent.type.in_(assigned_types),
+                CaseEvent.created_at >= start,
+                CaseEvent.created_at < end,
+            )
+            .all()
+        )
+        advanced_events = (
+            db.query(CaseEvent.case_id, CaseEvent.type, CaseEvent.created_at)
+            .filter(
+                CaseEvent.created_by == agent_id,
+                CaseEvent.type.in_(advanced_types),
+                CaseEvent.created_at >= start,
+                CaseEvent.created_at < end,
+            )
+            .all()
+        )
+
+        events = []
+        for case_id, event_type, created_at, payload in assigned_events:
+            to_id = _extract_assignment_target(payload)
+            if to_id == agent_id:
+                events.append((case_id, event_type, created_at))
+        events.extend(advanced_events)
+
+        if not events:
+            return {
+                "agent": {"id": agent.id, "name": agent.name, "email": agent.email},
+                "day": start.date().isoformat(),
+                "picked_cases": 0,
+                "advanced_cases": 0,
+                "total_cases": 0,
+                "cases": [],
+            }
+
+        per_case: dict[int, dict[str, object]] = {}
+        for case_id, event_type, created_at in events:
+            entry = per_case.setdefault(
+                case_id,
+                {
+                    "picked_at": None,
+                    "advanced_at": None,
+                    "advanced_types": set(),
+                },
+            )
+            if event_type in assigned_types:
+                if entry["picked_at"] is None or created_at > entry["picked_at"]:
+                    entry["picked_at"] = created_at
+            else:
+                if entry["advanced_at"] is None or created_at > entry["advanced_at"]:
+                    entry["advanced_at"] = created_at
+                entry["advanced_types"].add(event_type)
+
+        case_ids = list(per_case.keys())
+        case_rows = (
+            db.query(Case, Client)
+            .join(Client, Client.id == Case.client_id)
+            .filter(Case.id.in_(case_ids))
+            .all()
+        )
+
+        cases_data = []
+        for case, client in case_rows:
+            meta = per_case.get(case.id, {})
+            cases_data.append(
+                {
+                    "id": case.id,
+                    "status": case.status,
+                    "client_name": client.name,
+                    "client_cpf": client.cpf,
+                    "created_at": _serialize_dt(case.created_at),
+                    "last_update_at": _serialize_dt(case.last_update_at),
+                    "picked_at": _serialize_dt(meta.get("picked_at")),
+                    "advanced_at": _serialize_dt(meta.get("advanced_at")),
+                    "advanced_types": sorted(meta.get("advanced_types", [])),
+                }
+            )
+
+        cases_data.sort(
+            key=lambda item: (
+                item.get("advanced_at")
+                or item.get("picked_at")
+                or item.get("created_at")
+                or ""
+            ),
+            reverse=True,
+        )
+
+        picked_cases = sum(1 for meta in per_case.values() if meta["picked_at"])
+        advanced_cases = sum(1 for meta in per_case.values() if meta["advanced_at"])
+
+        return {
+            "agent": {"id": agent.id, "name": agent.name, "email": agent.email},
+            "day": start.date().isoformat(),
+            "picked_cases": picked_cases,
+            "advanced_cases": advanced_cases,
+            "total_cases": len(cases_data),
+            "cases": cases_data,
         }
 
 
