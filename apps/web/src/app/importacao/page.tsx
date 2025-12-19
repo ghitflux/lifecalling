@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import { ProgressBar } from "@/components/ProgressBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BulkCadastroImport from "@/components/BulkCadastroImport";
-import { formatDateTimeBR } from "@/lib/timezone";
 
 export default function ImportacaoPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -489,7 +488,7 @@ export default function ImportacaoPage() {
                       {importItem.entity_name} • Ref: {importItem.reference}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {formatDateTimeBR(importItem.created_at)} por {importItem.created_by}
+                      {new Date(importItem.created_at).toLocaleString()} por {importItem.created_by}
                     </p>
                   </div>
                 </div>
@@ -626,7 +625,7 @@ export default function ImportacaoPage() {
                           {importItem.entity_name} • Ref: {importItem.reference}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {formatDateTimeBR(importItem.created_at)} por {importItem.created_by}
+                          {new Date(importItem.created_at).toLocaleString()} por {importItem.created_by}
                         </p>
                       </div>
                     </div>

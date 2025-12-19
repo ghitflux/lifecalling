@@ -8,10 +8,9 @@ from fastapi import (  # pyright: ignore[reportMissingImports]
 from fastapi.responses import Response  # pyright: ignore[reportMissingImports]
 from pydantic import BaseModel  # pyright: ignore[reportMissingImports]
 from datetime import datetime
-from sqlalchemy import text  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import joinedload  # pyright: ignore[reportMissingImports]
-from ..db import SessionLocal, engine
-from ..models import Case, CaseEvent, Contract, now_brt, MobileSimulation, MobileNotification, FinanceIncome, FinanceExpense, User
+from ..db import SessionLocal
+from ..models import Case, CaseEvent, Contract, now_brt, MobileSimulation, FinanceIncome, FinanceExpense, User
 from ..rbac import require_roles
 from ..events import eventbus
 from ..config import settings
@@ -19,7 +18,6 @@ import io
 import csv
 import os
 import shutil
-import requests
 from decimal import Decimal
 
 r = APIRouter(prefix="/finance", tags=["finance"])
@@ -196,8 +194,7 @@ def serialize_mobile_simulation(sim: MobileSimulation):
         "user": {
             "id": sim.user.id,
             "name": sim.user.name,
-            "email": sim.user.email,
-            "cpf": getattr(sim.user, "cpf", None)
+            "email": sim.user.email
         },
         "requested_amount": to_float(sim.requested_amount),
         "total_amount": to_float(sim.total_amount),
@@ -226,101 +223,6 @@ class MobileDisburseIn(BaseModel):
     percentual_atendente1: float | None = None
     atendente2_user_id: int | None = None
     percentual_atendente2: float | None = None
-
-
-_PUSH_TOKEN_TABLE_READY = False
-
-
-def ensure_push_token_table():
-    """
-    Garante que a tabela de push tokens exista, sem depender de migração.
-    (Duplicado do router mobile para uso no financeiro sem acoplamento.)
-    """
-    global _PUSH_TOKEN_TABLE_READY
-    if _PUSH_TOKEN_TABLE_READY:
-        return
-
-    ddl = """
-    CREATE TABLE IF NOT EXISTS mobile_push_tokens (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        token VARCHAR(255) NOT NULL UNIQUE,
-        platform VARCHAR(30),
-        device_id VARCHAR(120),
-        created_at TIMESTAMPTZ DEFAULT now(),
-        updated_at TIMESTAMPTZ DEFAULT now(),
-        last_used_at TIMESTAMPTZ DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS idx_mobile_push_tokens_user_id ON mobile_push_tokens(user_id);
-    """
-    with engine.begin() as conn:
-        conn.execute(text(ddl))
-    _PUSH_TOKEN_TABLE_READY = True
-
-
-def send_push_to_user(db, user_id: int, title: str, body: str, data: dict | None = None) -> None:
-    """
-    Envia push notification via Expo para todos os tokens associados ao usuário.
-
-    Importante: falhas de push não devem bloquear o fluxo do financeiro.
-    """
-    ensure_push_token_table()
-
-    rows = db.execute(
-        text("SELECT token FROM mobile_push_tokens WHERE user_id = :user_id ORDER BY last_used_at DESC"),
-        {"user_id": user_id},
-    ).all()
-
-    tokens = [r[0] for r in rows if r and r[0]]
-    if not tokens:
-        return
-
-    messages = [
-        {
-            "to": t,
-            "sound": "default",
-            "title": title,
-            "body": body,
-            "data": data or {},
-        }
-        for t in tokens
-    ]
-
-    try:
-        resp = requests.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=messages,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            timeout=10,
-        )
-        payload = resp.json() if resp.content else {}
-
-        results = payload.get("data")
-        if isinstance(results, dict):
-            results = [results]
-
-        if isinstance(results, list):
-            tokens_to_delete: list[str] = []
-            for token, result in zip(tokens, results):
-                if not isinstance(result, dict):
-                    continue
-                if (result.get("status") or "").lower() != "error":
-                    continue
-
-                details = result.get("details") or {}
-                error_code = details.get("error") or result.get("message")
-                if error_code == "DeviceNotRegistered":
-                    tokens_to_delete.append(token)
-
-            if tokens_to_delete:
-                for token in tokens_to_delete:
-                    db.execute(text("DELETE FROM mobile_push_tokens WHERE token = :token"), {"token": token})
-                db.commit()
-    except Exception as exc:
-        print(f"[WARN] Could not send Expo push: {exc}")
 
 
 @r.get("/mobile/queue")
@@ -614,33 +516,8 @@ def finance_mobile_disburse(
                     )
                     db.add(agent)
 
-        # Notificação in-app + push (não bloquear o fluxo caso falhe)
-        try:
-            db.add(
-                MobileNotification(
-                    user_id=sim.user_id,
-                    title="Contrato efetivado",
-                    message="Seu contrato foi efetivado com sucesso. O agente responsável entrará em contato para finalizar o contrato.",
-                    type="success",
-                    created_at=now_brt(),
-                )
-            )
-        except Exception:
-            pass
-
         db.commit()
-
-        try:
-            send_push_to_user(
-                db,
-                sim.user_id,
-                title="Contrato efetivado",
-                body="Seu contrato foi efetivado com sucesso. O agente responsável entrará em contato para finalizar o contrato.",
-                data={"simulationId": sim.id, "type": "contract"},
-            )
-        except Exception:
-            pass
-
+        # TODO: enviar notificação para app mobile informando contrato efetivado
         return {"message": "Contrato mobile efetivado", "simulation": serialize_mobile_simulation(sim)}
 
 @r.post("/mobile/{simulation_id}/reopen")

@@ -10,7 +10,6 @@ import { mobileApi, AdminClient, AdminSimulation } from "@/services/mobileApi";
 import { toast } from "sonner";
 import { SimulationFormMultiBank } from "@/components/mobile/SimulationFormMultiBank";
 import { formatCurrency } from "@/lib/utils/currency";
-import { formatDateTimeBR } from "@/lib/timezone";
 
 const copyIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -241,7 +240,7 @@ function NewSimulationPageContent() {
                                             {latestSimulationWithDoc.document_filename || 'Documento anexado'}
                                         </p>
                                         <p className="text-sm text-slate-400">
-                                            {latestSimulationWithDoc.document_type?.toUpperCase()} • {formatDateTimeBR(latestSimulationWithDoc.updated_at || latestSimulationWithDoc.created_at)}
+                                            {latestSimulationWithDoc.document_type?.toUpperCase()} • {new Date(latestSimulationWithDoc.updated_at || latestSimulationWithDoc.created_at).toLocaleString('pt-BR')}
                                         </p>
                                     </div>
                                 </div>

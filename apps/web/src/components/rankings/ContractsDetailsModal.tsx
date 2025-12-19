@@ -7,7 +7,6 @@ import { RankingTable } from "@lifecalling/ui";
 import { FileText, TrendingUp, DollarSign, User, FolderOpen } from "lucide-react";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { formatDateBR } from "@/lib/timezone";
 
 interface ContractsDetailsModalProps {
   open: boolean;
@@ -52,8 +51,8 @@ export function ContractsDetailsModal({
   // Formatar data
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
-    const formatted = formatDateBR(dateStr);
-    return formatted || "—";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   // Formatar moeda

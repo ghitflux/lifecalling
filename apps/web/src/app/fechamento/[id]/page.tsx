@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 import FinanciamentosModal from "@/components/case/FinanciamentosModal";
-import { formatDateBR, formatDateTimeBR } from "@/lib/timezone";
 
 export default function FechamentoDetalhesPage() {
   const params = useParams();
@@ -161,7 +160,7 @@ export default function FechamentoDetalhesPage() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
-    return formatDateBR(dateString);
+    return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
   const formatFileSize = (bytes: number) => {
@@ -608,7 +607,13 @@ export default function FechamentoDetalhesPage() {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {formatDateTimeBR(event.created_at)}
+                      {new Date(event.created_at).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </span>
                   </div>
                   {event.payload && Object.keys(event.payload).length > 0 && (

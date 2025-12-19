@@ -51,7 +51,6 @@ import {
 import { SLACards } from "@/components/dashboard/sla-cards";
 import { AgentPerformanceTable } from "@/components/dashboard/tables/agent-performance-table";
 import { AgentDetailsModal } from "@/components/dashboard/agent-details-modal";
-import { AgentTodayAttendancesModal } from "@/components/dashboard/agent-today-attendances-modal";
 import { SLACasesModal } from "@/components/dashboard/sla-cases-modal";
 
 type AnalyticsBucket = "day" | "week" | "month";
@@ -334,7 +333,6 @@ export default function DashboardPage() {
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [selectedAgentName, setSelectedAgentName] = useState<string>("");
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
-  const [isTodayAttendancesModalOpen, setIsTodayAttendancesModalOpen] = useState(false);
 
   // Estado para o modal de casos por SLA
   const [isSLACasesModalOpen, setIsSLACasesModalOpen] = useState(false);
@@ -350,13 +348,6 @@ export default function DashboardPage() {
     setSlaFilterType(null);
     setIsAgentModalOpen(true);
     console.log('Modal deve abrir agora');
-  };
-
-  const handleViewTodayAttendances = (agentId: number) => {
-    const agent = agentMetricsData?.agents?.find((a: any) => a.agent_id === agentId);
-    setSelectedAgentId(agentId);
-    setSelectedAgentName(agent?.agent_name || "");
-    setIsTodayAttendancesModalOpen(true);
   };
 
   // Função para abrir modal via cards de SLA
@@ -810,16 +801,15 @@ export default function DashboardPage() {
           slaHours={agentMetricsData?.sla_hours || 48}
           isLoading={agentMetricsLoading}
           onCardClick={handleSLACardClick}
-	        />
+        />
 
-	        {/* Tabela de Performance por Agente */}
-	        <AgentPerformanceTable
-	          agents={agentMetricsData?.agents || []}
-	          onViewDetails={handleViewAgentDetails}
-	          onViewTodayAttendances={handleViewTodayAttendances}
-	          isLoading={agentMetricsLoading}
-	        />
-	      </div>
+        {/* Tabela de Performance por Agente */}
+        <AgentPerformanceTable
+          agents={agentMetricsData?.agents || []}
+          onViewDetails={handleViewAgentDetails}
+          isLoading={agentMetricsLoading}
+        />
+      </div>
 
       {/* 4. KPIs OPERACIONAIS */}
       <div className="space-y-3">
@@ -1146,31 +1136,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
-	      {/* Modal de Detalhes do Agente */}
-	      <AgentDetailsModal
-	        isOpen={isAgentModalOpen}
-	        onClose={() => setIsAgentModalOpen(false)}
-	        agentId={selectedAgentId}
-	        agentName={selectedAgentName}
-	        from={from}
-	        to={to}
-	      />
+      {/* Modal de Detalhes do Agente */}
+      <AgentDetailsModal
+        isOpen={isAgentModalOpen}
+        onClose={() => setIsAgentModalOpen(false)}
+        agentId={selectedAgentId}
+        agentName={selectedAgentName}
+        from={from}
+        to={to}
+      />
 
-	      <AgentTodayAttendancesModal
-	        isOpen={isTodayAttendancesModalOpen}
-	        onClose={() => setIsTodayAttendancesModalOpen(false)}
-	        agentId={selectedAgentId}
-	        agentName={selectedAgentName}
-	      />
-
-	      {/* Modal de Casos por SLA */}
-	      <SLACasesModal
-	        isOpen={isSLACasesModalOpen}
-	        onClose={() => setIsSLACasesModalOpen(false)}
-	        filterType={slaFilterType}
-	        from={from}
-	        to={to}
-	      />
-	    </div>
-	  );
+      {/* Modal de Casos por SLA */}
+      <SLACasesModal
+        isOpen={isSLACasesModalOpen}
+        onClose={() => setIsSLACasesModalOpen(false)}
+        filterType={slaFilterType}
+        from={from}
+        to={to}
+      />
+    </div>
+  );
 }

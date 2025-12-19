@@ -21,7 +21,6 @@ import { RefreshCw, ArrowLeft } from "lucide-react";
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 import { addComment, getComments } from "@/lib/comments";
-import { formatDateBR, formatDateTimeBR } from "@/lib/timezone";
 
 interface CaseDetail {
   id: number;
@@ -853,17 +852,17 @@ export default function CaseDetailPage() {
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <Label>Reatribuir para outro atendente</Label>
-	              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-	                <SelectTrigger>
-	                  <SelectValue placeholder="Selecione um atendente" />
-	                </SelectTrigger>
-	                <SelectContent>
-	                  {users
-	                    .filter((u: any) => u.active && (u.role === "admin" || u.role === "atendente"))
-	                    .map((u: any) => (
-	                      <SelectItem key={u.id} value={u.id.toString()}>
-	                        {u.name} ({u.role})
-	                      </SelectItem>
+              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um atendente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u: any) => u.active)
+                    .map((u: any) => (
+                      <SelectItem key={u.id} value={u.id.toString()}>
+                        {u.name} ({u.role})
+                      </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
@@ -1042,7 +1041,7 @@ export default function CaseDetailPage() {
                           <div><div className="text-xs text-muted-foreground">Valor</div><div className="font-medium">{new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(parseFloat(fin.valor_parcela_ref))}</div></div>
                           <div className="col-span-2"><div className="text-xs text-muted-foreground">Órgão Pagamento</div><div className="font-medium">{fin.orgao_pagamento_nome || fin.orgao_pagamento} - {fin.entity_name}</div></div>
                           <div><div className="text-xs text-muted-foreground">Referência</div><div className="font-medium flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-blue-500" />{referencia || '-'}</div></div>
-                          <div><div className="text-xs text-muted-foreground">Importado em</div><div className="font-medium text-xs flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-purple-500" />{fin.created_at ? formatDateBR(fin.created_at) : '-'}</div></div>
+                          <div><div className="text-xs text-muted-foreground">Importado em</div><div className="font-medium text-xs flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-purple-500" />{fin.created_at ? new Date(fin.created_at).toLocaleDateString('pt-BR') : '-'}</div></div>
                         </div>
                       </div>
                     );
@@ -1209,7 +1208,7 @@ export default function CaseDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">
-                        {attachment.uploaded_at ? formatDateBR(attachment.uploaded_at) : 'Data não disponível'}
+                        {attachment.uploaded_at ? new Date(attachment.uploaded_at).toLocaleDateString() : 'Data não disponível'}
                       </span>
                       <Button
                         variant="ghost"
@@ -1287,7 +1286,7 @@ export default function CaseDetailPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">
-                        {phoneRecord.created_at ? formatDateBR(phoneRecord.created_at) : ''}
+                          {phoneRecord.created_at ? new Date(phoneRecord.created_at).toLocaleDateString() : ''}
                         </span>
                         {!phoneRecord.is_primary && (
                           <Button
@@ -1337,7 +1336,7 @@ export default function CaseDetailPage() {
             {caseDetail.simulation.status === 'approved' && caseDetail.simulation.totals && (
               <div className="space-y-4">
                 <div className="rounded-lg border border-success/40 bg-success-subtle p-3 text-sm text-success-foreground">
-                  ✅ Simulação aprovada em {formatDateBR(caseDetail.simulation.created_at)}
+                  ✅ Simulação aprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
                 </div>
                 <SimulationResultCard
                   totals={{
@@ -1386,7 +1385,7 @@ export default function CaseDetailPage() {
 
             {caseDetail.simulation.status === 'rejected' && (
               <div className="rounded-lg border border-danger/40 bg-danger-subtle p-3 text-sm text-danger-foreground">
-                ❌ Simulação reprovada em {formatDateBR(caseDetail.simulation.created_at)}
+                ❌ Simulação reprovada em {new Date(caseDetail.simulation.created_at).toLocaleDateString()}
               </div>
             )}
           </Card>
@@ -1435,7 +1434,13 @@ export default function CaseDetailPage() {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {formatDateTimeBR(event.created_at)}
+                      {new Date(event.created_at).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </span>
                   </div>
                   {event.payload && Object.keys(event.payload).length > 0 && (

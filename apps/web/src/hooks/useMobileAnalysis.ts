@@ -135,15 +135,15 @@ export function useApproveForCalculation() {
  */
 export function useDownloadSimulationDocument() {
   return useMutation({
-    mutationFn: async ({ docId, documentType, filename }: {
-      docId: string;
+    mutationFn: async ({ simulationId, documentType, filename }: {
+      simulationId: string;
       documentType?: string;
       filename?: string;
     }) => {
-      const blob = await mobileApi.getSimulationDocument(docId);
-      return { blob, docId, documentType, filename };
+      const blob = await mobileApi.getSimulationDocument(simulationId);
+      return { blob, simulationId, documentType, filename };
     },
-    onSuccess: ({ blob, docId, documentType, filename }) => {
+    onSuccess: ({ blob, simulationId, documentType, filename }) => {
       // Determinar extensão do arquivo baseado no tipo
       const extensionMap: Record<string, string> = {
         'jpeg': 'jpg',
@@ -157,7 +157,7 @@ export function useDownloadSimulationDocument() {
         : 'pdf';
 
       // Usar filename original se disponível, senão gerar um genérico
-      const downloadFilename = filename || `documento-${docId}.${extension}`;
+      const downloadFilename = filename || `documento-${simulationId}.${extension}`;
 
       // Criar URL temporária do blob
       const url = window.URL.createObjectURL(blob);

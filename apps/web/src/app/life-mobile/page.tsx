@@ -5,9 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Smartphone, FileText, CheckCircle, XCircle, Clock } from "lucide-react";
 import { KPICard, DateRangeFilterWithCalendar, Card, CardHeader, CardTitle, CardContent } from "@lifecalling/ui";
 import { mobileApi } from "@/services/mobileApi";
-import { isWithinInterval } from "date-fns";
+import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { formatCurrency } from "@/lib/utils/currency";
-import { endOfDayBrasilia, endOfMonthBrasilia, formatDateBR, formatDateBrasilia, parseApiDate, startOfDayBrasilia, startOfMonthBrasilia } from "@/lib/timezone";
+import { startOfMonthBrasilia, endOfMonthBrasilia, formatDateBrasilia } from "@/lib/timezone";
 
 export default function LifeMobileDashboard() {
   const [startDate, setStartDate] = useState<string>(() => {
@@ -46,10 +46,9 @@ export default function LifeMobileDashboard() {
   const filteredSimulations =
     simulations?.filter((sim) => {
       if (!sim.created_at) return false;
-      const date = parseApiDate(sim.created_at);
-      if (!date) return false;
-      const start = startDate ? startOfDayBrasilia(startDate) : startOfMonthBrasilia(new Date());
-      const end = endDate ? endOfDayBrasilia(endDate) : endOfMonthBrasilia(new Date());
+      const date = parseISO(sim.created_at);
+      const start = startDate ? new Date(`${startDate}T00:00:00`) : startOfMonth(new Date());
+      const end = endDate ? new Date(`${endDate}T23:59:59`) : endOfMonth(new Date());
       return isWithinInterval(date, { start, end });
     }) || [];
 
@@ -64,7 +63,7 @@ export default function LifeMobileDashboard() {
   const approvalRate = totalSimulations > 0 ? ((approvedSimulations / totalSimulations) * 100).toFixed(1) : "0";
   const recentSimulations = filteredSimulations
     .slice()
-    .sort((a, b) => (parseApiDate(b.created_at)?.getTime() ?? 0) - (parseApiDate(a.created_at)?.getTime() ?? 0))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
 
   return (
@@ -158,7 +157,7 @@ export default function LifeMobileDashboard() {
                       <div>
                         <p className="font-medium text-slate-100">{sim.user_name || "Usuário Desconhecido"}</p>
                         <p className="text-sm text-slate-400">
-                          {formatDateBR(sim.created_at)} • {sim.type?.replace(/_/g, " ")}
+                          {new Date(sim.created_at).toLocaleDateString("pt-BR")} • {sim.type?.replace(/_/g, " ")}
                         </p>
                       </div>
                     </div>

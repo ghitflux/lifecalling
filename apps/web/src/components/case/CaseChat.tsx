@@ -11,11 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-	import { Send, MessageCircle } from 'lucide-react';
-	import { toast } from 'sonner';
-	import { getComments, addComment, type Channel, type Comment } from '@/lib/comments';
-	import { useAuth } from '@/lib/auth';
-	import { BRASILIA_TIMEZONE, parseApiDate } from '@/lib/timezone';
+import { Send, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { getComments, addComment, type Channel, type Comment } from '@/lib/comments';
+import { useAuth } from '@/lib/auth';
 
 interface CaseChatProps {
   caseId: number;
@@ -87,18 +86,18 @@ export default function CaseChat({ caseId, defaultChannel }: CaseChatProps) {
     );
   };
 
-	  // Formatar data/hora
-	  const formatDateTime = (dateStr: string) => {
-	    const date = parseApiDate(dateStr) ?? new Date(dateStr);
-	    const now = new Date();
-	    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+  // Formatar data/hora
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
-	    if (diffInHours < 24) {
-	      return date.toLocaleTimeString('pt-BR', { timeZone: BRASILIA_TIMEZONE, hour: '2-digit', minute: '2-digit' });
-	    }
-	    return date.toLocaleDateString('pt-BR', { timeZone: BRASILIA_TIMEZONE, day: '2-digit', month: '2-digit' }) +
-	           ' ' + date.toLocaleTimeString('pt-BR', { timeZone: BRASILIA_TIMEZONE, hour: '2-digit', minute: '2-digit' });
-	  };
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+           ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <Card className="w-full h-full flex flex-col p-6">

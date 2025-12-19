@@ -73,9 +73,7 @@ import { useRouter } from "next/navigation";
 import {
   startOfMonthBrasilia,
   endOfMonthBrasilia,
-  formatDateBR,
-  formatDateBrasilia,
-  parseApiDate
+  formatDateBrasilia
 } from "@/lib/timezone";
 
 export default function Page() {
@@ -232,12 +230,6 @@ export default function Page() {
     return "Pendente";
   };
 
-  const formatCpf = (cpf?: string) => {
-    const digits = (cpf || "").replace(/\D/g, "");
-    if (digits.length !== 11) return cpf || "";
-    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  };
-
   // Export CSV
   const exportToCSV = () => {
     if (transactions.length === 0) {
@@ -247,7 +239,7 @@ export default function Page() {
     // ✅ ATUALIZADO: Incluir coluna "Nome (Despesa/Receita)" e manter ordem da tabela
     const headers = ["Data", "Tipo", "Nome (Despesa/Receita)", "Cliente", "CPF", "Atendente", "Categoria", "Valor"];
     const rows = transactions.map((t: any) => [
-      formatDateBR(t.date),
+      new Date(t.date).toLocaleDateString("pt-BR"),
       t.type === "receita" ? "Receita" : "Despesa",
       t.name || "-", // ✅ NOVO: Nome da Despesa/Receita
       t.client_name || "-",
@@ -1034,64 +1026,37 @@ export default function Page() {
               : adminSimulations.filter((sim: any) => (sim.status || "").toLowerCase() === mobileStatusFilter)
             ).map((sim: any) => (
               <div key={sim.id} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow">
-                {(() => {
-                  const clientName = sim.user?.name || sim.user_name || "Cliente Mobile";
-                  const clientEmail = sim.user?.email || sim.user_email || "";
-                  const clientCpfRaw = sim.user?.cpf || sim.user_cpf || "";
-                  const clientCpf = formatCpf(clientCpfRaw) || "-";
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm text-slate-400">Cliente</p>
+                    <p className="text-lg font-semibold text-slate-100">{sim.user?.name || "Cliente Mobile"}</p>
+                    <p className="text-xs text-slate-400 break-all">{sim.user?.email}</p>
+                  </div>
+                  <Badge variant="outline" className="bg-amber-500/15 text-amber-200 border-amber-500/40 capitalize px-3 py-1">
+                    {mobileStatusLabel(sim.status)}
+                  </Badge>
+                </div>
 
-                  const banks = sim.banks || sim.banks_json || [];
-                  const liberadoTotal = banks.reduce((sum: number, b: any) => sum + (Number(b.valorLiberado) || 0), 0);
-                  const totalFinanciado = Number(sim.total_amount ?? sim.requested_amount ?? liberadoTotal ?? 0);
-                  const custoConsultoria = ((Number(sim.percentual_consultoria ?? 0)) / 100) * totalFinanciado;
+                <div className="grid grid-cols-2 gap-4 text-sm text-slate-300 mb-4">
+                  <div>
+                    <p className="text-slate-500">Valor Total</p>
+                    <p className="text-lg font-semibold text-slate-100">{formatCurrency(sim.total_amount || sim.requested_amount || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Parcelas</p>
+                    <p className="text-lg font-semibold text-slate-100">{sim.installments}x</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Criado em</p>
+                    <p className="font-semibold text-slate-100">{sim.created_at ? new Date(sim.created_at).toLocaleDateString("pt-BR") : "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Proposta</p>
+                    <p className="font-semibold text-slate-100">{sim.simulation_type || "Mobile"}</p>
+                  </div>
+                </div>
 
-                  const createdAt = parseApiDate(sim.created_at);
-                  const createdAtLabel = createdAt ? formatDateBR(createdAt) : "-";
-
-                  return (
-                    <>
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-lg font-semibold text-slate-100 truncate">{clientName}</p>
-                          <p className="text-xs text-slate-400 break-all">{clientEmail || "-"}</p>
-                          <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
-                            <CreditCard className="h-4 w-4 text-slate-500" />
-                            <span className="text-slate-500">CPF</span>
-                            <span className="font-medium text-slate-200">{clientCpf}</span>
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="bg-amber-500/15 text-amber-200 border-amber-500/40 capitalize px-3 py-1 whitespace-nowrap"
-                        >
-                          {mobileStatusLabel(sim.status)}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                          <p className="text-xs text-slate-500">Valor Total</p>
-                          <p className="text-base font-semibold text-slate-100">{formatCurrency(totalFinanciado)}</p>
-                        </div>
-                        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                          <p className="text-xs text-slate-500">Valor Consultoria</p>
-                          <p className="text-base font-semibold text-slate-100">
-                            {formatCurrency(Number.isFinite(custoConsultoria) ? custoConsultoria : 0)}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                          <p className="text-xs text-slate-500">Data</p>
-                          <div className="mt-1 flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-slate-500" />
-                            <p className="text-base font-semibold text-slate-100">{createdAtLabel}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-
-                <div className="flex items-center gap-3 mt-4">
+                <div className="flex items-center gap-3">
                   {mobileStatusFilter === "financeiro_pendente" && (
                     <>
                       <Button
@@ -1762,7 +1727,7 @@ export default function Page() {
                           <td className="p-4 text-sm whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              {formatDateBR(transaction.date)}
+                              {new Date(transaction.date).toLocaleDateString("pt-BR")}
                             </div>
                           </td>
                           <td className="p-4">

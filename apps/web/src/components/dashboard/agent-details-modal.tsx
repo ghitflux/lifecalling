@@ -15,7 +15,6 @@ import { api } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Link from "next/link";
-import { formatDateBR, parseApiDate } from "@/lib/timezone";
 
 interface AgentDetailsModalProps {
   isOpen: boolean;
@@ -92,11 +91,6 @@ export function AgentDetailsModal({
     if (hours < 1) return `${Math.round(hours * 60)}min`;
     if (hours < 24) return `${Math.round(hours)}h`;
     return `${Math.round(hours / 24)}d`;
-  };
-
-  const safeDate = (value: string | null | undefined) => {
-    if (!value) return null;
-    return parseApiDate(value) ?? null;
   };
 
   return (
@@ -216,11 +210,11 @@ export function AgentDetailsModal({
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Criado em</p>
-	                        <p className="font-medium">
-	                          {case_.created_at ? formatDateBR(case_.created_at) : "-"}
-	                        </p>
-	                      </div>
-	                    </div>
+                        <p className="font-medium">
+                          {new Date(case_.created_at).toLocaleDateString("pt-BR")}
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
@@ -236,16 +230,16 @@ export function AgentDetailsModal({
                       <CheckCircle className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Última atualização</p>
-	                        <p className="font-medium">
-	                          {case_.last_update_at && safeDate(case_.last_update_at)
-	                            ? formatDistanceToNow(safeDate(case_.last_update_at)!, {
-	                                addSuffix: true,
-	                                locale: ptBR,
-	                              })
-	                            : "-"}
-	                        </p>
-	                      </div>
-	                    </div>
+                        <p className="font-medium">
+                          {case_.last_update_at
+                            ? formatDistanceToNow(new Date(case_.last_update_at), {
+                                addSuffix: true,
+                                locale: ptBR,
+                              })
+                            : "-"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

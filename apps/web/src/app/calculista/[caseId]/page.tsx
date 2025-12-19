@@ -22,7 +22,6 @@ import type { SimulationBankInput, SimulationInput, SimulationTotals } from "@/l
 import CaseChat from "@/components/case/CaseChat";
 import AdminStatusChanger from "@/components/case/AdminStatusChanger";
 import { FinancialInfoModal } from "@/components/calculista/FinancialInfoModal";
-import { formatDateTimeBR } from "@/lib/timezone";
 
 export default function CalculistaSimulationPage() {
   const params = useParams();
@@ -461,7 +460,13 @@ export default function CalculistaSimulationPage() {
                         <span>{formatFileSize(attachment.size)}</span>
                         <span>•</span>
                         <span>
-                          {formatDateTimeBR(attachment.uploaded_at)}
+                          {new Date(attachment.uploaded_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </span>
                       </div>
                     </div>

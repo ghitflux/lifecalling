@@ -54,11 +54,6 @@ from .scheduler_config import init_scheduler, shutdown_scheduler
 async def startup_event():
     """Inicializa o scheduler de SLA no startup da aplicação"""
     sync_users_id_sequence()
-    # Garante que o schema do módulo Life Mobile esteja atualizado (evita 500 em /mobile/simulations*)
-    try:
-        mobile.ensure_mobile_schema()
-    except Exception as exc:
-        print(f"[WARN] Could not ensure mobile schema: {exc}")
     init_scheduler()
 
 @app.on_event("shutdown")

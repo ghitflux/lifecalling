@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -26,7 +26,6 @@ import {
 import { formatCurrency } from "@/lib/utils/currency";
 import { toast } from "sonner";
 import { FileText, Download, Plus, X, CheckCircle, XCircle, AlertCircle, Eye } from "lucide-react";
-import { formatDateBR, formatDateTimeBR } from "@/lib/timezone";
 
 interface AnalysisModalProps {
     simulation: AdminSimulation | null;
@@ -40,27 +39,13 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
     const [pendingDocs, setPendingDocs] = useState<PendingDocument[]>([]);
     const [newDocType, setNewDocType] = useState("");
     const [newDocDescription, setNewDocDescription] = useState("");
-    const [documents, setDocuments] = useState<Array<{ id: string; document_type?: string; document_filename?: string; created_at?: string }>>([]);
-    const [documentsLoading, setDocumentsLoading] = useState(false);
 
     const pendMutation = usePendSimulation();
     const reproveMutation = useReproveSimulation();
     const approveMutation = useApproveForCalculation();
     const downloadMutation = useDownloadSimulationDocument();
 
-    useEffect(() => {
-        const simId = simulation?.id;
-        if (!open || !simId) return;
-
-        setDocumentsLoading(true);
-        mobileApi.getAdminSimulationDocuments(simId)
-            .then((docs) => setDocuments(Array.isArray(docs) ? docs : []))
-            .catch((err) => {
-                console.warn("Erro ao listar anexos da simulação:", err);
-                setDocuments([]);
-            })
-            .finally(() => setDocumentsLoading(false));
-    }, [open, simulation?.id]);
+    if (!simulation) return null;
 
     const handleAddPendingDoc = () => {
         if (newDocType && newDocDescription) {
@@ -76,8 +61,6 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
 
     const handleConfirmAction = async () => {
         if (!action) return;
-        const simId = simulation?.id;
-        if (!simId) return;
 
         try {
             if (action === "pend") {
@@ -86,7 +69,7 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                     return;
                 }
                 await pendMutation.mutateAsync({
-                    id: simId,
+                    id: simulation.id,
                     data: { analyst_notes: notes, pending_documents: pendingDocs },
                 });
             } else if (action === "reprove") {
@@ -95,12 +78,12 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                     return;
                 }
                 await reproveMutation.mutateAsync({
-                    id: simId,
+                    id: simulation.id,
                     data: { analyst_notes: notes },
                 });
             } else if (action === "approve") {
                 await approveMutation.mutateAsync({
-                    id: simId,
+                    id: simulation.id,
                     data: { analyst_notes: notes || undefined },
                 });
             }
@@ -118,32 +101,35 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
         }
     };
 
-    const handleDownloadDocument = async (docId: string, documentType?: string, filename?: string) => {
-        await downloadMutation.mutateAsync({
-            docId,
-            documentType,
-            filename
-        });
-    };
-
-    const handleViewDocument = async (docId: string) => {
-        try {
-            const blob = await mobileApi.getSimulationDocument(docId);
-            const url = window.URL.createObjectURL(blob);
-            window.open(url, '_blank');
-
-            setTimeout(() => {
-                window.URL.revokeObjectURL(url);
-            }, 60000);
-
-            toast.success('Visualização aberta em nova aba!');
-        } catch (error) {
-            toast.error('Erro ao visualizar documento');
-            console.error('Error viewing document:', error);
+    const handleDownloadDocument = async () => {
+        if (simulation.document_url) {
+            await downloadMutation.mutateAsync({
+                simulationId: simulation.id,
+                documentType: simulation.document_type,
+                filename: simulation.document_filename
+            });
         }
     };
 
-    if (!simulation) return null;
+    const handleViewDocument = async () => {
+        if (simulation.document_url) {
+            try {
+                const blob = await mobileApi.getSimulationDocument(simulation.id);
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+
+                // Limpar URL após algum tempo
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                }, 60000); // 1 minuto
+
+                toast.success('Visualização aberta em nova aba!');
+            } catch (error) {
+                toast.error('Erro ao visualizar documento');
+                console.error('Error viewing document:', error);
+            }
+        }
+    };
 
     const clientTypeTone =
         simulation.client_type === "new_client"
@@ -257,7 +243,7 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                                 <div>
                                     <p className="text-slate-400">Data de Criação</p>
                                     <p className="font-medium">
-                                        {formatDateBR(simulation.created_at)}
+                                        {new Date(simulation.created_at).toLocaleDateString("pt-BR")}
                                     </p>
                                 </div>
                             </div>
@@ -265,88 +251,41 @@ export function AnalysisModal({ simulation, open, onClose }: AnalysisModalProps)
                     </Card>
 
                     {/* Documentos */}
-                    {(documentsLoading || documents.length > 0 || simulation.document_url) && (
+                    {simulation.document_url && (
                         <Card className="bg-slate-800/50 border-slate-700">
                             <CardContent className="p-4">
                                 <h4 className="font-semibold mb-3">Documentos Anexados</h4>
-
-                                {documentsLoading ? (
-                                    <div className="text-sm text-slate-400">Carregando anexos...</div>
-                                ) : documents.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {documents.map((doc) => (
-                                            <div
-                                                key={doc.id}
-                                                className="flex items-center justify-between bg-slate-900/50 p-3 rounded"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <FileText className="h-5 w-5 text-blue-400" />
-                                                    <div>
-                                                        <p className="font-medium">{doc.document_filename || "Documento"}</p>
-                                                        <p className="text-sm text-slate-400">
-                                                            Tipo: {(doc.document_type || "").toUpperCase() || "N/A"}
-                                                            {doc.created_at ? ` • ${formatDateTimeBR(doc.created_at)}` : ""}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleViewDocument(doc.id)}
-                                                        className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
-                                                    >
-                                                        <Eye className="h-4 w-4 mr-1" />
-                                                        Visualizar
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleDownloadDocument(doc.id, doc.document_type, doc.document_filename)}
-                                                        disabled={downloadMutation.isPending}
-                                                    >
-                                                        <Download className="h-4 w-4 mr-1" />
-                                                        {downloadMutation.isPending ? "Baixando..." : "Baixar"}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : simulation.document_url ? (
-                                    <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded">
-                                        <div className="flex items-center gap-2">
-                                            <FileText className="h-5 w-5 text-blue-400" />
-                                            <div>
-                                                <p className="font-medium">{simulation.document_filename}</p>
-                                                <p className="text-sm text-slate-400">
-                                                    Tipo: {simulation.document_type?.toUpperCase()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleViewDocument(simulation.id)}
-                                                className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
-                                            >
-                                                <Eye className="h-4 w-4 mr-1" />
-                                                Visualizar
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleDownloadDocument(simulation.id, simulation.document_type, simulation.document_filename)}
-                                                disabled={downloadMutation.isPending}
-                                            >
-                                                <Download className="h-4 w-4 mr-1" />
-                                                {downloadMutation.isPending ? "Baixando..." : "Baixar"}
-                                            </Button>
+                                <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-blue-400" />
+                                        <div>
+                                            <p className="font-medium">{simulation.document_filename}</p>
+                                            <p className="text-sm text-slate-400">
+                                                Tipo: {simulation.document_type?.toUpperCase()}
+                                            </p>
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="text-sm text-slate-400">Nenhum documento anexado.</div>
-                                )}
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleViewDocument}
+                                            className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                                        >
+                                            <Eye className="h-4 w-4 mr-1" />
+                                            Visualizar
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleDownloadDocument}
+                                            disabled={downloadMutation.isPending}
+                                        >
+                                            <Download className="h-4 w-4 mr-1" />
+                                            {downloadMutation.isPending ? "Baixando..." : "Baixar"}
+                                        </Button>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     )}

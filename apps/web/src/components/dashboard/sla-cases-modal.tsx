@@ -16,7 +16,6 @@ import { api } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Link from "next/link";
-import { formatDateBR, parseApiDate } from "@/lib/timezone";
 
 interface SLACasesModalProps {
   isOpen: boolean;
@@ -267,10 +266,10 @@ export function SLACasesModal({
                       <div>
                         <p className="text-xs text-muted-foreground">Criado em</p>
                         <p className="font-medium">
-	                          {case_.created_at ? formatDateBR(case_.created_at) : "-"}
-	                        </p>
-	                      </div>
-	                    </div>
+                          {new Date(case_.created_at).toLocaleDateString("pt-BR")}
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
@@ -287,15 +286,15 @@ export function SLACasesModal({
                       <div>
                         <p className="text-xs text-muted-foreground">Última atualização</p>
                         <p className="font-medium">
-	                          {case_.last_update_at && parseApiDate(case_.last_update_at)
-	                            ? formatDistanceToNow(parseApiDate(case_.last_update_at)!, {
-	                                addSuffix: true,
-	                                locale: ptBR,
-	                              })
-	                            : "-"}
-	                        </p>
-	                      </div>
-	                    </div>
+                          {case_.last_update_at
+                            ? formatDistanceToNow(new Date(case_.last_update_at), {
+                                addSuffix: true,
+                                locale: ptBR,
+                              })
+                            : "-"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

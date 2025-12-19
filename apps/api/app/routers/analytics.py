@@ -1501,161 +1501,6 @@ def get_agent_cases(
         }
 
 
-@r.get("/agent-today-attendances/{agent_id}")
-def get_agent_today_attendances(
-    agent_id: int,
-    user=Depends(require_roles(*ALLOWED_ROLES)),
-):
-    """
-    Retorna os atendimentos de HOJE (independente do filtro do dashboard) para um agente.
-
-    Inclui:
-    - Casos atribuídos ao agente hoje (case.assigned / case.reassigned -> payload.to = agent_id)
-    - Casos que tiveram avanço para etapas seguintes hoje (ex.: case.to_calculista, case.to_fechamento)
-    """
-    today = now_brt().date()
-    assignment_event_types = ("case.assigned", "case.reassigned")
-    advanced_event_types = ("case.to_calculista", "case.to_fechamento")
-
-    with SessionLocal() as db:
-        agent = db.query(User).filter(User.id == agent_id).first()
-        if not agent:
-            raise HTTPException(404, detail="Agent not found")
-
-        case_meta: Dict[int, Dict[str, Any]] = {}
-        assignment_events = (
-            db.query(CaseEvent.case_id, CaseEvent.type, CaseEvent.created_at, CaseEvent.payload)
-            .filter(
-                CaseEvent.type.in_(assignment_event_types),
-                func.date(CaseEvent.created_at) == today,
-            )
-            .order_by(CaseEvent.created_at.desc())
-            .all()
-        )
-
-        for event in assignment_events:
-            payload = event.payload or {}
-            if not isinstance(payload, dict):
-                continue
-            to_id = payload.get("to")
-            try:
-                to_id_int = int(to_id)
-            except (TypeError, ValueError):
-                continue
-            if to_id_int != agent_id:
-                continue
-
-            meta = case_meta.setdefault(
-                int(event.case_id),
-                {"picked_at": None, "advanced_at": None, "advanced_types": set()},
-            )
-            if meta["picked_at"] is None or (
-                event.created_at and event.created_at > meta["picked_at"]
-            ):
-                meta["picked_at"] = event.created_at
-
-        advanced_events = (
-            db.query(CaseEvent.case_id, CaseEvent.type, CaseEvent.created_at)
-            .join(Case, Case.id == CaseEvent.case_id)
-            .filter(
-                CaseEvent.type.in_(advanced_event_types),
-                func.date(CaseEvent.created_at) == today,
-                or_(Case.assigned_user_id == agent_id, CaseEvent.created_by == agent_id),
-            )
-            .order_by(CaseEvent.created_at.desc())
-            .all()
-        )
-
-        for event in advanced_events:
-            meta = case_meta.setdefault(
-                int(event.case_id),
-                {"picked_at": None, "advanced_at": None, "advanced_types": set()},
-            )
-            meta["advanced_types"].add(str(event.type))
-            if meta["advanced_at"] is None or (
-                event.created_at and event.created_at > meta["advanced_at"]
-            ):
-                meta["advanced_at"] = event.created_at
-
-        case_ids = list(case_meta.keys())
-        if not case_ids:
-            return {
-                "agent": {
-                    "id": agent.id,
-                    "name": agent.name,
-                    "email": agent.email,
-                },
-                "day": today.isoformat(),
-                "picked_cases": 0,
-                "advanced_cases": 0,
-                "total_cases": 0,
-                "cases": [],
-            }
-
-        rows = (
-            db.query(
-                Case.id,
-                Case.status,
-                Case.created_at,
-                Case.last_update_at,
-                Client.name.label("client_name"),
-                Client.cpf.label("client_cpf"),
-            )
-            .join(Client, Client.id == Case.client_id)
-            .filter(Case.id.in_(case_ids))
-            .all()
-        )
-
-        cases_data = []
-        for row in rows:
-            meta = case_meta.get(int(row.id))
-            if not meta:
-                continue
-
-            picked_at = meta.get("picked_at")
-            advanced_at = meta.get("advanced_at")
-            last_action = max(
-                [dt for dt in (picked_at, advanced_at) if dt is not None],
-                default=None,
-            )
-            sort_key = _serialize_dt(last_action) or ""
-
-            cases_data.append(
-                {
-                    "id": int(row.id),
-                    "status": row.status,
-                    "client_name": row.client_name,
-                    "client_cpf": row.client_cpf,
-                    "created_at": _serialize_dt(row.created_at),
-                    "last_update_at": _serialize_dt(row.last_update_at),
-                    "picked_at": _serialize_dt(picked_at),
-                    "advanced_at": _serialize_dt(advanced_at),
-                    "advanced_types": sorted(list(meta.get("advanced_types") or [])),
-                    "_sort_key": sort_key,
-                }
-            )
-
-        cases_data.sort(key=lambda item: item.get("_sort_key", ""), reverse=True)
-        for item in cases_data:
-            item.pop("_sort_key", None)
-
-        picked_cases = sum(1 for meta in case_meta.values() if meta.get("picked_at"))
-        advanced_cases = sum(1 for meta in case_meta.values() if meta.get("advanced_at"))
-
-        return {
-            "agent": {
-                "id": agent.id,
-                "name": agent.name,
-                "email": agent.email,
-            },
-            "day": today.isoformat(),
-            "picked_cases": picked_cases,
-            "advanced_cases": advanced_cases,
-            "total_cases": len(cases_data),
-            "cases": cases_data,
-        }
-
-
 @r.get("/agent-metrics")
 def get_agent_metrics(
     from_: Optional[str] = Query(None, alias="from"),
@@ -1672,80 +1517,6 @@ def get_agent_metrics(
     with SessionLocal() as db:
         # Buscar todos os atendentes
         agents = db.query(User).filter(User.role == "atendente", User.active == True).all()
-
-        # Contagem de "Atendimentos de Hoje" por agente (independente do filtro do dashboard)
-        today = now_brt().date()
-        assignment_event_types = ("case.assigned", "case.reassigned")
-        advanced_event_types = ("case.to_calculista", "case.to_fechamento")
-
-        agent_ids = [a.id for a in agents]
-        agent_ids_set = set(agent_ids)
-
-        assigned_case_ids_by_agent: Dict[int, set] = defaultdict(set)
-        advanced_case_ids_by_agent: Dict[int, set] = defaultdict(set)
-
-        if agent_ids:
-            assignment_rows = (
-                db.query(CaseEvent.case_id, CaseEvent.payload)
-                .filter(
-                    CaseEvent.type.in_(assignment_event_types),
-                    func.date(CaseEvent.created_at) == today,
-                )
-                .all()
-            )
-            for row in assignment_rows:
-                payload = row.payload or {}
-                if not isinstance(payload, dict):
-                    continue
-                to_id = payload.get("to")
-                try:
-                    to_id_int = int(to_id)
-                except (TypeError, ValueError):
-                    continue
-                if to_id_int not in agent_ids_set:
-                    continue
-                try:
-                    case_id_int = int(row.case_id)
-                except (TypeError, ValueError):
-                    continue
-                assigned_case_ids_by_agent[to_id_int].add(case_id_int)
-
-            advanced_rows = (
-                db.query(
-                    CaseEvent.case_id,
-                    CaseEvent.created_by,
-                    Case.assigned_user_id,
-                )
-                .join(Case, Case.id == CaseEvent.case_id)
-                .filter(
-                    CaseEvent.type.in_(advanced_event_types),
-                    func.date(CaseEvent.created_at) == today,
-                    or_(
-                        Case.assigned_user_id.in_(agent_ids),
-                        CaseEvent.created_by.in_(agent_ids),
-                    ),
-                )
-                .all()
-            )
-            for row in advanced_rows:
-                try:
-                    case_id_int = int(row.case_id)
-                except (TypeError, ValueError):
-                    continue
-                if row.assigned_user_id in agent_ids_set:
-                    advanced_case_ids_by_agent[int(row.assigned_user_id)].add(case_id_int)
-                if row.created_by in agent_ids_set:
-                    advanced_case_ids_by_agent[int(row.created_by)].add(case_id_int)
-
-        today_counts_by_agent: Dict[int, Dict[str, int]] = {}
-        for agent_id in agent_ids:
-            assigned_set = assigned_case_ids_by_agent.get(agent_id, set())
-            advanced_set = advanced_case_ids_by_agent.get(agent_id, set())
-            today_counts_by_agent[agent_id] = {
-                "total_cases": len(assigned_set | advanced_set),
-                "picked_cases": len(assigned_set),
-                "advanced_cases": len(advanced_set),
-            }
 
         # SLA em horas úteis (48h = 2 dias úteis)
         sla_hours = 48
@@ -1833,10 +1604,10 @@ def get_agent_metrics(
             cases_outside_sla = 0
 
             all_agent_cases = agent_cases.all()
-            for case_ in all_agent_cases:
-                if case_.created_at and case_.last_update_at:
+            for case in all_agent_cases:
+                if case.created_at and case.last_update_at:
                     # Calcular diferença em horas (simplificado - não conta fins de semana)
-                    delta_hours = (case_.last_update_at - case_.created_at).total_seconds() / 3600
+                    delta_hours = (case.last_update_at - case.created_at).total_seconds() / 3600
 
                     # Ajustar para horas úteis (aproximação: remover ~33% para fins de semana)
                     business_hours = delta_hours * 0.67
@@ -1852,7 +1623,6 @@ def get_agent_metrics(
             # Total de casos do agente
             total_cases = agent_cases.count()
 
-            today_counts = today_counts_by_agent.get(agent.id, {})
             agent_metrics_list.append({
                 "agent_id": agent.id,
                 "agent_name": agent.name,
@@ -1867,9 +1637,6 @@ def get_agent_metrics(
                 "sla_within": cases_within_sla,
                 "sla_outside": cases_outside_sla,
                 "sla_percentage": round((cases_within_sla / total_cases * 100) if total_cases > 0 else 0, 2),
-                "today_total_cases": int(today_counts.get("total_cases", 0)),
-                "today_picked_cases": int(today_counts.get("picked_cases", 0)),
-                "today_advanced_cases": int(today_counts.get("advanced_cases", 0)),
             })
 
         return {

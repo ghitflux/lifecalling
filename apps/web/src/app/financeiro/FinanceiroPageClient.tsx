@@ -67,7 +67,6 @@ import { useRouter } from "next/navigation";
 import {
   startOfMonthBrasilia,
   endOfMonthBrasilia,
-  formatDateBR,
   formatDateBrasilia
 } from "@/lib/timezone";
 
@@ -226,7 +225,7 @@ export default function FinanceiroPageClient() {
     // ✅ ATUALIZADO: Incluir coluna "Nome (Despesa/Receita)" e manter ordem da tabela
     const headers = ["Data", "Tipo", "Nome (Despesa/Receita)", "Cliente", "CPF", "Atendente", "Categoria", "Valor"];
     const rows = transactions.map((t: any) => [
-      formatDateBR(t.date),
+      new Date(t.date).toLocaleDateString("pt-BR"),
       t.type === "receita" ? "Receita" : "Despesa",
       t.name || "-", // ✅ NOVO: Nome da Despesa/Receita
       t.client_name || "-",
@@ -1533,7 +1532,7 @@ export default function FinanceiroPageClient() {
                           <td className="p-4 text-sm whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              {formatDateBR(transaction.date)}
+                              {new Date(transaction.date).toLocaleDateString("pt-BR")}
                             </div>
                           </td>
                           <td className="p-4">

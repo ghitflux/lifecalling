@@ -52,7 +52,6 @@ import {
   Undo2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { formatDateBR } from "@/lib/timezone";
 
 function CalculistaPageContent() {
   useLiveCaseEvents();
@@ -764,7 +763,9 @@ function CalculistaPageContent() {
 
                     <div className="text-xs text-muted-foreground">
                       Atualizado em:{" "}
-                      {formatDateBR(sim.updated_at || sim.created_at)}
+                      {new Date(
+                        sim.updated_at || sim.created_at
+                      ).toLocaleDateString("pt-BR")}
                     </div>
 
                     <Button variant="outline" className="w-full" size="sm">
@@ -806,7 +807,7 @@ function CalculistaPageContent() {
                           <StatusBadge status={sim?.case?.status || sim?.status || 'draft'} size="sm" />
                           <span className="text-xs text-muted-foreground">
                             {sim?.updated_at || sim?.created_at
-                              ? formatDateBR(sim.updated_at || sim.created_at)
+                              ? new Date(sim.updated_at || sim.created_at).toLocaleDateString("pt-BR")
                               : 'Data não disponível'
                             }
                           </span>
