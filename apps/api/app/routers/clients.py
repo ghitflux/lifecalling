@@ -360,10 +360,36 @@ def get_available_filters(
         .scalar() or 0
     )
 
+    # Contar casos por origem (source)
+    source_counts_rows = (
+        db.query(Case.source, func.count(distinct(Case.id)))
+        .filter(Case.source.isnot(None))
+        .group_by(Case.source)
+        .all()
+    )
+
+    # Mapear nomes amigáveis
+    source_labels = {
+        "siape": "SIAPE",
+        "import": "INET Contracheques",
+        "manual": "Cadastro Manual"
+    }
+
+    sources_with_count = [
+        {
+            "value": source,
+            "label": source_labels.get(source, source.upper()),
+            "count": int(count or 0)
+        }
+        for source, count in source_counts_rows
+        if source
+    ]
+
     return {
         "bancos": bancos_with_count,
         "cargos": cargos_with_count,
         "status": status_with_count,
+        "sources": sources_with_count,
         "clientes_sem_contratos": clientes_sem_contratos
     }
 

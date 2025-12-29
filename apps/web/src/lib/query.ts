@@ -8,6 +8,7 @@ export type Filters = {
   entidade?: string;          // filtro por entidade
   banco?: string;             // filtro por banco (alias para entidade)
   cargo?: string;             // filtro por cargo
+  source?: string;            // filtro por origem: siape, inet, normal
   mine?: boolean;             // esteira individual
   assigned?: '0' | '1';       // '0' = não atribuídos, '1' = atribuídos
   already_attended?: boolean; // casos já atendidos (true) ou novos (false)
@@ -43,6 +44,9 @@ export function buildCasesQuery(
 
   // cargo
   if (f.cargo) set('cargo', f.cargo);
+
+  // source (origem)
+  if (f.source) set('source', f.source);
 
   // mine/assigned conforme necessidade
   if (f.mine) set('mine', 'true');

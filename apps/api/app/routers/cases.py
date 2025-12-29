@@ -8,6 +8,7 @@ from ..utils.business_days import add_business_hours
 import os
 import shutil
 from decimal import Decimal
+from functools import lru_cache
 
 from sqlalchemy import or_, func, not_  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
@@ -25,6 +26,81 @@ from ..events import eventbus  # uso consistente do eventbus
 from ..services.case_activity import build_handled_case_expression
 
 r = APIRouter(prefix="/cases", tags=["cases"])
+
+
+# Cache para bancos do SIAPE (revalida a cada 5 minutos)
+_siape_banks_cache = None
+_siape_banks_cache_time = None
+_CACHE_TTL = 300  # 5 minutos
+
+
+def get_siape_banks_normalized(db: Session):
+    """Retorna bancos do SIAPE normalizados com cache."""
+    global _siape_banks_cache, _siape_banks_cache_time
+
+    current_time = datetime.now().timestamp()
+
+    # Verificar se cache é válido
+    if (_siape_banks_cache is not None and
+        _siape_banks_cache_time is not None and
+        current_time - _siape_banks_cache_time < _CACHE_TTL):
+        return _siape_banks_cache
+
+    # Recarregar cache
+    from app.routers.clients import normalize_bank_name
+    siape_bancos = db.query(SiapeLine.banco_emprestimo).filter(
+        SiapeLine.banco_emprestimo.isnot(None)
+    ).distinct().all()
+
+    siape_bancos_normalized = {
+        normalize_bank_name(b[0]): b[0]
+        for b in siape_bancos if b[0]
+    }
+
+    _siape_banks_cache = siape_bancos_normalized
+    _siape_banks_cache_time = current_time
+
+    return siape_bancos_normalized
+
+
+# Cache para entidades normalizadas
+_entities_cache = None
+_entities_cache_time = None
+
+
+def get_entities_normalized(db: Session):
+    """Retorna entidades (bancos) normalizadas com cache."""
+    global _entities_cache, _entities_cache_time
+
+    current_time = datetime.now().timestamp()
+
+    # Verificar se cache é válido
+    if (_entities_cache is not None and
+        _entities_cache_time is not None and
+        current_time - _entities_cache_time < _CACHE_TTL):
+        return _entities_cache
+
+    # Recarregar cache
+    from app.models import PayrollLine
+    from app.routers.clients import normalize_bank_name
+
+    all_entities = db.query(PayrollLine.entity_name).filter(
+        PayrollLine.entity_name.isnot(None)
+    ).distinct().all()
+
+    # Agrupar entidades por nome normalizado
+    entities_by_normalized = {}
+    for e in all_entities:
+        if e[0]:
+            normalized = normalize_bank_name(e[0])
+            if normalized not in entities_by_normalized:
+                entities_by_normalized[normalized] = []
+            entities_by_normalized[normalized].append(e[0])
+
+    _entities_cache = entities_by_normalized
+    _entities_cache_time = current_time
+
+    return entities_by_normalized
 
 
 def _normalize_json(value):
@@ -797,6 +873,7 @@ def list_cases(
     entidade: str | None = None,  # Filtro por entidade/banco
     entity: str | None = None,  # Alias legado
     cargo: str | None = None,  # Filtro por cargo
+    source: str | None = None,  # Filtro por origem: siape, inet, normal
     assigned: str | None = None,  # '0' = não atribuídos, '1' = atribuídos
     mine: str | bool = Query(False),
     already_attended: str | bool | None = None,
@@ -827,9 +904,28 @@ def list_cases(
 
             qry = db.query(Case)
 
-            # Controle de joins para evitar duplicação
-            client_joined = False
-            payroll_joined = False
+            from app.models import PayrollLine
+
+            # Usar EXISTS para evitar joins pesados com PayrollLine/SiapeLine
+            def payroll_line_exists(*conditions):
+                subq = (
+                    db.query(PayrollLine.id)
+                    .join(Client, Client.cpf == PayrollLine.cpf)
+                    .filter(Client.id == Case.client_id)
+                )
+                for condition in conditions:
+                    subq = subq.filter(condition)
+                return subq.exists()
+
+            def siape_line_exists(*conditions):
+                subq = (
+                    db.query(SiapeLine.id)
+                    .join(Client, Client.cpf == SiapeLine.cpf)
+                    .filter(Client.id == Case.client_id)
+                )
+                for condition in conditions:
+                    subq = subq.filter(condition)
+                return subq.exists()
 
             # Apply RBAC/assignment visibility rules FIRST
             if user.role == "atendente":
@@ -876,6 +972,14 @@ def list_cases(
                 elif len(status_list) > 1:
                     qry = qry.filter(Case.status.in_(status_list))
 
+            # Filtro por origem (source)
+            if source:
+                source_list = [s.strip() for s in source.split(",") if s.strip()]
+                if len(source_list) == 1:
+                    qry = qry.filter(Case.source == source_list[0])
+                elif len(source_list) > 1:
+                    qry = qry.filter(Case.source.in_(source_list))
+
             if already_attended_bool is not None:
                 handled_expr = build_handled_case_expression(db)
                 if already_attended_bool:
@@ -886,82 +990,66 @@ def list_cases(
                         func.coalesce(Case.status, "novo") == "novo"
                     )
 
-            # Filtro por entidade (banco)
+            # Filtro por entidade (banco) - OTIMIZADO COM CACHE
             if entity_filter:
-                from app.models import PayrollLine
-                from app.routers.clients import normalize_bank_name
-
                 # Caso especial: SIAPE filtra por source ao invés de PayrollLine
                 if entity_filter.upper() == 'SIAPE':
                     qry = qry.filter(Case.source == 'siape')
                 else:
-                    # Verificar se é um banco do SIAPE (existe em SiapeLine.banco_emprestimo)
-                    siape_bancos = db.query(SiapeLine.banco_emprestimo).filter(
-                        SiapeLine.banco_emprestimo.isnot(None)
-                    ).distinct().all()
-                    siape_bancos_normalized = {normalize_bank_name(b[0]): b[0] for b in siape_bancos if b[0]}
-                    
-                    if entity_filter in siape_bancos_normalized:
-                        # Banco do SIAPE: filtrar por source e fazer join com SiapeLine
-                        if not client_joined:
-                            qry = qry.join(Client, Client.id == Case.client_id)
-                            client_joined = True
-                        qry = qry.join(SiapeLine, SiapeLine.cpf == Client.cpf)
-                        qry = qry.filter(Case.source == 'siape')
-                        qry = qry.filter(SiapeLine.banco_emprestimo == siape_bancos_normalized[entity_filter]).distinct()
-                    else:
-                        # Para outros bancos, usar lógica de PayrollLine
-                        if not client_joined:
-                            qry = qry.join(Client, Client.id == Case.client_id)
-                            client_joined = True
-                        if not payroll_joined:
-                            qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
-                            payroll_joined = True
+                    # Usar cache de bancos do SIAPE
+                    siape_bancos_normalized = get_siape_banks_normalized(db)
 
-                        # Buscar todas as entidades que correspondem ao nome normalizado
-                        all_entities = db.query(PayrollLine.entity_name).filter(
-                            PayrollLine.entity_name.isnot(None)
-                        ).distinct().all()
-                        matching_entities = [e[0] for e in all_entities if normalize_bank_name(e[0]) == entity_filter]
+                    if entity_filter in siape_bancos_normalized:
+                        # Banco do SIAPE: filtrar por source e por banco na linha SIAPE
+                        siape_bank = siape_bancos_normalized[entity_filter]
+                        qry = qry.filter(
+                            Case.source == 'siape',
+                            siape_line_exists(SiapeLine.banco_emprestimo == siape_bank),
+                        )
+                    else:
+                        # Para outros bancos, usar cache de entidades normalizadas
+                        entities_by_normalized = get_entities_normalized(db)
+                        matching_entities = entities_by_normalized.get(entity_filter, [])
 
                         if matching_entities:
-                            qry = qry.filter(PayrollLine.entity_name.in_(matching_entities)).distinct()
+                            qry = qry.filter(
+                                payroll_line_exists(PayrollLine.entity_name.in_(matching_entities))
+                            )
                         else:
                             # Se não encontrou match normalizado, tentar match exato (fallback)
-                            qry = qry.filter(PayrollLine.entity_name == entity_filter).distinct()
+                            qry = qry.filter(
+                                payroll_line_exists(PayrollLine.entity_name == entity_filter)
+                            )
 
             # Filtro por cargo
             if cargo:
-                from app.models import PayrollLine
-                if not client_joined:
-                    qry = qry.join(Client, Client.id == Case.client_id)
-                    client_joined = True
-                if not payroll_joined:
-                    qry = qry.join(PayrollLine, PayrollLine.cpf == Client.cpf)
-                    payroll_joined = True
-                qry = qry.filter(PayrollLine.cargo == cargo).distinct()
+                qry = qry.filter(payroll_line_exists(PayrollLine.cargo == cargo))
 
             # Busca por nome, CPF OU entidade
             if q and q.strip():
-                from app.models import PayrollLine
                 like = f"%{q.strip()}%"
 
-                if not client_joined:
-                    qry = qry.join(Client, Client.id == Case.client_id)
-                    client_joined = True
-                if not payroll_joined:
-                    qry = qry.outerjoin(
-                        PayrollLine, PayrollLine.cpf == Client.cpf
-                    )
-                    payroll_joined = True
+                # Otimização: só consultar PayrollLine se a busca não for apenas numérica (CPF)
+                # Se for apenas números, provavelmente é CPF, não precisa buscar em entidade
+                search_term = q.strip()
+                is_numeric = search_term.replace(".", "").replace("-", "").isdigit()
 
-                qry = qry.filter(
+                client_match = Case.client.has(
                     or_(
                         Client.name.ilike(like),
                         Client.cpf.ilike(like),
+                    )
+                )
+
+                if is_numeric:
+                    # Busca apenas por nome ou CPF (sem JOIN com PayrollLine)
+                    qry = qry.filter(client_match)
+                else:
+                    # Busca por nome ou entidade (incluir PayrollLine)
+                    payroll_match = payroll_line_exists(
                         PayrollLine.entity_name.ilike(like)
                     )
-                ).distinct()
+                    qry = qry.filter(or_(client_match, payroll_match))
 
             if created_after:
                 try:
@@ -981,13 +1069,7 @@ def list_cases(
                 except ValueError:
                     pass
 
-            # Usar count com Case.id para evitar erro com campos JSON do PostgreSQL
-            # quando há DISTINCT
-            if payroll_joined or client_joined:
-                # Contar apenas IDs distintos de Case
-                total = qry.with_entities(func.count(func.distinct(Case.id))).scalar() or 0
-            else:
-                total = qry.count()
+            total = qry.count()
 
             if order == "id_asc":
                 qry = qry.order_by(Case.id.asc())
@@ -1003,32 +1085,80 @@ def list_cases(
             else:
                 qry = qry.order_by(Case.id.desc())
 
-            # Quando há DISTINCT (por causa de joins), precisamos buscar apenas IDs
-            # primeiro para evitar erro do PostgreSQL com campos JSON
-            if payroll_joined or client_joined:
-                # Buscar apenas IDs com distinct
-                case_ids = [row[0] for row in qry.with_entities(Case.id).offset((page - 1) * page_size).limit(page_size).all()]
+            from sqlalchemy.orm import joinedload  # pyright: ignore
 
-                # Agora buscar os casos completos pelos IDs
-                if case_ids:
-                    from sqlalchemy.orm import joinedload
-                    rows = (
-                        db.query(Case)
-                        .options(joinedload(Case.client), joinedload(Case.assigned_user))
-                        .filter(Case.id.in_(case_ids))
-                        .all()
+            qry = qry.options(
+                joinedload(Case.client), joinedload(Case.assigned_user)
+            )
+
+            rows = qry.offset((page - 1) * page_size).limit(page_size).all()
+
+            # ========== OTIMIZAÇÃO: Pré-carregar dados de financiamentos ==========
+            # Coletar todos os CPFs dos clientes dos casos retornados
+            from sqlalchemy import desc
+
+            client_cpfs = []
+            for c in rows:
+                if hasattr(c, "client") and c.client:
+                    client_cpfs.append(c.client.cpf)
+                elif c.client_id:
+                    # Se não tem client joinado, buscar do banco
+                    client = db.get(Client, c.client_id)
+                    if client:
+                        client_cpfs.append(client.cpf)
+
+            # Remover duplicatas
+            client_cpfs = list(set(client_cpfs))
+
+            # Pré-carregar contagem de financiamentos de todos os clientes de uma vez
+            financiamentos_count = {}
+            if client_cpfs:
+                count_query = (
+                    db.query(
+                        PayrollLine.cpf,
+                        func.count(PayrollLine.id).label("count")
                     )
-                else:
-                    rows = []
-            else:
-                # Sem joins, query normal
-                from sqlalchemy.orm import joinedload  # pyright: ignore
+                    .filter(PayrollLine.cpf.in_(client_cpfs))
+                    .group_by(PayrollLine.cpf)
+                    .all()
+                )
+                financiamentos_count = {cpf: count for cpf, count in count_query}
 
-                qry = qry.options(
-                    joinedload(Case.client), joinedload(Case.assigned_user)
+            # Pré-carregar última folha de pagamento de todos os clientes de uma vez
+            latest_payrolls = {}
+            if client_cpfs:
+                # Subquery para pegar o ID da última folha de cada CPF
+                from sqlalchemy import and_
+                subq = (
+                    db.query(
+                        PayrollLine.cpf,
+                        func.max(
+                            PayrollLine.ref_year * 100 + PayrollLine.ref_month
+                        ).label("max_ref")
+                    )
+                    .filter(PayrollLine.cpf.in_(client_cpfs))
+                    .group_by(PayrollLine.cpf)
+                    .subquery()
                 )
 
-                rows = qry.offset((page - 1) * page_size).limit(page_size).all()
+                # Buscar as folhas de pagamento mais recentes
+                latest_query = (
+                    db.query(PayrollLine)
+                    .join(
+                        subq,
+                        and_(
+                            PayrollLine.cpf == subq.c.cpf,
+                            (PayrollLine.ref_year * 100 + PayrollLine.ref_month) == subq.c.max_ref
+                        )
+                    )
+                    .all()
+                )
+
+                # Agrupar por CPF (pegar a primeira se houver múltiplas)
+                for payroll in latest_query:
+                    if payroll.cpf not in latest_payrolls:
+                        latest_payrolls[payroll.cpf] = payroll
+            # ========== FIM DA OTIMIZAÇÃO ==========
 
             items = []
 
@@ -1060,20 +1190,10 @@ def list_cases(
                     }
 
                     if hasattr(c, "client") and c.client:
-                        from app.models import PayrollLine
-                        from sqlalchemy import desc
-                        num_financiamentos = db.query(PayrollLine).filter(
-                            PayrollLine.cpf == c.client.cpf
-                        ).count()
-
-                        # Buscar cargo e valor da mensalidade mais recente
-                        latest_payroll = db.query(PayrollLine).filter(
-                            PayrollLine.cpf == c.client.cpf
-                        ).order_by(
-                            desc(PayrollLine.ref_year),
-                            desc(PayrollLine.ref_month),
-                            desc(PayrollLine.valor_parcela_ref)
-                        ).first()
+                        # Usar dados pré-carregados ao invés de queries individuais
+                        cpf = c.client.cpf
+                        num_financiamentos = financiamentos_count.get(cpf, 0)
+                        latest_payroll = latest_payrolls.get(cpf)
 
                         cargo = latest_payroll.cargo if latest_payroll and latest_payroll.cargo else None
                         valor_mensalidade = float(latest_payroll.valor_parcela_ref) if latest_payroll and latest_payroll.valor_parcela_ref else None
@@ -1093,20 +1213,10 @@ def list_cases(
                             else None
                         )
                         if client:
-                            from app.models import PayrollLine
-                            from sqlalchemy import desc
-                            num_financiamentos = db.query(PayrollLine).filter(
-                                PayrollLine.cpf == client.cpf
-                            ).count()
-
-                            # Buscar cargo e valor da mensalidade mais recente
-                            latest_payroll = db.query(PayrollLine).filter(
-                                PayrollLine.cpf == client.cpf
-                            ).order_by(
-                                desc(PayrollLine.ref_year),
-                                desc(PayrollLine.ref_month),
-                                desc(PayrollLine.valor_parcela_ref)
-                            ).first()
+                            # Usar dados pré-carregados ao invés de queries individuais
+                            cpf = client.cpf
+                            num_financiamentos = financiamentos_count.get(cpf, 0)
+                            latest_payroll = latest_payrolls.get(cpf)
 
                             cargo = latest_payroll.cargo if latest_payroll and latest_payroll.cargo else None
                             valor_mensalidade = float(latest_payroll.valor_parcela_ref) if latest_payroll and latest_payroll.valor_parcela_ref else None

@@ -49,6 +49,7 @@ function EsteiraPageContent() {
   const [globalSelectedBanco, setGlobalSelectedBanco] = useState<string | null>(null);
   const [globalSelectedCargo, setGlobalSelectedCargo] = useState<string | null>(null);
   const [globalSelectedStatus, setGlobalSelectedStatus] = useState<string | null>(null);
+  const [globalSelectedSource, setGlobalSelectedSource] = useState<string | null>(null);
 
   const [attendedPage, setAttendedPage] = useState(1);
   const [attendedPageSize, setAttendedPageSize] = useState(20);
@@ -56,6 +57,7 @@ function EsteiraPageContent() {
   const [attendedSelectedBanco, setAttendedSelectedBanco] = useState<string | null>(null);
   const [attendedSelectedCargo, setAttendedSelectedCargo] = useState<string | null>(null);
   const [attendedSelectedStatus, setAttendedSelectedStatus] = useState<string | null>(null);
+  const [attendedSelectedSource, setAttendedSelectedSource] = useState<string | null>(null);
 
   const [myPage, setMyPage] = useState(1);
   const [myPageSize, setMyPageSize] = useState(20);
@@ -63,6 +65,7 @@ function EsteiraPageContent() {
   const [mySelectedBanco, setMySelectedBanco] = useState<string | null>(null);
   const [mySelectedCargo, setMySelectedCargo] = useState<string | null>(null);
   const [mySelectedStatus, setMySelectedStatus] = useState<string | null>(null);
+  const [mySelectedSource, setMySelectedSource] = useState<string | null>(null);
 
   // Estados para a tab Esteira
   const [esteiraCurrentIndex, setEsteiraCurrentIndex] = useState(0);
@@ -78,15 +81,15 @@ function EsteiraPageContent() {
   // Reset página quando filtros mudam
   useEffect(() => {
     setGlobalPage(1);
-  }, [globalSelectedBanco, globalSelectedCargo, globalSelectedStatus, globalSearchTerm]);
+  }, [globalSelectedBanco, globalSelectedCargo, globalSelectedStatus, globalSelectedSource, globalSearchTerm]);
 
   useEffect(() => {
     setAttendedPage(1);
-  }, [attendedSelectedBanco, attendedSelectedCargo, attendedSelectedStatus, attendedSearchTerm]);
+  }, [attendedSelectedBanco, attendedSelectedCargo, attendedSelectedStatus, attendedSelectedSource, attendedSearchTerm]);
 
   useEffect(() => {
     setMyPage(1);
-  }, [mySelectedBanco, mySelectedCargo, mySelectedStatus, mySearchTerm]);
+  }, [mySelectedBanco, mySelectedCargo, mySelectedStatus, mySelectedSource, mySearchTerm]);
 
   useEffect(() => {
     setGlobalPage(1);
@@ -165,6 +168,7 @@ function EsteiraPageContent() {
       globalSelectedBanco,
       globalSelectedCargo,
       globalSelectedStatus,
+      globalSelectedSource,
       globalSearchTerm
     ],
     queryFn: async () => {
@@ -183,6 +187,7 @@ function EsteiraPageContent() {
               banco: globalSelectedBanco || undefined,
               cargo: globalSelectedCargo || undefined,
               status: globalSelectedStatus ? [globalSelectedStatus] : undefined,
+              source: globalSelectedSource || undefined,
               already_attended: false,
             }
           : {
@@ -193,6 +198,7 @@ function EsteiraPageContent() {
               banco: globalSelectedBanco || undefined,
               cargo: globalSelectedCargo || undefined,
               status: ["novo"],     // atendente só vê novos
+              source: globalSelectedSource || undefined,
               already_attended: false,
               // REMOVIDO assigned=0 para permitir ver casos expirados também
             }
@@ -221,6 +227,7 @@ function EsteiraPageContent() {
       attendedSelectedBanco,
       attendedSelectedCargo,
       attendedSelectedStatus,
+      attendedSelectedSource,
       attendedSearchTerm
     ],
     queryFn: async () => {
@@ -234,6 +241,7 @@ function EsteiraPageContent() {
         banco: attendedSelectedBanco || undefined,
         cargo: attendedSelectedCargo || undefined,
         status: attendedSelectedStatus ? [attendedSelectedStatus] : undefined,
+        source: attendedSelectedSource || undefined,
         already_attended: true,
       });
 
@@ -253,7 +261,7 @@ function EsteiraPageContent() {
 
   // Query para listar meus atendimentos
   const { data: myData, isLoading: loadingMine, error: errorMine } = useQuery({
-    queryKey: ["cases", "mine", myPage, myPageSize, mySelectedBanco, mySelectedCargo, mySelectedStatus, mySearchTerm],
+    queryKey: ["cases", "mine", myPage, myPageSize, mySelectedBanco, mySelectedCargo, mySelectedStatus, mySelectedSource, mySearchTerm],
     queryFn: async () => {
       // Determinar ordenação: se tem filtro de banco, ordenar por contratos daquele banco
       const orderBy = mySelectedBanco ? `financiamentos_banco_desc:${mySelectedBanco}` : "financiamentos_desc";
@@ -266,6 +274,7 @@ function EsteiraPageContent() {
         banco: mySelectedBanco || undefined,
         cargo: mySelectedCargo || undefined,
         status: mySelectedStatus ? [mySelectedStatus] : undefined,
+        source: mySelectedSource || undefined,
         mine: true,
       });
 
@@ -442,14 +451,15 @@ function EsteiraPageContent() {
     router.push(`/casos/${caseId}`);
   };
 
-  // Query para buscar filtros disponíveis (bancos, cargos e status)
+  // Query para buscar filtros disponíveis (bancos, cargos, status e origens)
   const { data: filtersData } = useQuery({
     queryKey: ["client-filters"],
     queryFn: async () => {
       const response = await api.get("/clients/filters");
       return response.data;
     },
-    staleTime: 60000, // Cache por 1 minuto
+    staleTime: 600000, // Cache por 10 minutos (otimização de performance)
+    gcTime: 900000, // Manter no cache por 15 minutos
   });
 
   const renderCaseList = (cases: Case[], showPegarButton: boolean, isLoading: boolean, error?: any) => {
@@ -536,7 +546,7 @@ function EsteiraPageContent() {
 
               {/* Filtros Rápidos - Dropdowns */}
               <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Dropdown Banco */}
                   {filtersData?.bancos && filtersData.bancos.length > 0 && (
                     <div className="flex flex-col gap-1.5">
@@ -585,6 +595,30 @@ function EsteiraPageContent() {
                     </div>
                   )}
 
+                  {/* Dropdown Origem */}
+                  {filtersData?.sources && filtersData.sources.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Hash className="h-3.5 w-3.5" />
+                        Origem
+                      </label>
+                      <select
+                        value={globalSelectedSource || ""}
+                        onChange={(e) => {
+                          setGlobalSelectedSource(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todas as origens</option>
+                        {filtersData.sources.map((source: any) => (
+                          <option key={source.value} value={source.value}>
+                            {source.label} ({source.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Dropdown Status - APENAS ADMIN */}
                   {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
                     <div className="flex flex-col gap-1.5">
@@ -611,7 +645,7 @@ function EsteiraPageContent() {
                 </div>
 
                 {/* Botão Limpar Filtros */}
-                {(globalSelectedBanco || globalSelectedCargo || globalSelectedStatus) && (
+                {(globalSelectedBanco || globalSelectedCargo || globalSelectedStatus || globalSelectedSource) && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -620,6 +654,7 @@ function EsteiraPageContent() {
                         setGlobalSelectedBanco(null);
                         setGlobalSelectedCargo(null);
                         setGlobalSelectedStatus(null);
+                        setGlobalSelectedSource(null);
                       }}
                       className="h-9"
                     >
@@ -674,7 +709,7 @@ function EsteiraPageContent() {
 
               {/* Filtros Rápidos - Dropdowns */}
               <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Dropdown Banco */}
                   {filtersData?.bancos && filtersData.bancos.length > 0 && (
                     <div className="flex flex-col gap-1.5">
@@ -723,6 +758,30 @@ function EsteiraPageContent() {
                     </div>
                   )}
 
+                  {/* Dropdown Origem */}
+                  {filtersData?.sources && filtersData.sources.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Hash className="h-3.5 w-3.5" />
+                        Origem
+                      </label>
+                      <select
+                        value={attendedSelectedSource || ""}
+                        onChange={(e) => {
+                          setAttendedSelectedSource(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todas as origens</option>
+                        {filtersData.sources.map((source: any) => (
+                          <option key={source.value} value={source.value}>
+                            {source.label} ({source.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Dropdown Status - APENAS ADMIN */}
                   {isAdminOrSupervisor && filtersData?.status && filtersData.status.length > 0 && (
                     <div className="flex flex-col gap-1.5">
@@ -749,7 +808,7 @@ function EsteiraPageContent() {
                 </div>
 
                 {/* Botão Limpar Filtros */}
-                {(attendedSelectedBanco || attendedSelectedCargo || attendedSelectedStatus) && (
+                {(attendedSelectedBanco || attendedSelectedCargo || attendedSelectedStatus || attendedSelectedSource) && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -758,6 +817,7 @@ function EsteiraPageContent() {
                         setAttendedSelectedBanco(null);
                         setAttendedSelectedCargo(null);
                         setAttendedSelectedStatus(null);
+                        setAttendedSelectedSource(null);
                       }}
                       className="h-9"
                     >
@@ -841,7 +901,7 @@ function EsteiraPageContent() {
 
               {/* Filtros Rápidos - Dropdowns */}
               <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Dropdown Banco */}
                   {filtersData?.bancos && filtersData.bancos.length > 0 && (
                     <div className="flex flex-col gap-1.5">
@@ -890,6 +950,30 @@ function EsteiraPageContent() {
                     </div>
                   )}
 
+                  {/* Dropdown Origem */}
+                  {filtersData?.sources && filtersData.sources.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <Hash className="h-3.5 w-3.5" />
+                        Origem
+                      </label>
+                      <select
+                        value={mySelectedSource || ""}
+                        onChange={(e) => {
+                          setMySelectedSource(e.target.value || null);
+                        }}
+                        className="h-10 w-full px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="">Todas as origens</option>
+                        {filtersData.sources.map((source: any) => (
+                          <option key={source.value} value={source.value}>
+                            {source.label} ({source.count})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Dropdown Status */}
                   {filtersData?.status && filtersData.status.length > 0 && (
                     <div className="flex flex-col gap-1.5">
@@ -916,7 +1000,7 @@ function EsteiraPageContent() {
                 </div>
 
                 {/* Botão Limpar Filtros */}
-                {(mySelectedBanco || mySelectedCargo || mySelectedStatus) && (
+                {(mySelectedBanco || mySelectedCargo || mySelectedStatus || mySelectedSource) && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -925,6 +1009,7 @@ function EsteiraPageContent() {
                         setMySelectedBanco(null);
                         setMySelectedCargo(null);
                         setMySelectedStatus(null);
+                        setMySelectedSource(null);
                       }}
                       className="h-9"
                     >
