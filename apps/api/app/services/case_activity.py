@@ -1,4 +1,4 @@
-from sqlalchemy import case, or_, func
+from sqlalchemy import case, or_, func, and_, not_
 from sqlalchemy.dialects.postgresql import JSONB
 
 from ..models import (
@@ -21,7 +21,55 @@ HANDLED_EVENT_TYPES = (
 )
 
 
-def build_handled_case_expression(db):
+def build_handled_case_expression(db, source_list=None):
+    normalized_sources = [s for s in (source_list or []) if s]
+
+    def apply_source_filter(query, case_id_column):
+        if not normalized_sources:
+            return query
+        return query.join(Case, Case.id == case_id_column).filter(
+            Case.source.in_(normalized_sources)
+        )
+
+    activity_ids_union = (
+        apply_source_filter(
+            db.query(CaseEvent.case_id.label("case_id")).filter(
+                CaseEvent.case_id.isnot(None),
+                CaseEvent.type.in_(HANDLED_EVENT_TYPES),
+            ),
+            CaseEvent.case_id,
+        )
+        .union_all(
+            apply_source_filter(
+                db.query(Attachment.case_id.label("case_id")).filter(
+                    Attachment.case_id.isnot(None)
+                ),
+                Attachment.case_id,
+            ),
+            apply_source_filter(
+                db.query(ContractAttachment.case_id.label("case_id")).filter(
+                    ContractAttachment.case_id.isnot(None)
+                ),
+                ContractAttachment.case_id,
+            ),
+            apply_source_filter(
+                db.query(Comment.case_id.label("case_id")).filter(
+                    Comment.case_id.isnot(None),
+                    Comment.deleted_at.is_(None),
+                ),
+                Comment.case_id,
+            ),
+            apply_source_filter(
+                db.query(Contract.case_id.label("case_id")).filter(
+                    Contract.case_id.isnot(None)
+                ),
+                Contract.case_id,
+            ),
+        )
+        .subquery()
+    )
+    activity_ids_query = db.query(activity_ids_union.c.case_id)
+
     assignment_history_jsonb = Case.assignment_history.cast(JSONB)
     history_len = case(
         (
@@ -31,6 +79,26 @@ def build_handled_case_expression(db):
         else_=0,
     )
     has_assignment_history = history_len > 0
+
+    return or_(
+        func.coalesce(Case.status, "novo") != "novo",
+        Case.assigned_user_id.isnot(None),
+        Case.assigned_at.isnot(None),
+        has_assignment_history,
+        Case.id.in_(activity_ids_query),
+    )
+
+
+def build_unhandled_case_expression(db):
+    assignment_history_jsonb = Case.assignment_history.cast(JSONB)
+    history_len = case(
+        (
+            func.jsonb_typeof(assignment_history_jsonb) == "array",
+            func.jsonb_array_length(assignment_history_jsonb),
+        ),
+        else_=0,
+    )
+
     has_assignment_event = db.query(CaseEvent.id).filter(
         CaseEvent.case_id == Case.id,
         CaseEvent.type.in_(HANDLED_EVENT_TYPES),
@@ -49,16 +117,16 @@ def build_handled_case_expression(db):
         Contract.case_id == Case.id
     ).exists()
 
-    return or_(
-        func.coalesce(Case.status, "novo") != "novo",
-        Case.assigned_user_id.isnot(None),
-        Case.assigned_at.isnot(None),
-        has_assignment_history,
-        has_assignment_event,
-        has_attachment,
-        has_contract_attachment,
-        has_comment,
-        has_contract,
+    return and_(
+        func.coalesce(Case.status, "novo") == "novo",
+        Case.assigned_user_id.is_(None),
+        Case.assigned_at.is_(None),
+        history_len <= 0,
+        not_(has_assignment_event),
+        not_(has_attachment),
+        not_(has_contract_attachment),
+        not_(has_comment),
+        not_(has_contract),
     )
 
 

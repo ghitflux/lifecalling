@@ -23,7 +23,10 @@ from ..services.case_scheduler import CaseScheduler
 from ..constants import enrich_banks_with_names
 from ..config import settings
 from ..events import eventbus  # uso consistente do eventbus
-from ..services.case_activity import build_handled_case_expression
+from ..services.case_activity import (
+    build_handled_case_expression,
+    build_unhandled_case_expression,
+)
 
 r = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -973,6 +976,7 @@ def list_cases(
                     qry = qry.filter(Case.status.in_(status_list))
 
             # Filtro por origem (source)
+            source_list = None
             if source:
                 source_list = [s.strip() for s in source.split(",") if s.strip()]
                 if len(source_list) == 1:
@@ -981,14 +985,14 @@ def list_cases(
                     qry = qry.filter(Case.source.in_(source_list))
 
             if already_attended_bool is not None:
-                handled_expr = build_handled_case_expression(db)
                 if already_attended_bool:
+                    handled_expr = build_handled_case_expression(
+                        db, source_list
+                    )
                     qry = qry.filter(handled_expr)
                 else:
-                    qry = qry.filter(not_(handled_expr))
-                    qry = qry.filter(
-                        func.coalesce(Case.status, "novo") == "novo"
-                    )
+                    unhandled_expr = build_unhandled_case_expression(db)
+                    qry = qry.filter(unhandled_expr)
 
             # Filtro por entidade (banco) - OTIMIZADO COM CACHE
             if entity_filter:
@@ -998,28 +1002,48 @@ def list_cases(
                 else:
                     # Usar cache de bancos do SIAPE
                     siape_bancos_normalized = get_siape_banks_normalized(db)
+                    entities_by_normalized = get_entities_normalized(db)
 
-                    if entity_filter in siape_bancos_normalized:
-                        # Banco do SIAPE: filtrar por source e por banco na linha SIAPE
-                        siape_bank = siape_bancos_normalized[entity_filter]
-                        qry = qry.filter(
-                            Case.source == 'siape',
-                            siape_line_exists(SiapeLine.banco_emprestimo == siape_bank),
-                        )
-                    else:
-                        # Para outros bancos, usar cache de entidades normalizadas
-                        entities_by_normalized = get_entities_normalized(db)
+                    include_siape = not source_list or 'siape' in source_list
+                    include_payroll = not source_list or any(
+                        source_name != 'siape' for source_name in source_list
+                    )
+
+                    bank_filters = []
+
+                    if include_payroll:
                         matching_entities = entities_by_normalized.get(entity_filter, [])
-
                         if matching_entities:
-                            qry = qry.filter(
-                                payroll_line_exists(PayrollLine.entity_name.in_(matching_entities))
+                            bank_filters.append(
+                                payroll_line_exists(
+                                    PayrollLine.entity_name.in_(matching_entities)
+                                )
                             )
                         else:
                             # Se não encontrou match normalizado, tentar match exato (fallback)
-                            qry = qry.filter(
-                                payroll_line_exists(PayrollLine.entity_name == entity_filter)
+                            bank_filters.append(
+                                payroll_line_exists(
+                                    PayrollLine.entity_name == entity_filter
+                                )
                             )
+
+                    if include_siape:
+                        siape_bank = siape_bancos_normalized.get(entity_filter)
+                        if siape_bank:
+                            bank_filters.append(
+                                siape_line_exists(
+                                    SiapeLine.banco_emprestimo == siape_bank
+                                )
+                            )
+
+                    if bank_filters:
+                        qry = qry.filter(
+                            or_(*bank_filters)
+                            if len(bank_filters) > 1
+                            else bank_filters[0]
+                        )
+                    else:
+                        qry = qry.filter(False)
 
             # Filtro por cargo
             if cargo:
