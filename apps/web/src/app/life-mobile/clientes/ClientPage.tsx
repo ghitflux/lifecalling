@@ -10,7 +10,8 @@ import {
     Eye,
     Paperclip,
     Search,
-    Trash2
+    Trash2,
+    KeyRound
 } from "lucide-react";
 import {
     Card,
@@ -249,6 +250,10 @@ export default function LifeMobileClientsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [clientToDelete, setClientToDelete] = useState<AdminClient | null>(null);
+    const [resetOpen, setResetOpen] = useState(false);
+    const [clientToReset, setClientToReset] = useState<AdminClient | null>(null);
+    const [resetPassword, setResetPassword] = useState("");
+    const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
     const router = useRouter();
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -288,6 +293,22 @@ export default function LifeMobileClientsPage() {
         },
     });
 
+    const resetPasswordMutation = useMutation({
+        mutationFn: ({ clientId, newPassword }: { clientId: number; newPassword: string }) =>
+            mobileApi.resetAdminClientPassword(clientId, newPassword),
+        onSuccess: () => {
+            toast.success("Senha do cliente atualizada com sucesso.");
+            setResetOpen(false);
+            setClientToReset(null);
+            setResetPassword("");
+            setResetPasswordConfirm("");
+        },
+        onError: (error: any) => {
+            const message = error?.response?.data?.detail || "Erro ao resetar senha do cliente";
+            toast.error(message);
+        },
+    });
+
     const filteredClients = clients?.filter((client) =>
         client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -323,10 +344,18 @@ export default function LifeMobileClientsPage() {
     };
 
     const canDeleteClient = user?.role === "admin" || user?.role === "super_admin";
+    const canResetPassword = canDeleteClient;
 
     const handleDeleteClient = (client: AdminClient) => {
         setClientToDelete(client);
         setDeleteOpen(true);
+    };
+
+    const handleResetPassword = (client: AdminClient) => {
+        setClientToReset(client);
+        setResetPassword("");
+        setResetPasswordConfirm("");
+        setResetOpen(true);
     };
 
     return (
@@ -444,6 +473,17 @@ export default function LifeMobileClientsPage() {
                                                     </DialogTrigger>
                                                     <ClientDetailsModal client={client} />
                                                 </Dialog>
+                                                {canResetPassword && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="ml-2 border-amber-400/40 text-amber-200 hover:bg-amber-500/10"
+                                                        onClick={() => handleResetPassword(client)}
+                                                    >
+                                                        <KeyRound className="h-4 w-4 mr-1" />
+                                                        Resetar Senha
+                                                    </Button>
+                                                )}
                                                 {hasRequestedSimulation(client) && (
                                                     <Button
                                                         size="sm"
@@ -522,6 +562,98 @@ export default function LifeMobileClientsPage() {
                             }}
                         >
                             {deleteClientMutation.isPending ? "Excluindo..." : "Confirmar exclusão"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={resetOpen}
+                onOpenChange={(open) => {
+                    setResetOpen(open);
+                    if (!open) {
+                        setClientToReset(null);
+                        setResetPassword("");
+                        setResetPasswordConfirm("");
+                    }
+                }}
+            >
+                <DialogContent className="max-w-md bg-slate-900 text-slate-100 border border-slate-800">
+                    <DialogHeader>
+                        <DialogTitle>Resetar senha do cliente</DialogTitle>
+                        <DialogDescription className="text-slate-400">
+                            Defina uma nova senha para o cliente mobile.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="text-sm text-slate-300">
+                            {clientToReset ? (
+                                <>
+                                    Cliente: <span className="font-semibold text-slate-100">{clientToReset.name}</span>
+                                </>
+                            ) : (
+                                "Selecione um cliente para resetar a senha."
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm text-slate-300">Nova senha</label>
+                            <Input
+                                type="password"
+                                value={resetPassword}
+                                onChange={(e) => setResetPassword(e.target.value)}
+                                placeholder="Minimo 6 caracteres"
+                                disabled={resetPasswordMutation.isPending}
+                                className="bg-slate-800 text-slate-100 border-slate-700"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm text-slate-300">Confirmar senha</label>
+                            <Input
+                                type="password"
+                                value={resetPasswordConfirm}
+                                onChange={(e) => setResetPasswordConfirm(e.target.value)}
+                                placeholder="Digite novamente"
+                                disabled={resetPasswordMutation.isPending}
+                                className="bg-slate-800 text-slate-100 border-slate-700"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setResetOpen(false);
+                                setClientToReset(null);
+                                setResetPassword("");
+                                setResetPasswordConfirm("");
+                            }}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+                            disabled={!clientToReset || resetPasswordMutation.isPending}
+                            onClick={() => {
+                                if (!clientToReset) return;
+                                const trimmedPassword = resetPassword.trim();
+                                const trimmedConfirm = resetPasswordConfirm.trim();
+                                if (trimmedPassword.length < 6) {
+                                    toast.error("A senha deve ter no minimo 6 caracteres.");
+                                    return;
+                                }
+                                if (trimmedPassword !== trimmedConfirm) {
+                                    toast.error("As senhas nao conferem.");
+                                    return;
+                                }
+                                resetPasswordMutation.mutate({
+                                    clientId: clientToReset.id,
+                                    newPassword: trimmedPassword,
+                                });
+                            }}
+                        >
+                            {resetPasswordMutation.isPending ? "Resetando..." : "Confirmar reset"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

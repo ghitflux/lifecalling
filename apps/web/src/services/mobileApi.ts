@@ -191,6 +191,11 @@ export const mobileApi = {
     return response.data;
   },
 
+  resetAdminClientPassword: async (clientId: number, new_password: string) => {
+    const response = await api.post(`${basePath}/admin/clients/${clientId}/reset-password`, { new_password });
+    return response.data;
+  },
+
   // Document endpoints
   getSimulationDocument: async (id: string) => {
     const response = await api.get(`${basePath}/admin/documents/${id}`, {

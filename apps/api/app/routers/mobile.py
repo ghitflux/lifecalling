@@ -1053,6 +1053,9 @@ class AdminClientResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ResetClientPasswordIn(BaseModel):
+    new_password: str
+
 class MobileSimulationCreateAdmin(BaseModel):
     user_id: int
     simulation_type: str
@@ -1202,6 +1205,35 @@ async def delete_admin_client(
     except Exception:
         pass
 
+    db.commit()
+
+    return {"ok": True, "id": client_id}
+
+@router.post("/admin/clients/{client_id}/reset-password")
+async def reset_admin_client_password(
+    client_id: int,
+    payload: ResetClientPasswordIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Reset administrativo da senha do cliente mobile.
+    """
+    if current_user.role not in {"admin", "super_admin"}:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    if not payload.new_password or len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Senha muito curta")
+
+    client = (
+        db.query(User)
+        .filter(User.id == client_id, User.role == "mobile_client")
+        .first()
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente mobile nao encontrado")
+
+    client.password_hash = hash_password(payload.new_password)
     db.commit()
 
     return {"ok": True, "id": client_id}
