@@ -292,13 +292,24 @@ def reset_password_cpf(payload: ResetPasswordCpfIn):
         raise HTTPException(400, "A senha deve ter no minimo 6 caracteres")
 
     with SessionLocal() as db:
-        user = (
-            db.query(User)
-            .filter(func.lower(User.email) == email)
-            .first()
-        )
+        user = db.query(User).filter(func.lower(func.trim(User.email)) == email).first()
+        if not user:
+            cpf_expr = func.replace(
+                func.replace(
+                    func.replace(func.replace(User.cpf, ".", ""), "-", ""),
+                    " ",
+                    "",
+                ),
+                "/",
+                "",
+            )
+            user = db.query(User).filter(cpf_expr == cpf_digits).first()
 
         if not user or not user.active or user.role != "mobile_client":
+            raise HTTPException(400, "dados invalidos")
+
+        user_email = (user.email or "").strip().lower()
+        if user_email != email:
             raise HTTPException(400, "dados invalidos")
 
         user_cpf = re.sub(r"\D", "", user.cpf or "")
