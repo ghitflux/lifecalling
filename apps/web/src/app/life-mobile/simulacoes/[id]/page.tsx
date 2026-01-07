@@ -167,6 +167,8 @@ export default function SimulationDetailPage() {
     const hasCalculation = Boolean(currentBanks && currentBanks.length > 0);
     const canSendToApp = hasCalculation && !forceShowForm && statusLower === "approved_for_calculation";
     const canRefazerSimulacao = hasCalculation && !forceShowForm && statusLower !== "contrato_efetivado";
+    const prazoValue = Number(currentSimulation?.prazo || currentSimulation?.installments || simulation?.installments || 0);
+    const prazoLabel = prazoValue > 0 ? `${prazoValue}x` : "-";
 
     const formInitialData = useMemo((): SimulationFormInitialData => {
         if (!forceShowForm) return undefined;
@@ -565,48 +567,6 @@ export default function SimulationDetailPage() {
 
                 {/* Right Column - Results & Actions */}
                 <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-end gap-3">
-                        {simulation.status === 'pending' && (
-                            <>
-                                <Button
-                                    variant="destructive"
-                                    onClick={() => rejectMutation.mutate()}
-                                    disabled={rejectMutation.isPending || approveMutation.isPending}
-                                >
-                                    {rejectMutation.isPending ? "Reprovando..." : (
-                                        <>
-                                            <XCircle className="mr-2 h-4 w-4" /> Reprovar
-                                        </>
-                                    )}
-                                </Button>
-                                <Button
-                                    className="bg-emerald-600 hover:bg-emerald-700"
-                                    onClick={() => approveMutation.mutate()}
-                                    disabled={rejectMutation.isPending || approveMutation.isPending}
-                                >
-                                    {approveMutation.isPending ? "Aprovando..." : (
-                                        <>
-                                            <CheckCircle className="mr-2 h-4 w-4" /> Aprovar
-                                        </>
-                                    )}
-                                </Button>
-                            </>
-                        )}
-                        {isCustomerApproved && (
-                            <Button
-                                className="bg-blue-600 hover:bg-blue-700"
-                                onClick={() => approveMutation.mutate()}
-                                disabled={approveMutation.isPending}
-                            >
-                                {approveMutation.isPending ? "Enviando..." : (
-                                    <>
-                                        <CheckCircle className="mr-2 h-4 w-4" /> Revisar e Enviar ao Financeiro
-                                    </>
-                                )}
-                            </Button>
-                        )}
-                    </div>
-
                     <Card className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-700/40 shadow-xl shadow-black/40">
                         <CardHeader>
                             <div className="flex items-center justify-between">
@@ -626,32 +586,33 @@ export default function SimulationDetailPage() {
                                 </div>
                             ) : (
                                 <>
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                                        <span className="text-sm text-slate-400">Valor Total Financiado</span>
+                                        <span className="text-lg font-bold text-slate-100">{formatCurrency(totals.totalFinanciado)}</span>
+                                    </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Valor Parcela Total</span>
+                                        <span className="text-sm text-slate-400">Valor da Parcela</span>
                                         <span className="font-semibold">{formatCurrency(totals.totalParcela)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Saldo Devedor Total</span>
+                                        <span className="text-sm text-slate-400">Nº de Parcelas / Prazo</span>
+                                        <span className="font-semibold">{prazoLabel}</span>
+                                    </div>
+                                    <div className="pt-2 text-xs uppercase tracking-widest text-slate-500">- Deduções</div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Saldo Devedor</span>
                                         <span className="font-semibold">{formatCurrency(totals.saldoTotal)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Valor Liberado Total</span>
-                                        <span className="font-semibold text-emerald-300">{formatCurrency(totals.liberadoTotal)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Seguro Obrigatório Banco</span>
+                                        <span className="text-sm text-slate-400">Seguro</span>
                                         <span className="font-semibold">{formatCurrency(totals.seguroObrigatorio)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Valor Total Financiado</span>
-                                        <span className="font-semibold">{formatCurrency(totals.totalFinanciado)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Custo Consultoria</span>
+                                        <span className="text-sm text-slate-400">Consultoria</span>
                                         <span className="font-semibold">{formatCurrency(totals.custoConsultoria)}</span>
                                     </div>
                                     <div className="flex items-center justify-between border-t border-slate-800 pt-3 mt-3">
-                                        <span className="text-sm text-emerald-300 font-semibold">Liberado para o Cliente</span>
+                                        <span className="text-sm text-emerald-300 font-semibold">Valor Líquido Liberado</span>
                                         <span className="text-2xl font-bold text-emerald-300">{formatCurrency(totals.liberadoCliente)}</span>
                                     </div>
                                     {!calculatedSimulation && !hasCalculation && (
@@ -698,6 +659,49 @@ export default function SimulationDetailPage() {
                                         </div>
                                     )}
                                 </>
+                            )}
+                            {(simulation.status === 'pending' || isCustomerApproved) && (
+                                <div className="space-y-2 pt-3 border-t border-slate-800">
+                                    {simulation.status === 'pending' && (
+                                        <div className="flex flex-wrap items-center justify-end gap-3">
+                                            <Button
+                                                variant="destructive"
+                                                onClick={() => rejectMutation.mutate()}
+                                                disabled={rejectMutation.isPending || approveMutation.isPending}
+                                            >
+                                                {rejectMutation.isPending ? "Reprovando..." : (
+                                                    <>
+                                                        <XCircle className="mr-2 h-4 w-4" /> Reprovar
+                                                    </>
+                                                )}
+                                            </Button>
+                                            <Button
+                                                className="bg-emerald-600 hover:bg-emerald-700"
+                                                onClick={() => approveMutation.mutate()}
+                                                disabled={rejectMutation.isPending || approveMutation.isPending}
+                                            >
+                                                {approveMutation.isPending ? "Aprovando..." : (
+                                                    <>
+                                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprovar
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {isCustomerApproved && (
+                                        <Button
+                                            className="w-full bg-blue-600 hover:bg-blue-700"
+                                            onClick={() => approveMutation.mutate()}
+                                            disabled={approveMutation.isPending}
+                                        >
+                                            {approveMutation.isPending ? "Enviando..." : (
+                                                <>
+                                                    <CheckCircle className="mr-2 h-4 w-4" /> Revisar e Enviar ao Financeiro
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
                             )}
                         </CardContent>
                     </Card>

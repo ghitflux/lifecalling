@@ -123,6 +123,8 @@ function NewSimulationPageContent() {
             liberadoCliente: valorLiquido
         };
     }, [createdSimulation]);
+    const prazoValue = Number(createdSimulation?.prazo || createdSimulation?.installments || 0);
+    const prazoLabel = prazoValue > 0 ? `${prazoValue}x` : "-";
 
     const selectedClientData = useMemo(
         () => clients?.find((c) => c.id.toString() === selectedClient),
@@ -283,32 +285,33 @@ function NewSimulationPageContent() {
                         <CardContent className="space-y-3 text-slate-200">
                             {createdSimulation && totals ? (
                                 <>
+                                    <div className="flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2">
+                                        <span className="text-sm text-slate-400">Valor Total Financiado</span>
+                                        <span className="text-lg font-bold text-slate-100">{formatCurrency(totals.totalFinanciado)}</span>
+                                    </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Valor Parcela Total</span>
+                                        <span className="text-sm text-slate-400">Valor da Parcela</span>
                                         <span className="font-semibold">{formatCurrency(totals.totalParcela)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Saldo Devedor Total</span>
+                                        <span className="text-sm text-slate-400">Nº de Parcelas / Prazo</span>
+                                        <span className="font-semibold">{prazoLabel}</span>
+                                    </div>
+                                    <div className="pt-2 text-xs uppercase tracking-widest text-slate-500">- Deduções</div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-400">Saldo Devedor</span>
                                         <span className="font-semibold">{formatCurrency(totals.saldoTotal)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Valor Liberado Total</span>
-                                        <span className="font-semibold text-emerald-300">{formatCurrency(totals.liberadoTotal)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Seguro Obrigatório Banco</span>
+                                        <span className="text-sm text-slate-400">Seguro</span>
                                         <span className="font-semibold">{formatCurrency(totals.seguroObrigatorio)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Valor Total Financiado</span>
-                                        <span className="font-semibold">{formatCurrency(totals.totalFinanciado)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-slate-400">Custo Consultoria</span>
+                                        <span className="text-sm text-slate-400">Consultoria</span>
                                         <span className="font-semibold">{formatCurrency(totals.custoConsultoria)}</span>
                                     </div>
                                     <div className="flex items-center justify-between border-t border-slate-800 pt-3 mt-3">
-                                        <span className="text-sm text-emerald-300 font-semibold">Liberado para o Cliente</span>
+                                        <span className="text-sm text-emerald-300 font-semibold">Valor Líquido Liberado</span>
                                         <span className="text-xl font-bold text-emerald-300">{formatCurrency(totals.liberadoCliente)}</span>
                                     </div>
                                     <div className="flex items-center justify-between pt-2">

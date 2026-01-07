@@ -46,6 +46,11 @@ const PRODUCTS = [
   { value: "outro", label: "Outro" }
 ];
 
+const isMarginBankName = (bankName?: string) => {
+  const normalized = (bankName || "").trim().toLowerCase();
+  return normalized === "margem*" || normalized === "margem negativa";
+};
+
 interface SimulationFormMultiBankProps {
   onCalculate?: (data: SimulationInput) => void;
   loading?: boolean;
@@ -88,9 +93,12 @@ export function SimulationFormMultiBank({
   // Preencher formulário quando initialData mudar (edição de histórico)
   useEffect(() => {
     if (initialData) {
+      const normalizedBanks = initialData.banks.map((bank) =>
+        isMarginBankName(bank.bank) ? { ...bank, valorLiberado: 0 } : bank
+      );
       // Atualizar bancos
       setBanks(
-        initialData.banks.map((b) => ({
+        normalizedBanks.map((b) => ({
           ...b,
           product: b.product || "emprestimo_consignado"
         }))
@@ -106,7 +114,7 @@ export function SimulationFormMultiBank({
 
       // Atualizar inputs formatados para cada banco
       const newInputValues: { [key: string]: { parcela: string; saldoDevedor: string } } = {};
-      initialData.banks.forEach((bank, index) => {
+      normalizedBanks.forEach((bank, index) => {
         newInputValues[index] = {
           parcela: formatCurrency(bank.parcela),
           saldoDevedor: formatCurrency(bank.saldoDevedor)
@@ -176,37 +184,13 @@ export function SimulationFormMultiBank({
         newBanks[index] = { ...newBanks[index], [field]: numericValue };
       }
 
-      setBanks(newBanks);
-
-      // Calcular automaticamente o valor liberado quando parcela, saldo devedor ou coeficiente mudarem
-      const bank = newBanks[index];
-      if (bank.parcela !== undefined && bank.saldoDevedor !== undefined && formData.coeficiente !== undefined && formData.coeficiente !== "") {
-        let valorLiberado = calculateValorLiberado(bank.parcela, parseFloat(formData.coeficiente.replace(',', '.')), bank.saldoDevedor);
-        
-        // Aplicar a mesma regra de valores negativos para o valor liberado calculado
-        const allowNegative = bank.bank === "Margem*";
-        if (valorLiberado < 0 && !allowNegative) {
-          valorLiberado = Math.abs(valorLiberado);
-        }
-        
-        newBanks[index] = { ...newBanks[index], valorLiberado };
-
-        // Atualizar também o valor formatado para exibição
-        setInputValues(prev => ({
-          ...prev,
-          [index]: {
-            ...prev[index],
-            valorLiberado: formatCurrency(valorLiberado)
-          }
-        }));
-      }
     } else if (field === 'coeficiente') {
       // coeficiente é um campo global, não por banco
       setFormData(prev => ({ ...prev, coeficiente: value }));
 
       // Recalcular valor liberado quando coeficiente mudar
       const bank = newBanks[index];
-      if (bank.parcela !== undefined && bank.saldoDevedor !== undefined && value !== undefined) {
+      if (bank.parcela !== undefined && bank.saldoDevedor !== undefined && value !== undefined && !isMarginBankName(bank.bank)) {
         let valorLiberado = calculateValorLiberado(bank.parcela, value, bank.saldoDevedor);
         
         // Aplicar a mesma regra de valores negativos para o valor liberado calculado
@@ -227,6 +211,25 @@ export function SimulationFormMultiBank({
       }
     } else {
       newBanks[index] = { ...newBanks[index], [field]: value };
+    }
+
+    const updatedBank = newBanks[index];
+    if (isMarginBankName(updatedBank.bank)) {
+      newBanks[index] = { ...updatedBank, valorLiberado: 0 };
+    } else if (field === 'parcela' || field === 'saldoDevedor') {
+      if (updatedBank.parcela !== undefined && updatedBank.saldoDevedor !== undefined && formData.coeficiente !== undefined && formData.coeficiente !== "") {
+        let valorLiberado = calculateValorLiberado(
+          updatedBank.parcela,
+          parseFloat(formData.coeficiente.replace(',', '.')),
+          updatedBank.saldoDevedor
+        );
+
+        if (valorLiberado < 0) {
+          valorLiberado = Math.abs(valorLiberado);
+        }
+
+        newBanks[index] = { ...newBanks[index], valorLiberado };
+      }
     }
 
     setBanks(newBanks);
@@ -283,17 +286,11 @@ export function SimulationFormMultiBank({
         }
       }
       
-      // Saldo devedor é obrigatório apenas para bancos que não sejam "Margem*" ou "Margem Positiva"
-      if (bank.bank !== "Margem*" && bank.bank !== "Margem Positiva" && (!bank.saldoDevedor || bank.saldoDevedor <= 0)) {
-        errors.push(`Banco ${index + 1}: Saldo devedor deve ser maior que zero`);
+      if (bank.saldoDevedor < 0) {
+        errors.push(`Banco ${index + 1}: Saldo devedor não pode ser negativo`);
       }
       
-      // Para banco Margem*, permitir valor liberado negativo
-      if (bank.bank === "Margem*") {
-        if (bank.valorLiberado === undefined || bank.valorLiberado === null || bank.valorLiberado === 0) {
-          errors.push(`Banco ${index + 1}: Valor liberado deve ser informado`);
-        }
-      } else {
+      if (!isMarginBankName(bank.bank)) {
         if (!bank.valorLiberado || bank.valorLiberado <= 0) {
           errors.push(`Banco ${index + 1}: Valor liberado deve ser informado e maior que zero`);
         }
@@ -377,27 +374,44 @@ export function SimulationFormMultiBank({
           <div className="space-y-4">
             <h4 className="font-medium border-b pb-2">Dados Globais</h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Coeficiente *</label>
-                <Input
-                  type="text"
-                  value={formData.coeficiente}
-                  onChange={(e) => setFormData({ ...formData, coeficiente: e.target.value })}
-                  placeholder="0,0192223"
-                  data-testid="coeficiente"
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Usado para calcular automaticamente o valor liberado
-                </p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Coeficiente *</label>
+              <Input
+                type="text"
+                value={formData.coeficiente}
+                onChange={(e) => setFormData({ ...formData, coeficiente: e.target.value })}
+                placeholder="0,0192223"
+                data-testid="coeficiente"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Usado para calcular automaticamente o valor liberado
+              </p>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">% Consultoria *</label>
-                <Input
-                  type="text"
-                  value={globalInputs.percentualConsultoria}
+            <div>
+              <label className="block text-sm font-medium mb-1">Prazo *</label>
+              <Input
+                type="number"
+                value={formData.prazo || ""}
+                onChange={(e) => setFormData({ ...formData, prazo: Number(e.target.value) || 0 })}
+                placeholder="96"
+                min={1}
+                max={240}
+                data-testid="prazo"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Em meses (ex: 96)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">% Consultoria *</label>
+              <Input
+                type="text"
+                value={globalInputs.percentualConsultoria}
                   onChange={(e) => handleGlobalInputChange('percentualConsultoria', e.target.value)}
                   placeholder="12,00"
                   data-testid="percentual-consultoria"
@@ -506,7 +520,7 @@ export function SimulationFormMultiBank({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Saldo Devedor {bank.bank !== "Margem*" && bank.bank !== "Margem Positiva" ? "*" : ""}
+                        Saldo Devedor
                       </label>
                       <Input
                         type="text"
@@ -514,7 +528,6 @@ export function SimulationFormMultiBank({
                         onChange={(e) => updateBank(index, "saldoDevedor", e.target.value)}
                         placeholder="R$ 30.000,00"
                         data-testid={`bank-${index}-saldo-devedor`}
-                        required={bank.bank !== "Margem*" && bank.bank !== "Margem Positiva"}
                       />
                     </div>
 

@@ -12,7 +12,8 @@ function roundHalfUp(value: number): number {
  * Verifica se um banco é do tipo "Margem" (case-insensitive)
  */
 function isMarginBank(bankName: string): boolean {
-  return /margem/i.test(bankName || "");
+  const normalized = (bankName || "").trim().toLowerCase();
+  return normalized === "margem*" || normalized === "margem negativa";
 }
 
 /**
