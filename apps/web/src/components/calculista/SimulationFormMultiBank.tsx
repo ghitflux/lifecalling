@@ -408,14 +408,13 @@ export function SimulationFormMultiBank({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">% Consultoria *</label>
+              <label className="block text-sm font-medium mb-1">% Consultoria</label>
               <Input
                 type="text"
                 value={globalInputs.percentualConsultoria}
                   onChange={(e) => handleGlobalInputChange('percentualConsultoria', e.target.value)}
                   placeholder="12,00"
                   data-testid="percentual-consultoria"
-                  required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Custo = Total Financiado × %
@@ -423,14 +422,13 @@ export function SimulationFormMultiBank({
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Seguro Obrigatório *</label>
+                <label className="block text-sm font-medium mb-1">Seguro</label>
                 <Input
                   type="text"
                   value={globalInputs.seguro}
                   onChange={(e) => handleGlobalInputChange('seguro', e.target.value)}
                   placeholder="R$ 1.000,00"
                   data-testid="seguro"
-                  required
                 />
               </div>
             </div>

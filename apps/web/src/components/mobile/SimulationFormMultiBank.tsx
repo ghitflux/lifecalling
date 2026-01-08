@@ -37,7 +37,6 @@ const BANKS = [
 ];
 
 const PRODUCTS = [
-    { value: "emprestimo_consignado", label: "Empréstimo Consignado" },
     { value: "cartao_beneficio", label: "Cartão Benefício" },
     { value: "cartao_consignado", label: "Cartão Consignado" },
     { value: "abase_auxilio", label: "Abase Auxílio" },
@@ -45,9 +44,18 @@ const PRODUCTS = [
     { value: "outro", label: "Outro" }
 ];
 
+const DEFAULT_PRODUCT = "cartao_beneficio";
+
 const isMarginBankName = (bankName?: string) => {
     const normalized = (bankName || "").trim().toLowerCase();
     return normalized === "margem*" || normalized === "margem negativa";
+};
+
+const normalizeProduct = (product?: string) => {
+    if (!product || product === "emprestimo_consignado") {
+        return DEFAULT_PRODUCT;
+    }
+    return product;
 };
 
 interface SimulationBankInput {
@@ -80,7 +88,7 @@ export function SimulationFormMultiBank({
     initialData
 }: SimulationFormMultiBankProps) {
     const [banks, setBanks] = useState<SimulationBankInput[]>([
-        { bank: "SANTANDER", product: "emprestimo_consignado", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
+        { bank: "SANTANDER", product: DEFAULT_PRODUCT, parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
     ]);
 
     const [formData, setFormData] = useState({
@@ -112,7 +120,12 @@ export function SimulationFormMultiBank({
                 isMarginBankName(bank.bank) ? { ...bank, valorLiberado: 0 } : bank
             );
             // Atualizar bancos
-            setBanks(normalizedBanks);
+            setBanks(
+                normalizedBanks.map((bank) => ({
+                    ...bank,
+                    product: normalizeProduct(bank.product)
+                }))
+            );
 
             // Atualizar formData global
             setFormData({
@@ -144,7 +157,7 @@ export function SimulationFormMultiBank({
         if (banks.length < 6) {
             setBanks([
                 ...banks,
-                { bank: "SANTANDER", product: "emprestimo_consignado", parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
+                { bank: "SANTANDER", product: DEFAULT_PRODUCT, parcela: 0, saldoDevedor: 0, valorLiberado: 0 }
             ]);
         }
     };
