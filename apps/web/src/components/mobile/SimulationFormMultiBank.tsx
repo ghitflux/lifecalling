@@ -118,11 +118,16 @@ export function SimulationFormMultiBank({
         if (initialData) {
             const normalizedBanks = initialData.banks.map((bank) => {
                 if (isMarginBankName(bank.bank)) {
-                    // Para Margem* (negativa): valor liberado = negativo da parcela
-                    // Para Margem Positiva: valor liberado = positivo da parcela
+                    // Para Margem*: usar fórmula (parcela / coeficiente) - saldoDevedor
+                    // Para Margem Negativa: resultado negativo
+                    // Para Margem Positiva: resultado positivo
                     const normalized = (bank.bank || "").trim().toLowerCase();
                     const isNegativeMargin = normalized === "margem*" || normalized === "margem negativa";
-                    const valorLiberado = isNegativeMargin ? -Math.abs(bank.parcela) : Math.abs(bank.parcela);
+
+                    const coef = parseFloat(String(initialData.coeficiente).replace(',', '.')) || 1;
+                    const calculatedValue = (bank.parcela / coef) - bank.saldoDevedor;
+                    const valorLiberado = isNegativeMargin ? -Math.abs(calculatedValue) : Math.abs(calculatedValue);
+
                     return { ...bank, valorLiberado };
                 }
                 return bank;
@@ -246,11 +251,13 @@ export function SimulationFormMultiBank({
             const bankAfterUpdate = newBanks[index];
 
             if (isMarginBankName(value)) {
-                // Se mudou para banco Margem, calcular valor liberado baseado na parcela
+                // Se mudou para banco Margem, calcular valor liberado usando fórmula
                 const normalized = (value || "").trim().toLowerCase();
                 const isNegativeMargin = normalized === "margem*" || normalized === "margem negativa";
-                if (bankAfterUpdate.parcela !== undefined) {
-                    const valorLiberado = isNegativeMargin ? -Math.abs(bankAfterUpdate.parcela) : Math.abs(bankAfterUpdate.parcela);
+                if (bankAfterUpdate.parcela !== undefined && bankAfterUpdate.saldoDevedor !== undefined && formData.coeficiente) {
+                    const coef = parseFloat(formData.coeficiente.replace(',', '.')) || 1;
+                    const calculatedValue = (bankAfterUpdate.parcela / coef) - bankAfterUpdate.saldoDevedor;
+                    const valorLiberado = isNegativeMargin ? -Math.abs(calculatedValue) : Math.abs(calculatedValue);
                     newBanks[index] = { ...bankAfterUpdate, valorLiberado };
                 } else {
                     newBanks[index] = { ...bankAfterUpdate, valorLiberado: 0 };
@@ -273,16 +280,19 @@ export function SimulationFormMultiBank({
 
         const updatedBank = newBanks[index];
         if (isMarginBankName(updatedBank.bank)) {
-            // Para Margem* (negativa): valor liberado = negativo da parcela
-            // Para Margem Positiva: valor liberado = positivo da parcela
+            // Para Margem*: usar fórmula (parcela / coeficiente) - saldoDevedor
+            // Para Margem Negativa: resultado negativo
+            // Para Margem Positiva: resultado positivo
             const normalized = (updatedBank.bank || "").trim().toLowerCase();
             const isNegativeMargin = normalized === "margem*" || normalized === "margem negativa";
 
-            if (field === 'parcela' && updatedBank.parcela !== undefined) {
-                const valorLiberado = isNegativeMargin ? -Math.abs(updatedBank.parcela) : Math.abs(updatedBank.parcela);
+            if ((field === 'parcela' || field === 'saldoDevedor') && updatedBank.parcela !== undefined && updatedBank.saldoDevedor !== undefined) {
+                const coef = parseFloat(String(formData.coeficiente).replace(',', '.')) || 1;
+                const calculatedValue = (updatedBank.parcela / coef) - updatedBank.saldoDevedor;
+                const valorLiberado = isNegativeMargin ? -Math.abs(calculatedValue) : Math.abs(calculatedValue);
                 newBanks[index] = { ...updatedBank, valorLiberado };
             } else {
-                // Manter valor liberado atual se não estiver atualizando parcela
+                // Manter valor liberado atual se não estiver atualizando parcela ou saldo devedor
                 newBanks[index] = { ...updatedBank };
             }
         } else if (field === 'parcela' || field === 'saldoDevedor') {
