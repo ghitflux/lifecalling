@@ -1,0 +1,4 @@
+Backup criado em: Wed Dec  3 23:45:05 UTC 2025
+Servidor: 72.60.158.156
+Branch: life-system
+Commit: 1c702a0 Add migration to fix finance tables origin column
