@@ -48,7 +48,7 @@ const PRODUCTS = [
 
 const isMarginBankName = (bankName?: string) => {
   const normalized = (bankName || "").trim().toLowerCase();
-  return normalized === "margem*" || normalized === "margem negativa";
+  return normalized === "margem*" || normalized === "margem negativa" || normalized === "margem positiva";
 };
 
 interface SimulationFormMultiBankProps {
@@ -93,9 +93,17 @@ export function SimulationFormMultiBank({
   // Preencher formulário quando initialData mudar (edição de histórico)
   useEffect(() => {
     if (initialData) {
-      const normalizedBanks = initialData.banks.map((bank) =>
-        isMarginBankName(bank.bank) ? { ...bank, valorLiberado: 0 } : bank
-      );
+      const normalizedBanks = initialData.banks.map((bank) => {
+        if (isMarginBankName(bank.bank)) {
+          // Para Margem* (negativa): valor liberado = negativo da parcela
+          // Para Margem Positiva: valor liberado = positivo da parcela
+          const normalized = (bank.bank || "").trim().toLowerCase();
+          const isNegativeMargin = normalized === "margem*" || normalized === "margem negativa";
+          const valorLiberado = isNegativeMargin ? -Math.abs(bank.parcela) : Math.abs(bank.parcela);
+          return { ...bank, valorLiberado };
+        }
+        return bank;
+      });
       // Atualizar bancos
       setBanks(
         normalizedBanks.map((b) => ({
@@ -149,9 +157,9 @@ export function SimulationFormMultiBank({
     const newBanks = [...banks];
 
     if (field === 'parcela' || field === 'saldoDevedor') {
-      // Permitir valores negativos apenas para o banco "Margem*"
+      // Permitir valores negativos para bancos Margem* e Margem Positiva
       const currentBank = newBanks[index];
-      const allowNegative = currentBank.bank === "Margem*";
+      const allowNegative = isMarginBankName(currentBank.bank);
       
       const formattedValue = formatCurrencyInput(value, allowNegative);
       const numericValue = parseCurrency(formattedValue, allowNegative);
@@ -192,9 +200,9 @@ export function SimulationFormMultiBank({
       const bank = newBanks[index];
       if (bank.parcela !== undefined && bank.saldoDevedor !== undefined && value !== undefined && !isMarginBankName(bank.bank)) {
         let valorLiberado = calculateValorLiberado(bank.parcela, value, bank.saldoDevedor);
-        
+
         // Aplicar a mesma regra de valores negativos para o valor liberado calculado
-        const allowNegative = bank.bank === "Margem*";
+        const allowNegative = isMarginBankName(bank.bank);
         if (valorLiberado < 0 && !allowNegative) {
           valorLiberado = Math.abs(valorLiberado);
         }
@@ -209,13 +217,51 @@ export function SimulationFormMultiBank({
           }
         }));
       }
+    } else if (field === 'bank') {
+      // Quando o banco é alterado, recalcular valor liberado
+      newBanks[index] = { ...newBanks[index], [field]: value };
+      const bankAfterUpdate = newBanks[index];
+
+      if (isMarginBankName(value)) {
+        // Se mudou para banco Margem, calcular valor liberado baseado na parcela
+        const normalized = (value || "").trim().toLowerCase();
+        const isNegativeMargin = normalized === "margem*" || normalized === "margem negativa";
+        if (bankAfterUpdate.parcela !== undefined) {
+          const valorLiberado = isNegativeMargin ? -Math.abs(bankAfterUpdate.parcela) : Math.abs(bankAfterUpdate.parcela);
+          newBanks[index] = { ...bankAfterUpdate, valorLiberado };
+        } else {
+          newBanks[index] = { ...bankAfterUpdate, valorLiberado: 0 };
+        }
+      } else if (bankAfterUpdate.parcela && bankAfterUpdate.saldoDevedor !== undefined && formData.coeficiente) {
+        // Se mudou para banco normal, recalcular com coeficiente
+        let valorLiberado = calculateValorLiberado(
+          bankAfterUpdate.parcela,
+          parseFloat(formData.coeficiente.replace(',', '.')),
+          bankAfterUpdate.saldoDevedor
+        );
+        if (valorLiberado < 0) {
+          valorLiberado = Math.abs(valorLiberado);
+        }
+        newBanks[index] = { ...bankAfterUpdate, valorLiberado };
+      }
     } else {
       newBanks[index] = { ...newBanks[index], [field]: value };
     }
 
     const updatedBank = newBanks[index];
     if (isMarginBankName(updatedBank.bank)) {
-      newBanks[index] = { ...updatedBank, valorLiberado: 0 };
+      // Para Margem* (negativa): valor liberado = negativo da parcela
+      // Para Margem Positiva: valor liberado = positivo da parcela
+      const normalized = (updatedBank.bank || "").trim().toLowerCase();
+      const isNegativeMargin = normalized === "margem*" || normalized === "margem negativa";
+
+      if (field === 'parcela' && updatedBank.parcela !== undefined) {
+        const valorLiberado = isNegativeMargin ? -Math.abs(updatedBank.parcela) : Math.abs(updatedBank.parcela);
+        newBanks[index] = { ...updatedBank, valorLiberado };
+      } else {
+        // Manter valor liberado atual se não estiver atualizando parcela
+        newBanks[index] = { ...updatedBank };
+      }
     } else if (field === 'parcela' || field === 'saldoDevedor') {
       if (updatedBank.parcela !== undefined && updatedBank.saldoDevedor !== undefined && formData.coeficiente !== undefined && formData.coeficiente !== "") {
         let valorLiberado = calculateValorLiberado(
@@ -274,23 +320,20 @@ export function SimulationFormMultiBank({
       if (!bank.bank) {
         errors.push(`Banco ${index + 1}: Selecione um banco`);
       }
-      
-      // Para banco Margem*, permitir parcela negativa
-      if (bank.bank === "Margem*") {
-        if (bank.parcela === undefined || bank.parcela === null || bank.parcela === 0) {
-          errors.push(`Banco ${index + 1}: Parcela deve ser informada`);
-        }
-      } else {
+
+      // Para bancos Margem* e Margem Positiva, permitir qualquer valor (incluindo zero e negativos)
+      if (!isMarginBankName(bank.bank)) {
+        // Para outros bancos, validar que parcela seja maior que zero
         if (!bank.parcela || bank.parcela <= 0) {
           errors.push(`Banco ${index + 1}: Parcela deve ser maior que zero`);
         }
-      }
-      
-      if (bank.saldoDevedor < 0) {
-        errors.push(`Banco ${index + 1}: Saldo devedor não pode ser negativo`);
-      }
-      
-      if (!isMarginBankName(bank.bank)) {
+
+        // Para outros bancos, validar que saldo devedor não seja negativo
+        if (bank.saldoDevedor < 0) {
+          errors.push(`Banco ${index + 1}: Saldo devedor não pode ser negativo`);
+        }
+
+        // Para outros bancos, validar que valor liberado seja maior que zero
         if (!bank.valorLiberado || bank.valorLiberado <= 0) {
           errors.push(`Banco ${index + 1}: Valor liberado deve ser informado e maior que zero`);
         }
