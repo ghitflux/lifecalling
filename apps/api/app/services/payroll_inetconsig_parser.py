@@ -254,37 +254,43 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
                 stats["invalid_lines"] += 1
                 continue
 
-            # Agora sabemos que:
+            # Layout real do arquivo (SEM campo LANC separado):
             # tokens[0] = STATUS
             # tokens[1] = MATRICULA
-            # tokens[2:fin_idx-?] = NOME e CARGO
+            # tokens[2:fin_idx] = NOME e CARGO
             # tokens[fin_idx] = FIN
             # tokens[fin_idx+1] = ORGAO
-            # tokens[fin_idx+2] = LANC
-            # tokens[fin_idx+3] = TOTAL
-            # tokens[fin_idx+4] = PAGO (ou pulado se não houver)
-            # tokens[fin_idx+4 ou 5] = VALOR
+            # tokens[fin_idx+2] = TOTAL
+            # tokens[fin_idx+3] = PAGO
+            # tokens[fin_idx+4] = VALOR
             # tokens[-2] = ORGAO PAGTO
             # tokens[-1] já foi removido (CPF)
 
             try:
                 fin_code = tokens[fin_idx]
                 orgao = tokens[fin_idx + 1] if fin_idx + 1 < len(tokens) else "0"
-                lanc = tokens[fin_idx + 2] if fin_idx + 2 < len(tokens) else "0"
-                total_parcelas_str = tokens[fin_idx + 3] if fin_idx + 3 < len(tokens) else "0"
+                total_parcelas_str = tokens[fin_idx + 2] if fin_idx + 2 < len(tokens) else "0"
+                parcelas_pagas_str = tokens[fin_idx + 3] if fin_idx + 3 < len(tokens) else "0"
+                valor_str = tokens[fin_idx + 4] if fin_idx + 4 < len(tokens) else "0"
 
-                # Verificar se o próximo é PAGO (2-3 dígitos) ou VALOR
-                idx = fin_idx + 4
-                if idx < len(tokens) and re.match(r'^\d{1,3}$', tokens[idx]) and ',' not in tokens[idx] and '.' not in tokens[idx]:
-                    parcelas_pagas_str = tokens[idx]
-                    idx += 1
-                else:
-                    parcelas_pagas_str = total_parcelas_str
-
-                valor_str = tokens[idx] if idx < len(tokens) else "0"
+                # LANC não existe como campo separado neste arquivo
+                # Definir como vazio ou usar ORGAO como fallback
+                lanc = orgao  # Usar mesmo valor do ORGAO
 
                 # ORGAO_PAGTO é o penúltimo token restante
                 orgao_pagamento = tokens[-2] if len(tokens) >= 2 else "0"
+
+                # Validar que PAGO é realmente um número (não é o VALOR)
+                if parcelas_pagas_str and not parcelas_pagas_str.isdigit():
+                    # Se PAGO contém vírgula/ponto, é na verdade o VALOR
+                    logger.warning(
+                        f"Linha {line_number}: Campo PAGO parece ser o VALOR ('{parcelas_pagas_str}'). "
+                        f"CPF: {cpf}, Matrícula: {matricula}, FIN: {fin_code}. "
+                        f"Definindo parcelas_pagas como NULL."
+                    )
+                    parcelas_pagas_str = None
+                    # Recalcular valor_str
+                    valor_str = tokens[fin_idx + 3] if fin_idx + 3 < len(tokens) else "0"
 
             except (IndexError, ValueError) as e:
                 logger.warning(f"Linha {line_number}: Erro ao extrair campos estruturados: {e}")
@@ -321,7 +327,7 @@ def parse_payroll_lines(content: str, meta: Dict) -> List[Dict]:
 
             # Converter valores numéricos
             total_parcelas = int(total_parcelas_str) if total_parcelas_str.isdigit() else 0
-            parcelas_pagas = int(parcelas_pagas_str) if parcelas_pagas_str.isdigit() else 0
+            parcelas_pagas = int(parcelas_pagas_str) if parcelas_pagas_str and parcelas_pagas_str.isdigit() else None
             valor_parcela = normalize_currency(valor_str)
 
             # Buscar nome do órgão pagador
